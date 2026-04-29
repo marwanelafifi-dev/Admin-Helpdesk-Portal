@@ -36,7 +36,15 @@ const navItems: NavItem[] = [
   { title: "All Requests", href: "/admin/all-requests", icon: ClipboardList },
   { title: "My Requests", href: "/requests", icon: FileText },
   { title: "HR", href: "/hr", icon: UserCog },
-  { title: "Shipping", href: "/shipping", icon: Package },
+  {
+    title: "Shipping",
+    href: "/shipping",
+    icon: Package,
+    children: [
+      { title: "Receiving", href: "/shipping/receiving", icon: Package },
+      { title: "Sending", href: "/shipping/sending", icon: Package },
+    ],
+  },
   { title: "Maintenance", href: "/maintenance", icon: Wrench },
   { title: "Purchase", href: "/purchase", icon: ShoppingCart },
   { title: "Event", href: "/event", icon: CalendarDays },
@@ -57,6 +65,7 @@ export function Sidebar() {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const [adminExpanded, setAdminExpanded] = useState(pathname.startsWith("/admin"))
+  const [shippingExpanded, setShippingExpanded] = useState(pathname.startsWith("/shipping"))
 
   const isActive = (href: string) =>
     href === "/dashboard" || href === "/admin/all-requests"
@@ -92,11 +101,19 @@ export function Sidebar() {
       <nav className="flex-1 overflow-y-auto py-4 space-y-0.5 px-2">
         {navItems.map((item) => {
           if (item.children) {
-            const active = pathname.startsWith("/admin") && pathname !== "/admin/all-requests"
+            const isAdmin = item.title === "Admin"
+            const isShipping = item.title === "Shipping"
+            const expanded = isAdmin ? adminExpanded : shippingExpanded
+            const setExpanded = isAdmin ? setAdminExpanded : setShippingExpanded
+
+            const active = isAdmin
+              ? pathname.startsWith("/admin") && pathname !== "/admin/all-requests"
+              : pathname.startsWith("/shipping") && pathname !== "/shipping"
+
             return (
               <div key={item.title}>
                 <button
-                  onClick={() => !collapsed && setAdminExpanded(!adminExpanded)}
+                  onClick={() => !collapsed && setExpanded(!expanded)}
                   title={collapsed ? item.title : undefined}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
@@ -109,7 +126,7 @@ export function Sidebar() {
                   {!collapsed && (
                     <>
                       <span className="flex-1 text-left">{item.title}</span>
-                      {adminExpanded ? (
+                      {expanded ? (
                         <ChevronDown className="h-4 w-4 text-slate-400" />
                       ) : (
                         <ChevronRight className="h-4 w-4 text-slate-400" />
@@ -118,7 +135,7 @@ export function Sidebar() {
                   )}
                 </button>
 
-                {!collapsed && adminExpanded && (
+                {!collapsed && expanded && (
                   <div className="ml-3 mt-0.5 space-y-0.5 border-l border-slate-700 pl-3">
                     {item.children.map((child) => {
                       const childActive = pathname === child.href
