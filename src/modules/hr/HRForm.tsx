@@ -177,7 +177,6 @@ function OnboardingFormFields({ onCancel }: { onCancel: () => void }) {
             />
             <FieldError message={errors.entity?.message} />
           </div>
-          </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="startDate" className="flex items-center gap-1.5">
