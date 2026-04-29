@@ -35,18 +35,23 @@ const STATUS_PILL_ACTIVE: Record<string, string> = {
   completed: "bg-emerald-600 border-emerald-600 text-white",
 }
 
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+}
+
 type Tab = "all" | "onboarding" | "offboarding"
-type SortKey = "id" | "hrType" | "employeeName" | "employeeId" | "department" | "date" | "status"
+type SortKey = "id" | "employeeId" | "employeeName" | "department" | "sector" | "hrType" | "status" | "date"
 type SortDir = "asc" | "desc"
 
 const COLS: { key: SortKey; label: string; defaultW: number }[] = [
   { key: "id",           label: "Request ID",    defaultW: 140 },
-  { key: "hrType",       label: "Type",          defaultW: 130 },
-  { key: "employeeName", label: "Employee Name", defaultW: 180 },
   { key: "employeeId",   label: "Employee ID",   defaultW: 130 },
+  { key: "employeeName", label: "Employee Name", defaultW: 180 },
   { key: "department",   label: "Department",    defaultW: 140 },
-  { key: "date",         label: "Date",          defaultW: 110 },
+  { key: "sector",       label: "Section",       defaultW: 130 },
+  { key: "hrType",       label: "Type",          defaultW: 110 },
   { key: "status",       label: "Status",        defaultW: 120 },
+  { key: "date",         label: "Last Update Date", defaultW: 140 },
 ]
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -325,6 +330,18 @@ export default function HRPage() {
                       <span className="text-sm font-medium text-gray-700 truncate block">{req.id}</span>
                     </td>
                     <td className="py-3 px-3">
+                      <span className="text-sm font-medium text-gray-700">{p.employeeId}</span>
+                    </td>
+                    <td className="py-3 px-3 overflow-hidden">
+                      <span className="text-sm font-medium text-gray-700 truncate block">{p.employeeName}</span>
+                    </td>
+                    <td className="py-3 px-3 overflow-hidden">
+                      <span className="text-sm font-medium text-gray-700 truncate block">{p.department}</span>
+                    </td>
+                    <td className="py-3 px-3 overflow-hidden">
+                      <span className="text-sm font-medium text-gray-700 truncate block">{p.sector || "—"}</span>
+                    </td>
+                    <td className="py-3 px-3">
                       <span className={cn(
                         "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
                         p.hrType === "onboarding"
@@ -333,18 +350,6 @@ export default function HRPage() {
                       )}>
                         {p.hrType === "onboarding" ? "Onboarding" : "Offboarding"}
                       </span>
-                    </td>
-                    <td className="py-3 px-3 overflow-hidden">
-                      <span className="text-sm font-medium text-gray-700 truncate block">{p.employeeName}</span>
-                    </td>
-                    <td className="py-3 px-3">
-                      <span className="text-sm font-medium text-gray-700">{p.employeeId}</span>
-                    </td>
-                    <td className="py-3 px-3 overflow-hidden">
-                      <span className="text-sm font-medium text-gray-700 truncate block">{p.department}</span>
-                    </td>
-                    <td className="py-3 px-3">
-                      <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{date}</span>
                     </td>
                     <td className="py-3 px-3">
                       <span className={cn(
@@ -355,13 +360,16 @@ export default function HRPage() {
                         {STATUS_LABELS[req.status] ?? req.status}
                       </span>
                     </td>
+                    <td className="py-3 px-3">
+                      <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{formatDate(req.updatedAt)}</span>
+                    </td>
                   </tr>
                 )
               })}
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="text-center text-gray-400 text-sm py-16">
+                  <td colSpan={8} className="text-center text-gray-400 text-sm py-16">
                     No HR requests match the current filters
                   </td>
                 </tr>
