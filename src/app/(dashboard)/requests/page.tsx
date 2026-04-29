@@ -1,69 +1,108 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import { Search } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useEffect, useMemo, useRef, useCallback, useState } from "react"
+import { Search, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { getRequests, initializeMockData, type EngineRequest, type RequestStatus, type RequestModule } from "@/services/engineService"
+import { Card, CardHeader } from "@/components/ui/card"
+import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
+import { cn } from "@/lib/utils"
 
-const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-zinc-100 text-zinc-700",
-  new: "bg-gray-100 text-gray-800",
-  on_hold: "bg-orange-100 text-orange-800",
-  in_transit: "bg-blue-100 text-blue-800",
-  delivered: "bg-green-100 text-green-800",
-  completed: "bg-emerald-100 text-emerald-800",
-  cancelled: "bg-red-100 text-red-800",
-}
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: "Draft",
-  new: "New",
-  on_hold: "On Hold",
-  in_transit: "In Transit",
-  delivered: "Delivered",
-  completed: "Completed",
-  cancelled: "Cancelled",
+  draft: "Draft", new: "New", on_hold: "On Hold", in_transit: "In Transit",
+  delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  draft: "bg-zinc-100 text-zinc-600", new: "bg-sky-50 text-sky-700",
+  on_hold: "bg-amber-50 text-amber-700", in_transit: "bg-blue-50 text-blue-700",
+  delivered: "bg-green-50 text-green-700", completed: "bg-emerald-50 text-emerald-700",
+  cancelled: "bg-red-50 text-red-600",
+}
+
+const STATUS_DOT: Record<string, string> = {
+  draft: "bg-zinc-400", new: "bg-sky-500", on_hold: "bg-amber-500",
+  in_transit: "bg-blue-500", delivered: "bg-green-500",
+  completed: "bg-emerald-500", cancelled: "bg-red-500",
+}
+
+const STATUS_PILL_ACTIVE: Record<string, string> = {
+  draft: "bg-zinc-500 border-zinc-500 text-white",
+  new: "bg-sky-500 border-sky-500 text-white",
+  on_hold: "bg-amber-500 border-amber-500 text-white",
+  in_transit: "bg-blue-600 border-blue-600 text-white",
+  delivered: "bg-green-600 border-green-600 text-white",
+  completed: "bg-emerald-600 border-emerald-600 text-white",
+  cancelled: "bg-red-600 border-red-600 text-white",
 }
 
 const MODULE_COLORS: Record<string, string> = {
-  shipping: "bg-blue-50 text-blue-700 border border-blue-200",
-  maintenance: "bg-purple-50 text-purple-700 border border-purple-200",
-  purchase: "bg-green-50 text-green-700 border border-green-200",
-  event: "bg-orange-50 text-orange-700 border border-orange-200",
-  travel: "bg-pink-50 text-pink-700 border border-pink-200",
-  hr: "bg-teal-50 text-teal-700 border border-teal-200",
+  shipping: "text-blue-700", maintenance: "text-purple-700",
+  purchase: "text-green-700", event: "text-orange-600",
+  travel: "text-pink-600", hr: "text-teal-700",
 }
 
-function formatStatus(status: string) {
-  return STATUS_LABELS[status] ?? status.replaceAll("_", " ")
+const MODULE_DOT: Record<string, string> = {
+  shipping: "bg-blue-500", maintenance: "bg-purple-500",
+  purchase: "bg-green-500", event: "bg-orange-500",
+  travel: "bg-pink-500", hr: "bg-teal-500",
 }
 
-function formatModule(module: string) {
-  return module.charAt(0).toUpperCase() + module.slice(1)
+const MODULE_PILL_ACTIVE: Record<string, string> = {
+  shipping: "bg-blue-600 border-blue-600 text-white",
+  maintenance: "bg-purple-600 border-purple-600 text-white",
+  purchase: "bg-green-600 border-green-600 text-white",
+  event: "bg-orange-500 border-orange-500 text-white",
+  travel: "bg-pink-500 border-pink-500 text-white",
+  hr: "bg-teal-600 border-teal-600 text-white",
 }
+
+const STATUSES = ["draft", "new", "on_hold", "in_transit", "delivered", "completed", "cancelled"] as const
+const MODULES  = ["shipping", "maintenance", "purchase", "event", "travel", "hr"] as const
+
+const STAT_CARDS = [
+  { key: "total",      label: "Total",      accentBg: "bg-slate-800",   accentBorder: "border-slate-800" },
+  { key: "draft",      label: "Draft",      accentBg: "bg-zinc-500",    accentBorder: "border-zinc-500" },
+  { key: "new",        label: "New",        accentBg: "bg-sky-500",     accentBorder: "border-sky-500" },
+  { key: "on_hold",    label: "On Hold",    accentBg: "bg-amber-500",   accentBorder: "border-amber-500" },
+  { key: "in_transit", label: "In Transit", accentBg: "bg-blue-600",    accentBorder: "border-blue-600" },
+  { key: "delivered",  label: "Delivered",  accentBg: "bg-green-600",   accentBorder: "border-green-600" },
+  { key: "completed",  label: "Completed",  accentBg: "bg-emerald-600", accentBorder: "border-emerald-600" },
+  { key: "cancelled",  label: "Cancelled",  accentBg: "bg-red-600",     accentBorder: "border-red-600" },
+] as const
+
+type SortKey = "id" | "title" | "module" | "status" | "createdAt" | "updatedAt"
+
+const COLS: { key: SortKey; label: string; defaultW: number }[] = [
+  { key: "id",        label: "Request ID", defaultW: 150 },
+  { key: "title",     label: "Title",      defaultW: 340 },
+  { key: "createdAt", label: "Submitted",  defaultW: 120 },
+  { key: "module",    label: "Module",     defaultW: 130 },
+  { key: "status",    label: "Status",     defaultW: 130 },
+  { key: "updatedAt", label: "Updated",    defaultW: 120 },
+]
+
+function formatModule(m: string) { return m.charAt(0).toUpperCase() + m.slice(1) }
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+}
+
+const CURRENT_USER_ID = "USR-001"
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function RequestsPage() {
-  const [search, setSearch] = useState("")
-  const [requests, setRequests] = useState<EngineRequest[]>([])
-  const [statusFilter, setStatusFilter] = useState<RequestStatus | null>(null)
-  const [moduleFilter, setModuleFilter] = useState<RequestModule | null>(null)
-  const CURRENT_USER_ID = "USR-001"
+  const [requests, setRequests]           = useState<EngineRequest[]>([])
+  const [search, setSearch]               = useState("")
+  const [statusFilter, setStatusFilter]   = useState("all")
+  const [moduleFilter, setModuleFilter]   = useState("all")
+  const [sortKey, setSortKey]             = useState<SortKey>("updatedAt")
+  const [sortDir, setSortDir]             = useState<"asc" | "desc">("desc")
+  const [colWidths, setColWidths]         = useState<number[]>(() => COLS.map((c) => c.defaultW))
+  const resizingCol  = useRef<number | null>(null)
+  const resizeStartX = useRef(0)
+  const resizeStartW = useRef(0)
 
   useEffect(() => {
     initializeMockData()
@@ -71,212 +110,238 @@ export default function RequestsPage() {
     sync()
     window.addEventListener("focus", sync)
     window.addEventListener("storage", sync)
-    return () => {
-      window.removeEventListener("focus", sync)
-      window.removeEventListener("storage", sync)
-    }
+    return () => { window.removeEventListener("focus", sync); window.removeEventListener("storage", sync) }
   }, [])
 
+  const onResizeMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
+    e.preventDefault(); e.stopPropagation()
+    resizingCol.current = idx
+    resizeStartX.current = e.clientX
+    resizeStartW.current = colWidths[idx]
+    const onMove = (ev: MouseEvent) => {
+      if (resizingCol.current === null) return
+      const newW = Math.max(60, resizeStartW.current + ev.clientX - resizeStartX.current)
+      setColWidths((prev) => prev.map((w, i) => i === resizingCol.current ? newW : w))
+    }
+    const onUp = () => { resizingCol.current = null; window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp) }
+    window.addEventListener("mousemove", onMove)
+    window.addEventListener("mouseup", onUp)
+  }, [colWidths])
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) setSortDir((d) => d === "asc" ? "desc" : "asc")
+    else { setSortKey(key); setSortDir("asc") }
+  }
+
+  function SortIcon({ col }: { col: SortKey }) {
+    if (sortKey !== col) return <ChevronsUpDown className="h-3 w-3 ml-1 opacity-40 shrink-0" />
+    return sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1 shrink-0" /> : <ChevronDown className="h-3 w-3 ml-1 shrink-0" />
+  }
+
+  const userRequests = useMemo(() => requests.filter((r) => r.requesterId === CURRENT_USER_ID), [requests])
+
   const filtered = useMemo(() => {
-    let result = requests.filter((req) => req.requesterId === CURRENT_USER_ID)
-
-    if (statusFilter) {
-      result = result.filter((req) => req.status === statusFilter)
-    }
-
-    if (moduleFilter) {
-      result = result.filter((req) => req.module === moduleFilter)
-    }
-
+    let result = userRequests
+    if (statusFilter !== "all") result = result.filter((r) => r.status === statusFilter)
+    if (moduleFilter !== "all") result = result.filter((r) => r.module === moduleFilter)
     const q = search.trim().toLowerCase()
-    if (q) {
-      result = result.filter((req) => {
-        return (
-          req.id.toLowerCase().includes(q) ||
-          req.title.toLowerCase().includes(q) ||
-          req.requesterName.toLowerCase().includes(q)
-        )
-      })
-    }
+    if (q) result = result.filter((r) =>
+      r.id.toLowerCase().includes(q) || r.title.toLowerCase().includes(q) || r.requesterName.toLowerCase().includes(q)
+    )
+    return result.sort((a, b) => {
+      const av = String(a[sortKey as keyof EngineRequest] ?? "")
+      const bv = String(b[sortKey as keyof EngineRequest] ?? "")
+      return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
+    })
+  }, [userRequests, statusFilter, moduleFilter, search, sortKey, sortDir])
 
-    return result
-  }, [requests, search, statusFilter, moduleFilter])
-
-  const stats = useMemo(() => {
-    const userRequests = requests.filter((req) => req.requesterId === CURRENT_USER_ID)
-    return {
-      total: userRequests.length,
-      draft: userRequests.filter((r) => r.status === "draft").length,
-      new: userRequests.filter((r) => r.status === "new").length,
-      onHold: userRequests.filter((r) => r.status === "on_hold").length,
-      inTransit: userRequests.filter((r) => r.status === "in_transit").length,
-      delivered: userRequests.filter((r) => r.status === "delivered").length,
-      completed: userRequests.filter((r) => r.status === "completed").length,
-      cancelled: userRequests.filter((r) => r.status === "cancelled").length,
-    }
-  }, [requests])
-
-  const statuses: RequestStatus[] = ["draft", "new", "on_hold", "in_transit", "delivered", "completed", "cancelled"]
-  const modules: RequestModule[] = ["shipping", "maintenance", "purchase", "event", "travel", "hr"]
+  const counts = useMemo(() => ({
+    total:      userRequests.length,
+    draft:      userRequests.filter((r) => r.status === "draft").length,
+    new:        userRequests.filter((r) => r.status === "new").length,
+    on_hold:    userRequests.filter((r) => r.status === "on_hold").length,
+    in_transit: userRequests.filter((r) => r.status === "in_transit").length,
+    delivered:  userRequests.filter((r) => r.status === "delivered").length,
+    completed:  userRequests.filter((r) => r.status === "completed").length,
+    cancelled:  userRequests.filter((r) => r.status === "cancelled").length,
+  }), [userRequests])
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">My Requests</h1>
-        <p className="text-muted-foreground text-sm mt-0.5">
-          View all your requests across all modules
-        </p>
+
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">My Requests</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">View all your requests across all modules</p>
+        </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
-        <Card className="bg-gradient-to-br from-slate-50 to-slate-100">
-          <CardContent className="pt-4">
-            <div className="text-2xl font-bold">{stats.total}</div>
-            <p className="text-xs text-muted-foreground mt-1">Total</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-zinc-50 to-zinc-100">
-          <CardContent className="pt-4">
-            <div className="text-2xl font-bold">{stats.draft}</div>
-            <p className="text-xs text-muted-foreground mt-1">Draft</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-gray-50 to-gray-100">
-          <CardContent className="pt-4">
-            <div className="text-2xl font-bold">{stats.new}</div>
-            <p className="text-xs text-muted-foreground mt-1">New</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-orange-50 to-orange-100">
-          <CardContent className="pt-4">
-            <div className="text-2xl font-bold">{stats.onHold}</div>
-            <p className="text-xs text-muted-foreground mt-1">On Hold</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100">
-          <CardContent className="pt-4">
-            <div className="text-2xl font-bold">{stats.inTransit}</div>
-            <p className="text-xs text-muted-foreground mt-1">In Transit</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-green-50 to-green-100">
-          <CardContent className="pt-4">
-            <div className="text-2xl font-bold">{stats.delivered}</div>
-            <p className="text-xs text-muted-foreground mt-1">Delivered</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100">
-          <CardContent className="pt-4">
-            <div className="text-2xl font-bold">{stats.completed}</div>
-            <p className="text-xs text-muted-foreground mt-1">Completed</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-red-50 to-red-100">
-          <CardContent className="pt-4">
-            <div className="text-2xl font-bold">{stats.cancelled}</div>
-            <p className="text-xs text-muted-foreground mt-1">Cancelled</p>
-          </CardContent>
-        </Card>
+      {/* Stat Cards */}
+      <div className="grid grid-cols-4 lg:grid-cols-8 gap-3">
+        {STAT_CARDS.map(({ key, label, accentBg, accentBorder }) => {
+          const count = counts[key as keyof typeof counts]
+          const isActive = key === "total"
+            ? statusFilter === "all" && moduleFilter === "all"
+            : statusFilter === key
+          return (
+            <button
+              key={key}
+              onClick={() => {
+                if (key === "total") { setStatusFilter("all"); setModuleFilter("all") }
+                else setStatusFilter((p) => p === key ? "all" : key)
+              }}
+              className={cn(
+                "text-left rounded-xl border-2 px-4 py-3 transition-all hover:shadow-md",
+                isActive
+                  ? `${accentBg} ${accentBorder} text-white shadow-sm`
+                  : "bg-white border-gray-100 hover:border-gray-200"
+              )}
+            >
+              <p className={cn("text-[10px] font-semibold uppercase tracking-widest mb-1", isActive ? "text-white/70" : "text-gray-400")}>{label}</p>
+              <p className={cn("text-2xl font-bold", isActive ? "text-white" : "text-gray-900")}>{count}</p>
+            </button>
+          )
+        })}
       </div>
 
+      {/* Table Card */}
       <Card>
         <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">
-              All Requests <span className="text-muted-foreground font-normal text-sm">({filtered.length})</span>
-            </CardTitle>
-          </div>
-
-          {/* Filters */}
-          <div className="flex flex-wrap gap-3 mt-3">
+          <div className="flex flex-wrap gap-3">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by ID, title, or requester..."
+                placeholder="Search ID, title, requester…"
                 className="pl-9"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-
-            <Select value={statusFilter || "all"} onValueChange={(value) => setStatusFilter(value === "all" ? null : value as RequestStatus)}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="All Statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="new">New</SelectItem>
-                <SelectItem value="on_hold">On Hold</SelectItem>
-                <SelectItem value="in_transit">In Transit</SelectItem>
-                <SelectItem value="delivered">Delivered</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={moduleFilter || "all"} onValueChange={(value) => setModuleFilter(value === "all" ? null : value as RequestModule)}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="All Modules" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Modules</SelectItem>
-                <SelectItem value="shipping">Shipping</SelectItem>
-                <SelectItem value="maintenance">Maintenance</SelectItem>
-                <SelectItem value="purchase">Purchase</SelectItem>
-                <SelectItem value="event">Event</SelectItem>
-                <SelectItem value="travel">Travel</SelectItem>
-                <SelectItem value="hr">HR</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
+
+          {/* Status pills */}
+          <div className="flex items-center gap-3 flex-wrap mt-1">
+            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest w-12 shrink-0">Status</span>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                onClick={() => setStatusFilter("all")}
+                className={cn("h-6 px-2.5 rounded text-[11px] font-medium border transition-all",
+                  statusFilter === "all" ? "bg-gray-900 border-gray-900 text-white" : "bg-white border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700"
+                )}
+              >All</button>
+              {STATUSES.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setStatusFilter(s)}
+                  className={cn("h-6 px-2.5 rounded text-[11px] font-medium border transition-all",
+                    statusFilter === s ? STATUS_PILL_ACTIVE[s] : "bg-white border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700"
+                  )}
+                >{STATUS_LABELS[s]}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Module pills */}
+          <div className="flex items-center gap-3 flex-wrap mt-0.5">
+            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest w-12 shrink-0">Module</span>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                onClick={() => setModuleFilter("all")}
+                className={cn("h-6 px-2.5 rounded text-[11px] font-medium border transition-all",
+                  moduleFilter === "all" ? "bg-gray-900 border-gray-900 text-white" : "bg-white border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700"
+                )}
+              >All</button>
+              {MODULES.map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setModuleFilter(m)}
+                  className={cn("h-6 px-2.5 rounded text-[11px] font-medium border transition-all",
+                    moduleFilter === m ? MODULE_PILL_ACTIVE[m] : "bg-white border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700"
+                  )}
+                >{formatModule(m)}</button>
+              ))}
+            </div>
+          </div>
+
+          <p className="text-sm text-muted-foreground font-normal mt-1">
+            Showing {filtered.length} of {counts.total} requests
+          </p>
         </CardHeader>
 
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-gray-50">
-                <TableHead>Request ID</TableHead>
-                <TableHead>Request Title</TableHead>
-                <TableHead>Requester Name</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Module</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((req) => {
-                const statusClass = STATUS_COLORS[req.status] ?? "bg-zinc-100 text-zinc-700"
-                const moduleClass = MODULE_COLORS[req.module] ?? "bg-gray-100 text-gray-700"
-                return (
-                  <TableRow key={req.id} className="hover:bg-gray-50">
-                    <TableCell className="font-mono text-xs text-muted-foreground">{req.id}</TableCell>
-                    <TableCell className="text-sm font-medium">{req.title}</TableCell>
-                    <TableCell className="text-sm">{req.requesterName}</TableCell>
-                    <TableCell>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClass}`}>
-                        {formatStatus(req.status)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${moduleClass}`}>
-                        {formatModule(req.module)}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm" style={{ tableLayout: "fixed", minWidth: colWidths.reduce((a, b) => a + b, 0) }}>
+            <colgroup>
+              {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
+            </colgroup>
+            <thead>
+              <tr className="bg-slate-800 border-b border-slate-700 hover:bg-slate-800">
+                {COLS.map((col, idx) => (
+                  <th
+                    key={col.key}
+                    className="relative py-3 text-xs font-semibold text-slate-300 tracking-wide text-left select-none group"
+                    style={{ paddingLeft: idx === 0 ? 20 : 12, paddingRight: 8 }}
+                  >
+                    <button onClick={() => handleSort(col.key)} className="inline-flex items-center gap-0.5 hover:text-white transition-colors w-full">
+                      {col.label}
+                      <SortIcon col={col.key} />
+                    </button>
+                    <span
+                      onMouseDown={(e) => onResizeMouseDown(e, idx)}
+                      className="absolute right-0 top-0 h-full w-4 flex items-center justify-center cursor-col-resize z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <span className="w-px h-4 bg-slate-500 rounded" />
+                    </span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((req, i) => (
+                <tr key={req.id} className={cn("border-b border-gray-100 hover:bg-blue-50/30 transition-colors", i % 2 === 0 ? "bg-white" : "bg-gray-50/40")}>
+                  <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
+                    <span className="font-mono text-[11px] text-gray-400 tracking-wide truncate block">{req.id}</span>
+                  </td>
+                  <td className="py-3 px-3 overflow-hidden">
+                    <span className="text-sm font-medium text-gray-800 truncate block">{req.title}</span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <span className="text-[11px] text-gray-500 font-medium whitespace-nowrap">{formatDate(req.createdAt)}</span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium", MODULE_COLORS[req.module] ?? "text-gray-600")}>
+                      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", MODULE_DOT[req.module] ?? "bg-gray-400")} />
+                      {formatModule(req.module)}
+                    </span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <span className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap", STATUS_COLORS[req.status] ?? "bg-zinc-100 text-zinc-600")}>
+                      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[req.status] ?? "bg-gray-400")} />
+                      {STATUS_LABELS[req.status] ?? req.status}
+                    </span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <span className="text-[11px] text-gray-400 font-medium whitespace-nowrap">{formatDate(req.updatedAt)}</span>
+                  </td>
+                </tr>
+              ))}
               {filtered.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-12">
-                    No requests found
-                  </TableCell>
-                </TableRow>
+                <tr>
+                  <td colSpan={6} className="py-16 text-center text-gray-400 text-sm">
+                    No records match the current filters
+                  </td>
+                </tr>
               )}
-            </TableBody>
-          </Table>
-        </CardContent>
+            </tbody>
+          </table>
+
+          {filtered.length > 0 && (
+            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-[11px] text-gray-400 text-right">
+              Showing {filtered.length} of {counts.total} requests
+            </div>
+          )}
+        </div>
       </Card>
     </div>
   )

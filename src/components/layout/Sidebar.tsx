@@ -15,6 +15,7 @@ import {
   UserCog,
   Shield,
   Settings,
+  ClipboardList,
   ChevronDown,
   ChevronRight,
   PanelLeftClose,
@@ -32,13 +33,14 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { title: "All Requests", href: "/admin/all-requests", icon: ClipboardList },
   { title: "My Requests", href: "/requests", icon: FileText },
+  { title: "HR", href: "/hr", icon: UserCog },
   { title: "Shipping", href: "/shipping", icon: Package },
   { title: "Maintenance", href: "/maintenance", icon: Wrench },
   { title: "Purchase", href: "/purchase", icon: ShoppingCart },
   { title: "Event", href: "/event", icon: CalendarDays },
   { title: "Travel", href: "/travel", icon: Plane },
-  { title: "HR", href: "/hr", icon: UserCog },
   {
     title: "Admin",
     href: "/admin",
@@ -57,7 +59,9 @@ export function Sidebar() {
   const [adminExpanded, setAdminExpanded] = useState(pathname.startsWith("/admin"))
 
   const isActive = (href: string) =>
-    href === "/dashboard" ? pathname === href : pathname.startsWith(href)
+    href === "/dashboard" || href === "/admin/all-requests"
+      ? pathname === href
+      : pathname.startsWith(href)
 
   return (
     <aside
@@ -88,7 +92,7 @@ export function Sidebar() {
       <nav className="flex-1 overflow-y-auto py-4 space-y-0.5 px-2">
         {navItems.map((item) => {
           if (item.children) {
-            const active = pathname.startsWith("/admin")
+            const active = pathname.startsWith("/admin") && pathname !== "/admin/all-requests"
             return (
               <div key={item.title}>
                 <button

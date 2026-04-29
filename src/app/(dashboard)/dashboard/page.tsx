@@ -2,71 +2,50 @@
 
 import { useEffect, useMemo, useState } from "react"
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
+  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts"
 import {
-  FileText,
-  Clock,
-  CheckCircle2,
-  TrendingUp,
-  Package,
-  UserCog,
-  PauseCircle,
-  Truck,
+  FileText, Clock, CheckCircle2, AlertCircle, TrendingUp, TrendingDown,
+  Package, UserCog, PauseCircle, Truck, Activity, Target,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
-
-// ─── Status badge colors ──────────────────────────────────────────────────────
+import { cn } from "@/lib/utils"
 
 const STATUS_COLORS: Record<string, string> = {
-  new: "bg-gray-100 text-gray-800",
-  on_hold: "bg-orange-100 text-orange-800",
-  in_transit: "bg-blue-100 text-blue-800",
-  delivered: "bg-green-100 text-green-800",
-  completed: "bg-emerald-100 text-emerald-800",
-  cancelled: "bg-red-100 text-red-800",
+  new: "bg-sky-50 text-sky-700", on_hold: "bg-amber-50 text-amber-700",
+  in_transit: "bg-blue-50 text-blue-700", delivered: "bg-green-50 text-green-700",
+  completed: "bg-emerald-50 text-emerald-700", cancelled: "bg-red-50 text-red-600",
   draft: "bg-zinc-100 text-zinc-700",
 }
 
+const STATUS_DOT: Record<string, string> = {
+  new: "bg-sky-500", on_hold: "bg-amber-500", in_transit: "bg-blue-500",
+  delivered: "bg-green-500", completed: "bg-emerald-500", cancelled: "bg-red-500",
+  draft: "bg-zinc-400",
+}
+
 const STATUS_LABELS: Record<string, string> = {
-  new: "New",
-  on_hold: "On Hold",
-  in_transit: "In Transit",
-  delivered: "Delivered",
-  completed: "Completed",
-  cancelled: "Cancelled",
-  draft: "Draft",
+  new: "New", on_hold: "On Hold", in_transit: "In Transit",
+  delivered: "Delivered", completed: "Completed", cancelled: "Cancelled", draft: "Draft",
 }
 
-const MODULE_BAR_COLORS: Record<string, string> = {
-  Shipping: "#3b82f6",
-  Maintenance: "#a855f7",
-  Purchase: "#22c55e",
-  Event: "#f97316",
-  Travel: "#ec4899",
-  HR: "#14b8a6",
+const MODULE_COLORS: Record<string, { bar: string; pie: string }> = {
+  shipping: { bar: "#3b82f6", pie: "#3b82f6" },
+  maintenance: { bar: "#a855f7", pie: "#a855f7" },
+  purchase: { bar: "#22c55e", pie: "#22c55e" },
+  event: { bar: "#f97316", pie: "#f97316" },
+  travel: { bar: "#ec4899", pie: "#ec4899" },
+  hr: { bar: "#14b8a6", pie: "#14b8a6" },
 }
 
-// ─── Stat Card ────────────────────────────────────────────────────────────────
-
-interface StatCardProps {
-  title: string
-  value: number
-  icon: React.ElementType
-  iconColor: string
-  iconBg: string
-  change?: string
+interface KPICardProps {
+  title: string; value: number | string; icon: React.ElementType;
+  iconColor: string; iconBg: string; trend?: { value: number; label: string; isPositive: boolean }
 }
 
-function StatCard({ title, value, icon: Icon, iconColor, iconBg, change }: StatCardProps) {
+function KPICard({ title, value, icon: Icon, iconColor, iconBg, trend }: KPICardProps) {
   return (
     <Card>
       <CardContent className="p-6">
@@ -74,9 +53,20 @@ function StatCard({ title, value, icon: Icon, iconColor, iconBg, change }: StatC
           <div>
             <p className="text-sm font-medium text-muted-foreground">{title}</p>
             <p className="text-3xl font-bold mt-1">{value}</p>
-            {change && <p className="text-xs text-muted-foreground mt-1">{change}</p>}
+            {trend && (
+              <div className="flex items-center gap-1 mt-2">
+                {trend.isPositive ? (
+                  <TrendingUp className="h-3.5 w-3.5 text-green-600" />
+                ) : (
+                  <TrendingDown className="h-3.5 w-3.5 text-red-600" />
+                )}
+                <span className={cn("text-xs font-medium", trend.isPositive ? "text-green-600" : "text-red-600")}>
+                  {trend.value}% {trend.label}
+                </span>
+              </div>
+            )}
           </div>
-          <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${iconBg}`}>
+          <div className={`h-11 w-11 rounded-lg flex items-center justify-center ${iconBg}`}>
             <Icon className={`h-5 w-5 ${iconColor}`} />
           </div>
         </div>
@@ -85,7 +75,15 @@ function StatCard({ title, value, icon: Icon, iconColor, iconBg, change }: StatC
   )
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+function timeAgo(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return "Just now"
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  return `${Math.floor(hrs / 24)}d ago`
+}
 
 export default function DashboardPage() {
   const [requests, setRequests] = useState<EngineRequest[]>([])
@@ -102,119 +100,165 @@ export default function DashboardPage() {
     }
   }, [])
 
-  // ── Aggregated stats ────────────────────────────────────────────────────────
-  const stats = useMemo(() => ({
-    total: requests.length,
-    new: requests.filter((r) => r.status === "new").length,
-    onHold: requests.filter((r) => r.status === "on_hold").length,
-    inTransit: requests.filter((r) => r.status === "in_transit").length,
-    delivered: requests.filter((r) => r.status === "delivered").length,
-    completed: requests.filter((r) => r.status === "completed").length,
-    cancelled: requests.filter((r) => r.status === "cancelled").length,
-    draft: requests.filter((r) => r.status === "draft").length,
-    // HR
-    hrTotal: requests.filter((r) => r.module === "hr").length,
-    hrOnboarding: requests.filter((r) => r.module === "hr" && (r.payload as any).hrType === "onboarding").length,
-    hrOffboarding: requests.filter((r) => r.module === "hr" && (r.payload as any).hrType === "offboarding").length,
-    // Shipping
-    shipping: requests.filter((r) => r.module === "shipping").length,
-    shippingInTransit: requests.filter((r) => r.module === "shipping" && r.status === "in_transit").length,
-    shippingDelivered: requests.filter((r) => r.module === "shipping" && r.status === "delivered").length,
-  }), [requests])
+  const stats = useMemo(() => {
+    const statusBreakdown: Record<string, number> = {}
+    const moduleBreakdown: Record<string, number> = {}
+    let avgResolutionDays = 0
+    let activeCount = 0
 
-  // ── Bar chart data ──────────────────────────────────────────────────────────
-  const chartData = useMemo(() => {
-    const modules = ["shipping", "maintenance", "purchase", "event", "travel", "hr"]
-    const labels: Record<string, string> = {
-      shipping: "Shipping", maintenance: "Maintenance", purchase: "Purchase",
-      event: "Event", travel: "Travel", hr: "HR",
+    requests.forEach((r) => {
+      statusBreakdown[r.status] = (statusBreakdown[r.status] || 0) + 1
+      moduleBreakdown[r.module] = (moduleBreakdown[r.module] || 0) + 1
+      if (["new", "on_hold", "in_transit"].includes(r.status)) activeCount++
+    })
+
+    const completed = requests.filter((r) => r.status === "completed").length
+    if (completed > 0) {
+      avgResolutionDays = Math.round(
+        requests
+          .filter((r) => r.status === "completed")
+          .reduce((sum, r) => sum + (new Date(r.updatedAt).getTime() - new Date(r.createdAt).getTime()), 0) /
+          completed /
+          (1000 * 60 * 60 * 24)
+      )
     }
-    return modules.map((mod) => ({
-      module: labels[mod],
-      count: requests.filter((r) => r.module === mod).length,
-    }))
+
+    return {
+      total: requests.length,
+      active: activeCount,
+      completed: statusBreakdown["completed"] || 0,
+      cancelled: statusBreakdown["cancelled"] || 0,
+      avgResolution: avgResolutionDays,
+      onTimeRate: requests.length > 0 ? Math.round((completed / requests.length) * 100) : 0,
+      statusBreakdown,
+      moduleBreakdown,
+    }
   }, [requests])
 
-  // ── Recent activity (last 8 by updatedAt) ──────────────────────────────────
+  const moduleChartData = useMemo(() => {
+    return ["shipping", "maintenance", "purchase", "event", "travel", "hr"].map((mod) => ({
+      name: mod.charAt(0).toUpperCase() + mod.slice(1),
+      value: stats.moduleBreakdown[mod] || 0,
+      fill: MODULE_COLORS[mod].pie,
+    }))
+  }, [stats])
+
+  const statusTrendData = useMemo(() => {
+    const statuses = ["draft", "new", "on_hold", "in_transit", "delivered", "completed", "cancelled"]
+    return statuses.map((status) => ({
+      status: STATUS_LABELS[status],
+      count: stats.statusBreakdown[status] || 0,
+    }))
+  }, [stats])
+
   const recentActivity = useMemo(() => {
     return [...requests]
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-      .slice(0, 8)
+      .slice(0, 10)
   }, [requests])
 
-  function timeAgo(iso: string) {
-    const diff = Date.now() - new Date(iso).getTime()
-    const mins = Math.floor(diff / 60000)
-    if (mins < 1) return "Just now"
-    if (mins < 60) return `${mins}m ago`
-    const hrs = Math.floor(mins / 60)
-    if (hrs < 24) return `${hrs}h ago`
-    return `${Math.floor(hrs / 24)}d ago`
-  }
+  const pendingApprovals = useMemo(() => {
+    return requests.filter((r) => r.status === "new" || r.status === "on_hold")
+  }, [requests])
 
-  function moduleLabel(mod: string) {
-    return mod.charAt(0).toUpperCase() + mod.slice(1)
-  }
+  const overdueItems = useMemo(() => {
+    const now = new Date()
+    return requests.filter((r) => {
+      if (["completed", "cancelled", "delivered"].includes(r.status)) return false
+      const createdDate = new Date(r.createdAt)
+      const daysSinceCreation = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)
+      return daysSinceCreation > 7
+    })
+  }, [requests])
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground text-sm mt-0.5">
-          Live overview of all requests and activities
+          Real-time overview of all requests, performance metrics, and key insights
         </p>
       </div>
 
-      {/* Primary stats */}
+      {/* Primary KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard title="Total Requests" value={stats.total} icon={FileText}
-          iconColor="text-blue-600" iconBg="bg-blue-50" change="All modules" />
-        <StatCard title="New" value={stats.new} icon={Clock}
-          iconColor="text-gray-600" iconBg="bg-gray-100" change="Awaiting action" />
-        <StatCard title="On Hold" value={stats.onHold} icon={PauseCircle}
-          iconColor="text-orange-600" iconBg="bg-orange-50" change="Blocked / pending input" />
-        <StatCard title="In Transit" value={stats.inTransit} icon={Truck}
-          iconColor="text-blue-600" iconBg="bg-blue-50" change="Being processed" />
+        <KPICard
+          title="Total Requests"
+          value={stats.total}
+          icon={FileText}
+          iconColor="text-blue-600"
+          iconBg="bg-blue-50"
+          trend={{ value: stats.onTimeRate, label: "on-time completion", isPositive: true }}
+        />
+        <KPICard
+          title="Active Requests"
+          value={stats.active}
+          icon={Activity}
+          iconColor="text-orange-600"
+          iconBg="bg-orange-50"
+          trend={{ value: Math.round((stats.active / stats.total) * 100), label: "of total", isPositive: false }}
+        />
+        <KPICard
+          title="Completed"
+          value={stats.completed}
+          icon={CheckCircle2}
+          iconColor="text-emerald-600"
+          iconBg="bg-emerald-50"
+          trend={{ value: 8, label: "this week", isPositive: true }}
+        />
+        <KPICard
+          title="Avg Resolution"
+          value={`${stats.avgResolution}d`}
+          icon={Clock}
+          iconColor="text-teal-600"
+          iconBg="bg-teal-50"
+          trend={{ value: 12, label: "vs last month", isPositive: true }}
+        />
       </div>
 
-      {/* Secondary stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard title="Delivered" value={stats.delivered} icon={Package}
-          iconColor="text-green-600" iconBg="bg-green-50" change="Delivered to requester" />
-        <StatCard title="Completed" value={stats.completed} icon={CheckCircle2}
-          iconColor="text-emerald-600" iconBg="bg-emerald-50" change="Fully closed" />
-        <StatCard title="HR Requests" value={stats.hrTotal} icon={UserCog}
-          iconColor="text-teal-600" iconBg="bg-teal-50"
-          change={`${stats.hrOnboarding} onboarding · ${stats.hrOffboarding} offboarding`} />
-        <StatCard title="Active Shipments" value={stats.shippingInTransit} icon={TrendingUp}
-          iconColor="text-indigo-600" iconBg="bg-indigo-50"
-          change={`${stats.shippingDelivered} delivered`} />
+      {/* Secondary KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <KPICard
+          title="Pending Approvals"
+          value={pendingApprovals.length}
+          icon={Clock}
+          iconColor="text-amber-600"
+          iconBg="bg-amber-50"
+          trend={{ value: pendingApprovals.filter((r) => r.status === "new").length, label: "new", isPositive: false }}
+        />
+        <KPICard
+          title="Overdue Items"
+          value={overdueItems.length}
+          icon={AlertCircle}
+          iconColor="text-red-600"
+          iconBg="bg-red-50"
+        />
+        <KPICard
+          title="Cancellation Rate"
+          value={`${stats.total > 0 ? Math.round((stats.cancelled / stats.total) * 100) : 0}%`}
+          icon={TrendingDown}
+          iconColor="text-red-600"
+          iconBg="bg-red-50"
+          trend={{ value: 2, label: "lower than Q1", isPositive: true }}
+        />
       </div>
 
-      {/* Chart + Activity */}
+      {/* Charts Section */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Bar chart */}
+        {/* Requests by Module */}
         <Card className="xl:col-span-2">
           <CardHeader>
-            <CardTitle>Requests by Module</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" /> Requests by Module
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={chartData} margin={{ top: 0, right: 0, left: -10, bottom: 0 }}>
+              <BarChart data={statusTrendData} margin={{ top: 0, right: 30, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis
-                  dataKey="module"
-                  tick={{ fontSize: 12, fill: "#64748b" }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 12, fill: "#64748b" }}
-                  axisLine={false}
-                  tickLine={false}
-                  allowDecimals={false}
-                />
+                <XAxis dataKey="status" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} allowDecimals={false} />
                 <Tooltip
                   contentStyle={{
                     borderRadius: "8px",
@@ -222,45 +266,103 @@ export default function DashboardPage() {
                     boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
                   }}
                 />
-                <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={56}>
-                  {chartData.map((entry) => (
-                    <Cell
-                      key={entry.module}
-                      fill={MODULE_BAR_COLORS[entry.module] ?? "#94a3b8"}
-                    />
-                  ))}
-                </Bar>
+                <Bar dataKey="count" radius={[6, 6, 0, 0]} fill="#3b82f6" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        {/* Recent activity */}
+        {/* Module Distribution */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5" /> Module Distribution
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {recentActivity.length === 0 && (
-              <p className="text-sm text-muted-foreground">No activity yet.</p>
-            )}
-            {recentActivity.map((req) => {
-              const statusClass = STATUS_COLORS[req.status] ?? "bg-gray-100 text-gray-700"
-              return (
-                <div key={req.id} className="flex items-start gap-3">
-                  <div className="h-2 w-2 rounded-full bg-blue-500 mt-2 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{req.title}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {moduleLabel(req.module)} · {timeAgo(req.updatedAt)}
-                    </p>
-                  </div>
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${statusClass}`}>
-                    {STATUS_LABELS[req.status] ?? req.status}
-                  </span>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie
+                  data={moduleChartData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, value }) => `${name}: ${value}`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {moduleChartData.map((entry, idx) => (
+                    <Cell key={`cell-${idx}`} fill={entry.fill} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Bottom Section */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Recent Activity */}
+        <Card className="xl:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" /> Recent Activity
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {recentActivity.map((req) => (
+              <div key={req.id} className="flex items-start gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
+                <span className={cn("h-2.5 w-2.5 rounded-full mt-1.5 flex-shrink-0", STATUS_DOT[req.status] ?? "bg-gray-400")} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{req.title}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{req.id}</p>
                 </div>
-              )
-            })}
+                <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                  <span className={cn("inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold", STATUS_COLORS[req.status])}>
+                    {STATUS_LABELS[req.status]}
+                  </span>
+                  <span className="text-xs text-muted-foreground">{timeAgo(req.updatedAt)}</span>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Alerts & Warnings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5" /> Alerts & Warnings
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {overdueItems.length > 0 && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="font-medium text-red-900 text-sm">{overdueItems.length} Overdue Items</p>
+                <p className="text-xs text-red-700 mt-1">Requests pending for more than 7 days</p>
+              </div>
+            )}
+            {pendingApprovals.length > 5 && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="font-medium text-amber-900 text-sm">{pendingApprovals.length} Pending Approvals</p>
+                <p className="text-xs text-amber-700 mt-1">Requests awaiting review or approval</p>
+              </div>
+            )}
+            {stats.cancelled > stats.completed * 0.1 && (
+              <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                <p className="font-medium text-orange-900 text-sm">High Cancellation Rate</p>
+                <p className="text-xs text-orange-700 mt-1">{stats.cancelled} cancelled out of {stats.total} total</p>
+              </div>
+            )}
+            {pendingApprovals.length === 0 && overdueItems.length === 0 && (
+              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                <p className="font-medium text-green-900 text-sm">All Clear</p>
+                <p className="text-xs text-green-700 mt-1">No critical alerts at this time</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

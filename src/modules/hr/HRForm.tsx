@@ -238,7 +238,7 @@ function OffboardingFormFields({ onCancel }: { onCancel: () => void }) {
                   <label key={item} className={cn(
                     "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition",
                     field.value.includes(item)
-                      ? "border-purple-500 bg-purple-50"
+                      ? "border-red-500 bg-red-50"
                       : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                   )}>
                     <input
@@ -251,7 +251,7 @@ function OffboardingFormFields({ onCancel }: { onCancel: () => void }) {
                           field.onChange(field.value.filter((v) => v !== item))
                         }
                       }}
-                      className="h-4 w-4 accent-purple-600"
+                      className="h-4 w-4 accent-red-600"
                     />
                     <span className="text-sm font-medium">{item}</span>
                   </label>
@@ -273,7 +273,7 @@ function OffboardingFormFields({ onCancel }: { onCancel: () => void }) {
 
       <div className="sticky bottom-0 bg-white border-t py-4 px-1 flex items-center justify-between gap-3">
         <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
-        <Button type="submit" disabled={isSubmitting} className="bg-purple-700 text-white hover:opacity-90 min-w-[160px]">
+        <Button type="submit" disabled={isSubmitting} className="bg-red-600 text-white hover:opacity-90 min-w-[160px]">
           {isSubmitting ? "Submitting..." : "Submit Offboarding Request"}
         </Button>
       </div>
@@ -311,7 +311,7 @@ export function HRForm({ defaultType = "onboarding", onCancel }: { defaultType?:
           className={cn(
             "flex items-center gap-2 px-5 py-2.5 rounded-lg border-2 text-sm font-semibold transition",
             hrType === "offboarding"
-              ? "border-purple-600 bg-purple-50 text-purple-700"
+              ? "border-red-600 bg-red-50 text-red-700"
               : "border-gray-200 text-gray-600 hover:border-gray-300"
           )}
         >

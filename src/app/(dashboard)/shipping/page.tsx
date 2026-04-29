@@ -1,98 +1,130 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Search, Plus, Package, Truck, CheckCircle2, MoreHorizontal } from "lucide-react"
+import { Search, Plus, Package, Truck, CheckCircle2, Clock, MoreHorizontal, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
 import Link from "next/link"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { mockShipments, mockStats, type MockShipment } from "@/lib/mock-data"
+import { mockShipments, type MockShipment } from "@/lib/mock-data"
+import { cn } from "@/lib/utils"
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const STATUSES = ["New", "On Hold", "In Transit", "Delivered", "Cancelled"] as const
+const CARRIERS = ["DHL", "FedEx", "UPS", "Aramex", "Other"] as const
 
 const STATUS_COLORS: Record<string, string> = {
-  New: "bg-gray-100 text-gray-800",
-  "On Hold": "bg-orange-100 text-orange-800",
-  "In Transit": "bg-blue-100 text-blue-800",
-  Delivered: "bg-green-100 text-green-800",
-  Cancelled: "bg-red-100 text-red-800",
+  "New":        "bg-sky-50 text-sky-700",
+  "On Hold":    "bg-amber-50 text-amber-700",
+  "In Transit": "bg-blue-50 text-blue-700",
+  "Delivered":  "bg-green-50 text-green-700",
+  "Cancelled":  "bg-red-50 text-red-600",
 }
 
-interface ShipStatCardProps {
-  title: string
-  value: number
-  icon: React.ElementType
-  iconColor: string
-  iconBg: string
+const STATUS_DOT: Record<string, string> = {
+  "New":        "bg-sky-500",
+  "On Hold":    "bg-amber-500",
+  "In Transit": "bg-blue-500",
+  "Delivered":  "bg-green-500",
+  "Cancelled":  "bg-red-500",
 }
 
-function ShipStatCard({ title, value, icon: Icon, iconColor, iconBg }: ShipStatCardProps) {
-  return (
-    <Card>
-      <CardContent className="p-5 flex items-center gap-4">
-        <div className={`h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}>
-          <Icon className={`h-6 w-6 ${iconColor}`} />
-        </div>
-        <div>
-          <p className="text-sm text-muted-foreground font-medium">{title}</p>
-          <p className="text-2xl font-bold">{value}</p>
-        </div>
-      </CardContent>
-    </Card>
-  )
+const STATUS_PILL_ACTIVE: Record<string, string> = {
+  "New":        "bg-sky-500 border-sky-500 text-white",
+  "On Hold":    "bg-amber-500 border-amber-500 text-white",
+  "In Transit": "bg-blue-600 border-blue-600 text-white",
+  "Delivered":  "bg-green-600 border-green-600 text-white",
+  "Cancelled":  "bg-red-600 border-red-600 text-white",
 }
+
+type SortKey = keyof Pick<MockShipment, "id" | "requester" | "trackingNumber" | "carrier" | "expectedDelivery" | "status">
+
+const COLS: { key: SortKey; label: string; defaultW: number }[] = [
+  { key: "id",              label: "Request ID",     defaultW: 120 },
+  { key: "requester",       label: "Requester",      defaultW: 180 },
+  { key: "trackingNumber",  label: "Tracking Number",defaultW: 180 },
+  { key: "carrier",         label: "Carrier",        defaultW: 110 },
+  { key: "expectedDelivery",label: "Delivery Date",  defaultW: 120 },
+  { key: "status",          label: "Status",         defaultW: 120 },
+]
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ShippingPage() {
-  const [search, setSearch] = useState("")
+  const [search, setSearch]           = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [carrierFilter, setCarrierFilter] = useState("all")
+  const [sortKey, setSortKey]         = useState<SortKey>("id")
+  const [sortDir, setSortDir]         = useState<"asc" | "desc">("asc")
+  const [colWidths, setColWidths]     = useState<number[]>(() => COLS.map((c) => c.defaultW))
 
-  const filtered = useMemo(
-    () =>
-      mockShipments.filter((s) => {
-        const q = search.toLowerCase()
-        const matchSearch =
-          s.id.toLowerCase().includes(q) ||
-          s.trackingNumber.toLowerCase().includes(q) ||
-          s.destination.toLowerCase().includes(q)
-        const matchStatus = statusFilter === "all" || s.status === statusFilter
-        const matchCarrier = carrierFilter === "all" || s.carrier === carrierFilter
-        return matchSearch && matchStatus && matchCarrier
-      }),
-    [search, statusFilter, carrierFilter]
-  )
+  // ── Resize ──────────────────────────────────────────────────────────────
+  function onResizeMouseDown(e: React.MouseEvent, idx: number) {
+    e.preventDefault(); e.stopPropagation()
+    const startX = e.clientX, startW = colWidths[idx]
+    const onMove = (ev: MouseEvent) => {
+      const newW = Math.max(60, startW + ev.clientX - startX)
+      setColWidths((prev) => prev.map((w, i) => i === idx ? newW : w))
+    }
+    const onUp = () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp) }
+    window.addEventListener("mousemove", onMove)
+    window.addEventListener("mouseup", onUp)
+  }
+
+  // ── Sort ────────────────────────────────────────────────────────────────
+  function handleSort(key: SortKey) {
+    if (sortKey === key) setSortDir((d) => d === "asc" ? "desc" : "asc")
+    else { setSortKey(key); setSortDir("asc") }
+  }
+
+  function SortIcon({ col }: { col: SortKey }) {
+    if (sortKey !== col) return <ChevronsUpDown className="h-3 w-3 ml-1 opacity-40 shrink-0" />
+    return sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1 shrink-0" /> : <ChevronDown className="h-3 w-3 ml-1 shrink-0" />
+  }
+
+  const filtered = useMemo(() => {
+    let result = mockShipments.filter((s) => {
+      const q = search.toLowerCase()
+      const matchSearch = s.id.toLowerCase().includes(q) || s.trackingNumber.toLowerCase().includes(q) || s.destination.toLowerCase().includes(q) || s.requester.toLowerCase().includes(q)
+      const matchStatus  = statusFilter === "all" || s.status === statusFilter
+      const matchCarrier = carrierFilter === "all" || s.carrier === carrierFilter
+      return matchSearch && matchStatus && matchCarrier
+    })
+    return result.sort((a, b) => {
+      const av = a[sortKey] ?? "", bv = b[sortKey] ?? ""
+      return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
+    })
+  }, [search, statusFilter, carrierFilter, sortKey, sortDir])
+
+  const stats = {
+    total:     mockShipments.length,
+    onHold:    mockShipments.filter((s) => s.status === "On Hold").length,
+    inTransit: mockShipments.filter((s) => s.status === "In Transit").length,
+    delivered: mockShipments.filter((s) => s.status === "Delivered").length,
+  }
+
+  const statCards = [
+    { key: "all",        label: "Total Shipments", value: stats.total,     icon: Package,      iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
+    { key: "On Hold",    label: "On Hold",          value: stats.onHold,    icon: Clock,        iconBg: "bg-amber-50",  iconColor: "text-amber-600",  activeBg: "bg-amber-500",  activeBorder: "border-amber-500" },
+    { key: "In Transit", label: "In Transit",       value: stats.inTransit, icon: Truck,        iconBg: "bg-blue-50",   iconColor: "text-indigo-600", activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
+    { key: "Delivered",  label: "Delivered",        value: stats.delivered, icon: CheckCircle2, iconBg: "bg-green-50",  iconColor: "text-green-600",  activeBg: "bg-green-600",  activeBorder: "border-green-600" },
+  ] as const
 
   return (
     <div className="space-y-6">
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Shipping</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            Track and manage all shipment requests
-          </p>
+          <p className="text-muted-foreground text-sm mt-0.5">Track and manage all shipment requests</p>
         </div>
-        <Button asChild>
+        <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white">
           <Link href="/shipping/new">
             <Plus className="h-4 w-4 mr-2" />
             Add Shipping Request
@@ -100,134 +132,163 @@ export default function ShippingPage() {
         </Button>
       </div>
 
-      {/* Stat cards */}
+      {/* Stat Cards — clickable */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <ShipStatCard
-          title="Total Shipments"
-          value={mockStats.totalShipments}
-          icon={Package}
-          iconColor="text-blue-600"
-          iconBg="bg-blue-50"
-        />
-        <ShipStatCard
-          title="On Hold"
-          value={mockShipments.filter((s) => s.status === "On Hold").length}
-          icon={Package}
-          iconColor="text-orange-600"
-          iconBg="bg-orange-50"
-        />
-        <ShipStatCard
-          title="In Transit"
-          value={mockShipments.filter((s) => s.status === "In Transit").length}
-          icon={Truck}
-          iconColor="text-indigo-600"
-          iconBg="bg-indigo-50"
-        />
-        <ShipStatCard
-          title="Delivered"
-          value={mockShipments.filter((s) => s.status === "Delivered").length}
-          icon={CheckCircle2}
-          iconColor="text-green-600"
-          iconBg="bg-green-50"
-        />
+        {statCards.map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }) => {
+          const isActive = statusFilter === key || (key === "all" && statusFilter === "all")
+          return (
+            <button
+              key={key}
+              onClick={() => setStatusFilter(key === "all" ? "all" : (p) => p === key ? "all" : key)}
+              className={cn(
+                "text-left rounded-xl border-2 p-5 flex items-center gap-4 transition-all hover:shadow-md",
+                isActive ? `${activeBg} ${activeBorder} text-white shadow-sm` : "bg-white border-gray-100 hover:border-gray-200"
+              )}
+            >
+              <div className={cn("h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all", isActive ? "bg-white/20" : iconBg)}>
+                <Icon className={cn("h-6 w-6 transition-all", isActive ? "text-white" : iconColor)} />
+              </div>
+              <div>
+                <p className={cn("text-sm font-medium", isActive ? "text-white/80" : "text-muted-foreground")}>{label}</p>
+                <p className={cn("text-2xl font-bold", isActive ? "text-white" : "")}>{value}</p>
+              </div>
+            </button>
+          )
+        })}
       </div>
 
-      {/* Shipments table */}
+      {/* Table Card */}
       <Card>
         <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">
-              Shipments{" "}
-              <span className="text-muted-foreground font-normal text-sm">
-                ({filtered.length})
-              </span>
-            </CardTitle>
-          </div>
 
-          {/* Filters */}
-          <div className="flex flex-wrap gap-3 mt-3">
+          {/* Search + filters */}
+          <div className="flex flex-wrap gap-3">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by ID, tracking, or destination..."
+                placeholder="Search by ID, tracking, requester, or destination..."
                 className="pl-9"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
 
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="All Statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="New">New</SelectItem>
-                <SelectItem value="On Hold">On Hold</SelectItem>
-                <SelectItem value="In Transit">In Transit</SelectItem>
-                <SelectItem value="Delivered">Delivered</SelectItem>
-                <SelectItem value="Cancelled">Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={carrierFilter} onValueChange={setCarrierFilter}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="All Carriers" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Carriers</SelectItem>
-                <SelectItem value="DHL">DHL</SelectItem>
-                <SelectItem value="FedEx">FedEx</SelectItem>
-                <SelectItem value="UPS">UPS</SelectItem>
-                <SelectItem value="Aramex">Aramex</SelectItem>
-                <SelectItem value="TNT">TNT</SelectItem>
-                <SelectItem value="Maersk">Maersk</SelectItem>
-                <SelectItem value="USPS">USPS</SelectItem>
-              </SelectContent>
-            </Select>
+            {/* Status pills */}
+            <div className="flex flex-wrap gap-1.5 items-center">
+              {(["all", ...STATUSES] as const).map((s) => {
+                const activeClass = s === "all" ? "bg-slate-900 border-slate-900 text-white" : STATUS_PILL_ACTIVE[s]
+                return (
+                  <button
+                    key={s}
+                    onClick={() => setStatusFilter(s)}
+                    className={cn(
+                      "h-8 px-3 rounded-md text-xs font-medium border transition-all",
+                      statusFilter === s ? activeClass : "bg-white border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700"
+                    )}
+                  >
+                    {s === "all" ? "All Statuses" : s}
+                  </button>
+                )
+              })}
+            </div>
           </div>
+
+          {/* Carrier pills */}
+          <div className="flex items-center gap-3 flex-wrap mt-1">
+            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest w-12 shrink-0">Carrier</span>
+            <div className="flex flex-wrap gap-1.5">
+              {(["all", ...CARRIERS] as const).map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setCarrierFilter(c)}
+                  className={cn(
+                    "h-6 px-2.5 rounded text-[11px] font-medium border transition-all",
+                    carrierFilter === c
+                      ? "bg-gray-900 border-gray-900 text-white"
+                      : "bg-white border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700"
+                  )}
+                >
+                  {c === "all" ? "All" : c}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <p className="text-sm text-muted-foreground font-normal mt-1">
+            Showing {filtered.length} shipment{filtered.length !== 1 ? "s" : ""}
+          </p>
         </CardHeader>
 
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-gray-50">
-                <TableHead>Request ID</TableHead>
-                <TableHead>Requester Name</TableHead>
-                <TableHead>Tracking Number</TableHead>
-                <TableHead>Carrier</TableHead>
-                <TableHead>PO Number</TableHead>
-                <TableHead>Delivery Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-[60px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((shipment) => (
-                <TableRow key={shipment.id} className="cursor-pointer">
-                  <TableCell className="font-mono text-xs font-medium">{shipment.id}</TableCell>
-                  <TableCell className="text-sm">{shipment.requester}</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {shipment.trackingNumber.slice(0, 16)}…
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm font-medium">{shipment.carrier}</span>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{shipment.poNumber ?? "—"}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {shipment.expectedDelivery}
-                  </TableCell>
-                  <TableCell>
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[shipment.status]}`}
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm" style={{ tableLayout: "fixed", minWidth: colWidths.reduce((a, b) => a + b, 0) + 56 }}>
+            <colgroup>
+              {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
+              <col style={{ width: 56 }} />
+            </colgroup>
+            <thead>
+              <tr className="bg-slate-800 border-b border-slate-700">
+                {COLS.map((col, idx) => (
+                  <th
+                    key={col.key}
+                    className="relative py-3 text-xs font-semibold text-slate-300 tracking-wide text-left select-none group"
+                    style={{ paddingLeft: idx === 0 ? 20 : 12, paddingRight: 8 }}
+                  >
+                    <button
+                      onClick={() => handleSort(col.key)}
+                      className="inline-flex items-center gap-0.5 hover:text-white transition-colors w-full"
                     >
+                      {col.label}
+                      <SortIcon col={col.key} />
+                    </button>
+                    <span
+                      onMouseDown={(e) => onResizeMouseDown(e, idx)}
+                      className="absolute right-0 top-0 h-full w-4 flex items-center justify-center cursor-col-resize z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <span className="w-px h-4 bg-slate-500 rounded" />
+                    </span>
+                  </th>
+                ))}
+                <th className="py-3 text-xs font-semibold text-slate-300 tracking-wide text-left" style={{ paddingLeft: 12 }} />
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((shipment, i) => (
+                <tr
+                  key={shipment.id}
+                  className={cn(
+                    "border-b border-gray-100 hover:bg-blue-50/30 transition-colors",
+                    i % 2 === 0 ? "bg-white" : "bg-gray-50/40"
+                  )}
+                >
+                  <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
+                    <span className="font-mono text-[11px] text-gray-400 tracking-wide truncate block">{shipment.id}</span>
+                  </td>
+                  <td className="py-3 px-3 overflow-hidden">
+                    <span className="text-sm font-medium text-gray-800 truncate block">{shipment.requester}</span>
+                  </td>
+                  <td className="py-3 px-3 overflow-hidden">
+                    <span className="font-mono text-[11px] text-blue-500 truncate block">{shipment.trackingNumber.slice(0, 18)}…</span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <span className="text-sm font-medium text-gray-700">{shipment.carrier}</span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <span className="text-[11px] text-gray-500 font-medium whitespace-nowrap">{shipment.expectedDelivery}</span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <span className={cn(
+                      "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap",
+                      STATUS_COLORS[shipment.status] ?? "bg-zinc-100 text-zinc-600"
+                    )}>
+                      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[shipment.status] ?? "bg-gray-400")} />
                       {shipment.status}
                     </span>
-                  </TableCell>
-                  <TableCell>
+                  </td>
+                  <td className="py-3 px-2 text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-600">
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -235,25 +296,29 @@ export default function ShippingPage() {
                         <DropdownMenuItem>View details</DropdownMenuItem>
                         <DropdownMenuItem>Edit</DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive focus:text-destructive">
-                          Cancel shipment
-                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive focus:text-destructive">Cancel shipment</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  </TableCell>
-                </TableRow>
+                  </td>
+                </tr>
               ))}
 
               {filtered.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
-                    No shipments match your filters
-                  </TableCell>
-                </TableRow>
+                <tr>
+                  <td colSpan={7} className="text-center text-gray-400 text-sm py-16">
+                    No shipments match the current filters
+                  </td>
+                </tr>
               )}
-            </TableBody>
-          </Table>
-        </CardContent>
+            </tbody>
+          </table>
+
+          {filtered.length > 0 && (
+            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-[11px] text-gray-400 text-right">
+              Showing {filtered.length} of {mockShipments.length} shipments
+            </div>
+          )}
+        </div>
       </Card>
     </div>
   )

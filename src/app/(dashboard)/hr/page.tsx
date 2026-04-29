@@ -1,91 +1,64 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Search, Users, UserPlus, UserMinus, CheckCircle2, Plus } from "lucide-react"
+import { Search, Users, UserPlus, UserMinus, Plus, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
 import Link from "next/link"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
 import type { HRPayload } from "@/modules/hr/hr.schema"
+import { cn } from "@/lib/utils"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STATUS_COLORS: Record<string, string> = {
-  new: "bg-gray-100 text-gray-800",
-  on_hold: "bg-orange-100 text-orange-800",
-  completed: "bg-emerald-100 text-emerald-800",
-}
-
 const STATUS_LABELS: Record<string, string> = {
-  new: "New",
-  on_hold: "On Hold",
-  completed: "Completed",
+  new: "New", on_hold: "On Hold", completed: "Completed",
 }
 
-const TYPE_COLORS: Record<string, string> = {
-  onboarding: "bg-blue-50 text-blue-700 border border-blue-200",
-  offboarding: "bg-purple-50 text-purple-700 border border-purple-200",
+const STATUS_COLORS: Record<string, string> = {
+  new:       "bg-sky-50 text-sky-700",
+  on_hold:   "bg-amber-50 text-amber-700",
+  completed: "bg-emerald-50 text-emerald-700",
 }
 
-// ─── Stat Card ────────────────────────────────────────────────────────────────
-
-interface StatCardProps {
-  title: string
-  value: number
-  icon: React.ElementType
-  iconColor: string
-  iconBg: string
+const STATUS_DOT: Record<string, string> = {
+  new: "bg-sky-500", on_hold: "bg-amber-500", completed: "bg-emerald-500",
 }
 
-function StatCard({ title, value, icon: Icon, iconColor, iconBg }: StatCardProps) {
-  return (
-    <Card>
-      <CardContent className="p-5 flex items-center gap-4">
-        <div className={`h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}>
-          <Icon className={`h-6 w-6 ${iconColor}`} />
-        </div>
-        <div>
-          <p className="text-sm text-muted-foreground font-medium">{title}</p>
-          <p className="text-2xl font-bold">{value}</p>
-        </div>
-      </CardContent>
-    </Card>
-  )
+const STATUS_PILL_ACTIVE: Record<string, string> = {
+  new:       "bg-sky-500 border-sky-500 text-white",
+  on_hold:   "bg-amber-500 border-amber-500 text-white",
+  completed: "bg-emerald-600 border-emerald-600 text-white",
 }
-
-// ─── Tabs ─────────────────────────────────────────────────────────────────────
 
 type Tab = "all" | "onboarding" | "offboarding"
+type SortKey = "id" | "hrType" | "employeeName" | "employeeId" | "department" | "date" | "status"
+type SortDir = "asc" | "desc"
+
+const COLS: { key: SortKey; label: string; defaultW: number }[] = [
+  { key: "id",           label: "Request ID",    defaultW: 140 },
+  { key: "hrType",       label: "Type",          defaultW: 130 },
+  { key: "employeeName", label: "Employee Name", defaultW: 180 },
+  { key: "employeeId",   label: "Employee ID",   defaultW: 130 },
+  { key: "department",   label: "Department",    defaultW: 140 },
+  { key: "date",         label: "Date",          defaultW: 110 },
+  { key: "status",       label: "Status",        defaultW: 120 },
+]
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function HRPage() {
-  const [requests, setRequests] = useState<EngineRequest[]>([])
-  const [search, setSearch] = useState("")
+  const [requests, setRequests]         = useState<EngineRequest[]>([])
+  const [search, setSearch]             = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [activeTab, setActiveTab] = useState<Tab>("all")
+  const [activeTab, setActiveTab]       = useState<Tab>("all")
+  const [sortKey, setSortKey]           = useState<SortKey>("id")
+  const [sortDir, setSortDir]           = useState<SortDir>("asc")
+  const [colWidths, setColWidths]       = useState<number[]>(() => COLS.map((c) => c.defaultW))
 
   useEffect(() => {
     initializeMockData()
@@ -93,51 +66,73 @@ export default function HRPage() {
     sync()
     window.addEventListener("focus", sync)
     window.addEventListener("storage", sync)
-    return () => {
-      window.removeEventListener("focus", sync)
-      window.removeEventListener("storage", sync)
-    }
+    return () => { window.removeEventListener("focus", sync); window.removeEventListener("storage", sync) }
   }, [])
 
-  const hrRequests = useMemo(
-    () => requests.filter((r) => r.module === "hr"),
-    [requests]
-  )
+  // ── Resize ────────────────────────────────────────────────────────────────
+  function onResizeMouseDown(e: React.MouseEvent, idx: number) {
+    e.preventDefault(); e.stopPropagation()
+    const startX = e.clientX
+    const startW = colWidths[idx]
+    const onMove = (ev: MouseEvent) => {
+      const newW = Math.max(60, startW + ev.clientX - startX)
+      setColWidths((prev) => prev.map((w, i) => i === idx ? newW : w))
+    }
+    const onUp = () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp) }
+    window.addEventListener("mousemove", onMove)
+    window.addEventListener("mouseup", onUp)
+  }
+
+  // ── Sort ──────────────────────────────────────────────────────────────────
+  function handleSort(key: SortKey) {
+    if (sortKey === key) setSortDir((d) => d === "asc" ? "desc" : "asc")
+    else { setSortKey(key); setSortDir("asc") }
+  }
+
+  function SortIcon({ col }: { col: SortKey }) {
+    if (sortKey !== col) return <ChevronsUpDown className="h-3 w-3 ml-1 opacity-40 shrink-0" />
+    return sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1 shrink-0" /> : <ChevronDown className="h-3 w-3 ml-1 shrink-0" />
+  }
+
+  const hrRequests = useMemo(() => requests.filter((r) => r.module === "hr"), [requests])
 
   const filtered = useMemo(() => {
     let result = hrRequests
-
-    if (activeTab !== "all") {
-      result = result.filter((r) => (r.payload as HRPayload).hrType === activeTab)
-    }
-
-    if (statusFilter !== "all") {
-      result = result.filter((r) => r.status === statusFilter)
-    }
-
+    if (activeTab !== "all") result = result.filter((r) => (r.payload as HRPayload).hrType === activeTab)
+    if (statusFilter !== "all") result = result.filter((r) => r.status === statusFilter)
     const q = search.trim().toLowerCase()
-    if (q) {
-      result = result.filter((r) => {
-        const p = r.payload as HRPayload
-        return (
-          r.id.toLowerCase().includes(q) ||
-          r.title.toLowerCase().includes(q) ||
-          p.employeeName.toLowerCase().includes(q) ||
-          p.employeeId.toLowerCase().includes(q) ||
-          p.department.toLowerCase().includes(q)
-        )
-      })
-    }
-
-    return result
-  }, [hrRequests, activeTab, statusFilter, search])
+    if (q) result = result.filter((r) => {
+      const p = r.payload as HRPayload
+      return r.id.toLowerCase().includes(q) || r.title.toLowerCase().includes(q) ||
+        p.employeeName.toLowerCase().includes(q) || p.employeeId.toLowerCase().includes(q) ||
+        p.department.toLowerCase().includes(q)
+    })
+    return result.sort((a, b) => {
+      const pa = a.payload as HRPayload, pb = b.payload as HRPayload
+      const getVal = (r: EngineRequest, p: HRPayload) => {
+        if (sortKey === "id")           return r.id
+        if (sortKey === "hrType")       return p.hrType
+        if (sortKey === "employeeName") return p.employeeName
+        if (sortKey === "employeeId")   return p.employeeId
+        if (sortKey === "department")   return p.department
+        if (sortKey === "date")         return p.hrType === "onboarding" ? p.startDate : p.lastWorkingDay
+        if (sortKey === "status")       return r.status
+        return ""
+      }
+      const av = getVal(a, pa), bv = getVal(b, pb)
+      return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
+    })
+  }, [hrRequests, activeTab, statusFilter, search, sortKey, sortDir])
 
   const stats = useMemo(() => ({
-    total: hrRequests.length,
-    onboarding: hrRequests.filter((r) => (r.payload as HRPayload).hrType === "onboarding").length,
+    total:       hrRequests.length,
+    onboarding:  hrRequests.filter((r) => (r.payload as HRPayload).hrType === "onboarding").length,
     offboarding: hrRequests.filter((r) => (r.payload as HRPayload).hrType === "offboarding").length,
-    completed: hrRequests.filter((r) => r.status === "completed").length,
+    completed:   hrRequests.filter((r) => r.status === "completed").length,
   }), [hrRequests])
+
+  const tabCount = (tab: Tab) =>
+    tab === "all" ? hrRequests.length : hrRequests.filter((r) => (r.payload as HRPayload).hrType === tab).length
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "all", label: "All" },
@@ -147,6 +142,7 @@ export default function HRPage() {
 
   return (
     <div className="space-y-6">
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -157,7 +153,7 @@ export default function HRPage() {
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button className="bg-slate-900 hover:bg-slate-800 text-white">
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
               <Plus className="h-4 w-4 mr-2" />
               Add HR Request
             </Button>
@@ -171,7 +167,7 @@ export default function HRPage() {
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href="/hr/new?type=offboarding" className="flex items-center gap-2 cursor-pointer">
-                <UserMinus className="h-4 w-4 text-purple-600" />
+                <UserMinus className="h-4 w-4 text-red-600" />
                 Offboarding Request
               </Link>
             </DropdownMenuItem>
@@ -179,40 +175,69 @@ export default function HRPage() {
         </DropdownMenu>
       </div>
 
-      {/* Stat Cards */}
+      {/* Stat Cards — clickable */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard title="Total Requests" value={stats.total} icon={Users} iconColor="text-slate-600" iconBg="bg-slate-50" />
-        <StatCard title="Onboarding" value={stats.onboarding} icon={UserPlus} iconColor="text-blue-600" iconBg="bg-blue-50" />
-        <StatCard title="Offboarding" value={stats.offboarding} icon={UserMinus} iconColor="text-purple-600" iconBg="bg-purple-50" />
-        <StatCard title="Completed" value={stats.completed} icon={CheckCircle2} iconColor="text-emerald-600" iconBg="bg-emerald-50" />
+        {([
+          { key: "all",         label: "Total Requests", value: stats.total,       icon: Users,    iconBg: "bg-slate-100", iconColor: "text-slate-600", activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
+          { key: "onboarding",  label: "Onboarding",     value: stats.onboarding,  icon: UserPlus, iconBg: "bg-blue-50",   iconColor: "text-blue-600",  activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
+          { key: "offboarding", label: "Offboarding",    value: stats.offboarding, icon: UserMinus,iconBg: "bg-red-50",    iconColor: "text-red-600",   activeBg: "bg-red-600",    activeBorder: "border-red-600" },
+        ] as const).map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }) => {
+          const isTabActive  = key === "onboarding" || key === "offboarding"
+          const isStatActive = isTabActive
+            ? activeTab === key
+            : key === "all" ? (activeTab === "all" && statusFilter === "all") : statusFilter === key
+          return (
+            <button
+              key={key}
+              onClick={() => {
+                if (key === "onboarding" || key === "offboarding") {
+                  setActiveTab((p) => p === key ? "all" : key)
+                } else if (key === "completed") {
+                  setStatusFilter((p) => p === "completed" ? "all" : "completed")
+                } else {
+                  setActiveTab("all"); setStatusFilter("all")
+                }
+              }}
+              className={cn(
+                "text-left rounded-xl border-2 p-5 flex items-center gap-4 transition-all hover:shadow-md",
+                isStatActive ? `${activeBg} ${activeBorder} text-white shadow-sm` : "bg-white border-gray-100 hover:border-gray-200"
+              )}
+            >
+              <div className={cn("h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all", isStatActive ? "bg-white/20" : iconBg)}>
+                <Icon className={cn("h-6 w-6 transition-all", isStatActive ? "text-white" : iconColor)} />
+              </div>
+              <div>
+                <p className={cn("text-sm font-medium", isStatActive ? "text-white/80" : "text-muted-foreground")}>{label}</p>
+                <p className={cn("text-2xl font-bold", isStatActive ? "text-white" : "")}>{value}</p>
+              </div>
+            </button>
+          )
+        })}
       </div>
 
       {/* Table Card */}
       <Card>
         <CardHeader className="pb-4">
+
           {/* Tabs */}
           <div className="flex gap-1 border-b pb-3">
             {tabs.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`px-4 py-1.5 text-sm font-medium rounded-md transition ${
-                  activeTab === tab.key
-                    ? "bg-slate-900 text-white"
-                    : "text-gray-600 hover:bg-gray-100"
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition whitespace-nowrap ${
+                  activeTab === tab.key ? "bg-slate-900 text-white" : "text-gray-600 hover:bg-gray-100"
                 }`}
               >
                 {tab.label}
                 <span className={`ml-2 text-xs font-normal ${activeTab === tab.key ? "text-gray-300" : "text-gray-400"}`}>
-                  ({tab.key === "all"
-                    ? hrRequests.length
-                    : hrRequests.filter((r) => (r.payload as HRPayload).hrType === tab.key).length})
+                  ({tabCount(tab.key)})
                 </span>
               </button>
             ))}
           </div>
 
-          {/* Filters */}
+          {/* Search + Status pills */}
           <div className="flex flex-wrap gap-3 mt-3">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -223,80 +248,133 @@ export default function HRPage() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="All Statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="new">New</SelectItem>
-                <SelectItem value="on_hold">On Hold</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex flex-wrap gap-1.5 items-center">
+              {(["all", "new", "on_hold", "completed"] as const).map((s) => {
+                const activeClass = s === "all"
+                  ? "bg-slate-900 border-slate-900 text-white"
+                  : STATUS_PILL_ACTIVE[s]
+                return (
+                  <button
+                    key={s}
+                    onClick={() => setStatusFilter(s)}
+                    className={cn(
+                      "h-8 px-3 rounded-md text-xs font-medium border transition-all",
+                      statusFilter === s
+                        ? activeClass
+                        : "bg-white border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700"
+                    )}
+                  >
+                    {s === "all" ? "All Statuses" : STATUS_LABELS[s]}
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
-          <CardTitle className="text-sm text-muted-foreground font-normal mt-1">
+          <p className="text-sm text-muted-foreground font-normal mt-1">
             Showing {filtered.length} request{filtered.length !== 1 ? "s" : ""}
-          </CardTitle>
+          </p>
         </CardHeader>
 
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-gray-50">
-                <TableHead>Request ID</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Employee Name</TableHead>
-                <TableHead>Employee ID</TableHead>
-                <TableHead>Department</TableHead>
-                <TableHead>Items</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((req) => {
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm" style={{ tableLayout: "fixed", minWidth: colWidths.reduce((a, b) => a + b, 0) }}>
+            <colgroup>
+              {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
+            </colgroup>
+            <thead>
+              <tr className="bg-slate-800 border-b border-slate-700">
+                {COLS.map((col, idx) => (
+                  <th
+                    key={col.key}
+                    className="relative py-3 text-xs font-semibold text-slate-300 tracking-wide text-left select-none group"
+                    style={{ paddingLeft: idx === 0 ? 20 : 12, paddingRight: 8 }}
+                  >
+                    <button
+                      onClick={() => handleSort(col.key)}
+                      className="inline-flex items-center gap-0.5 hover:text-white transition-colors w-full"
+                    >
+                      {col.label}
+                      <SortIcon col={col.key} />
+                    </button>
+                    {idx < COLS.length - 1 && (
+                      <span
+                        onMouseDown={(e) => onResizeMouseDown(e, idx)}
+                        className="absolute right-0 top-0 h-full w-4 flex items-center justify-center cursor-col-resize z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <span className="w-px h-4 bg-slate-500 rounded" />
+                      </span>
+                    )}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((req, i) => {
                 const p = req.payload as HRPayload
-                const statusClass = STATUS_COLORS[req.status] ?? "bg-zinc-100 text-zinc-700"
-                const typeClass = TYPE_COLORS[p.hrType] ?? "bg-gray-100 text-gray-700"
                 const date = p.hrType === "onboarding" ? p.startDate : p.lastWorkingDay
-
                 return (
-                  <TableRow key={req.id} className="hover:bg-gray-50">
-                    <TableCell className="font-mono text-xs text-muted-foreground">{req.id}</TableCell>
-                    <TableCell>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${typeClass}`}>
+                  <tr
+                    key={req.id}
+                    className={cn(
+                      "border-b border-gray-100 hover:bg-blue-50/30 transition-colors",
+                      i % 2 === 0 ? "bg-white" : "bg-gray-50/40"
+                    )}
+                  >
+                    <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
+                      <span className="font-mono text-[11px] text-gray-400 tracking-wide truncate block">{req.id}</span>
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className={cn(
+                        "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
+                        p.hrType === "onboarding"
+                          ? "bg-blue-50 text-blue-700 ring-1 ring-blue-200"
+                          : "bg-red-50 text-red-700 ring-1 ring-red-200"
+                      )}>
                         {p.hrType === "onboarding" ? "Onboarding" : "Offboarding"}
                       </span>
-                    </TableCell>
-                    <TableCell className="text-sm font-medium">{p.employeeName}</TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">{p.employeeId}</TableCell>
-                    <TableCell className="text-sm">{p.department}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground max-w-[200px]">
-                      <span className="truncate block">{p.items.join(", ")}</span>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{date}</TableCell>
-                    <TableCell>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClass}`}>
+                    </td>
+                    <td className="py-3 px-3 overflow-hidden">
+                      <span className="text-sm font-medium text-gray-800 truncate block">{p.employeeName}</span>
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className="font-mono text-[11px] text-gray-400 tracking-wide">{p.employeeId}</span>
+                    </td>
+                    <td className="py-3 px-3 overflow-hidden">
+                      <span className="text-sm text-gray-700 truncate block">{p.department}</span>
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className="text-[11px] text-gray-500 font-medium whitespace-nowrap">{date}</span>
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className={cn(
+                        "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap",
+                        STATUS_COLORS[req.status] ?? "bg-zinc-100 text-zinc-600"
+                      )}>
+                        <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[req.status] ?? "bg-gray-400")} />
                         {STATUS_LABELS[req.status] ?? req.status}
                       </span>
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                 )
               })}
 
               {filtered.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
-                    No HR requests found
-                  </TableCell>
-                </TableRow>
+                <tr>
+                  <td colSpan={7} className="text-center text-gray-400 text-sm py-16">
+                    No HR requests match the current filters
+                  </td>
+                </tr>
               )}
-            </TableBody>
-          </Table>
-        </CardContent>
+            </tbody>
+          </table>
+
+          {filtered.length > 0 && (
+            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-[11px] text-gray-400 text-right">
+              Showing {filtered.length} of {hrRequests.length} requests
+            </div>
+          )}
+        </div>
       </Card>
     </div>
   )
