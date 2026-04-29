@@ -378,6 +378,12 @@ function OffboardingFormFields({ onCancel }: { onCancel: () => void }) {
           </div>
 
           <div className="space-y-1.5">
+            <Label htmlFor="sector">Sector <span className="text-red-500">*</span></Label>
+            <Input id="sector" placeholder="e.g. Engineering" {...register("sector")} className={cn(errors.sector && "border-red-400")} />
+            <FieldError message={errors.sector?.message} />
+          </div>
+
+          <div className="space-y-1.5">
             <Label htmlFor="lastWorkingDay" className="flex items-center gap-1.5">
               <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
               Last Working Day <span className="text-red-500">*</span>

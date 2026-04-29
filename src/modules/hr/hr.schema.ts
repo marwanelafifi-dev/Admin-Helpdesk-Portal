@@ -55,6 +55,7 @@ export const OffboardingPayloadSchema = z.object({
   employmentType: z.enum(EMPLOYMENT_TYPES),
   directManager: z.string().optional(),
   department: z.string().min(1, "Department is required"),
+  sector: z.string().min(1, "Sector is required"),
   lastWorkingDay: z.string().min(1, "Last working day is required"),
   items: z
     .array(z.enum(OFFBOARDING_ITEMS))

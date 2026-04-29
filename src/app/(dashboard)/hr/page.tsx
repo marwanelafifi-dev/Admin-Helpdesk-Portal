@@ -48,7 +48,7 @@ const COLS: { key: SortKey; label: string; defaultW: number }[] = [
   { key: "employeeId",   label: "Employee ID",   defaultW: 130 },
   { key: "employeeName", label: "Employee Name", defaultW: 180 },
   { key: "department",   label: "Department",    defaultW: 140 },
-  { key: "sector",       label: "Section",       defaultW: 130 },
+  { key: "sector",       label: "Sector",        defaultW: 130 },
   { key: "hrType",       label: "Type",          defaultW: 110 },
   { key: "status",       label: "Status",        defaultW: 120 },
   { key: "date",         label: "Last Update Date", defaultW: 140 },
