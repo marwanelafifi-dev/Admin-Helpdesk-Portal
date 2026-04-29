@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import Link from "next/link"
 import { Search, Plus, Wrench, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
 import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,31 +12,28 @@ import { cn } from "@/lib/utils"
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
-  new: "New", on_hold: "On Hold", in_transit: "In Progress",
-  delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
+  new: "New", on_hold: "In Progress",
+  completed: "Completed", cancelled: "Cancelled",
 }
 
 const STATUS_COLORS: Record<string, string> = {
   new: "bg-sky-50 text-sky-700", on_hold: "bg-amber-50 text-amber-700",
-  in_transit: "bg-blue-50 text-blue-700", delivered: "bg-green-50 text-green-700",
   completed: "bg-emerald-50 text-emerald-700", cancelled: "bg-red-50 text-red-600",
 }
 
 const STATUS_DOT: Record<string, string> = {
-  new: "bg-sky-500", on_hold: "bg-amber-500", in_transit: "bg-blue-500",
-  delivered: "bg-green-500", completed: "bg-emerald-500", cancelled: "bg-red-500",
+  new: "bg-sky-500", on_hold: "bg-amber-500",
+  completed: "bg-emerald-500", cancelled: "bg-red-500",
 }
 
 const STATUS_PILL_ACTIVE: Record<string, string> = {
   new: "bg-sky-500 border-sky-500 text-white",
   on_hold: "bg-amber-500 border-amber-500 text-white",
-  in_transit: "bg-blue-600 border-blue-600 text-white",
-  delivered: "bg-green-600 border-green-600 text-white",
   completed: "bg-emerald-600 border-emerald-600 text-white",
   cancelled: "bg-red-600 border-red-600 text-white",
 }
 
-const STATUSES = ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"] as const
+const STATUSES = ["new", "on_hold", "completed", "cancelled"] as const
 
 type SortKey = "id" | "title" | "priority" | "status" | "updatedAt"
 
@@ -117,15 +115,15 @@ export default function MaintenancePage() {
   const counts = useMemo(() => ({
     total:     requests.length,
     new:       requests.filter((r) => r.status === "new").length,
-    inProgress:requests.filter((r) => r.status === "in_transit").length,
+    inProgress:requests.filter((r) => r.status === "on_hold").length,
     completed: requests.filter((r) => r.status === "completed").length,
   }), [requests])
 
   const statCards = [
-    { key: "all",        label: "Total Tickets", value: counts.total,      icon: Wrench,        iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
-    { key: "new",        label: "New",            value: counts.new,        icon: Clock,         iconBg: "bg-sky-50",    iconColor: "text-sky-600",    activeBg: "bg-sky-500",    activeBorder: "border-sky-500" },
-    { key: "in_transit", label: "In Progress",    value: counts.inProgress, icon: Wrench,        iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
-    { key: "completed",  label: "Completed",      value: counts.completed,  icon: CheckCircle2,  iconBg: "bg-emerald-50",iconColor: "text-emerald-600",activeBg: "bg-emerald-600",activeBorder: "border-emerald-600" },
+    { key: "all",       label: "Total Tickets", value: counts.total,      icon: Wrench,       iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
+    { key: "new",       label: "New",           value: counts.new,        icon: Clock,        iconBg: "bg-sky-50",    iconColor: "text-sky-600",    activeBg: "bg-sky-500",    activeBorder: "border-sky-500" },
+    { key: "on_hold",   label: "In Progress",   value: counts.inProgress, icon: Wrench,       iconBg: "bg-amber-50",  iconColor: "text-amber-600",  activeBg: "bg-amber-500",  activeBorder: "border-amber-500" },
+    { key: "completed", label: "Completed",     value: counts.completed,  icon: CheckCircle2, iconBg: "bg-emerald-50",iconColor: "text-emerald-600",activeBg: "bg-emerald-600",activeBorder: "border-emerald-600" },
   ] as const
 
   return (
@@ -137,10 +135,12 @@ export default function MaintenancePage() {
           <h1 className="text-2xl font-bold tracking-tight">Maintenance</h1>
           <p className="text-muted-foreground text-sm mt-0.5">Submit and track maintenance requests</p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white" disabled>
-          <Plus className="h-4 w-4 mr-2" />
-          New Maintenance Request
-        </Button>
+        <Link href="/maintenance/new">
+          <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+            <Plus className="h-4 w-4 mr-2" />
+            New Maintenance Request
+          </Button>
+        </Link>
       </div>
 
       {/* Stat Cards */}

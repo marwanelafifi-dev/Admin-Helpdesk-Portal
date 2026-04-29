@@ -15,29 +15,29 @@ import { cn } from "@/lib/utils"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STATUSES = ["New", "On Hold", "In Transit", "Delivered", "Cancelled"] as const
+const STATUSES = ["New", "In Progress", "In Customs", "Delivered", "Cancelled"] as const
 const CARRIERS = ["DHL", "FedEx", "UPS", "Aramex", "Other"] as const
 
 const STATUS_COLORS: Record<string, string> = {
   "New":        "bg-sky-50 text-sky-700",
-  "On Hold":    "bg-amber-50 text-amber-700",
-  "In Transit": "bg-blue-50 text-blue-700",
+  "In Progress": "bg-blue-50 text-blue-700",
+  "In Customs": "bg-amber-50 text-amber-700",
   "Delivered":  "bg-green-50 text-green-700",
   "Cancelled":  "bg-red-50 text-red-600",
 }
 
 const STATUS_DOT: Record<string, string> = {
   "New":        "bg-sky-500",
-  "On Hold":    "bg-amber-500",
-  "In Transit": "bg-blue-500",
+  "In Progress": "bg-blue-500",
+  "In Customs": "bg-amber-500",
   "Delivered":  "bg-green-500",
   "Cancelled":  "bg-red-500",
 }
 
 const STATUS_PILL_ACTIVE: Record<string, string> = {
   "New":        "bg-sky-500 border-sky-500 text-white",
-  "On Hold":    "bg-amber-500 border-amber-500 text-white",
-  "In Transit": "bg-blue-600 border-blue-600 text-white",
+  "In Progress": "bg-blue-600 border-blue-600 text-white",
+  "In Customs": "bg-amber-600 border-amber-600 text-white",
   "Delivered":  "bg-green-600 border-green-600 text-white",
   "Cancelled":  "bg-red-600 border-red-600 text-white",
 }
@@ -102,17 +102,17 @@ export default function ShippingPage() {
   }, [search, statusFilter, carrierFilter, sortKey, sortDir])
 
   const stats = {
-    total:     mockShipments.length,
-    onHold:    mockShipments.filter((s) => s.status === "On Hold").length,
-    inTransit: mockShipments.filter((s) => s.status === "In Transit").length,
-    delivered: mockShipments.filter((s) => s.status === "Delivered").length,
+    total:      mockShipments.length,
+    inProgress: mockShipments.filter((s) => s.status === "In Progress").length,
+    inCustoms:  mockShipments.filter((s) => s.status === "In Customs").length,
+    delivered:  mockShipments.filter((s) => s.status === "Delivered").length,
   }
 
   const statCards = [
-    { key: "all",        label: "Total Shipments", value: stats.total,     icon: Package,      iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
-    { key: "On Hold",    label: "On Hold",          value: stats.onHold,    icon: Clock,        iconBg: "bg-amber-50",  iconColor: "text-amber-600",  activeBg: "bg-amber-500",  activeBorder: "border-amber-500" },
-    { key: "In Transit", label: "In Transit",       value: stats.inTransit, icon: Truck,        iconBg: "bg-blue-50",   iconColor: "text-indigo-600", activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
-    { key: "Delivered",  label: "Delivered",        value: stats.delivered, icon: CheckCircle2, iconBg: "bg-green-50",  iconColor: "text-green-600",  activeBg: "bg-green-600",  activeBorder: "border-green-600" },
+    { key: "all",          label: "Total Shipments", value: stats.total,      icon: Package,      iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
+    { key: "In Progress",  label: "In Progress",     value: stats.inProgress, icon: Truck,        iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
+    { key: "In Customs",   label: "In Customs",      value: stats.inCustoms,  icon: Clock,        iconBg: "bg-amber-50",  iconColor: "text-amber-600",  activeBg: "bg-amber-600",  activeBorder: "border-amber-600" },
+    { key: "Delivered",    label: "Delivered",       value: stats.delivered,  icon: CheckCircle2, iconBg: "bg-green-50",  iconColor: "text-green-600",  activeBg: "bg-green-600",  activeBorder: "border-green-600" },
   ] as const
 
   return (

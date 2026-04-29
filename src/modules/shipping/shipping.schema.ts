@@ -8,12 +8,11 @@ export const CARRIERS = ["DHL", "FedEx", "UPS", "Aramex", "Other"] as const
 
 export const REQUEST_STATUSES = [
   "draft",
-  "pending_approval",
-  "approved",
-  "rejected",
-  "in_progress",
-  "completed",
-  "cancelled",
+  "New",
+  "In Progress",
+  "In Customs",
+  "Delivered",
+  "Cancelled",
 ] as const
 
 export const AttachmentSchema = z.object({

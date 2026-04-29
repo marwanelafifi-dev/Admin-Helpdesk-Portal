@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import Link from "next/link"
 import { Search, Plus, ShoppingCart, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
 import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,41 +12,41 @@ import { cn } from "@/lib/utils"
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
-  new: "New", on_hold: "On Hold", in_transit: "In Transit",
-  delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
+  new: "New", on_hold: "In Progress", in_customs: "Awaiting Approval",
+  delivered: "Delivered", cancelled: "Cancelled",
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  new: "bg-sky-50 text-sky-700", on_hold: "bg-amber-50 text-amber-700",
-  in_transit: "bg-blue-50 text-blue-700", delivered: "bg-green-50 text-green-700",
-  completed: "bg-emerald-50 text-emerald-700", cancelled: "bg-red-50 text-red-600",
+  new: "bg-sky-50 text-sky-700", on_hold: "bg-blue-50 text-blue-700",
+  in_customs: "bg-amber-50 text-amber-700", delivered: "bg-green-50 text-green-700",
+  cancelled: "bg-red-50 text-red-600",
 }
 
 const STATUS_DOT: Record<string, string> = {
-  new: "bg-sky-500", on_hold: "bg-amber-500", in_transit: "bg-blue-500",
-  delivered: "bg-green-500", completed: "bg-emerald-500", cancelled: "bg-red-500",
+  new: "bg-sky-500", on_hold: "bg-blue-500", in_customs: "bg-amber-500",
+  delivered: "bg-green-500", cancelled: "bg-red-500",
 }
 
 const STATUS_PILL_ACTIVE: Record<string, string> = {
   new: "bg-sky-500 border-sky-500 text-white",
-  on_hold: "bg-amber-500 border-amber-500 text-white",
-  in_transit: "bg-blue-600 border-blue-600 text-white",
+  on_hold: "bg-blue-600 border-blue-600 text-white",
+  in_customs: "bg-amber-600 border-amber-600 text-white",
   delivered: "bg-green-600 border-green-600 text-white",
-  completed: "bg-emerald-600 border-emerald-600 text-white",
   cancelled: "bg-red-600 border-red-600 text-white",
 }
 
-const STATUSES = ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"] as const
+const STATUSES = ["new", "in_customs", "on_hold", "delivered", "cancelled"] as const
 
-type SortKey = "id" | "title" | "supplier" | "budget" | "status" | "updatedAt"
+type SortKey = "id" | "title" | "supplier" | "estimatedPrice" | "requesterName" | "createdAt" | "updatedAt"
 
 const COLS: { key: SortKey; label: string; defaultW: number }[] = [
-  { key: "id",        label: "Request ID",  defaultW: 140 },
-  { key: "title",     label: "Title",       defaultW: 260 },
-  { key: "supplier",  label: "Supplier",    defaultW: 140 },
-  { key: "budget",    label: "Budget",      defaultW: 110 },
-  { key: "status",    label: "Status",      defaultW: 130 },
-  { key: "updatedAt", label: "Last Updated",defaultW: 130 },
+  { key: "id",             label: "Request ID",      defaultW: 140 },
+  { key: "title",          label: "Title",           defaultW: 260 },
+  { key: "estimatedPrice", label: "Estimated Price", defaultW: 140 },
+  { key: "supplier",       label: "Supplier",        defaultW: 140 },
+  { key: "requesterName",  label: "Requester Name",  defaultW: 160 },
+  { key: "createdAt",      label: "Request Date",    defaultW: 130 },
+  { key: "updatedAt",      label: "Last Updated",    defaultW: 130 },
 ]
 
 function formatDate(iso: string) {
@@ -103,29 +104,43 @@ export default function PurchasePage() {
     let result = requests
     if (statusFilter !== "all") result = result.filter((r) => r.status === statusFilter)
     const q = search.trim().toLowerCase()
-    if (q) result = result.filter((r) => r.id.toLowerCase().includes(q) || r.title.toLowerCase().includes(q))
+    if (q) result = result.filter((r) =>
+      r.id.toLowerCase().includes(q) ||
+      r.title.toLowerCase().includes(q) ||
+      r.requesterName.toLowerCase().includes(q)
+    )
     return result.sort((a, b) => {
-      const getVal = (r: EngineRequest) => {
-        if (sortKey === "supplier") return String((r.payload as Record<string, unknown>).supplier ?? "")
-        if (sortKey === "budget") return String((r.payload as Record<string, unknown>).budget ?? "")
-        return String(r[sortKey as keyof EngineRequest] ?? "")
+      let av: string = "", bv: string = ""
+      if (sortKey === "createdAt" || sortKey === "updatedAt") {
+        const diff = new Date(a[sortKey]).getTime() - new Date(b[sortKey]).getTime()
+        return sortDir === "asc" ? diff : -diff
       }
-      return sortDir === "asc" ? getVal(a).localeCompare(getVal(b)) : getVal(b).localeCompare(getVal(a))
+      if (sortKey === "estimatedPrice") {
+        const aVal = Number((a.payload as Record<string, unknown>).estimatedPrice ?? 0)
+        const bVal = Number((b.payload as Record<string, unknown>).estimatedPrice ?? 0)
+        return sortDir === "asc" ? aVal - bVal : bVal - aVal
+      }
+      if (sortKey === "supplier") return String((a.payload as Record<string, unknown>).supplier ?? "").localeCompare(String((b.payload as Record<string, unknown>).supplier ?? ""))
+      av = (a[sortKey as keyof EngineRequest] as string) ?? ""
+      bv = (b[sortKey as keyof EngineRequest] as string) ?? ""
+      return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
   }, [requests, statusFilter, search, sortKey, sortDir])
 
   const counts = useMemo(() => ({
     total:   requests.length,
     new:     requests.filter((r) => r.status === "new").length,
-    onHold:  requests.filter((r) => r.status === "on_hold").length,
-    completed: requests.filter((r) => r.status === "completed").length,
+    inProgress: requests.filter((r) => r.status === "on_hold").length,
+    awaitingApproval: requests.filter((r) => r.status === "in_customs").length,
+    delivered: requests.filter((r) => r.status === "delivered").length,
   }), [requests])
 
   const statCards = [
-    { key: "all",       label: "Total Orders",      value: counts.total,    icon: ShoppingCart, iconBg: "bg-blue-50",   iconColor: "text-blue-600",    activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
-    { key: "new",       label: "New",               value: counts.new,      icon: Clock,        iconBg: "bg-sky-50",    iconColor: "text-sky-600",     activeBg: "bg-sky-500",    activeBorder: "border-sky-500" },
-    { key: "on_hold",   label: "Pending Approval",  value: counts.onHold,   icon: Clock,        iconBg: "bg-amber-50",  iconColor: "text-amber-600",   activeBg: "bg-amber-500",  activeBorder: "border-amber-500" },
-    { key: "completed", label: "Completed",         value: counts.completed,icon: CheckCircle2, iconBg: "bg-emerald-50",iconColor: "text-emerald-600", activeBg: "bg-emerald-600",activeBorder: "border-emerald-600" },
+    { key: "all",         label: "Total Orders",       value: counts.total,               icon: ShoppingCart, iconBg: "bg-blue-50",   iconColor: "text-blue-600",    activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
+    { key: "new",         label: "New",                value: counts.new,                 icon: Clock,        iconBg: "bg-sky-50",    iconColor: "text-sky-600",     activeBg: "bg-sky-500",    activeBorder: "border-sky-500" },
+    { key: "in_customs",  label: "Awaiting Approval",  value: counts.awaitingApproval,   icon: Clock,        iconBg: "bg-amber-50",  iconColor: "text-amber-600",   activeBg: "bg-amber-500",  activeBorder: "border-amber-500" },
+    { key: "on_hold",     label: "In Progress",        value: counts.inProgress,          icon: Clock,        iconBg: "bg-blue-50",   iconColor: "text-blue-600",    activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
+    { key: "delivered",   label: "Delivered",          value: counts.delivered,           icon: CheckCircle2, iconBg: "bg-green-50",  iconColor: "text-green-600",   activeBg: "bg-green-600",  activeBorder: "border-green-600" },
   ] as const
 
   return (
@@ -137,14 +152,16 @@ export default function PurchasePage() {
           <h1 className="text-2xl font-bold tracking-tight">Purchase</h1>
           <p className="text-muted-foreground text-sm mt-0.5">Manage purchase orders and procurement requests</p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white" disabled>
-          <Plus className="h-4 w-4 mr-2" />
-          New Purchase Request
-        </Button>
+        <Link href="/purchase/new">
+          <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+            <Plus className="h-4 w-4 mr-2" />
+            New Purchase Request
+          </Button>
+        </Link>
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
         {statCards.map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }) => {
           const isActive = statusFilter === key || (key === "all" && statusFilter === "all")
           return (
@@ -152,16 +169,16 @@ export default function PurchasePage() {
               key={key}
               onClick={() => setStatusFilter(key === "all" ? "all" : (p) => p === key ? "all" : key)}
               className={cn(
-                "text-left rounded-xl border-2 p-5 flex items-center gap-4 transition-all hover:shadow-md",
+                "text-left rounded-lg border-2 p-3 flex flex-col items-start gap-2 transition-all hover:shadow-sm",
                 isActive ? `${activeBg} ${activeBorder} text-white shadow-sm` : "bg-white border-gray-100 hover:border-gray-200"
               )}
             >
-              <div className={cn("h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all", isActive ? "bg-white/20" : iconBg)}>
-                <Icon className={cn("h-6 w-6 transition-all", isActive ? "text-white" : iconColor)} />
+              <div className={cn("h-8 w-8 rounded flex items-center justify-center flex-shrink-0 transition-all", isActive ? "bg-white/20" : iconBg)}>
+                <Icon className={cn("h-4 w-4 transition-all", isActive ? "text-white" : iconColor)} />
               </div>
-              <div>
-                <p className={cn("text-sm font-medium", isActive ? "text-white/80" : "text-muted-foreground")}>{label}</p>
-                <p className={cn("text-2xl font-bold", isActive ? "text-white" : "")}>{value}</p>
+              <div className="w-full">
+                <p className={cn("text-[10px] font-medium uppercase tracking-tight leading-tight", isActive ? "text-white/75" : "text-muted-foreground")}>{label}</p>
+                <p className={cn("text-xl font-bold mt-0.5", isActive ? "text-white" : "")}>{value}</p>
               </div>
             </button>
           )
@@ -241,18 +258,18 @@ export default function PurchasePage() {
                     <span className="text-sm font-medium text-gray-800 truncate block">{req.title}</span>
                   </td>
                   <td className="py-3 px-3">
+                    <span className="text-sm text-gray-700 font-medium">
+                      EGP {Number((req.payload as Record<string, unknown>).estimatedPrice ?? 0).toLocaleString()}
+                    </span>
+                  </td>
+                  <td className="py-3 px-3">
                     <span className="text-sm text-gray-700">{String((req.payload as Record<string, unknown>).supplier ?? "—")}</span>
                   </td>
-                  <td className="py-3 px-3">
-                    <span className="text-sm text-gray-700 font-medium">
-                      ${Number((req.payload as Record<string, unknown>).budget ?? 0).toLocaleString()}
-                    </span>
+                  <td className="py-3 px-3 overflow-hidden">
+                    <span className="text-sm text-gray-700 truncate block">{req.requesterName}</span>
                   </td>
                   <td className="py-3 px-3">
-                    <span className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap", STATUS_COLORS[req.status] ?? "bg-zinc-100 text-zinc-600")}>
-                      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[req.status] ?? "bg-gray-400")} />
-                      {STATUS_LABELS[req.status] ?? req.status}
-                    </span>
+                    <span className="text-[11px] text-gray-500 font-medium">{formatDate(req.createdAt)}</span>
                   </td>
                   <td className="py-3 px-3">
                     <span className="text-[11px] text-gray-500 font-medium">{formatDate(req.updatedAt)}</span>
@@ -262,20 +279,13 @@ export default function PurchasePage() {
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-16 text-center text-gray-400 text-sm">
+                  <td colSpan={7} className="py-16 text-center text-gray-400 text-sm">
                     No orders match the current filters
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
-
-          {/* Coming soon message */}
-          <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground border-t border-gray-100">
-            <ShoppingCart className="h-10 w-10 mb-3 text-slate-300" />
-            <p className="font-medium text-sm">Purchase module coming soon</p>
-            <p className="text-xs mt-1">Vendor management, budget tracking, and PO approvals will appear here</p>
-          </div>
 
           {filtered.length > 0 && (
             <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-[11px] text-gray-400 text-right">

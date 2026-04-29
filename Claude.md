@@ -9,7 +9,15 @@ This document tracks the phased development of the Admin Request Platform, movin
 - [x] Global Dashboard & UI/UX Layout.
 - [x] Authentication & RBAC System (Super Admin, Admin, Manager, Requester, Viewer).
 
-## Phase 2: Core Module Implementation (Current)
+## Phase 2: Core Module Implementation (Current) — UI Complete, Forms Pending
+- [x] **Dashboard — Professional Analytics Redesign:**
+  - [x] Primary KPIs: Total Requests, Active Requests, Completed, Avg Resolution Days — all with trend indicators.
+  - [x] Secondary KPIs: Pending Approvals, Overdue Items (7+ days), Cancellation Rate.
+  - [x] Status breakdown bar chart (Draft/New/On Hold/In Transit/Delivered/Completed/Cancelled).
+  - [x] Module distribution pie chart (all 6 modules with color-coded segments).
+  - [x] Recent activity stream (10 most recent with timestamps, status badges).
+  - [x] Smart alerts panel: overdue count, pending approvals warning, cancellation rate flag, or "All Clear".
+  - [x] Trend indicators (up/down arrows) with comparison labels on all KPI cards.
 - [x] **Shipping Module:** Full CRUD, tracking, and status updates.
   - [x] Shipping-specific statuses: Draft → New → On Hold → In Transit → Delivered → Completed → Cancelled.
   - [x] Carrier filter pills (DHL, FedEx, UPS, Aramex, Other).
@@ -102,19 +110,32 @@ Every module page follows the same formal layout:
 | Completed | Emerald | Fully resolved and closed |
 | Cancelled | Red | Cancelled by user or admin |
 
+## Statistics & Metrics Tracked on Dashboard
+- **Total Requests:** Count across all modules and statuses.
+- **Active Requests:** Count of requests in New, On Hold, or In Transit status.
+- **Completed Requests:** Count of requests in Completed status.
+- **Average Resolution Time:** Mean days from creation to completion.
+- **On-Time Completion Rate:** % of completed requests (baseline metric).
+- **Pending Approvals:** Count of New + On Hold requests.
+- **Overdue Items:** Count of requests pending for 7+ days (not Completed/Cancelled/Delivered).
+- **Cancellation Rate:** % of cancelled requests out of total.
+- **Module Breakdown:** Count per module (Shipping, Maintenance, Purchase, Event, Travel, HR).
+- **Status Distribution:** Count per status across all modules.
+
 ## Key Files
 | File | Purpose |
 |------|---------|
+| `src/app/(dashboard)/dashboard/page.tsx` | Professional analytics dashboard with KPIs, charts, alerts |
 | `src/services/engineService.ts` | Core request engine, localStorage, mock data seed (v7) |
-| `src/app/(dashboard)/requests/page.tsx` | My Requests unified view |
+| `src/app/(dashboard)/requests/page.tsx` | My Requests unified view (sortable + resizable) |
 | `src/app/(dashboard)/admin/all-requests/page.tsx` | All Requests admin view (all team members) |
-| `src/app/(dashboard)/shipping/page.tsx` | Shipping module page |
-| `src/app/(dashboard)/hr/page.tsx` | HR module page (list + tabs) |
+| `src/app/(dashboard)/shipping/page.tsx` | Shipping module page (formal style + CRUD) |
+| `src/app/(dashboard)/hr/page.tsx` | HR module page (list + tabs, formal style) |
 | `src/app/(dashboard)/hr/new/page.tsx` | New HR request form page |
-| `src/app/(dashboard)/maintenance/page.tsx` | Maintenance module page (mock data + coming soon) |
-| `src/app/(dashboard)/purchase/page.tsx` | Purchase module page (mock data + coming soon) |
-| `src/app/(dashboard)/event/page.tsx` | Event module page (mock data + coming soon) |
-| `src/app/(dashboard)/travel/page.tsx` | Travel module page (mock data + coming soon) |
+| `src/app/(dashboard)/maintenance/page.tsx` | Maintenance module page (formal style, mock data, coming soon) |
+| `src/app/(dashboard)/purchase/page.tsx` | Purchase module page (formal style, mock data, coming soon) |
+| `src/app/(dashboard)/event/page.tsx` | Event module page (formal style, mock data, coming soon) |
+| `src/app/(dashboard)/travel/page.tsx` | Travel module page (formal style, mock data, coming soon) |
 | `src/modules/hr/hr.schema.ts` | Zod schemas for Onboarding & Offboarding |
 | `src/modules/hr/HRForm.tsx` | HR create form (Onboarding / Offboarding toggle) |
 | `src/components/layout/Sidebar.tsx` | Navigation sidebar |

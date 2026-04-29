@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils"
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
-  new: "New", on_hold: "On Hold", completed: "Completed",
+  new: "New", on_hold: "In Progress", completed: "Completed",
 }
 
 const STATUS_COLORS: Record<string, string> = {

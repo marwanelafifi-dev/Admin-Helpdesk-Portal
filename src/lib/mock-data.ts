@@ -14,7 +14,7 @@ export interface MockShipment {
   carrier: string
   origin: string
   destination: string
-  status: "New" | "On Hold" | "In Transit" | "Delivered" | "Cancelled"
+  status: "New" | "On Hold" | "In Customs" | "Delivered" | "Cancelled"
   expectedDelivery: string
   requester: string
 }
@@ -87,13 +87,13 @@ export const mockRequests: MockRequest[] = [
 ]
 
 export const mockShipments: MockShipment[] = [
-  { id: "SHP-0067", trackingNumber: "1Z999AA10123456784", carrier: "DHL", origin: "Cairo, EG", destination: "Dubai, AE", status: "In Transit", expectedDelivery: "2026-04-30", requester: "Marwan Elafifi" },
+  { id: "SHP-0067", trackingNumber: "1Z999AA10123456784", carrier: "DHL", origin: "Cairo, EG", destination: "Dubai, AE", status: "In Customs", expectedDelivery: "2026-04-30", requester: "Marwan Elafifi" },
   { id: "SHP-0066", trackingNumber: "9400111899223388456", carrier: "FedEx", origin: "Alexandria, EG", destination: "London, UK", status: "Delivered", expectedDelivery: "2026-04-22", requester: "Sara Ali" },
   { id: "SHP-0065", trackingNumber: "JD014600006741234567", carrier: "Aramex", origin: "Cairo, EG", destination: "Riyadh, SA", status: "On Hold", expectedDelivery: "2026-05-03", requester: "Ahmed Hassan" },
-  { id: "SHP-0064", trackingNumber: "1Z999AA10123456785", carrier: "UPS", origin: "Giza, EG", destination: "Frankfurt, DE", status: "In Transit", expectedDelivery: "2026-04-29", requester: "Omar Farouk" },
+  { id: "SHP-0064", trackingNumber: "1Z999AA10123456785", carrier: "UPS", origin: "Giza, EG", destination: "Frankfurt, DE", status: "In Customs", expectedDelivery: "2026-04-29", requester: "Omar Farouk" },
   { id: "SHP-0063", trackingNumber: "4206300192748927005377", carrier: "USPS", origin: "Cairo, EG", destination: "New York, US", status: "Delivered", expectedDelivery: "2026-04-18", requester: "Nour Ibrahim" },
   { id: "SHP-0062", trackingNumber: "JD014600006741234568", carrier: "TNT", origin: "Cairo, EG", destination: "Paris, FR", status: "Cancelled", expectedDelivery: "2026-04-15", requester: "Khalid Mahmoud" },
-  { id: "SHP-0061", trackingNumber: "1Z999AA10123456786", carrier: "Maersk", origin: "Port Said, EG", destination: "Rotterdam, NL", status: "In Transit", expectedDelivery: "2026-05-10", requester: "Dina Youssef" },
+  { id: "SHP-0061", trackingNumber: "1Z999AA10123456786", carrier: "Maersk", origin: "Port Said, EG", destination: "Rotterdam, NL", status: "In Customs", expectedDelivery: "2026-05-10", requester: "Dina Youssef" },
 ]
 
 export const mockUsers: MockUser[] = [

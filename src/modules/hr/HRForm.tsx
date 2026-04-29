@@ -8,6 +8,8 @@ import { z } from "zod"
 import {
   ONBOARDING_ITEMS,
   OFFBOARDING_ITEMS,
+  EMPLOYMENT_TYPES,
+  ENTITIES,
   OnboardingPayloadSchema,
   OffboardingPayloadSchema,
 } from "./hr.schema"
@@ -17,7 +19,10 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { AlertCircle, UserPlus, UserMinus, User, Building2, Calendar, ClipboardList } from "lucide-react"
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select"
+import { AlertCircle, UserPlus, UserMinus, User, Building2, Calendar, ClipboardList, Upload, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const BRAND = "#0F766E" // teal-700
@@ -57,9 +62,10 @@ type OffboardingForm = z.infer<typeof OffboardingPayloadSchema>
 
 function OnboardingFormFields({ onCancel }: { onCancel: () => void }) {
   const router = useRouter()
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<OnboardingForm>({
     resolver: zodResolver(OnboardingPayloadSchema),
-    defaultValues: { hrType: "onboarding", items: [] },
+    defaultValues: { hrType: "onboarding", items: [], attachments: [] },
   })
 
   const onSubmit = (data: OnboardingForm) => {
@@ -93,6 +99,58 @@ function OnboardingFormFields({ onCancel }: { onCancel: () => void }) {
               <FieldError message={errors.employeeId?.message} />
             </div>
           </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="mobileNumber">Mobile Number <span className="text-red-500">*</span></Label>
+              <Input id="mobileNumber" placeholder="+1 (555) 000-0000" {...register("mobileNumber")} className={cn(errors.mobileNumber && "border-red-400")} />
+              <FieldError message={errors.mobileNumber?.message} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="nationalIdNumber">National ID Number <span className="text-red-500">*</span></Label>
+              <Input id="nationalIdNumber" placeholder="National ID" {...register("nationalIdNumber")} className={cn(errors.nationalIdNumber && "border-red-400")} />
+              <FieldError message={errors.nationalIdNumber?.message} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="jobTitle">Job Title</Label>
+              <Input id="jobTitle" placeholder="e.g. Senior Engineer" {...register("jobTitle")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="employmentType">Employment Type <span className="text-red-500">*</span></Label>
+              <Controller
+                name="employmentType"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className={cn(errors.employmentType && "border-red-400")}>
+                      <SelectValue placeholder="Select employment type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {EMPLOYMENT_TYPES.map((type) => (
+                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              <FieldError message={errors.employmentType?.message} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="directManager">Direct Manager</Label>
+              <Input id="directManager" placeholder="Manager name" {...register("directManager")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="sector">Sector</Label>
+              <Input id="sector" placeholder="e.g. Technology" {...register("sector")} />
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="department">Department <span className="text-red-500">*</span></Label>
@@ -100,13 +158,34 @@ function OnboardingFormFields({ onCancel }: { onCancel: () => void }) {
               <FieldError message={errors.department?.message} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="startDate" className="flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                Start Date <span className="text-red-500">*</span>
-              </Label>
-              <Input id="startDate" type="date" {...register("startDate")} className={cn(errors.startDate && "border-red-400")} />
-              <FieldError message={errors.startDate?.message} />
+              <Label htmlFor="entity">Entity <span className="text-red-500">*</span></Label>
+              <Controller
+                name="entity"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className={cn(errors.entity && "border-red-400")}>
+                      <SelectValue placeholder="Select entity" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ENTITIES.map((entity) => (
+                        <SelectItem key={entity} value={entity}>{entity}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              <FieldError message={errors.entity?.message} />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="startDate" className="flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+              Start Date <span className="text-red-500">*</span>
+            </Label>
+            <Input id="startDate" type="date" {...register("startDate")} className={cn(errors.startDate && "border-red-400")} />
+            <FieldError message={errors.startDate?.message} />
           </div>
         </CardContent>
       </Card>
@@ -149,6 +228,56 @@ function OnboardingFormFields({ onCancel }: { onCancel: () => void }) {
         </CardContent>
       </Card>
 
+      {/* Attachments */}
+      <Card>
+        <SectionHeader icon={Upload} title="Attachments" subtitle="Upload supporting documents" />
+        <CardContent>
+          <div className="space-y-3">
+            <input
+              id="attachments"
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) {
+                  setUploadedFiles(Array.from(e.target.files))
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => document.getElementById("attachments")?.click()}
+              className="w-full px-6 py-8 border-2 border-dashed border-teal-300 rounded-lg hover:border-teal-500 hover:bg-teal-50 transition-all duration-200 flex flex-col items-center justify-center gap-2 group"
+            >
+              <Upload className="h-6 w-6 text-teal-600 group-hover:scale-110 transition-transform duration-200" />
+              <span className="text-sm font-medium text-gray-700">Click to upload or drag and drop</span>
+              <span className="text-xs text-muted-foreground">ID copies, contracts, or other documents</span>
+            </button>
+
+            {uploadedFiles.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-700">{uploadedFiles.length} file(s) selected:</p>
+                <div className="space-y-1.5">
+                  {uploadedFiles.map((file, idx) => (
+                    <div key={idx} className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-teal-50 border border-teal-200">
+                      <span className="text-sm text-gray-700 truncate">{file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setUploadedFiles(uploadedFiles.filter((_, i) => i !== idx))}
+                        className="p-1 hover:bg-teal-200 rounded transition-colors"
+                      >
+                        <X className="h-4 w-4 text-teal-600" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">Optional: Upload supporting documents for faster processing</p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Notes */}
       <Card>
         <SectionHeader icon={Building2} title="Additional Notes" subtitle="Any extra information for this request" />
@@ -171,9 +300,10 @@ function OnboardingFormFields({ onCancel }: { onCancel: () => void }) {
 
 function OffboardingFormFields({ onCancel }: { onCancel: () => void }) {
   const router = useRouter()
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<OffboardingForm>({
     resolver: zodResolver(OffboardingPayloadSchema),
-    defaultValues: { hrType: "offboarding", items: [] },
+    defaultValues: { hrType: "offboarding", items: [], attachments: [] },
   })
 
   const onSubmit = (data: OffboardingForm) => {
@@ -207,20 +337,53 @@ function OffboardingFormFields({ onCancel }: { onCancel: () => void }) {
               <FieldError message={errors.employeeId?.message} />
             </div>
           </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="jobTitle">Job Title</Label>
+              <Input id="jobTitle" placeholder="e.g. Senior Manager" {...register("jobTitle")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="employmentType">Employment Type <span className="text-red-500">*</span></Label>
+              <Controller
+                name="employmentType"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className={cn(errors.employmentType && "border-red-400")}>
+                      <SelectValue placeholder="Select employment type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {EMPLOYMENT_TYPES.map((type) => (
+                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              <FieldError message={errors.employmentType?.message} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="directManager">Direct Manager</Label>
+              <Input id="directManager" placeholder="Manager name" {...register("directManager")} />
+            </div>
             <div className="space-y-1.5">
               <Label htmlFor="department">Department <span className="text-red-500">*</span></Label>
               <Input id="department" placeholder="e.g. Marketing" {...register("department")} className={cn(errors.department && "border-red-400")} />
               <FieldError message={errors.department?.message} />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="lastWorkingDay" className="flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                Last Working Day <span className="text-red-500">*</span>
-              </Label>
-              <Input id="lastWorkingDay" type="date" {...register("lastWorkingDay")} className={cn(errors.lastWorkingDay && "border-red-400")} />
-              <FieldError message={errors.lastWorkingDay?.message} />
-            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="lastWorkingDay" className="flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+              Last Working Day <span className="text-red-500">*</span>
+            </Label>
+            <Input id="lastWorkingDay" type="date" {...register("lastWorkingDay")} className={cn(errors.lastWorkingDay && "border-red-400")} />
+            <FieldError message={errors.lastWorkingDay?.message} />
           </div>
         </CardContent>
       </Card>
@@ -260,6 +423,56 @@ function OffboardingFormFields({ onCancel }: { onCancel: () => void }) {
               </div>
             )}
           />
+        </CardContent>
+      </Card>
+
+      {/* Attachments */}
+      <Card>
+        <SectionHeader icon={Upload} title="Attachments" subtitle="Upload supporting documents" />
+        <CardContent>
+          <div className="space-y-3">
+            <input
+              id="offboarding-attachments"
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) {
+                  setUploadedFiles(Array.from(e.target.files))
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => document.getElementById("offboarding-attachments")?.click()}
+              className="w-full px-6 py-8 border-2 border-dashed border-red-300 rounded-lg hover:border-red-500 hover:bg-red-50 transition-all duration-200 flex flex-col items-center justify-center gap-2 group"
+            >
+              <Upload className="h-6 w-6 text-red-600 group-hover:scale-110 transition-transform duration-200" />
+              <span className="text-sm font-medium text-gray-700">Click to upload or drag and drop</span>
+              <span className="text-xs text-muted-foreground">Exit documents or other files</span>
+            </button>
+
+            {uploadedFiles.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-700">{uploadedFiles.length} file(s) selected:</p>
+                <div className="space-y-1.5">
+                  {uploadedFiles.map((file, idx) => (
+                    <div key={idx} className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-red-50 border border-red-200">
+                      <span className="text-sm text-gray-700 truncate">{file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setUploadedFiles(uploadedFiles.filter((_, i) => i !== idx))}
+                        className="p-1 hover:bg-red-200 rounded transition-colors"
+                      >
+                        <X className="h-4 w-4 text-red-600" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">Optional: Upload supporting documents for faster processing</p>
+          </div>
         </CardContent>
       </Card>
 

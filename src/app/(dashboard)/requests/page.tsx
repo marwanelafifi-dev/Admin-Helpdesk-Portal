@@ -10,8 +10,9 @@ import { cn } from "@/lib/utils"
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: "Draft", new: "New", on_hold: "On Hold", in_transit: "In Transit",
+  draft: "Draft", new: "New", on_hold: "In Progress", in_transit: "In Customs",
   delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
+  "New": "New", "In Progress": "In Progress", "In Customs": "In Customs", "In Transit": "In Customs",
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -19,12 +20,14 @@ const STATUS_COLORS: Record<string, string> = {
   on_hold: "bg-amber-50 text-amber-700", in_transit: "bg-blue-50 text-blue-700",
   delivered: "bg-green-50 text-green-700", completed: "bg-emerald-50 text-emerald-700",
   cancelled: "bg-red-50 text-red-600",
+  "New": "bg-sky-50 text-sky-700", "In Progress": "bg-blue-50 text-blue-700", "In Customs": "bg-amber-50 text-amber-700", "In Transit": "bg-blue-50 text-blue-700",
 }
 
 const STATUS_DOT: Record<string, string> = {
   draft: "bg-zinc-400", new: "bg-sky-500", on_hold: "bg-amber-500",
   in_transit: "bg-blue-500", delivered: "bg-green-500",
   completed: "bg-emerald-500", cancelled: "bg-red-500",
+  "New": "bg-sky-500", "In Progress": "bg-blue-500", "In Customs": "bg-amber-500", "In Transit": "bg-blue-500",
 }
 
 const STATUS_PILL_ACTIVE: Record<string, string> = {
@@ -35,6 +38,7 @@ const STATUS_PILL_ACTIVE: Record<string, string> = {
   delivered: "bg-green-600 border-green-600 text-white",
   completed: "bg-emerald-600 border-emerald-600 text-white",
   cancelled: "bg-red-600 border-red-600 text-white",
+  "New": "bg-sky-500 border-sky-500 text-white", "In Progress": "bg-blue-600 border-blue-600 text-white", "In Customs": "bg-amber-600 border-amber-600 text-white", "In Transit": "bg-blue-600 border-blue-600 text-white",
 }
 
 const MODULE_COLORS: Record<string, string> = {
@@ -65,8 +69,8 @@ const STAT_CARDS = [
   { key: "total",      label: "Total",      accentBg: "bg-slate-800",   accentBorder: "border-slate-800" },
   { key: "draft",      label: "Draft",      accentBg: "bg-zinc-500",    accentBorder: "border-zinc-500" },
   { key: "new",        label: "New",        accentBg: "bg-sky-500",     accentBorder: "border-sky-500" },
-  { key: "on_hold",    label: "On Hold",    accentBg: "bg-amber-500",   accentBorder: "border-amber-500" },
-  { key: "in_transit", label: "In Transit", accentBg: "bg-blue-600",    accentBorder: "border-blue-600" },
+  { key: "on_hold",    label: "In Progress", accentBg: "bg-amber-500",   accentBorder: "border-amber-500" },
+  { key: "in_transit", label: "In Customs",  accentBg: "bg-blue-600",    accentBorder: "border-blue-600" },
   { key: "delivered",  label: "Delivered",  accentBg: "bg-green-600",   accentBorder: "border-green-600" },
   { key: "completed",  label: "Completed",  accentBg: "bg-emerald-600", accentBorder: "border-emerald-600" },
   { key: "cancelled",  label: "Cancelled",  accentBg: "bg-red-600",     accentBorder: "border-red-600" },

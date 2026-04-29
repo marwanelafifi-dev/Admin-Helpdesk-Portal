@@ -15,19 +15,19 @@ import { cn } from "@/lib/utils"
 
 const STATUS_COLORS: Record<string, string> = {
   new: "bg-sky-50 text-sky-700", on_hold: "bg-amber-50 text-amber-700",
-  in_transit: "bg-blue-50 text-blue-700", delivered: "bg-green-50 text-green-700",
+  in_transit: "bg-amber-50 text-amber-700", delivered: "bg-green-50 text-green-700",
   completed: "bg-emerald-50 text-emerald-700", cancelled: "bg-red-50 text-red-600",
   draft: "bg-zinc-100 text-zinc-700",
 }
 
 const STATUS_DOT: Record<string, string> = {
-  new: "bg-sky-500", on_hold: "bg-amber-500", in_transit: "bg-blue-500",
+  new: "bg-sky-500", on_hold: "bg-amber-500", in_transit: "bg-amber-500",
   delivered: "bg-green-500", completed: "bg-emerald-500", cancelled: "bg-red-500",
   draft: "bg-zinc-400",
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  new: "New", on_hold: "On Hold", in_transit: "In Transit",
+  new: "New", on_hold: "In Progress", in_transit: "In Customs",
   delivered: "Delivered", completed: "Completed", cancelled: "Cancelled", draft: "Draft",
 }
 
@@ -47,27 +47,27 @@ interface KPICardProps {
 
 function KPICard({ title, value, icon: Icon, iconColor, iconBg, trend }: KPICardProps) {
   return (
-    <Card>
+    <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
       <CardContent className="p-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <p className="text-3xl font-bold mt-1">{value}</p>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{title}</p>
+            <p className="text-4xl font-bold mt-3 tracking-tight">{value}</p>
             {trend && (
-              <div className="flex items-center gap-1 mt-2">
-                {trend.isPositive ? (
-                  <TrendingUp className="h-3.5 w-3.5 text-green-600" />
-                ) : (
-                  <TrendingDown className="h-3.5 w-3.5 text-red-600" />
-                )}
-                <span className={cn("text-xs font-medium", trend.isPositive ? "text-green-600" : "text-red-600")}>
-                  {trend.value}% {trend.label}
-                </span>
+              <div className="flex items-center gap-2 mt-3">
+                <div className={cn("px-2 py-1 rounded-md text-xs font-semibold flex items-center gap-1", trend.isPositive ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700")}>
+                  {trend.isPositive ? (
+                    <TrendingUp className="h-3 w-3" />
+                  ) : (
+                    <TrendingDown className="h-3 w-3" />
+                  )}
+                  <span>{trend.value}% {trend.label}</span>
+                </div>
               </div>
             )}
           </div>
-          <div className={`h-11 w-11 rounded-lg flex items-center justify-center ${iconBg}`}>
-            <Icon className={`h-5 w-5 ${iconColor}`} />
+          <div className={`h-14 w-14 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}>
+            <Icon className={`h-6 w-6 ${iconColor}`} />
           </div>
         </div>
       </CardContent>
@@ -172,17 +172,19 @@ export default function DashboardPage() {
   }, [requests])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-0.5">
+      <div className="border-b pb-6">
+        <h1 className="text-4xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground text-sm mt-1">
           Real-time overview of all requests, performance metrics, and key insights
         </p>
       </div>
 
       {/* Primary KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div>
+        <h2 className="text-lg font-semibold mb-4">Key Performance Indicators</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <KPICard
           title="Total Requests"
           value={stats.total}
@@ -215,10 +217,13 @@ export default function DashboardPage() {
           iconBg="bg-teal-50"
           trend={{ value: 12, label: "vs last month", isPositive: true }}
         />
+        </div>
       </div>
 
       {/* Secondary KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div>
+        <h2 className="text-lg font-semibold mb-4">Request Status Overview</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KPICard
           title="Pending Approvals"
           value={pendingApprovals.length}
@@ -253,65 +258,77 @@ export default function DashboardPage() {
               <Package className="h-5 w-5" /> Requests by Module
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={statusTrendData} margin={{ top: 0, right: 30, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="status" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: "8px",
-                    border: "1px solid #e2e8f0",
-                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                  }}
-                />
-                <Bar dataKey="count" radius={[6, 6, 0, 0]} fill="#3b82f6" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={statusTrendData} margin={{ top: 10, right: 30, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                  <XAxis dataKey="status" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: "12px",
+                      border: "1px solid #e2e8f0",
+                      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                      backgroundColor: "#ffffff"
+                    }}
+                    cursor={{ fill: "rgba(59, 130, 246, 0.05)" }}
+                  />
+                  <Bar dataKey="count" radius={[8, 8, 0, 0]} fill="#3b82f6" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
 
-        {/* Module Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5" /> Module Distribution
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie
-                  data={moduleChartData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, value }) => `${name}: ${value}`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {moduleChartData.map((entry, idx) => (
-                    <Cell key={`cell-${idx}`} fill={entry.fill} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+          {/* Module Distribution */}
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Target className="h-5 w-5" /> Module Distribution
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={moduleChartData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, value }) => `${name}: ${value}`}
+                    outerRadius={90}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {moduleChartData.map((entry, idx) => (
+                      <Cell key={`cell-${idx}`} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: "12px",
+                      border: "1px solid #e2e8f0",
+                      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                      backgroundColor: "#ffffff"
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Bottom Section */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Recent Activity */}
-        <Card className="xl:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5" /> Recent Activity
-            </CardTitle>
-          </CardHeader>
+      <div>
+        <h2 className="text-lg font-semibold mb-4">Activity & Alerts</h2>
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          {/* Recent Activity */}
+          <Card className="xl:col-span-2 border-0 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Activity className="h-5 w-5" /> Recent Activity
+              </CardTitle>
+            </CardHeader>
           <CardContent className="space-y-3">
             {recentActivity.map((req) => (
               <div key={req.id} className="flex items-start gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
@@ -331,13 +348,13 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Alerts & Warnings */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5" /> Alerts & Warnings
-            </CardTitle>
-          </CardHeader>
+          {/* Alerts & Warnings */}
+          <Card className="border-0 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <AlertCircle className="h-5 w-5" /> Alerts & Warnings
+              </CardTitle>
+            </CardHeader>
           <CardContent className="space-y-3">
             {overdueItems.length > 0 && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -363,8 +380,9 @@ export default function DashboardPage() {
                 <p className="text-xs text-green-700 mt-1">No critical alerts at this time</p>
               </div>
             )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )

@@ -1,0 +1,258 @@
+"use client"
+
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { useForm, Controller } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
+import {
+  PURCHASE_CATEGORIES,
+  PURCHASE_PLATFORMS,
+  PurchasePayloadSchema,
+} from "./purchase.schema"
+import { submitRequest } from "@/services/engineService"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select"
+import { AlertCircle, ShoppingCart, Upload, X } from "lucide-react"
+import { cn } from "@/lib/utils"
+
+const BRAND = "#22c55e" // green-500
+
+type PurchaseForm = z.infer<typeof PurchasePayloadSchema>
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null
+  return (
+    <p className="flex items-center gap-1 text-xs text-red-500 mt-1">
+      <AlertCircle className="h-3 w-3 flex-shrink-0" />
+      {message}
+    </p>
+  )
+}
+
+function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementType; title: string; subtitle?: string }) {
+  return (
+    <CardHeader className="pb-4">
+      <div className="flex items-center gap-3">
+        <div className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${BRAND}18` }}>
+          <Icon className="h-5 w-5" style={{ color: BRAND }} />
+        </div>
+        <div>
+          <CardTitle className="text-base">{title}</CardTitle>
+          {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
+        </div>
+      </div>
+    </CardHeader>
+  )
+}
+
+export function PurchaseForm({ onCancel }: { onCancel?: () => void }) {
+  const router = useRouter()
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const { register, control, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<PurchaseForm>({
+    resolver: zodResolver(PurchasePayloadSchema),
+    defaultValues: { attachments: [] },
+  })
+
+  const platformValue = watch("platform")
+
+  const handleCancel = onCancel ?? (() => router.push("/purchase"))
+
+  const onSubmit = (data: PurchaseForm) => {
+    submitRequest("purchase", data as unknown as Record<string, unknown>, {
+      title: `Purchase – ${data.itemTitle}`,
+      requesterId: "USR-001",
+      requesterName: "Marwan Elafifi",
+      requesterEmail: "marwan.elafifi@si-ware.com",
+    })
+    router.push("/purchase")
+    router.refresh()
+  }
+
+  return (
+    <div className="space-y-5 max-w-3xl mx-auto pb-12">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        {/* Item Details */}
+        <Card>
+          <SectionHeader icon={ShoppingCart} title="Item Details" subtitle="What would you like to purchase?" />
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="itemTitle">Item Title <span className="text-red-500">*</span></Label>
+              <Input id="itemTitle" placeholder="e.g. Dell 27-inch Monitor" {...register("itemTitle")} className={cn(errors.itemTitle && "border-red-400")} />
+              <FieldError message={errors.itemTitle?.message} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="description">Description <span className="text-red-500">*</span></Label>
+              <Textarea id="description" placeholder="Describe the item, specifications, or requirements..." rows={4} {...register("description")} className={cn(errors.description && "border-red-400")} />
+              <FieldError message={errors.description?.message} />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="category">Category <span className="text-red-500">*</span></Label>
+                <Controller
+                  name="category"
+                  control={control}
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger className={cn(errors.category && "border-red-400")}>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PURCHASE_CATEGORIES.map((cat) => (
+                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                <FieldError message={errors.category?.message} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="platform">Platform <span className="text-red-500">*</span></Label>
+                <Controller
+                  name="platform"
+                  control={control}
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger className={cn(errors.platform && "border-red-400")}>
+                        <SelectValue placeholder="Select platform" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PURCHASE_PLATFORMS.map((platform) => (
+                          <SelectItem key={platform} value={platform}>{platform}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                <FieldError message={errors.platform?.message} />
+              </div>
+            </div>
+
+            {platformValue === "Other" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="supplier">Supplier <span className="text-red-500">*</span></Label>
+                <Input id="supplier" placeholder="Enter supplier name" {...register("supplier")} className={cn(errors.supplier && "border-red-400")} />
+                <FieldError message={errors.supplier?.message} />
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label htmlFor="productUrl">Product URL (Optional)</Label>
+              <Input id="productUrl" type="url" placeholder="https://amazon.com/product or https://noon.com/product" {...register("productUrl")} className={cn(errors.productUrl && "border-red-400")} />
+              <FieldError message={errors.productUrl?.message} />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="quantity">Quantity <span className="text-red-500">*</span></Label>
+                <Input id="quantity" type="number" min="1" placeholder="1" {...register("quantity", { valueAsNumber: true })} className={cn(errors.quantity && "border-red-400")} />
+                <FieldError message={errors.quantity?.message} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="estimatedPrice">Estimated Price (EGP) <span className="text-red-500">*</span></Label>
+                <Input id="estimatedPrice" type="number" min="0" step="0.01" placeholder="0.00" {...register("estimatedPrice", { valueAsNumber: true })} className={cn(errors.estimatedPrice && "border-red-400")} />
+                <FieldError message={errors.estimatedPrice?.message} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Business Information */}
+        <Card>
+          <SectionHeader icon={ShoppingCart} title="Business Information" subtitle="Department and justification" />
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="department">Department <span className="text-red-500">*</span></Label>
+              <Input id="department" placeholder="e.g. Engineering, Marketing" {...register("department")} className={cn(errors.department && "border-red-400")} />
+              <FieldError message={errors.department?.message} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="businessJustification">Business Justification <span className="text-red-500">*</span></Label>
+              <Textarea id="businessJustification" placeholder="Explain why this purchase is needed and its business value..." rows={4} {...register("businessJustification")} className={cn(errors.businessJustification && "border-red-400")} />
+              <FieldError message={errors.businessJustification?.message} />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Attachments */}
+        <Card>
+          <SectionHeader icon={Upload} title="Attachments" subtitle="Upload quotes, specifications, or approvals" />
+          <CardContent>
+            <div className="space-y-3">
+              <input
+                id="attachments"
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files) {
+                    setUploadedFiles(Array.from(e.target.files))
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => document.getElementById("attachments")?.click()}
+                className="w-full px-6 py-8 border-2 border-dashed border-green-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all duration-200 flex flex-col items-center justify-center gap-2 group"
+              >
+                <Upload className="h-6 w-6 text-green-600 group-hover:scale-110 transition-transform duration-200" />
+                <span className="text-sm font-medium text-gray-700">Click to upload or drag and drop</span>
+                <span className="text-xs text-muted-foreground">Quotes, price comparison, or supporting documents</span>
+              </button>
+
+              {uploadedFiles.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-gray-700">{uploadedFiles.length} file(s) selected:</p>
+                  <div className="space-y-1.5">
+                    {uploadedFiles.map((file, idx) => (
+                      <div key={idx} className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-green-50 border border-green-200">
+                        <span className="text-sm text-gray-700 truncate">{file.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => setUploadedFiles(uploadedFiles.filter((_, i) => i !== idx))}
+                          className="p-1 hover:bg-green-200 rounded transition-colors"
+                        >
+                          <X className="h-4 w-4 text-green-600" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">Optional: Upload supporting documents for faster approval</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Additional Notes */}
+        <Card>
+          <SectionHeader icon={ShoppingCart} title="Additional Notes" subtitle="Any extra information" />
+          <CardContent>
+            <Textarea placeholder="Optional notes..." rows={3} {...register("notes")} />
+          </CardContent>
+        </Card>
+
+        <div className="sticky bottom-0 bg-white border-t py-4 px-1 flex items-center justify-between gap-3">
+          <Button type="button" variant="ghost" onClick={handleCancel}>Cancel</Button>
+          <Button type="submit" disabled={isSubmitting} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px]">
+            {isSubmitting ? "Submitting..." : "Submit Purchase Request"}
+          </Button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+export default PurchaseForm

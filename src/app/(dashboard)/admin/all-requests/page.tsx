@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils"
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: "Draft", new: "New", on_hold: "On Hold", in_transit: "In Transit",
+  draft: "Draft", new: "New", on_hold: "In Progress", in_transit: "In Customs", "In Progress": "In Progress", "In Customs": "In Customs", "In Transit": "In Customs",
   delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
 }
 
@@ -22,6 +22,9 @@ const STATUS_COLORS: Record<string, string> = {
   new:        "bg-sky-50 text-sky-700",
   on_hold:    "bg-amber-50 text-amber-700",
   in_transit: "bg-blue-50 text-blue-700",
+  "In Progress": "bg-blue-50 text-blue-700",
+  "In Customs": "bg-amber-50 text-amber-700",
+  "In Transit": "bg-blue-50 text-blue-700",
   delivered:  "bg-green-50 text-green-700",
   completed:  "bg-emerald-50 text-emerald-700",
   cancelled:  "bg-red-50 text-red-600",
@@ -29,7 +32,8 @@ const STATUS_COLORS: Record<string, string> = {
 
 const STATUS_DOT: Record<string, string> = {
   draft: "bg-zinc-400", new: "bg-sky-500", on_hold: "bg-amber-500",
-  in_transit: "bg-blue-500", delivered: "bg-green-500",
+  in_transit: "bg-blue-500", "In Progress": "bg-blue-500", "In Customs": "bg-amber-500", "In Transit": "bg-blue-500",
+  delivered: "bg-green-500",
   completed: "bg-emerald-500", cancelled: "bg-red-500",
 }
 
@@ -187,7 +191,7 @@ export default function AllRequestsPage() {
         {([
           { key: "all",       label: "Total Requests", value: stats.total,     icon: Layers,       iconBg: "bg-slate-100",   iconColor: "text-slate-600",   activeBg: "bg-slate-800",   activeBorder: "border-slate-800" },
           { key: "new",       label: "New",            value: stats.new,       icon: TrendingUp,   iconBg: "bg-sky-50",      iconColor: "text-sky-600",     activeBg: "bg-sky-500",     activeBorder: "border-sky-500" },
-          { key: "on_hold",   label: "On Hold",        value: stats.onHold,    icon: Clock,        iconBg: "bg-amber-50",    iconColor: "text-amber-600",   activeBg: "bg-amber-500",   activeBorder: "border-amber-500" },
+          { key: "on_hold",   label: "In Progress",     value: stats.onHold,    icon: Clock,        iconBg: "bg-amber-50",    iconColor: "text-amber-600",   activeBg: "bg-amber-500",   activeBorder: "border-amber-500" },
           { key: "completed", label: "Completed",      value: stats.completed, icon: CheckCircle2, iconBg: "bg-emerald-50",  iconColor: "text-emerald-600", activeBg: "bg-emerald-600", activeBorder: "border-emerald-600" },
         ] as const).map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }) => {
           const isActive = statusFilter === key || (key === "all" && statusFilter === "all")
@@ -260,6 +264,8 @@ export default function AllRequestsPage() {
                   delivered:  "bg-green-600 border-green-600 text-white",
                   completed:  "bg-emerald-600 border-emerald-600 text-white",
                   cancelled:  "bg-red-600 border-red-600 text-white",
+                  "In Progress": "bg-blue-600 border-blue-600 text-white",
+                  "In Customs": "bg-amber-600 border-amber-600 text-white",
                 }[s]
                 return (
                   <button
