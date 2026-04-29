@@ -40,13 +40,13 @@ const STATUSES = ["new", "in_customs", "on_hold", "delivered", "cancelled"] as c
 type SortKey = "id" | "title" | "supplier" | "estimatedPrice" | "requesterName" | "createdAt" | "updatedAt"
 
 const COLS: { key: SortKey; label: string; defaultW: number }[] = [
-  { key: "id",             label: "Request ID",      defaultW: 140 },
-  { key: "title",          label: "Title",           defaultW: 260 },
-  { key: "estimatedPrice", label: "Estimated Price", defaultW: 140 },
-  { key: "supplier",       label: "Supplier",        defaultW: 140 },
+  { key: "id",             label: "Request ID",      defaultW: 130 },
+  { key: "title",          label: "Request Title",   defaultW: 200 },
+  { key: "createdAt",      label: "Submission Date", defaultW: 140 },
   { key: "requesterName",  label: "Requester Name",  defaultW: 160 },
-  { key: "createdAt",      label: "Request Date",    defaultW: 130 },
-  { key: "updatedAt",      label: "Last Updated",    defaultW: 130 },
+  { key: "supplier",       label: "Supplier",        defaultW: 140 },
+  { key: "estimatedPrice", label: "Estimated Price", defaultW: 140 },
+  { key: "updatedAt",      label: "Last Update Date",defaultW: 140 },
 ]
 
 function formatDate(iso: string) {
@@ -257,19 +257,19 @@ export default function PurchasePage() {
                   <td className="py-3 px-3 overflow-hidden">
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.title}</span>
                   </td>
-                  <td className="py-3 px-3">
-                    <span className="text-sm font-medium text-gray-700">
-                      EGP {Number((req.payload as Record<string, unknown>).estimatedPrice ?? 0).toLocaleString()}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="text-sm font-medium text-gray-700">{String((req.payload as Record<string, unknown>).supplier ?? "—")}</span>
+                  <td className="py-3 px-3 overflow-hidden">
+                    <span className="text-sm font-medium text-gray-700 truncate block">{formatDate(req.createdAt)}</span>
                   </td>
                   <td className="py-3 px-3 overflow-hidden">
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.requesterName}</span>
                   </td>
                   <td className="py-3 px-3">
-                    <span className="text-sm font-medium text-gray-700">{formatDate(req.createdAt)}</span>
+                    <span className="text-sm font-medium text-gray-700">{String((req.payload as Record<string, unknown>).supplier ?? "—")}</span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <span className="text-sm font-medium text-gray-700">
+                      EGP {Number((req.payload as Record<string, unknown>).estimatedPrice ?? 0).toLocaleString()}
+                    </span>
                   </td>
                   <td className="py-3 px-3">
                     <span className="text-sm font-medium text-gray-700">{formatDate(req.updatedAt)}</span>
