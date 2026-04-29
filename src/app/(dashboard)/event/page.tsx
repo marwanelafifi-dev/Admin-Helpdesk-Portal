@@ -37,15 +37,17 @@ const STATUS_PILL_ACTIVE: Record<string, string> = {
 
 const STATUSES = ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"] as const
 
-type SortKey = "id" | "title" | "eventDate" | "attendees" | "status" | "updatedAt"
+type SortKey = "id" | "title" | "createdAt" | "requesterName" | "eventDate" | "attendees" | "status" | "updatedAt"
 
 const COLS: { key: SortKey; label: string; defaultW: number }[] = [
-  { key: "id",         label: "Request ID",  defaultW: 140 },
-  { key: "title",      label: "Title",       defaultW: 260 },
-  { key: "eventDate",  label: "Event Date",  defaultW: 120 },
-  { key: "attendees",  label: "Attendees",   defaultW: 100 },
-  { key: "status",     label: "Status",      defaultW: 130 },
-  { key: "updatedAt",  label: "Last Updated",defaultW: 130 },
+  { key: "id",            label: "Request ID",      defaultW: 130 },
+  { key: "title",         label: "Request Title",   defaultW: 200 },
+  { key: "createdAt",     label: "Submission Date", defaultW: 140 },
+  { key: "requesterName", label: "Requester Name",  defaultW: 160 },
+  { key: "eventDate",     label: "Event Date",      defaultW: 120 },
+  { key: "attendees",     label: "Attendees",       defaultW: 100 },
+  { key: "status",        label: "Status",          defaultW: 130 },
+  { key: "updatedAt",     label: "Last Update Date",defaultW: 140 },
 ]
 
 function formatDate(iso: string) {
@@ -105,12 +107,21 @@ export default function EventPage() {
     const q = search.trim().toLowerCase()
     if (q) result = result.filter((r) => r.id.toLowerCase().includes(q) || r.title.toLowerCase().includes(q))
     return result.sort((a, b) => {
-      const getVal = (r: EngineRequest) => {
-        if (sortKey === "eventDate") return String((r.payload as Record<string, unknown>).eventDate ?? "")
-        if (sortKey === "attendees") return String((r.payload as Record<string, unknown>).expectedAttendees ?? 0).padStart(6, "0")
-        return String(r[sortKey as keyof EngineRequest] ?? "")
+      let av: string, bv: string
+      if (sortKey === "eventDate") {
+        av = String((a.payload as Record<string, unknown>).eventDate ?? "")
+        bv = String((b.payload as Record<string, unknown>).eventDate ?? "")
+      } else if (sortKey === "attendees") {
+        av = String((a.payload as Record<string, unknown>).expectedAttendees ?? 0).padStart(6, "0")
+        bv = String((b.payload as Record<string, unknown>).expectedAttendees ?? 0).padStart(6, "0")
+      } else if (sortKey === "requesterName") {
+        av = a.requesterName ?? ""
+        bv = b.requesterName ?? ""
+      } else {
+        av = String(a[sortKey as keyof EngineRequest] ?? "")
+        bv = String(b[sortKey as keyof EngineRequest] ?? "")
       }
-      return sortDir === "asc" ? getVal(a).localeCompare(getVal(b)) : getVal(b).localeCompare(getVal(a))
+      return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
   }, [requests, statusFilter, search, sortKey, sortDir])
 
@@ -240,6 +251,12 @@ export default function EventPage() {
                   <td className="py-3 px-3 overflow-hidden">
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.title}</span>
                   </td>
+                  <td className="py-3 px-3 overflow-hidden">
+                    <span className="text-sm font-medium text-gray-700 truncate block">{formatDate(req.createdAt)}</span>
+                  </td>
+                  <td className="py-3 px-3 overflow-hidden">
+                    <span className="text-sm font-medium text-gray-700 truncate block">{req.requesterName}</span>
+                  </td>
                   <td className="py-3 px-3">
                     <span className="text-sm font-medium text-gray-700">
                       {(req.payload as Record<string, unknown>).eventDate
@@ -266,7 +283,7 @@ export default function EventPage() {
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-16 text-center text-gray-400 text-sm">
+                  <td colSpan={8} className="py-16 text-center text-gray-400 text-sm">
                     No events match the current filters
                   </td>
                 </tr>

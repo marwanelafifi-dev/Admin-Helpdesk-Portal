@@ -37,15 +37,17 @@ const STATUS_PILL_ACTIVE: Record<string, string> = {
 
 const STATUSES = ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"] as const
 
-type SortKey = "id" | "title" | "destination" | "startDate" | "status" | "updatedAt"
+type SortKey = "id" | "title" | "createdAt" | "requesterName" | "destination" | "startDate" | "status" | "updatedAt"
 
 const COLS: { key: SortKey; label: string; defaultW: number }[] = [
-  { key: "id",          label: "Request ID",  defaultW: 140 },
-  { key: "title",       label: "Title",       defaultW: 240 },
-  { key: "destination", label: "Destination", defaultW: 160 },
-  { key: "startDate",   label: "Travel Date", defaultW: 120 },
-  { key: "status",      label: "Status",      defaultW: 130 },
-  { key: "updatedAt",   label: "Last Updated",defaultW: 130 },
+  { key: "id",            label: "Request ID",      defaultW: 130 },
+  { key: "title",         label: "Request Title",   defaultW: 200 },
+  { key: "createdAt",     label: "Submission Date", defaultW: 140 },
+  { key: "requesterName", label: "Requester Name",  defaultW: 160 },
+  { key: "destination",   label: "Destination",     defaultW: 140 },
+  { key: "startDate",     label: "Travel Date",     defaultW: 120 },
+  { key: "status",        label: "Status",          defaultW: 130 },
+  { key: "updatedAt",     label: "Last Update Date",defaultW: 140 },
 ]
 
 function formatDate(iso: string) {
@@ -109,12 +111,21 @@ export default function TravelPage() {
       String((r.payload as Record<string, unknown>).destination ?? "").toLowerCase().includes(q)
     )
     return result.sort((a, b) => {
-      const getVal = (r: EngineRequest) => {
-        if (sortKey === "destination") return String((r.payload as Record<string, unknown>).destination ?? "")
-        if (sortKey === "startDate") return String((r.payload as Record<string, unknown>).startDate ?? "")
-        return String(r[sortKey as keyof EngineRequest] ?? "")
+      let av: string, bv: string
+      if (sortKey === "destination") {
+        av = String((a.payload as Record<string, unknown>).destination ?? "")
+        bv = String((b.payload as Record<string, unknown>).destination ?? "")
+      } else if (sortKey === "startDate") {
+        av = String((a.payload as Record<string, unknown>).startDate ?? "")
+        bv = String((b.payload as Record<string, unknown>).startDate ?? "")
+      } else if (sortKey === "requesterName") {
+        av = a.requesterName ?? ""
+        bv = b.requesterName ?? ""
+      } else {
+        av = String(a[sortKey as keyof EngineRequest] ?? "")
+        bv = String(b[sortKey as keyof EngineRequest] ?? "")
       }
-      return sortDir === "asc" ? getVal(a).localeCompare(getVal(b)) : getVal(b).localeCompare(getVal(a))
+      return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
   }, [requests, statusFilter, search, sortKey, sortDir])
 
@@ -245,6 +256,12 @@ export default function TravelPage() {
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.title}</span>
                   </td>
                   <td className="py-3 px-3 overflow-hidden">
+                    <span className="text-sm font-medium text-gray-700 truncate block">{formatDate(req.createdAt)}</span>
+                  </td>
+                  <td className="py-3 px-3 overflow-hidden">
+                    <span className="text-sm font-medium text-gray-700 truncate block">{req.requesterName}</span>
+                  </td>
+                  <td className="py-3 px-3 overflow-hidden">
                     <span className="text-sm font-medium text-gray-700 truncate block">
                       {String((req.payload as Record<string, unknown>).destination ?? "—")}
                     </span>
@@ -270,7 +287,7 @@ export default function TravelPage() {
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-16 text-center text-gray-400 text-sm">
+                  <td colSpan={8} className="py-16 text-center text-gray-400 text-sm">
                     No trips match the current filters
                   </td>
                 </tr>
