@@ -30,8 +30,9 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { mockShipments, mockStats, type MockShipment } from "@/lib/mock-data"
 
-const STATUS_COLORS: Record<MockShipment["status"], string> = {
-  Pending: "bg-yellow-100 text-yellow-800",
+const STATUS_COLORS: Record<string, string> = {
+  New: "bg-gray-100 text-gray-800",
+  "On Hold": "bg-orange-100 text-orange-800",
   "In Transit": "bg-blue-100 text-blue-800",
   Delivered: "bg-green-100 text-green-800",
   Cancelled: "bg-red-100 text-red-800",
@@ -109,22 +110,22 @@ export default function ShippingPage() {
           iconBg="bg-blue-50"
         />
         <ShipStatCard
-          title="Pending"
-          value={mockShipments.filter((s) => s.status === "Pending").length}
+          title="On Hold"
+          value={mockShipments.filter((s) => s.status === "On Hold").length}
           icon={Package}
-          iconColor="text-amber-600"
-          iconBg="bg-amber-50"
+          iconColor="text-orange-600"
+          iconBg="bg-orange-50"
         />
         <ShipStatCard
           title="In Transit"
-          value={mockStats.inTransit}
+          value={mockShipments.filter((s) => s.status === "In Transit").length}
           icon={Truck}
           iconColor="text-indigo-600"
           iconBg="bg-indigo-50"
         />
         <ShipStatCard
           title="Delivered"
-          value={mockStats.delivered}
+          value={mockShipments.filter((s) => s.status === "Delivered").length}
           icon={CheckCircle2}
           iconColor="text-green-600"
           iconBg="bg-green-50"
@@ -161,7 +162,8 @@ export default function ShippingPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="Pending">Pending</SelectItem>
+                <SelectItem value="New">New</SelectItem>
+                <SelectItem value="On Hold">On Hold</SelectItem>
                 <SelectItem value="In Transit">In Transit</SelectItem>
                 <SelectItem value="Delivered">Delivered</SelectItem>
                 <SelectItem value="Cancelled">Cancelled</SelectItem>

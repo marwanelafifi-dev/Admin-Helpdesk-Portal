@@ -12,6 +12,7 @@ import {
   CalendarDays,
   Plane,
   Users,
+  UserCog,
   Shield,
   Settings,
   ChevronDown,
@@ -31,12 +32,13 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { title: "Requests", href: "/requests", icon: FileText },
+  { title: "My Requests", href: "/requests", icon: FileText },
   { title: "Shipping", href: "/shipping", icon: Package },
   { title: "Maintenance", href: "/maintenance", icon: Wrench },
   { title: "Purchase", href: "/purchase", icon: ShoppingCart },
   { title: "Event", href: "/event", icon: CalendarDays },
   { title: "Travel", href: "/travel", icon: Plane },
+  { title: "HR", href: "/hr", icon: UserCog },
   {
     title: "Admin",
     href: "/admin",
