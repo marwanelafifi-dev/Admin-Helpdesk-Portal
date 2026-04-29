@@ -35,14 +35,16 @@ const STATUS_PILL_ACTIVE: Record<string, string> = {
 
 const STATUSES = ["new", "on_hold", "completed", "cancelled"] as const
 
-type SortKey = "id" | "title" | "priority" | "status" | "updatedAt"
+type SortKey = "id" | "title" | "createdAt" | "requesterName" | "priority" | "status" | "updatedAt"
 
 const COLS: { key: SortKey; label: string; defaultW: number }[] = [
-  { key: "id",        label: "Request ID",  defaultW: 140 },
-  { key: "title",     label: "Title",       defaultW: 280 },
-  { key: "priority",  label: "Priority",    defaultW: 110 },
-  { key: "status",    label: "Status",      defaultW: 130 },
-  { key: "updatedAt", label: "Last Updated",defaultW: 130 },
+  { key: "id",            label: "Request ID",      defaultW: 130 },
+  { key: "title",         label: "Request Title",   defaultW: 200 },
+  { key: "createdAt",     label: "Submission Date", defaultW: 140 },
+  { key: "requesterName", label: "Requester Name",  defaultW: 160 },
+  { key: "priority",      label: "Priority",        defaultW: 110 },
+  { key: "status",        label: "Status",          defaultW: 130 },
+  { key: "updatedAt",     label: "Last Update Date",defaultW: 140 },
 ]
 
 function formatDate(iso: string) {
@@ -102,12 +104,17 @@ export default function MaintenancePage() {
     const q = search.trim().toLowerCase()
     if (q) result = result.filter((r) => r.id.toLowerCase().includes(q) || r.title.toLowerCase().includes(q))
     return result.sort((a, b) => {
-      const av = sortKey === "priority"
-        ? String((a.payload as Record<string, unknown>).priority ?? "")
-        : String(a[sortKey as keyof EngineRequest] ?? "")
-      const bv = sortKey === "priority"
-        ? String((b.payload as Record<string, unknown>).priority ?? "")
-        : String(b[sortKey as keyof EngineRequest] ?? "")
+      let av: string, bv: string
+      if (sortKey === "priority") {
+        av = String((a.payload as Record<string, unknown>).priority ?? "")
+        bv = String((b.payload as Record<string, unknown>).priority ?? "")
+      } else if (sortKey === "requesterName") {
+        av = a.requesterName ?? ""
+        bv = b.requesterName ?? ""
+      } else {
+        av = String(a[sortKey as keyof EngineRequest] ?? "")
+        bv = String(b[sortKey as keyof EngineRequest] ?? "")
+      }
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
   }, [requests, statusFilter, search, sortKey, sortDir])
@@ -241,6 +248,12 @@ export default function MaintenancePage() {
                   <td className="py-3 px-3 overflow-hidden">
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.title}</span>
                   </td>
+                  <td className="py-3 px-3 overflow-hidden">
+                    <span className="text-sm font-medium text-gray-700 truncate block">{formatDate(req.createdAt)}</span>
+                  </td>
+                  <td className="py-3 px-3 overflow-hidden">
+                    <span className="text-sm font-medium text-gray-700 truncate block">{req.requesterName}</span>
+                  </td>
                   <td className="py-3 px-3">
                     <span className={cn("text-sm font-medium",
                       (req.payload as Record<string, unknown>).priority === "High" ? "text-red-600" :
@@ -263,7 +276,7 @@ export default function MaintenancePage() {
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-16 text-center text-gray-400 text-sm">
+                  <td colSpan={7} className="py-16 text-center text-gray-400 text-sm">
                     No tickets match the current filters
                   </td>
                 </tr>
