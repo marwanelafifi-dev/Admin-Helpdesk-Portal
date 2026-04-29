@@ -335,17 +335,17 @@ export default function AllRequestsPage() {
                   )}
                 >
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
-                    <span className="font-mono text-[11px] text-gray-400 tracking-wide truncate block">{req.id}</span>
+                    <span className="text-sm font-medium text-gray-700 truncate block">{req.id}</span>
                   </td>
                   <td className="py-3 px-3 overflow-hidden">
-                    <span className="text-sm font-medium text-gray-800 truncate block">{req.title}</span>
+                    <span className="text-sm font-medium text-gray-700 truncate block">{req.title}</span>
                   </td>
                   <td className="py-3 px-3 overflow-hidden">
                     <div className="text-sm font-medium text-gray-700 truncate">{req.requesterName}</div>
-                    <div className="text-[11px] text-gray-400 truncate">{req.requesterEmail}</div>
+                    <div className="text-sm font-medium text-gray-600 truncate">{req.requesterEmail}</div>
                   </td>
                   <td className="py-3 px-3">
-                    <span className="text-[11px] text-gray-500 font-medium whitespace-nowrap">{formatDate(req.createdAt)}</span>
+                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{formatDate(req.createdAt)}</span>
                   </td>
                   <td className="py-3 px-3">
                     <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium", MODULE_COLORS[req.module] ?? "text-gray-600")}>
@@ -363,7 +363,7 @@ export default function AllRequestsPage() {
                     </span>
                   </td>
                   <td className="py-3 px-3 text-right">
-                    <span className="text-[11px] text-gray-400 font-medium whitespace-nowrap">{formatDate(req.updatedAt)}</span>
+                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{formatDate(req.updatedAt)}</span>
                   </td>
                 </tr>
               ))}

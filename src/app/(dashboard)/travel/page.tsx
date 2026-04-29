@@ -239,18 +239,18 @@ export default function TravelPage() {
               {filtered.map((req, i) => (
                 <tr key={req.id} className={cn("border-b border-gray-100 hover:bg-blue-50/30 transition-colors", i % 2 === 0 ? "bg-white" : "bg-gray-50/40")}>
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
-                    <span className="font-mono text-[11px] text-gray-400 tracking-wide truncate block">{req.id}</span>
+                    <span className="text-sm font-medium text-gray-700 truncate block">{req.id}</span>
                   </td>
                   <td className="py-3 px-3 overflow-hidden">
-                    <span className="text-sm font-medium text-gray-800 truncate block">{req.title}</span>
+                    <span className="text-sm font-medium text-gray-700 truncate block">{req.title}</span>
                   </td>
                   <td className="py-3 px-3 overflow-hidden">
-                    <span className="text-sm text-gray-700 truncate block">
+                    <span className="text-sm font-medium text-gray-700 truncate block">
                       {String((req.payload as Record<string, unknown>).destination ?? "—")}
                     </span>
                   </td>
                   <td className="py-3 px-3">
-                    <span className="text-[11px] text-gray-500 font-medium">
+                    <span className="text-sm font-medium text-gray-700">
                       {(req.payload as Record<string, unknown>).startDate
                         ? formatDate(String((req.payload as Record<string, unknown>).startDate))
                         : "—"}
@@ -263,7 +263,7 @@ export default function TravelPage() {
                     </span>
                   </td>
                   <td className="py-3 px-3">
-                    <span className="text-[11px] text-gray-500 font-medium">{formatDate(req.updatedAt)}</span>
+                    <span className="text-sm font-medium text-gray-700">{formatDate(req.updatedAt)}</span>
                   </td>
                 </tr>
               ))}

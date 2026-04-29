@@ -322,7 +322,7 @@ export default function HRPage() {
                     )}
                   >
                     <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
-                      <span className="font-mono text-[11px] text-gray-400 tracking-wide truncate block">{req.id}</span>
+                      <span className="text-sm font-medium text-gray-700 truncate block">{req.id}</span>
                     </td>
                     <td className="py-3 px-3">
                       <span className={cn(
@@ -335,16 +335,16 @@ export default function HRPage() {
                       </span>
                     </td>
                     <td className="py-3 px-3 overflow-hidden">
-                      <span className="text-sm font-medium text-gray-800 truncate block">{p.employeeName}</span>
+                      <span className="text-sm font-medium text-gray-700 truncate block">{p.employeeName}</span>
                     </td>
                     <td className="py-3 px-3">
-                      <span className="font-mono text-[11px] text-gray-400 tracking-wide">{p.employeeId}</span>
+                      <span className="text-sm font-medium text-gray-700">{p.employeeId}</span>
                     </td>
                     <td className="py-3 px-3 overflow-hidden">
-                      <span className="text-sm text-gray-700 truncate block">{p.department}</span>
+                      <span className="text-sm font-medium text-gray-700 truncate block">{p.department}</span>
                     </td>
                     <td className="py-3 px-3">
-                      <span className="text-[11px] text-gray-500 font-medium whitespace-nowrap">{date}</span>
+                      <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{date}</span>
                     </td>
                     <td className="py-3 px-3">
                       <span className={cn(
