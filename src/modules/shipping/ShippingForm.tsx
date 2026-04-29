@@ -114,6 +114,7 @@ function FileUploadZone({
   files,
   onAdd,
   onRemove,
+  required,
 }: {
   category: StagedFile["category"]
   label: string
@@ -121,6 +122,7 @@ function FileUploadZone({
   files: StagedFile[]
   onAdd: (files: StagedFile[]) => void
   onRemove: (id: string) => void
+  required?: boolean
 }) {
   const handleFiles = (fileList: FileList | null) => {
     if (!fileList) return
@@ -140,6 +142,7 @@ function FileUploadZone({
       <Label className="flex items-center gap-2 text-sm font-medium">
         <Icon className="h-4 w-4" style={{ color: BRAND }} />
         {label}
+        {required && <span className="text-red-500">*</span>}
       </Label>
       <label className="flex flex-col items-center justify-center gap-2 w-full h-28 border-2 border-dashed rounded-lg cursor-pointer border-gray-200 bg-gray-50 hover:border-blue-300 hover:bg-blue-50/50">
         <input type="file" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
@@ -342,14 +345,21 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
       <Card>
         <SectionHeader icon={Receipt} title="Attachments" subtitle="AWB and Commercial Invoice are required" />
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FileUploadZone category="awb" label="AWB" icon={Plane} files={stagedFiles} onAdd={addStagedFiles} onRemove={removeStagedFile} />
-            <FileUploadZone category="invoice" label="Commercial Invoice" icon={FileText} files={stagedFiles} onAdd={addStagedFiles} onRemove={removeStagedFile} />
+          <div className="space-y-4">
+            <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-6 p-3 rounded-lg", (errors.attachments as { message?: string })?.message ? "bg-red-50 border border-red-200" : "")}>
+              <FileUploadZone category="awb" label="AWB" icon={Plane} files={stagedFiles} onAdd={addStagedFiles} onRemove={removeStagedFile} required />
+              <FileUploadZone category="invoice" label="Commercial Invoice" icon={FileText} files={stagedFiles} onAdd={addStagedFiles} onRemove={removeStagedFile} required />
+            </div>
+            <div className="mt-4">
+              <FileUploadZone category="other" label="Other" icon={Upload} files={stagedFiles} onAdd={addStagedFiles} onRemove={removeStagedFile} />
+            </div>
+            {(errors.attachments as { message?: string })?.message && (
+              <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                <p className="text-sm font-medium text-red-700">{(errors.attachments as { message?: string })?.message}</p>
+              </div>
+            )}
           </div>
-          <div className="mt-4">
-            <FileUploadZone category="other" label="Other" icon={Upload} files={stagedFiles} onAdd={addStagedFiles} onRemove={removeStagedFile} />
-          </div>
-          <FieldError message={(errors.attachments as { message?: string })?.message} />
         </CardContent>
       </Card>
 
