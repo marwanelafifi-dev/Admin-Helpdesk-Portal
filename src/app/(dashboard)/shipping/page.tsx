@@ -42,15 +42,19 @@ const STATUS_PILL_ACTIVE: Record<string, string> = {
   "Cancelled":  "bg-red-600 border-red-600 text-white",
 }
 
-type SortKey = keyof Pick<MockShipment, "id" | "requester" | "trackingNumber" | "carrier" | "expectedDelivery" | "status">
+type SortKey = keyof Pick<MockShipment, "id" | "pickupDate" | "trackingNumber" | "poNumber" | "costCenter" | "carrier" | "requester" | "status" | "expectedDelivery" | "lastUpdate">
 
 const COLS: { key: SortKey; label: string; defaultW: number }[] = [
-  { key: "id",              label: "Request ID",     defaultW: 120 },
-  { key: "requester",       label: "Requester",      defaultW: 180 },
-  { key: "trackingNumber",  label: "Tracking Number",defaultW: 180 },
-  { key: "carrier",         label: "Carrier",        defaultW: 110 },
-  { key: "expectedDelivery",label: "Delivery Date",  defaultW: 120 },
-  { key: "status",          label: "Status",         defaultW: 120 },
+  { key: "id",              label: "Request ID",      defaultW: 120 },
+  { key: "pickupDate",      label: "Pickup Date",     defaultW: 120 },
+  { key: "trackingNumber",  label: "Tracking Number", defaultW: 160 },
+  { key: "poNumber",        label: "PO Number",       defaultW: 120 },
+  { key: "costCenter",      label: "Cost Center",     defaultW: 120 },
+  { key: "carrier",         label: "Carrier",         defaultW: 110 },
+  { key: "requester",       label: "Requester Name",  defaultW: 140 },
+  { key: "status",          label: "Status",          defaultW: 120 },
+  { key: "expectedDelivery",label: "Delivery Date",   defaultW: 120 },
+  { key: "lastUpdate",      label: "Last Update",     defaultW: 120 },
 ]
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -262,19 +266,25 @@ export default function ShippingPage() {
                   )}
                 >
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
-                    <span className="font-mono text-[11px] text-gray-400 tracking-wide truncate block">{shipment.id}</span>
+                    <span className="text-sm text-gray-700 font-medium tracking-wide truncate block">{shipment.id}</span>
                   </td>
                   <td className="py-3 px-3 overflow-hidden">
-                    <span className="text-sm font-medium text-gray-800 truncate block">{shipment.requester}</span>
+                    <span className="text-sm text-gray-700 font-medium whitespace-nowrap">{shipment.pickupDate}</span>
                   </td>
                   <td className="py-3 px-3 overflow-hidden">
-                    <span className="font-mono text-[11px] text-blue-500 truncate block">{shipment.trackingNumber.slice(0, 18)}…</span>
+                    <span className="text-sm text-gray-700 font-medium truncate block">{shipment.trackingNumber}</span>
+                  </td>
+                  <td className="py-3 px-3 overflow-hidden">
+                    <span className="text-sm text-gray-700 font-medium truncate block">{shipment.poNumber}</span>
+                  </td>
+                  <td className="py-3 px-3 overflow-hidden">
+                    <span className="text-sm text-gray-700 font-medium truncate block">{shipment.costCenter}</span>
                   </td>
                   <td className="py-3 px-3">
-                    <span className="text-sm font-medium text-gray-700">{shipment.carrier}</span>
+                    <span className="text-sm text-gray-700 font-medium">{shipment.carrier}</span>
                   </td>
-                  <td className="py-3 px-3">
-                    <span className="text-[11px] text-gray-500 font-medium whitespace-nowrap">{shipment.expectedDelivery}</span>
+                  <td className="py-3 px-3 overflow-hidden">
+                    <span className="text-sm text-gray-700 font-medium truncate block">{shipment.requester}</span>
                   </td>
                   <td className="py-3 px-3">
                     <span className={cn(
@@ -284,6 +294,12 @@ export default function ShippingPage() {
                       <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[shipment.status] ?? "bg-gray-400")} />
                       {shipment.status}
                     </span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <span className="text-sm text-gray-700 font-medium whitespace-nowrap">{shipment.expectedDelivery}</span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <span className="text-sm text-gray-700 font-medium whitespace-nowrap">{shipment.lastUpdate}</span>
                   </td>
                   <td className="py-3 px-2 text-right">
                     <DropdownMenu>
@@ -305,7 +321,7 @@ export default function ShippingPage() {
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="text-center text-gray-400 text-sm py-16">
+                  <td colSpan={11} className="text-center text-gray-400 text-sm py-16">
                     No shipments match the current filters
                   </td>
                 </tr>
