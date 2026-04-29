@@ -73,13 +73,13 @@ export default function AllRequestsPage() {
 
   // ── Column resize ──────────────────────────────────────────────────────────
   const COLS = useMemo(() => [
-    { key: "id"            as SortKey, label: "Request ID", defaultW: 144 },
-    { key: "title"         as SortKey, label: "Title",      defaultW: 280 },
-    { key: "requesterName" as SortKey, label: "Requester",  defaultW: 176 },
-    { key: "createdAt"     as SortKey, label: "Submitted",  defaultW: 112 },
-    { key: "module"        as SortKey, label: "Module",     defaultW: 112 },
-    { key: "status"        as SortKey, label: "Status",     defaultW: 112 },
-    { key: "updatedAt"     as SortKey, label: "Updated",    defaultW: 112 },
+    { key: "id"            as SortKey, label: "Request ID",      defaultW: 140 },
+    { key: "title"         as SortKey, label: "Request Title",   defaultW: 200 },
+    { key: "createdAt"     as SortKey, label: "Submission Date", defaultW: 130 },
+    { key: "requesterName" as SortKey, label: "Requester Name",  defaultW: 150 },
+    { key: "module"        as SortKey, label: "Module",          defaultW: 110 },
+    { key: "status"        as SortKey, label: "Status",          defaultW: 120 },
+    { key: "updatedAt"     as SortKey, label: "Last Update Date",defaultW: 140 },
   ], [])
 
   const [colWidths, setColWidths] = useState<number[]>(() => COLS.map((c) => c.defaultW))
@@ -340,12 +340,12 @@ export default function AllRequestsPage() {
                   <td className="py-3 px-3 overflow-hidden">
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.title}</span>
                   </td>
+                  <td className="py-3 px-3">
+                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{formatDate(req.createdAt)}</span>
+                  </td>
                   <td className="py-3 px-3 overflow-hidden">
                     <div className="text-sm font-medium text-gray-700 truncate">{req.requesterName}</div>
                     <div className="text-sm font-medium text-gray-600 truncate">{req.requesterEmail}</div>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{formatDate(req.createdAt)}</span>
                   </td>
                   <td className="py-3 px-3">
                     <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium", MODULE_COLORS[req.module] ?? "text-gray-600")}>
@@ -362,7 +362,7 @@ export default function AllRequestsPage() {
                       {STATUS_LABELS[req.status] ?? req.status}
                     </span>
                   </td>
-                  <td className="py-3 px-3 text-right">
+                  <td className="py-3 px-3">
                     <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{formatDate(req.updatedAt)}</span>
                   </td>
                 </tr>
