@@ -142,41 +142,41 @@ function OnboardingFormFields({ onCancel }: { onCancel: () => void }) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="directManager">Direct Manager</Label>
-              <Input id="directManager" placeholder="Manager name" {...register("directManager")} />
-            </div>
-            <div className="space-y-1.5">
               <Label htmlFor="sector">Sector</Label>
               <Input id="sector" placeholder="e.g. Technology" {...register("sector")} />
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="department">Department <span className="text-red-500">*</span></Label>
               <Input id="department" placeholder="e.g. Engineering" {...register("department")} className={cn(errors.department && "border-red-400")} />
               <FieldError message={errors.department?.message} />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="entity">Entity <span className="text-red-500">*</span></Label>
-              <Controller
-                name="entity"
-                control={control}
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className={cn(errors.entity && "border-red-400")}>
-                      <SelectValue placeholder="Select entity" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ENTITIES.map((entity) => (
-                        <SelectItem key={entity} value={entity}>{entity}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              <FieldError message={errors.entity?.message} />
-            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="directManager">Direct Manager</Label>
+            <Input id="directManager" placeholder="Manager name" {...register("directManager")} />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="entity">Entity <span className="text-red-500">*</span></Label>
+            <Controller
+              name="entity"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger className={cn(errors.entity && "border-red-400")}>
+                    <SelectValue placeholder="Select entity" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ENTITIES.map((entity) => (
+                      <SelectItem key={entity} value={entity}>{entity}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            <FieldError message={errors.entity?.message} />
+          </div>
           </div>
 
           <div className="space-y-1.5">
@@ -367,8 +367,9 @@ function OffboardingFormFields({ onCancel }: { onCancel: () => void }) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="directManager">Direct Manager</Label>
-              <Input id="directManager" placeholder="Manager name" {...register("directManager")} />
+              <Label htmlFor="sector">Sector <span className="text-red-500">*</span></Label>
+              <Input id="sector" placeholder="e.g. Engineering" {...register("sector")} className={cn(errors.sector && "border-red-400")} />
+              <FieldError message={errors.sector?.message} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="department">Department <span className="text-red-500">*</span></Label>
@@ -378,9 +379,8 @@ function OffboardingFormFields({ onCancel }: { onCancel: () => void }) {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="sector">Sector <span className="text-red-500">*</span></Label>
-            <Input id="sector" placeholder="e.g. Engineering" {...register("sector")} className={cn(errors.sector && "border-red-400")} />
-            <FieldError message={errors.sector?.message} />
+            <Label htmlFor="directManager">Direct Manager</Label>
+            <Input id="directManager" placeholder="Manager name" {...register("directManager")} />
           </div>
 
           <div className="space-y-1.5">
