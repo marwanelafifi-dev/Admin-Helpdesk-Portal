@@ -1,9 +1,10 @@
 "use client"
 
 import Image from "next/image"
+import { signOut, useSession } from "next-auth/react"
 import { Bell, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,7 +14,30 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
+function getInitials(name?: string | null, email?: string | null) {
+  const label = name || email || "User"
+  return label
+    .split(/[.\s@_-]+/)
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+function roleLabel(role?: string) {
+  return role
+    ? role
+        .split("_")
+        .map((part) => part[0].toUpperCase() + part.slice(1))
+        .join(" ")
+    : "User"
+}
+
 export function TopBar() {
+  const { data: session } = useSession()
+  const user = session?.user
+
   return (
     <header className="h-16 border-b bg-white flex items-center justify-between px-6 flex-shrink-0">
       {/* Left: Empty space */}
@@ -72,13 +96,16 @@ export function TopBar() {
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-gray-100 transition-colors">
               <Avatar className="h-8 w-8">
+                {user?.image && <AvatarImage src={user.image} alt={user.name ?? "User"} />}
                 <AvatarFallback className="bg-blue-600 text-white text-xs font-semibold">
-                  ME
+                  {getInitials(user?.name, user?.email)}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden md:block text-left">
-                <p className="text-sm font-medium leading-tight">Marwan Elafifi</p>
-                <p className="text-xs text-muted-foreground leading-tight">Super Admin</p>
+                <p className="text-sm font-medium leading-tight">{user?.name ?? user?.email}</p>
+                <p className="text-xs text-muted-foreground leading-tight">
+                  {roleLabel(user?.role)}
+                </p>
               </div>
             </button>
           </DropdownMenuTrigger>
@@ -88,7 +115,10 @@ export function TopBar() {
             <DropdownMenuItem>Profile</DropdownMenuItem>
             <DropdownMenuItem>Settings</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive focus:text-destructive">
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => signOut({ callbackUrl: "/login" })}
+            >
               <LogOut className="h-4 w-4 mr-2" />
               Log out
             </DropdownMenuItem>
@@ -101,6 +131,7 @@ export function TopBar() {
           size="icon"
           title="Log out"
           className="text-muted-foreground hover:text-destructive hover:bg-red-50"
+          onClick={() => signOut({ callbackUrl: "/login" })}
         >
           <LogOut className="h-5 w-5" />
         </Button>

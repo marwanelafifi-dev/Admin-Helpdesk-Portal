@@ -47,7 +47,6 @@ export const commentsAPI = {
     if (limit) params.append('limit', limit.toString())
     if (offset) params.append('offset', offset.toString())
     try {
-      // Use relative path for Next.js API routes
       const url = `/api/requests/comments?${params.toString()}`
       const response = await fetch(url)
       if (!response.ok) {
@@ -57,6 +56,24 @@ export const commentsAPI = {
       return await response.json()
     } catch (error) {
       console.error(`Failed to fetch comments for ${requestId}:`, error)
+      throw error
+    }
+  },
+
+  // Batch fetch comment counts for multiple request IDs in a single call
+  batchGetCounts: async (requestIds: string[]) => {
+    try {
+      const response = await fetch('/api/requests/comments/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestIds }),
+      })
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status}`)
+      }
+      return await response.json()
+    } catch (error) {
+      console.error('Failed to fetch comment counts batch:', error)
       throw error
     }
   },

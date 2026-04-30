@@ -110,12 +110,12 @@ export default function ShippingPage() {
     })
   }, [search, statusFilter, carrierFilter, sortKey, sortDir])
 
-  const stats = {
+  const stats = useMemo(() => ({
     total:      mockShipments.length,
     inProgress: mockShipments.filter((s) => s.status === "In Progress").length,
     inCustoms:  mockShipments.filter((s) => s.status === "In Customs").length,
     delivered:  mockShipments.filter((s) => s.status === "Delivered").length,
-  }
+  }), [mockShipments])
 
   const statCards = [
     { key: "all",          label: "Total Shipments", value: stats.total,      icon: Package,      iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },

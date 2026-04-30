@@ -9,13 +9,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// --- Roles & Permissions ---
+model Role {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  permissions String[]   @default([]) // Array of permission strings
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([name])
+}
+
 // --- Auth & User ---
 model User {
   id                String                  @id @default(cuid())
   email             String                  @unique
   name              String?
   googleId          String?                 @unique
+  image             String?
   picture           String?
+  passwordHash      String?
   role              String                  @default("requester") // super_admin, admin, manager, requester, viewer
   department        String?
   emailVerified     DateTime?
@@ -31,6 +45,7 @@ model User {
   notifications     Notification[]
   preferences       NotificationPreference?
   approvals         Approval[]              @relation("ApprovalUser")
+  accounts          Account[]
   sessions          Session[]
 
   @@index([email])
@@ -246,4 +261,32 @@ model Session {
   expires       DateTime
 
   @@index([userId])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
 }

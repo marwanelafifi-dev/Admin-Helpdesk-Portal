@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/input"
 import { Card, CardHeader } from "@/components/ui/card"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
 import { cn } from "@/lib/utils"
-import { requestsAPI, commentsAPI } from "@/lib/apiClient"
+import { requestsAPI } from "@/lib/apiClient"
+import { useCommentCounts } from "@/hooks/useCommentCounts"
+import { useViewedComments } from "@/hooks/useViewedComments"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -99,25 +101,19 @@ const CURRENT_USER_ID = "USR-001"
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function RequestsPage() {
-  const [requests, setRequests]           = useState<EngineRequest[]>([])
-  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({})
-  const [viewedComments, setViewedComments] = useState<Record<string, number>>(() => {
-    // Load viewed comment counts from localStorage
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('arp_viewed_comments')
-      return stored ? JSON.parse(stored) : {}
-    }
-    return {}
-  })
-  const [search, setSearch]               = useState("")
-  const [statusFilter, setStatusFilter]   = useState("all")
-  const [moduleFilter, setModuleFilter]   = useState("all")
-  const [sortKey, setSortKey]             = useState<SortKey>("updatedAt")
-  const [sortDir, setSortDir]             = useState<"asc" | "desc">("desc")
-  const [colWidths, setColWidths]         = useState<number[]>(() => COLS.map((c) => c.defaultW))
+  const [requests, setRequests]         = useState<EngineRequest[]>([])
+  const [search, setSearch]             = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [moduleFilter, setModuleFilter] = useState("all")
+  const [sortKey, setSortKey]           = useState<SortKey>("updatedAt")
+  const [sortDir, setSortDir]           = useState<"asc" | "desc">("desc")
+  const [colWidths, setColWidths]       = useState<number[]>(() => COLS.map((c) => c.defaultW))
   const resizingCol  = useRef<number | null>(null)
   const resizeStartX = useRef(0)
   const resizeStartW = useRef(0)
+
+  const commentCounts = useCommentCounts(requests.map(r => r.id))
+  const { viewedComments } = useViewedComments()
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -125,18 +121,6 @@ export default function RequestsPage() {
         initializeMockData()
         const allRequests = getRequests()
         setRequests(allRequests)
-
-        // Fetch comment counts for all requests
-        const counts: Record<string, number> = {}
-        for (const req of allRequests) {
-          try {
-            const commentsData = await commentsAPI.list(req.id)
-            counts[req.id] = (commentsData.data || []).length
-          } catch (err) {
-            counts[req.id] = 0
-          }
-        }
-        setCommentCounts(counts)
       } catch (error) {
         console.error("Failed to fetch requests:", error)
         initializeMockData()
@@ -146,13 +130,6 @@ export default function RequestsPage() {
 
     fetchRequests()
   }, [])
-
-  // Save viewed comments to localStorage whenever they change
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('arp_viewed_comments', JSON.stringify(viewedComments))
-    }
-  }, [viewedComments])
 
   const onResizeMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
     e.preventDefault(); e.stopPropagation()

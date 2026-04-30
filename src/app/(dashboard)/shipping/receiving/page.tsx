@@ -161,12 +161,12 @@ export default function ReceivingPage() {
     })
   }, [search, statusFilter, carrierFilter, sortKey, sortDir, shipments])
 
-  const stats = {
+  const stats = useMemo(() => ({
     total:      shipments.length,
     onHold:     shipments.filter((s) => s.status === "On Hold").length,
     inCustoms:  shipments.filter((s) => s.status === "In Customs").length,
     delivered:  shipments.filter((s) => s.status === "Delivered").length,
-  }
+  }), [shipments])
 
   const statCards = [
     { key: "all",          label: "Total Shipments", value: stats.total,      icon: Package,      iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },

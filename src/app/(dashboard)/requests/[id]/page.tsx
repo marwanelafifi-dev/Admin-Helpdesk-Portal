@@ -11,6 +11,7 @@ import { commentsAPI } from "@/lib/apiClient"
 import { getRequests, updateStatus, initializeMockData, recordCommentActivity, type EngineRequest } from "@/services/engineService"
 import { cn } from "@/lib/utils"
 import { CommentsTab } from "@/components/request/CommentsTab"
+import { invalidateCommentCountCache } from "@/hooks/useCommentCounts"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -662,6 +663,9 @@ export default function RequestDetailPage() {
                     comments: [...(request.comments || []), newComment],
                     history: updatedHistory,
                   })
+
+                  // Invalidate comment count cache so it refetches on next page navigation
+                  invalidateCommentCountCache(request.id)
 
                   // Then refetch comments to sync with server
                   await fetchComments(request.id)
