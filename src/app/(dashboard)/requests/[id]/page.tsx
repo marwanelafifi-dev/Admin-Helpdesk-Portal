@@ -290,6 +290,14 @@ export default function RequestDetailPage() {
           const commentsData = await commentsAPI.list(id)
           const comments = commentsData.data || []
 
+          // Mark comments as viewed when page is loaded
+          if (typeof window !== 'undefined' && comments.length > 0) {
+            const viewed = localStorage.getItem('arp_viewed_comments')
+            const viewedComments = viewed ? JSON.parse(viewed) : {}
+            viewedComments[id] = comments.length
+            localStorage.setItem('arp_viewed_comments', JSON.stringify(viewedComments))
+          }
+
           // Extract attachments from comments and add them to the main attachments list
           const commentAttachments = comments.flatMap((comment: any) =>
             (comment.attachments || []).map((att: any) => ({
