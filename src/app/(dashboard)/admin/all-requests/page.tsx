@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/table"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
 import { cn } from "@/lib/utils"
+import { requestsAPI } from "@/lib/apiClient"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -122,12 +123,30 @@ export default function AllRequestsPage() {
   }
 
   useEffect(() => {
-    initializeMockData()
-    const sync = () => setRequests(getRequests())
-    sync()
-    window.addEventListener("focus", sync)
-    window.addEventListener("storage", sync)
-    return () => { window.removeEventListener("focus", sync); window.removeEventListener("storage", sync) }
+    const fetchRequests = async () => {
+      try {
+        const [shipping, hr, maintenance, purchase] = await Promise.all([
+          requestsAPI.listByModule("shipping"),
+          requestsAPI.listByModule("hr"),
+          requestsAPI.listByModule("maintenance"),
+          requestsAPI.listByModule("purchase"),
+        ])
+
+        const allRequests = [
+          ...shipping.data,
+          ...hr.data,
+          ...maintenance.data,
+          ...purchase.data,
+        ]
+        setRequests(allRequests as EngineRequest[])
+      } catch (error) {
+        console.error("Failed to fetch requests:", error)
+        initializeMockData()
+        setRequests(getRequests())
+      }
+    }
+
+    fetchRequests()
   }, [])
 
   const filtered = useMemo(() => {
