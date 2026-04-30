@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
+import { useSession } from "next-auth/react"
+import { can, isRestricted } from "@/lib/permissions"
 import { Search, Plus, Package, Truck, Clock, CheckCircle2, MoreHorizontal, ChevronUp, ChevronDown, ChevronsUpDown, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { Card, CardHeader } from "@/components/ui/card"
@@ -78,6 +80,9 @@ function formatDate(iso?: string) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ShippingPage() {
+  const { data: session, status } = useSession()
+  const role = session?.user?.role as string | undefined
+
   const [requests, setRequests]           = useState<EngineRequest[]>([])
   const [search, setSearch]               = useState("")
   const [statusFilter, setStatusFilter]   = useState("all")
@@ -86,8 +91,11 @@ export default function ShippingPage() {
   const [sortDir, setSortDir]             = useState<"asc" | "desc">("asc")
   const [colWidths, setColWidths]         = useState<number[]>(() => COLS.map((c) => c.defaultW))
 
-  const load = async () => { setRequests(await fetchRequests("shipping")) }
-  useEffect(() => { load() }, [])
+  const load = async () => {
+    const requesterId = isRestricted(role) ? session?.user?.id : undefined
+    setRequests(await fetchRequests("shipping", requesterId))
+  }
+  useEffect(() => { if (status !== "loading") load() }, [status, role])
 
   async function handleStatusUpdate(req: EngineRequest, status: string) {
     await updateRequestStatus("shipping", req.id, status as never, req.requesterName)
@@ -347,9 +355,11 @@ export default function ShippingPage() {
                             </DropdownMenuItem>
                           ))}
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleDelete(req)} className="cursor-pointer text-xs text-red-600 focus:text-red-600">
-                            <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
-                          </DropdownMenuItem>
+                          {can(role, "deleteRequests") && (
+                            <DropdownMenuItem onClick={() => handleDelete(req)} className="cursor-pointer text-xs text-red-600 focus:text-red-600">
+                              <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>

@@ -25,8 +25,9 @@ export interface EngineRequest<T = Record<string, unknown>> {
 }
 
 // API helpers
-export async function fetchRequests(module: string): Promise<EngineRequest[]> {
-  const res = await fetch(`/api/requests/${module}`, { cache: "no-store" })
+export async function fetchRequests(module: string, requesterId?: string): Promise<EngineRequest[]> {
+  const qs = requesterId ? `?requesterId=${encodeURIComponent(requesterId)}` : ""
+  const res = await fetch(`/api/requests/${module}${qs}`, { cache: "no-store" })
   if (!res.ok) return []
   const json = await res.json()
   // Route returns { ok, data } wrapper

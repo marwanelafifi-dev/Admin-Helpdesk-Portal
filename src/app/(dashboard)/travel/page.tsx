@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import { useSession } from "next-auth/react"
+import { can, isRestricted } from "@/lib/permissions"
 import Link from "next/link"
 import { Search, Plus, Plane, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MoreHorizontal, Trash2 } from "lucide-react"
 import { Card, CardHeader } from "@/components/ui/card"
@@ -61,6 +63,9 @@ function formatDate(iso: string) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function TravelPage() {
+  const { data: session, status } = useSession()
+  const role = session?.user?.role as string | undefined
+
   const [requests, setRequests]           = useState<EngineRequest[]>([])
   const [search, setSearch]               = useState("")
   const [statusFilter, setStatusFilter]   = useState("all")
@@ -71,8 +76,11 @@ export default function TravelPage() {
   const resizeStartX = useRef(0)
   const resizeStartW = useRef(0)
 
-  const load = async () => { setRequests(await fetchRequests("travel")) }
-  useEffect(() => { load() }, [])
+  const load = async () => {
+    const requesterId = isRestricted(role) ? session?.user?.id : undefined
+    setRequests(await fetchRequests("travel", requesterId))
+  }
+  useEffect(() => { if (status !== "loading") load() }, [status, role])
 
   async function handleStatusUpdate(req: EngineRequest, status: string) {
     await updateRequestStatus("travel", req.id, status as never, req.requesterName)

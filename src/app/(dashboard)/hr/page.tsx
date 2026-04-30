@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useSession } from "next-auth/react"
+import { can } from "@/lib/permissions"
 import { Search, Users, UserPlus, UserMinus, CheckCircle2, Plus, ChevronUp, ChevronDown, ChevronsUpDown, MoreHorizontal, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -59,6 +61,9 @@ const COLS: { key: SortKey | "actions"; label: string; defaultW: number }[] = [
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function HRPage() {
+  const { data: session } = useSession()
+  const role = session?.user?.role as string | undefined
+
   const [requests, setRequests]         = useState<EngineRequest[]>([])
   const [search, setSearch]             = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -162,28 +167,30 @@ export default function HRPage() {
             Manage onboarding and offboarding requests for the administration team
           </p>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-              <Plus className="h-4 w-4 mr-2" />
-              Add HR Request
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem asChild>
-              <Link href="/hr/new?type=onboarding" className="flex items-center gap-2 cursor-pointer">
-                <UserPlus className="h-4 w-4 text-teal-600" />
-                Onboarding Request
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/hr/new?type=offboarding" className="flex items-center gap-2 cursor-pointer">
-                <UserMinus className="h-4 w-4 text-red-600" />
-                Offboarding Request
-              </Link>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {can(role, "hrCreate") && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Plus className="h-4 w-4 mr-2" />
+                Add HR Request
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href="/hr/new?type=onboarding" className="flex items-center gap-2 cursor-pointer">
+                  <UserPlus className="h-4 w-4 text-teal-600" />
+                  Onboarding Request
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/hr/new?type=offboarding" className="flex items-center gap-2 cursor-pointer">
+                  <UserMinus className="h-4 w-4 text-red-600" />
+                  Offboarding Request
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       {/* Stat Cards — clickable */}
@@ -381,9 +388,11 @@ export default function HRPage() {
                               → {STATUS_LABELS[s] ?? s}
                             </DropdownMenuItem>
                           ))}
-                          <DropdownMenuItem onClick={() => handleDelete(req)} className="cursor-pointer text-xs text-red-600 focus:text-red-600">
-                            <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
-                          </DropdownMenuItem>
+                          {can(role, "deleteRequests") && (
+                            <DropdownMenuItem onClick={() => handleDelete(req)} className="cursor-pointer text-xs text-red-600 focus:text-red-600">
+                              <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>
