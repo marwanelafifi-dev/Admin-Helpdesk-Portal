@@ -19,7 +19,7 @@ const AVAILABLE_PERMISSIONS = [
 const createRoleSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(50),
   description: z.string().trim().optional(),
-  permissions: z.array(z.enum(AVAILABLE_PERMISSIONS)).default([]),
+  permissions: z.array(z.string()).default([]),
 })
 
 function canManageRoles(role?: string) {

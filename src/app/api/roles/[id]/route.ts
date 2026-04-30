@@ -3,23 +3,10 @@ import { z } from "zod"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 
-const AVAILABLE_PERMISSIONS = [
-  "create",
-  "read",
-  "read_own",
-  "update",
-  "delete",
-  "approve",
-  "reject",
-  "manage_users",
-  "manage_roles",
-  "settings",
-] as const
-
 const updateRoleSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(50).optional(),
   description: z.string().trim().optional(),
-  permissions: z.array(z.enum(AVAILABLE_PERMISSIONS)).optional(),
+  permissions: z.array(z.string()).optional(),
 })
 
 function canManageRoles(role?: string) {
