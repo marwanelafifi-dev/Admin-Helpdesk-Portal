@@ -245,7 +245,7 @@ export function recordCommentActivity(
     ...requests[index],
     updatedAt: now,
     commentHistory: [
-      ...requests[index].commentHistory,
+      ...(requests[index].commentHistory || []),
       { id: commentId, action: 'comment_added' as const, changedBy, changedAt: now },
     ],
   }
