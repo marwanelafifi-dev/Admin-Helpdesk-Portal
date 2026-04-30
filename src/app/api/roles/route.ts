@@ -41,37 +41,45 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const session = await auth()
+  try {
+    const session = await auth()
 
-  if (!canManageRoles(session?.user?.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
+    if (!canManageRoles(session?.user?.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
 
-  const payload = await request.json()
-  const parsed = createRoleSchema.safeParse(payload)
+    const payload = await request.json()
+    const parsed = createRoleSchema.safeParse(payload)
 
-  if (!parsed.success) {
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid role data", issues: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      )
+    }
+
+    const existingRole = await prisma.role.findUnique({
+      where: { name: parsed.data.name },
+    })
+
+    if (existingRole) {
+      return NextResponse.json({ error: "A role with this name already exists" }, { status: 409 })
+    }
+
+    const role = await prisma.role.create({
+      data: {
+        name: parsed.data.name,
+        description: parsed.data.description || null,
+        permissions: parsed.data.permissions,
+      },
+    })
+
+    return NextResponse.json({ role }, { status: 201 })
+  } catch (error) {
+    console.error("Role creation error:", error)
     return NextResponse.json(
-      { error: "Invalid role data", issues: parsed.error.flatten().fieldErrors },
-      { status: 400 }
+      { error: "Failed to create role", details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
     )
   }
-
-  const existingRole = await prisma.role.findUnique({
-    where: { name: parsed.data.name },
-  })
-
-  if (existingRole) {
-    return NextResponse.json({ error: "A role with this name already exists" }, { status: 409 })
-  }
-
-  const role = await prisma.role.create({
-    data: {
-      name: parsed.data.name,
-      description: parsed.data.description || null,
-      permissions: parsed.data.permissions,
-    },
-  })
-
-  return NextResponse.json({ role }, { status: 201 })
 }
