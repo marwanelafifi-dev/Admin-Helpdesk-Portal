@@ -48,8 +48,14 @@ export const commentsAPI = {
     if (offset) params.append('offset', offset.toString())
     // Use relative path for Next.js API routes
     return fetch(`/api/requests/comments?${params.toString()}`).then(r => {
-      if (!r.ok) throw new Error(`API Error: ${r.status}`)
+      if (!r.ok) {
+        console.error(`API Error fetching comments for ${requestId}: ${r.status}`, r.statusText)
+        throw new Error(`API Error: ${r.status} ${r.statusText}`)
+      }
       return r.json()
+    }).catch(error => {
+      console.error(`Failed to fetch comments for ${requestId}:`, error)
+      throw error
     })
   },
 

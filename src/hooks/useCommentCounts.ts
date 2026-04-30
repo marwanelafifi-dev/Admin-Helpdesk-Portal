@@ -7,19 +7,28 @@ export function useCommentCounts(requestIds: string[]) {
   useEffect(() => {
     const fetchCounts = async () => {
       const counts: Record<string, number> = {}
-      for (const id of requestIds) {
+      // Filter out undefined/null IDs
+      const validIds = (requestIds || []).filter(id => id)
+
+      for (const id of validIds) {
         try {
           const commentsData = await commentsAPI.list(id)
           counts[id] = (commentsData.data || []).length
         } catch (err) {
+          console.error(`Failed to fetch comment count for ${id}:`, err)
           counts[id] = 0
         }
       }
       setCommentCounts(counts)
     }
 
-    if (requestIds.length > 0) {
+    // Only fetch if we have valid request IDs
+    const validIds = (requestIds || []).filter(id => id)
+    if (validIds.length > 0) {
       fetchCounts()
+    } else {
+      // Clear counts if no valid request IDs
+      setCommentCounts({})
     }
   }, [requestIds])
 
