@@ -13,7 +13,7 @@ import {
 } from "./shipping.schema"
 import { shippingFormDefaults } from "./shipping.mock"
 import { mockUsers } from "@/lib/mock-data"
-import { requestsAPI } from "@/lib/apiClient"
+import { submitRequest } from "@/services/engineService"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -199,11 +199,11 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
         attachments: buildAttachmentPayload(stagedFiles),
       }
 
-      const created = await requestsAPI.create("shipping", {
-        title: payload.title,
-        description: payload.notes,
-        payload: payload,
-        requesterId: "USR-001", // TODO: Get from session
+      const created = submitRequest("shipping", payload, {
+        title: data.title,
+        requesterId: "USR-001",
+        requesterName: "Marwan Elafifi",
+        requesterEmail: "marwan.elafifi@si-ware.com",
       })
 
       router.push(`/requests/${created.id}`)
