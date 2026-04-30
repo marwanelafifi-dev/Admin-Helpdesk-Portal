@@ -76,7 +76,21 @@ export default function ReceivingPage() {
       try {
         setLoading(true)
         const data = await requestsAPI.listByModule("shipping")
-        setShipments(data.data || [])
+        const transformed = ((data as any)?.data || []).map((req: any) => ({
+          id: req.id,
+          trackingNumber: req.payload?.trackingNumber || "",
+          carrier: req.payload?.carrier || "",
+          origin: req.payload?.origin || "N/A",
+          destination: req.payload?.destination || "N/A",
+          status: req.status === "new" ? "New" : req.status === "on_hold" ? "In Hold" : req.status === "delivered" ? "Delivered" : req.status === "cancelled" ? "Cancelled" : "In Progress",
+          expectedDelivery: new Date(req.updatedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+          requester: req.requester?.name || req.requesterId || "Unknown",
+          pickupDate: new Date(req.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+          poNumber: req.payload?.poNumber || "",
+          costCenter: req.payload?.costCenter || "",
+          lastUpdate: new Date(req.updatedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+        }))
+        setShipments(transformed)
         setError(null)
       } catch (err) {
         console.error("Failed to fetch shipments:", err)
