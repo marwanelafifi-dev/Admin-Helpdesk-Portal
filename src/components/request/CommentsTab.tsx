@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { CommentForm } from "./CommentForm"
 
 export interface Comment {
@@ -49,6 +50,12 @@ export function CommentsTab({
   currentUserId,
   isLoading = false,
 }: CommentsTabProps) {
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
   const isAuthor = (commentAuthorId: string) => currentUserId === commentAuthorId
 
   return (
@@ -80,7 +87,7 @@ export function CommentsTab({
                   )}
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-900">{comment.author?.name || "Anonymous"}</p>
-                    <p className="text-xs text-gray-500">{formatDate(comment.createdAt)}</p>
+                    {isMounted && <p className="text-xs text-gray-500">{formatDate(comment.createdAt)}</p>}
                   </div>
                 </div>
 

@@ -145,6 +145,7 @@ export default function RequestDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>("details")
+  const [isMounted, setIsMounted] = useState(false)
 
   const fetchComments = async (requestId: string) => {
     try {
@@ -290,14 +291,6 @@ export default function RequestDetailPage() {
           const commentsData = await commentsAPI.list(id)
           const comments = commentsData.data || []
 
-          // Mark comments as viewed when page is loaded
-          if (typeof window !== 'undefined' && comments.length > 0) {
-            const viewed = localStorage.getItem('arp_viewed_comments')
-            const viewedComments = viewed ? JSON.parse(viewed) : {}
-            viewedComments[id] = comments.length
-            localStorage.setItem('arp_viewed_comments', JSON.stringify(viewedComments))
-          }
-
           // Extract attachments from comments and add them to the main attachments list
           const commentAttachments = comments.flatMap((comment: any) =>
             (comment.attachments || []).map((att: any) => ({
@@ -333,6 +326,17 @@ export default function RequestDetailPage() {
       fetchRequest()
     }
   }, [id])
+
+  // Set mounted flag and mark comments as viewed
+  useEffect(() => {
+    setIsMounted(true)
+    if (request && request.comments && request.comments.length > 0) {
+      const viewed = localStorage.getItem('arp_viewed_comments')
+      const viewedComments = viewed ? JSON.parse(viewed) : {}
+      viewedComments[request.id] = request.comments.length
+      localStorage.setItem('arp_viewed_comments', JSON.stringify(viewedComments))
+    }
+  }, [request?.id, request?.comments.length])
 
   if (loading) {
     return (
@@ -489,7 +493,7 @@ export default function RequestDetailPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm">{formatDate(request.createdAt)}</p>
+                    <p className="text-sm">{isMounted ? formatDate(request.createdAt) : "—"}</p>
                   </CardContent>
                 </Card>
 
@@ -502,7 +506,7 @@ export default function RequestDetailPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm">{formatDate(request.updatedAt)}</p>
+                    <p className="text-sm">{isMounted ? formatDate(request.updatedAt) : "—"}</p>
                   </CardContent>
                 </Card>
               </div>
@@ -567,7 +571,7 @@ export default function RequestDetailPage() {
                       )}
                       <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
                         <span>By {item.changedByUser?.name || item.changedByUserId}</span>
-                        <span>{formatDate(item.createdAt)}</span>
+                        <span>{isMounted ? formatDate(item.createdAt) : "—"}</span>
                       </div>
                     </div>
                   </div>
