@@ -210,6 +210,22 @@ export default function AdminRolesPage() {
     }))
   }
 
+  const toggleAllPermissions = () => {
+    const allSelected = formData.permissions.length === AVAILABLE_PERMISSIONS.length
+    setFormData((current) => ({
+      ...current,
+      permissions: allSelected ? [] : AVAILABLE_PERMISSIONS,
+    }))
+  }
+
+  const toggleAllPages = () => {
+    const allSelected = formData.pages.length === PAGES.length
+    setFormData((current) => ({
+      ...current,
+      pages: allSelected ? [] : PAGES.map((p) => p.id),
+    }))
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -333,7 +349,18 @@ export default function AdminRolesPage() {
             </div>
 
             <div className="space-y-3">
-              <Label>Permissions</Label>
+              <div className="flex items-center justify-between">
+                <Label>Permissions</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={toggleAllPermissions}
+                >
+                  {formData.permissions.length === AVAILABLE_PERMISSIONS.length ? "Deselect All" : "Select All"}
+                </Button>
+              </div>
               <div className="grid grid-cols-2 gap-3 p-3 border rounded-lg bg-gray-50">
                 {AVAILABLE_PERMISSIONS.map((perm) => (
                   <label
@@ -351,7 +378,18 @@ export default function AdminRolesPage() {
             </div>
 
             <div className="space-y-3">
-              <Label>Page Access</Label>
+              <div className="flex items-center justify-between">
+                <Label>Page Access</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={toggleAllPages}
+                >
+                  {formData.pages.length === PAGES.length ? "Deselect All" : "Select All"}
+                </Button>
+              </div>
               <div className="max-h-48 overflow-y-auto border rounded-lg bg-gray-50 p-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {PAGES.map((page) => (
