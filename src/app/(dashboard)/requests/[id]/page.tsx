@@ -196,7 +196,7 @@ export default function RequestDetailPage() {
 
   const getStatusesByModule = (module: string): string[] => {
     const moduleStatuses: Record<string, string[]> = {
-      shipping: ['new', 'delivered'],
+      shipping: ['new', 'on_hold', 'in_customs', 'delivered', 'cancelled'],
       hr: ['new', 'on_hold', 'completed'],
       maintenance: ['new', 'on_hold', 'completed', 'cancelled'],
       purchase: ['new', 'in_customs', 'on_hold', 'delivered', 'cancelled'],
