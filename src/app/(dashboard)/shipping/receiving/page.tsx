@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { mockShipments, type MockShipment } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
-import { requestsAPI } from "@/lib/apiClient"
+import { getRequestsByModule, initializeMockData } from "@/services/engineService"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -73,25 +73,37 @@ export default function ReceivingPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchShipments = async () => {
+    const fetchShipments = () => {
       try {
         setLoading(true)
-        const data = await requestsAPI.listByModule("shipping")
-        const transformed = ((data as any)?.data || []).map((req: any) => ({
-          id: req.id,
-          title: req.title || "Untitled Request",
-          trackingNumber: req.payload?.trackingNumber || "",
-          carrier: req.payload?.carrier || "",
-          origin: req.payload?.origin || "N/A",
-          destination: req.payload?.destination || "N/A",
-          status: req.status === "new" ? "New" : req.status === "on_hold" ? "In Hold" : req.status === "delivered" ? "Delivered" : req.status === "cancelled" ? "Cancelled" : "In Progress",
-          expectedDelivery: new Date(req.updatedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
-          requester: req.requester?.name || req.requesterId || "Unknown",
-          pickupDate: new Date(req.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
-          poNumber: req.payload?.poNumber || "",
-          costCenter: req.payload?.costCenter || "",
-          lastUpdate: new Date(req.updatedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
-        }))
+        // Initialize mock data if needed
+        initializeMockData()
+        // Get shipping requests from engineService
+        const requests = getRequestsByModule("shipping")
+        const transformed = requests.map((req: any) => {
+          let status: "New" | "On Hold" | "In Customs" | "Delivered" | "Cancelled" = "New"
+          if (req.status === "new") status = "New"
+          else if (req.status === "on_hold") status = "On Hold"
+          else if (req.status === "in_customs") status = "In Customs"
+          else if (req.status === "delivered") status = "Delivered"
+          else if (req.status === "cancelled") status = "Cancelled"
+
+          return {
+            id: req.id,
+            title: req.title || "Untitled Request",
+            trackingNumber: req.payload?.trackingNumber || "",
+            carrier: req.payload?.carrier || "",
+            origin: req.payload?.origin || "N/A",
+            destination: req.payload?.destination || "N/A",
+            status,
+            expectedDelivery: new Date(req.updatedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+            requester: req.requesterName || req.requesterId || "Unknown",
+            pickupDate: new Date(req.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+            poNumber: req.payload?.poNumber || "",
+            costCenter: req.payload?.costCenter || "",
+            lastUpdate: new Date(req.updatedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+          }
+        })
         setShipments(transformed)
         setError(null)
       } catch (err) {
