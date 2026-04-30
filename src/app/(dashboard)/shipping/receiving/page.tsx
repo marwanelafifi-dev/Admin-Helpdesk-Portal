@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
-import { Search, Plus, Package, Truck, CheckCircle2, Clock, MoreHorizontal, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
+import { Search, Plus, Package, Truck, CheckCircle2, Clock, MoreHorizontal, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -13,6 +13,8 @@ import {
 import { mockShipments, type MockShipment } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
 import { getRequestsByModule, initializeMockData } from "@/services/engineService"
+import { useCommentCounts } from "@/hooks/useCommentCounts"
+import { useViewedComments } from "@/hooks/useViewedComments"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -117,6 +119,9 @@ export default function ReceivingPage() {
 
     fetchShipments()
   }, [])
+
+  const commentCounts = useCommentCounts(shipments.map(s => s.id))
+  const { viewedComments } = useViewedComments()
 
   // ── Resize ──────────────────────────────────────────────────────────────
   function onResizeMouseDown(e: React.MouseEvent, idx: number) {
@@ -320,18 +325,28 @@ export default function ReceivingPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((shipment, i) => (
+              {filtered.map((shipment, i) => {
+                const hasUnreadComments = (commentCounts[shipment.id] ?? 0) > (viewedComments[shipment.id] ?? 0)
+                return (
                 <tr
                   key={shipment.id}
                   className={cn(
                     "border-b border-gray-100 hover:bg-blue-50/30 transition-colors",
-                    i % 2 === 0 ? "bg-white" : "bg-gray-50/40"
+                    hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40")
                   )}
                 >
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
-                    <Link href={`/requests/${shipment.id}`} className="text-sm text-blue-600 font-medium tracking-wide truncate block hover:underline">
-                      {shipment.id}
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      <Link href={`/requests/${shipment.id}`} className="text-sm text-blue-600 font-medium tracking-wide truncate block hover:underline">
+                        {shipment.id}
+                      </Link>
+                      {(commentCounts[shipment.id] ?? 0) > 0 && (
+                        <span className={cn("flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap flex-shrink-0", hasUnreadComments ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700")}>
+                          <MessageCircle className="h-3 w-3" />
+                          {commentCounts[shipment.id]}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-3 px-3 overflow-hidden">
                     <span className="text-sm text-gray-700 font-medium truncate block">{shipment.title}</span>
@@ -385,7 +400,8 @@ export default function ReceivingPage() {
                     </DropdownMenu>
                   </td>
                 </tr>
-              ))}
+              )
+              })}
 
               {filtered.length === 0 && (
                 <tr>

@@ -82,15 +82,13 @@ export function Sidebar() {
       <Link href="/dashboard" className={cn(
         "flex items-center gap-3 border-b border-slate-700 py-4 px-5 hover:bg-slate-800 transition-colors",
         collapsed && "justify-center px-0"
-      )}>
-        {!collapsed && (
-          <div className="overflow-hidden">
-            <span className="font-bold text-sm tracking-tight whitespace-nowrap text-white">
-              Admin Portal
-            </span>
-            <p className="text-xs text-slate-400 mt-0.5">Si-Ware Systems</p>
-          </div>
-        )}
+      )} suppressHydrationWarning>
+        <div className={cn("overflow-hidden", collapsed && "hidden")}>
+          <span className="font-bold text-sm tracking-tight whitespace-nowrap text-white">
+            Admin Portal
+          </span>
+          <p className="text-xs text-slate-400 mt-0.5">Si-Ware Systems</p>
+        </div>
       </Link>
 
       {/* Navigation */}

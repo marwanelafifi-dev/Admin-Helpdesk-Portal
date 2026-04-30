@@ -1,10 +1,11 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api'
 
 export async function apiCall<T>(
   endpoint: string,
   options?: RequestInit
 ): Promise<T> {
-  const response = await fetch(`${API_BASE}${endpoint}`, {
+  const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`
+  const response = await fetch(url, {
     headers: {
       'Content-Type': 'application/json',
       ...options?.headers,
@@ -40,13 +41,59 @@ export const requestsAPI = {
 }
 
 export const commentsAPI = {
-  listByRequest: (module: string, requestId: string) =>
-    apiCall(`/requests/${module}/${requestId}/comments`),
+  list: (requestId: string, limit?: number, offset?: number) => {
+    const params = new URLSearchParams()
+    params.append('requestId', requestId)
+    if (limit) params.append('limit', limit.toString())
+    if (offset) params.append('offset', offset.toString())
+    // Use relative path for Next.js API routes
+    return fetch(`/api/requests/comments?${params.toString()}`).then(r => {
+      if (!r.ok) throw new Error(`API Error: ${r.status}`)
+      return r.json()
+    })
+  },
 
-  create: (module: string, requestId: string, data: any) =>
-    apiCall(`/requests/${module}/${requestId}/comments`, {
+  create: async (requestId: string, content: string, authorId: string, authorName: string, authorEmail: string, files?: File[]) => {
+    const formData = new FormData()
+    formData.append('requestId', requestId)
+    formData.append('content', content)
+    formData.append('authorId', authorId)
+    formData.append('authorName', authorName)
+    formData.append('authorEmail', authorEmail)
+
+    if (files) {
+      files.forEach((file) => formData.append('files', file))
+    }
+
+    const response = await fetch('/api/requests/comments', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: formData,
+      // DO NOT set Content-Type header - browser will set it with boundary
+    })
+
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status}`)
+    }
+
+    return response.json()
+  },
+
+  delete: (commentId: string) =>
+    fetch(`/api/requests/comments/${commentId}`, {
+      method: 'DELETE',
+    }).then(r => {
+      if (!r.ok) throw new Error(`API Error: ${r.status}`)
+      return r.json()
+    }),
+
+  update: (commentId: string, content: string) =>
+    fetch(`/api/requests/comments/${commentId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    }).then(r => {
+      if (!r.ok) throw new Error(`API Error: ${r.status}`)
+      return r.json()
     }),
 }
 

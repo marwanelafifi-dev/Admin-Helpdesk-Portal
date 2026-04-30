@@ -2,13 +2,15 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
-import { Search, Plus, Wrench, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
+import { Search, Plus, Wrench, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
 import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
 import { cn } from "@/lib/utils"
 import { requestsAPI } from "@/lib/apiClient"
+import { useCommentCounts } from "@/hooks/useCommentCounts"
+import { useViewedComments } from "@/hooks/useViewedComments"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -64,6 +66,9 @@ export default function MaintenancePage() {
   const resizingCol  = useRef<number | null>(null)
   const resizeStartX = useRef(0)
   const resizeStartW = useRef(0)
+
+  const commentCounts = useCommentCounts(requests.map(r => r.id))
+  const { viewedComments } = useViewedComments()
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -247,12 +252,27 @@ export default function MaintenancePage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((req, i) => (
-                <tr key={req.id} className={cn("border-b border-gray-100 hover:bg-blue-50/30 transition-colors", i % 2 === 0 ? "bg-white" : "bg-gray-50/40")}>
+              {filtered.map((req, i) => {
+                const hasUnreadComments = (commentCounts[req.id] ?? 0) > (viewedComments[req.id] ?? 0)
+                return (
+                <tr key={req.id} className={cn("border-b border-gray-100 hover:bg-blue-50/30 transition-colors", hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40"))}>
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
-                    <Link href={`/requests/${req.id}`} className="text-sm font-medium text-blue-600 truncate block hover:underline">
-                      {req.id}
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      <Link href={`/requests/${req.id}`} className="text-sm font-medium text-blue-600 truncate hover:underline">
+                        {req.id}
+                      </Link>
+                      {(commentCounts[req.id] ?? 0) > 0 && (
+                        <span className={cn(
+                          "inline-flex items-center gap-1 flex-shrink-0 text-xs px-2 py-0.5 rounded-full font-semibold",
+                          hasUnreadComments
+                            ? "bg-red-100 text-red-700"
+                            : "bg-blue-50 text-blue-600"
+                        )}>
+                          <MessageCircle className="h-3 w-3" />
+                          {commentCounts[req.id]}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-3 px-3 overflow-hidden">
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.title}</span>
@@ -281,7 +301,8 @@ export default function MaintenancePage() {
                     <span className="text-sm font-medium text-gray-700">{formatDate(req.updatedAt)}</span>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
 
               {filtered.length === 0 && (
                 <tr>

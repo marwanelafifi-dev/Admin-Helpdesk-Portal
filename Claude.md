@@ -83,6 +83,18 @@ This document tracks the phased development of the Admin Request Platform, movin
   - [ ] Define Zod Schema + build booking/approval workflow form.
 - [x] **engineService mock data** — bumped to `v7`. Total seeded records: 8 SHP, 5 MNT, 4 PRC, 4 EVT, 5 TRV, 8 HR (including team records).
 
+## Phase 2b: Comment System & Indicators (Completed)
+- [x] **Comment Activity Tab:** Shows comment history in request detail view with author, timestamp, and content.
+  - [x] Comment creation with optional text attachments (data URLs).
+  - [x] Comment editing and deletion.
+  - [x] Attachment preview with download support.
+- [x] **Unread Comment Indicators:** Visual badges and row highlighting across all request list pages.
+  - [x] Comment count badge next to request ID.
+  - [x] Red badge for unread comments, blue badge for read comments.
+  - [x] Light blue row highlight when unread comments exist.
+  - [x] Auto-mark comments as viewed when request detail page loads.
+  - [x] Implemented on: My Requests, Shipping, Shipping Receiving, HR, Maintenance, Purchase, Event, Travel, Admin All Requests pages.
+
 ## Phase 3: Advanced Functionality (Upcoming)
 - [ ] **Audit Trail Enhancement:** Add granular history logs to the dashboard.
 - [ ] **Notifications System:** Automated email/in-app notifications for pending approvals.
