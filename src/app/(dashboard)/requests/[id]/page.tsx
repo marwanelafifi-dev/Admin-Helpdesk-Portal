@@ -605,8 +605,18 @@ export default function RequestDetailPage() {
                   // Record comment activity in history
                   recordCommentActivity(request.id, request.requester?.id || "USR-001")
 
-                  // Refetch comments without reloading the page
-                  await fetchComments(request.id)
+                  // Add optimistic update - add comment immediately to state
+                  const newComment = {
+                    id: result?.id || `${Date.now()}`,
+                    content: content,
+                    author: {
+                      id: request.requester?.id || "USR-001",
+                      name: request.requester?.name || "User",
+                      email: request.requester?.email || "user@si-ware.com",
+                    },
+                    attachments: result?.attachments || [],
+                    createdAt: new Date().toISOString(),
+                  }
 
                   // Add a new activity entry for the comment
                   const now = new Date().toISOString()
@@ -622,14 +632,18 @@ export default function RequestDetailPage() {
                     createdAt: now,
                   }
 
-                  // Update the request's history to include the new comment activity
+                  // Update the request's history and comments immediately
                   const updatedHistory = [...(request.history || []), newCommentActivity]
                     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
 
                   setRequest({
                     ...request,
+                    comments: [...(request.comments || []), newComment],
                     history: updatedHistory,
                   })
+
+                  // Then refetch comments to sync with server
+                  await fetchComments(request.id)
                 } catch (error) {
                   console.error("Failed to add comment:", error)
                   alert(`Failed to add comment: ${error instanceof Error ? error.message : 'Unknown error'}`)
