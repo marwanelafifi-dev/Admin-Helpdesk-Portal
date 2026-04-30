@@ -28,7 +28,9 @@ export interface EngineRequest<T = Record<string, unknown>> {
 export async function fetchRequests(module: string): Promise<EngineRequest[]> {
   const res = await fetch(`/api/requests/${module}`, { cache: "no-store" })
   if (!res.ok) return []
-  return res.json()
+  const json = await res.json()
+  // Route returns { ok, data } wrapper
+  return Array.isArray(json) ? json : (json.data ?? [])
 }
 
 export async function fetchAllRequests(): Promise<EngineRequest[]> {
@@ -48,7 +50,8 @@ export async function createRequest(
     body: JSON.stringify({ payload, meta }),
   })
   if (!res.ok) return null
-  return res.json()
+  const json = await res.json()
+  return json.data ?? json
 }
 
 export async function updateRequestStatus(
@@ -63,7 +66,8 @@ export async function updateRequestStatus(
     body: JSON.stringify({ status, changedBy }),
   })
   if (!res.ok) return null
-  return res.json()
+  const json = await res.json()
+  return json.data ?? json
 }
 
 export async function deleteRequest(module: string, id: string): Promise<boolean> {

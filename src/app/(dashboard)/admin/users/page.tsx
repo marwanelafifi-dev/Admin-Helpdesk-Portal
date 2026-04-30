@@ -1,26 +1,17 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Search, UserPlus, Trash2, Chrome, KeyRound, X } from "lucide-react"
+import { Search, UserPlus, Trash2, Chrome, KeyRound, X, Check } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 
 type DBUser = {
@@ -32,21 +23,15 @@ type DBUser = {
   emailVerified: string | null
 }
 
-const ROLE_COLORS: Record<string, string> = {
-  super_admin: "bg-purple-100 text-purple-800",
-  admin: "bg-blue-100 text-blue-800",
-  manager: "bg-indigo-100 text-indigo-800",
-  employee: "bg-gray-100 text-gray-700",
-  external: "bg-amber-100 text-amber-800",
-}
+const ROLES = [
+  { value: "super_admin", label: "Super Admin", color: "bg-purple-100 text-purple-800" },
+  { value: "admin",       label: "Admin",       color: "bg-blue-100 text-blue-800" },
+  { value: "manager",     label: "Manager",     color: "bg-indigo-100 text-indigo-800" },
+  { value: "employee",    label: "Employee",    color: "bg-gray-100 text-gray-700" },
+  { value: "external",    label: "External",    color: "bg-amber-100 text-amber-800" },
+]
 
-const ROLE_LABELS: Record<string, string> = {
-  super_admin: "Super Admin",
-  admin: "Admin",
-  manager: "Manager",
-  employee: "Employee",
-  external: "External",
-}
+const ROLE_MAP = Object.fromEntries(ROLES.map((r) => [r.value, r]))
 
 function getInitials(name: string | null) {
   if (!name) return "?"
@@ -55,6 +40,46 @@ function getInitials(name: string | null) {
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+}
+
+// Inline role picker shown directly in the table row
+function RoleCell({ user, onRoleChange }: { user: DBUser; onRoleChange: (id: string, role: string) => Promise<void> }) {
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  const handleChange = async (newRole: string) => {
+    if (newRole === user.role) return
+    setSaving(true)
+    await onRoleChange(user.id, newRole)
+    setSaving(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 1500)
+  }
+
+  const current = ROLE_MAP[user.role]
+
+  return (
+    <div className="flex items-center gap-2">
+      <Select value={user.role} onValueChange={handleChange} disabled={saving}>
+        <SelectTrigger className="h-7 text-xs border-0 bg-transparent p-0 w-auto gap-1.5 focus:ring-0 shadow-none">
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${current?.color ?? "bg-gray-100 text-gray-700"}`}>
+            {current?.label ?? user.role}
+          </span>
+        </SelectTrigger>
+        <SelectContent>
+          {ROLES.map((r) => (
+            <SelectItem key={r.value} value={r.value}>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${r.color}`}>
+                {r.label}
+              </span>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {saving && <span className="text-[10px] text-gray-400">Saving...</span>}
+      {saved && <Check className="h-3.5 w-3.5 text-green-500" />}
+    </div>
+  )
 }
 
 export default function AdminUsersPage() {
@@ -111,7 +136,20 @@ export default function AdminUsersPage() {
     }
   }
 
+  const handleRoleChange = async (id: string, role: string) => {
+    const res = await fetch("/api/admin/users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, role }),
+    })
+    if (res.ok) {
+      const updated: DBUser = await res.json()
+      setUsers((prev) => prev.map((u) => u.id === id ? { ...u, role: updated.role } : u))
+    }
+  }
+
   const handleDelete = async (id: string) => {
+    if (!confirm("Delete this user? This action cannot be undone.")) return
     setDeletingId(id)
     try {
       await fetch("/api/admin/users", {
@@ -134,7 +172,7 @@ export default function AdminUsersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Users</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Manage platform users and their access</p>
+          <p className="text-muted-foreground text-sm mt-0.5">Manage platform users and their access roles</p>
         </div>
         <Button onClick={() => setShowDialog(true)} className="bg-blue-600 hover:bg-blue-700 text-white">
           <UserPlus className="h-4 w-4 mr-2" />
@@ -177,7 +215,7 @@ export default function AdminUsersPage() {
                 <TableHead>Role</TableHead>
                 <TableHead>Auth Method</TableHead>
                 <TableHead>Joined</TableHead>
-                <TableHead className="w-[60px]"></TableHead>
+                <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -205,9 +243,7 @@ export default function AdminUsersPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${ROLE_COLORS[user.role] ?? "bg-gray-100 text-gray-700"}`}>
-                      {ROLE_LABELS[user.role] ?? user.role}
-                    </span>
+                    <RoleCell user={user} onRoleChange={handleRoleChange} />
                   </TableCell>
                   <TableCell>
                     <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${user.emailVerified ? "text-blue-600" : "text-amber-600"}`}>
@@ -263,11 +299,11 @@ export default function AdminUsersPage() {
                 <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="external">External</SelectItem>
-                    <SelectItem value="employee">Employee</SelectItem>
-                    <SelectItem value="manager">Manager</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="super_admin">Super Admin</SelectItem>
+                    {ROLES.map((r) => (
+                      <SelectItem key={r.value} value={r.value}>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${r.color}`}>{r.label}</span>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

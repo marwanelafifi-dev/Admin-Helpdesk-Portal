@@ -33,6 +33,28 @@ export async function POST(req: Request) {
   return NextResponse.json(user, { status: 201 })
 }
 
+export async function PATCH(req: Request) {
+  const { id, role } = await req.json()
+
+  if (!id || !role) {
+    return NextResponse.json({ error: "id and role are required" }, { status: 400 })
+  }
+
+  const validRoles = ["super_admin", "admin", "manager", "employee", "external"]
+  if (!validRoles.includes(role)) {
+    return NextResponse.json({ error: "Invalid role" }, { status: 400 })
+  }
+
+  const prisma = getPrisma()
+  const user = await prisma.user.update({
+    where: { id },
+    data: { role },
+    select: { id: true, name: true, email: true, role: true, createdAt: true, emailVerified: true },
+  })
+
+  return NextResponse.json(user)
+}
+
 export async function DELETE(req: Request) {
   const { id } = await req.json()
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 })
