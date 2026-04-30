@@ -80,12 +80,12 @@ const STAT_CARDS = [
 type SortKey = "id" | "title" | "module" | "status" | "createdAt" | "updatedAt"
 
 const COLS: { key: SortKey; label: string; defaultW: number }[] = [
-  { key: "id",        label: "Request ID", defaultW: 150 },
-  { key: "title",     label: "Title",      defaultW: 340 },
-  { key: "createdAt", label: "Submitted",  defaultW: 120 },
-  { key: "module",    label: "Module",     defaultW: 130 },
-  { key: "status",    label: "Status",     defaultW: 130 },
-  { key: "updatedAt", label: "Updated",    defaultW: 120 },
+  { key: "id",        label: "Request ID",    defaultW: 150 },
+  { key: "title",     label: "Request Title", defaultW: 340 },
+  { key: "createdAt", label: "Submitted",     defaultW: 120 },
+  { key: "module",    label: "Module",        defaultW: 130 },
+  { key: "status",    label: "Status",        defaultW: 130 },
+  { key: "updatedAt", label: "Updated",       defaultW: 120 },
 ]
 
 function formatModule(m: string) { return m.charAt(0).toUpperCase() + m.slice(1) }
