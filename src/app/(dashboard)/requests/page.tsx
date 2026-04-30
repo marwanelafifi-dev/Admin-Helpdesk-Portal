@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useRef, useCallback, useState } from "react"
 import Link from "next/link"
-import { Search, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
+import { Search, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader } from "@/components/ui/card"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
 import { cn } from "@/lib/utils"
-import { requestsAPI } from "@/lib/apiClient"
+import { requestsAPI, commentsAPI } from "@/lib/apiClient"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -100,6 +100,7 @@ const CURRENT_USER_ID = "USR-001"
 
 export default function RequestsPage() {
   const [requests, setRequests]           = useState<EngineRequest[]>([])
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({})
   const [search, setSearch]               = useState("")
   const [statusFilter, setStatusFilter]   = useState("all")
   const [moduleFilter, setModuleFilter]   = useState("all")
@@ -113,20 +114,21 @@ export default function RequestsPage() {
   useEffect(() => {
     const fetchRequests = async () => {
       try {
-        const [shipping, hr, maintenance, purchase] = await Promise.all([
-          requestsAPI.listByModule("shipping"),
-          requestsAPI.listByModule("hr"),
-          requestsAPI.listByModule("maintenance"),
-          requestsAPI.listByModule("purchase"),
-        ])
+        initializeMockData()
+        const allRequests = getRequests()
+        setRequests(allRequests)
 
-        const allRequests = [
-          ...shipping.data,
-          ...hr.data,
-          ...maintenance.data,
-          ...purchase.data,
-        ]
-        setRequests(allRequests as EngineRequest[])
+        // Fetch comment counts for all requests
+        const counts: Record<string, number> = {}
+        for (const req of allRequests) {
+          try {
+            const commentsData = await commentsAPI.list(req.id)
+            counts[req.id] = (commentsData.data || []).length
+          } catch (err) {
+            counts[req.id] = 0
+          }
+        }
+        setCommentCounts(counts)
       } catch (error) {
         console.error("Failed to fetch requests:", error)
         initializeMockData()
@@ -325,9 +327,17 @@ export default function RequestsPage() {
               {filtered.map((req, i) => (
                 <tr key={req.id} className={cn("border-b border-gray-100 hover:bg-blue-50/30 transition-colors", i % 2 === 0 ? "bg-white" : "bg-gray-50/40")}>
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
-                    <Link href={`/requests/${req.id}`} className="text-sm font-medium text-blue-600 truncate block hover:underline">
-                      {req.id}
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      <Link href={`/requests/${req.id}`} className="text-sm font-medium text-blue-600 truncate hover:underline">
+                        {req.id}
+                      </Link>
+                      {commentCounts[req.id] && commentCounts[req.id] > 0 && (
+                        <span className="inline-flex items-center gap-1 flex-shrink-0 text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
+                          <MessageCircle className="h-3 w-3" />
+                          {commentCounts[req.id]}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-3 px-3 overflow-hidden">
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.title}</span>
