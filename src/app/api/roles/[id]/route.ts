@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
+import { canManageRoles } from "@/lib/access"
 
 const updateRoleSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(50).optional(),
@@ -9,15 +10,11 @@ const updateRoleSchema = z.object({
   permissions: z.array(z.string()).optional(),
 })
 
-function canManageRoles(role?: string) {
-  return role === "super_admin"
-}
-
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   const { id } = await params
 
-  if (!canManageRoles(session?.user?.role)) {
+  if (!canManageRoles(session?.user?.role, session?.user?.permissions ?? [])) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -68,7 +65,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const session = await auth()
   const { id } = await params
 
-  if (!canManageRoles(session?.user?.role)) {
+  if (!canManageRoles(session?.user?.role, session?.user?.permissions ?? [])) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 

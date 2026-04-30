@@ -2,28 +2,23 @@ import { NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { z } from "zod"
 import { auth } from "@/auth"
+import { canManageUsers } from "@/lib/access"
 import { prisma } from "@/lib/prisma"
-
-const roles = ["super_admin", "admin", "manager", "requester", "viewer"] as const
 
 const updateUserSchema = z.object({
   name: z.string().trim().min(1, "Name is required").optional(),
   email: z.string().trim().email("Valid email is required").optional(),
   password: z.string().min(8, "Password must be at least 8 characters").optional(),
-  role: z.enum(roles).optional(),
+  role: z.string().trim().min(1).optional(),
   department: z.string().trim().optional(),
   active: z.boolean().optional(),
 })
-
-function canManageUsers(role?: string) {
-  return role === "super_admin" || role === "admin"
-}
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   const { id } = await params
 
-  if (!canManageUsers(session?.user?.role)) {
+  if (!canManageUsers(session?.user?.role, session?.user?.permissions ?? [])) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
@@ -83,7 +78,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const session = await auth()
   const { id } = await params
 
-  if (!canManageUsers(session?.user?.role)) {
+  if (!canManageUsers(session?.user?.role, session?.user?.permissions ?? [])) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 

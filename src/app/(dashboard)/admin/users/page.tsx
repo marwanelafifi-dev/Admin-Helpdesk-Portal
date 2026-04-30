@@ -40,7 +40,13 @@ type PlatformUser = {
   createdAt: string
 }
 
-const roles = [
+type RoleOption = {
+  value: string
+  label: string
+  description?: string | null
+}
+
+const fallbackRoles: RoleOption[] = [
   { value: "requester", label: "Requester" },
   { value: "manager", label: "Manager" },
   { value: "admin", label: "Admin" },
@@ -56,7 +62,7 @@ const ROLE_COLORS: Record<string, string> = {
   viewer: "bg-slate-100 text-slate-700",
 }
 
-function roleLabel(role: string) {
+function roleLabel(role: string, roles: RoleOption[]) {
   return roles.find((item) => item.value === role)?.label ?? role
 }
 
@@ -77,11 +83,22 @@ function formatDate(value: string) {
   }).format(new Date(value))
 }
 
+function getDefaultRoleValue(roles: RoleOption[]) {
+  const requester = roles.find((role) => role.value.toLowerCase() === "requester")
+  if (requester) {
+    return requester.value
+  }
+
+  const safeRole = roles.find((role) => !["super_admin", "admin"].includes(role.value.toLowerCase()))
+  return safeRole?.value ?? roles[0]?.value ?? "requester"
+}
+
 export default function AdminUsersPage() {
   const [search, setSearch] = useState("")
   const [users, setUsers] = useState<PlatformUser[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState("")
+  const [roles, setRoles] = useState<RoleOption[]>(fallbackRoles)
   const [showCreateUser, setShowCreateUser] = useState(false)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState("")
@@ -114,8 +131,27 @@ export default function AdminUsersPage() {
     setLoading(false)
   }
 
+  const loadRoles = async () => {
+    const response = await fetch("/api/roles/options", { credentials: "include" })
+
+    if (!response.ok) {
+      setRoles(fallbackRoles)
+      return
+    }
+
+    const data = await response.json()
+    const nextRoles = data.roles?.length ? data.roles : fallbackRoles
+    setRoles(nextRoles)
+    setForm((current) =>
+      nextRoles.some((role: RoleOption) => role.value === current.role)
+        ? current
+        : { ...current, role: getDefaultRoleValue(nextRoles) }
+    )
+  }
+
   useEffect(() => {
     loadUsers()
+    loadRoles()
   }, [])
 
   const filtered = useMemo(() => {
@@ -125,10 +161,10 @@ export default function AdminUsersPage() {
       return (
         name.toLowerCase().includes(q) ||
         user.email.toLowerCase().includes(q) ||
-        roleLabel(user.role).toLowerCase().includes(q)
+        roleLabel(user.role, roles).toLowerCase().includes(q)
       )
     })
-  }, [search, users])
+  }, [search, users, roles])
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -151,8 +187,24 @@ export default function AdminUsersPage() {
     }
 
     setUsers((current) => [data.user, ...current])
-    setForm({ name: "", email: "", password: "", role: "requester", department: "" })
+    setForm({
+      name: "",
+      email: "",
+      password: "",
+      role: getDefaultRoleValue(roles),
+      department: "",
+    })
     setShowCreateUser(false)
+  }
+
+  const resetCreateForm = () => {
+    setForm({
+      name: "",
+      email: "",
+      password: "",
+      role: getDefaultRoleValue(roles),
+      department: "",
+    })
   }
 
   const handleEditUser = (user: PlatformUser) => {
@@ -267,7 +319,13 @@ export default function AdminUsersPage() {
             Manage platform users and their access
           </p>
         </div>
-        <Button onClick={() => setShowCreateUser(true)}>
+        <Button
+          onClick={async () => {
+            await loadRoles()
+            resetCreateForm()
+            setShowCreateUser(true)
+          }}
+        >
           <UserPlus className="h-4 w-4 mr-2" />
           Add User
         </Button>
@@ -346,7 +404,7 @@ export default function AdminUsersPage() {
                             ROLE_COLORS[user.role] ?? "bg-gray-100 text-gray-700"
                           }`}
                         >
-                          {roleLabel(user.role)}
+                          {roleLabel(user.role, roles)}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -387,11 +445,11 @@ export default function AdminUsersPage() {
                                   <span className="ml-2">›</span>
                                 </DropdownMenuItem>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="start" side="right">
-                                {roles.map((role) => (
-                                  <DropdownMenuItem
-                                    key={role.value}
-                                    onClick={() => handleChangeRole(user.id, role.value)}
+                            <DropdownMenuContent align="start" side="right">
+                              {roles.map((role) => (
+                                <DropdownMenuItem
+                                  key={role.value}
+                                  onClick={() => handleChangeRole(user.id, role.value)}
                                     className={user.role === role.value ? "bg-blue-50" : ""}
                                   >
                                     {role.label}
@@ -432,7 +490,14 @@ export default function AdminUsersPage() {
                 <h2 className="text-lg font-semibold">Add local user</h2>
                 <p className="text-sm text-muted-foreground">Create an email and password account.</p>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setShowCreateUser(false)}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setShowCreateUser(false)
+                  resetCreateForm()
+                }}
+              >
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -508,7 +573,14 @@ export default function AdminUsersPage() {
               {createError && <p className="text-sm text-destructive">{createError}</p>}
 
               <div className="flex justify-end gap-2 border-t pt-4">
-                <Button type="button" variant="outline" onClick={() => setShowCreateUser(false)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowCreateUser(false)
+                    resetCreateForm()
+                  }}
+                >
                   Cancel
                 </Button>
                 <Button type="submit" disabled={creating}>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
+import { useSession } from "next-auth/react"
 import { ArrowLeft, Calendar, User, FileText, Clock, CheckCircle2, AlertCircle, ChevronDown } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -10,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { commentsAPI } from "@/lib/apiClient"
 import { getRequests, updateStatus, initializeMockData, recordCommentActivity, type EngineRequest } from "@/services/engineService"
 import { cn } from "@/lib/utils"
+import { hasPermission } from "@/lib/access"
 import { CommentsTab } from "@/components/request/CommentsTab"
 import { invalidateCommentCountCache } from "@/hooks/useCommentCounts"
 import {
@@ -141,6 +143,7 @@ export default function RequestDetailPage() {
   const params = useParams()
   const router = useRouter()
   const id = params.id as string
+  const { data: session } = useSession()
 
   const [request, setRequest] = useState<RequestDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -177,8 +180,10 @@ export default function RequestDetailPage() {
     }
   }
 
+  const canChangeStatus = session?.user?.permissions && hasPermission(session.user.permissions, "update")
+
   const handleStatusChange = async (newStatus: string) => {
-    if (!request) return
+    if (!request || !canChangeStatus) return
     try {
       const now = new Date().toISOString()
       const oldStatus = request.status
@@ -423,7 +428,11 @@ export default function RequestDetailPage() {
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="outline"
-                        className={`${STATUS_COLORS[request.status] || "bg-gray-100"} border-0 cursor-pointer`}
+                        disabled={!canChangeStatus}
+                        className={cn(
+                          `${STATUS_COLORS[request.status] || "bg-gray-100"} border-0`,
+                          !canChangeStatus && "cursor-not-allowed opacity-70"
+                        )}
                       >
                         <span className={`inline-block h-2 w-2 rounded-full mr-1.5 ${STATUS_DOT[request.status] || "bg-gray-400"}`} />
                         {getStatusLabel(request.status, request.module)}

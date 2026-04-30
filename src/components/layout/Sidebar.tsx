@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useSession } from "next-auth/react"
 import {
   LayoutDashboard,
   FileText,
@@ -22,6 +23,7 @@ import {
   PanelLeftOpen,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { canAccessPath } from "@/lib/access"
 
 interface NavItem {
   title: string
@@ -62,9 +64,30 @@ const navItems: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const { data: session, status } = useSession()
   const [collapsed, setCollapsed] = useState(false)
   const [adminExpanded, setAdminExpanded] = useState(pathname.startsWith("/admin"))
   const [shippingExpanded, setShippingExpanded] = useState(pathname.startsWith("/shipping"))
+  const permissions = session?.user?.permissions ?? []
+  const role = session?.user?.role
+
+  const canSee = (href: string) => status === "authenticated" && canAccessPath(href, permissions, role)
+
+  const visibleNavItems = navItems.reduce<NavItem[]>((items, item) => {
+      const children = item.children?.filter((child) => canSee(child.href))
+      const itemVisible = canSee(item.href) || Boolean(children?.length)
+
+      if (!itemVisible) {
+        return items
+      }
+
+      items.push({
+        ...item,
+        children: children?.length ? children : undefined,
+      })
+
+      return items
+    }, [])
 
   const isActive = (href: string) =>
     href === "/dashboard" || href === "/admin/all-requests"
@@ -79,7 +102,7 @@ export function Sidebar() {
       )}
     >
       {/* Branding */}
-      <Link href="/dashboard" className={cn(
+      <Link href="/landing" className={cn(
         "flex items-center gap-3 border-b border-slate-700 py-4 px-5 hover:bg-slate-800 transition-colors",
         collapsed && "justify-center px-0"
       )} suppressHydrationWarning>
@@ -93,7 +116,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4 space-y-0.5 px-2">
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           if (item.children) {
             const isAdmin = item.title === "Admin"
             const isShipping = item.title === "Shipping"

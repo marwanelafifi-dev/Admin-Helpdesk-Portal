@@ -2,19 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
-
-const AVAILABLE_PERMISSIONS = [
-  "create",
-  "read",
-  "read_own",
-  "update",
-  "delete",
-  "approve",
-  "reject",
-  "manage_users",
-  "manage_roles",
-  "settings",
-] as const
+import { canManageRoles } from "@/lib/access"
 
 const createRoleSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(50),
@@ -22,15 +10,11 @@ const createRoleSchema = z.object({
   permissions: z.array(z.string()).default([]),
 })
 
-function canManageRoles(role?: string) {
-  return role === "super_admin"
-}
-
 export async function GET() {
   try {
     const session = await auth()
 
-    if (!canManageRoles(session?.user?.role)) {
+    if (!canManageRoles(session?.user?.role, session?.user?.permissions ?? [])) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
@@ -52,7 +36,7 @@ export async function POST(request: Request) {
   try {
     const session = await auth()
 
-    if (!canManageRoles(session?.user?.role)) {
+    if (!canManageRoles(session?.user?.role, session?.user?.permissions ?? [])) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 

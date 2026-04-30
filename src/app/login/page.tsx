@@ -1,6 +1,7 @@
 "use client"
 
 import { Suspense, useState } from "react"
+import Image from "next/image"
 import { signIn } from "next-auth/react"
 import { useSearchParams } from "next/navigation"
 import { Eye, EyeOff, Lock, Mail } from "lucide-react"
@@ -11,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 function LoginForm() {
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard"
+  const callbackUrl = searchParams.get("callbackUrl") ?? "/landing"
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -47,31 +48,53 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="flex flex-col items-center mb-8">
-          <h1 className="text-2xl font-bold text-white">Admin Request Platform</h1>
-          <p className="text-slate-400 text-sm mt-1">Si-Ware Systems</p>
+    <div className="min-h-screen bg-slate-100 flex items-center justify-center py-12 px-4">
+      <div className="w-full max-w-lg animate-fade-in">
+        <div className="flex flex-col items-center gap-4 mb-10 animate-slide-up">
+          <div className="relative h-24 w-48">
+            <Image src="/siware-logo.png" alt="Si-Ware Systems logo" fill className="object-contain" />
+          </div>
+          <div className="space-y-1 text-center">
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Admin Helpdesk Portal</h1>
+            <p className="text-sm text-slate-700 max-w-md mx-auto">
+              Welcome to the Si-Ware Systems administrative support portal. Sign in with your corporate credentials to securely manage helpdesk requests and operational workflows.
+            </p>
+          </div>
         </div>
 
-        <Card className="border-slate-200 shadow-2xl">
-          <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-xl">Sign in</CardTitle>
-            <CardDescription>Use Google or enter your credentials</CardDescription>
-            <p className="text-xs text-slate-500 mt-2 pt-2 border-t border-slate-200">
-              Demo: test@si-ware.com / password
-            </p>
+        <Card className="border border-slate-200 bg-white shadow-xl shadow-slate-200/50 rounded-[1.75rem] animate-slide-up">
+          <CardHeader className="space-y-2 pb-5 text-center">
+            <CardTitle className="text-2xl">Sign in securely</CardTitle>
+            <CardDescription className="text-slate-600">
+              Authorized Si-Ware Employees only.
+              <br />
+              Please use your corporate credentials to continue.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Button
               type="button"
-              variant="outline"
-              className="w-full"
+              variant="secondary"
+              className="w-full rounded-xl border-slate-300 bg-slate-950 text-white hover:bg-slate-800"
               size="lg"
               onClick={handleGoogleSignIn}
               disabled={loadingProvider !== null}
             >
-              {loadingProvider === "google" ? "Opening Google..." : "Continue with Google"}
+              {loadingProvider === "google" ? (
+                "Opening Google..."
+              ) : (
+                <>
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white text-sm">
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M21.35 11.1H12v2.8h5.35c-.23 1.2-.92 2.22-1.96 2.9v2.4h3.17c1.86-1.72 2.95-4.24 2.95-7.3 0-.52-.05-1.03-.14-1.52z" fill="#4285F4"/>
+                      <path d="M12 22c2.64 0 4.86-.87 6.48-2.35l-3.17-2.4c-.88.6-2.02.95-3.31.95-2.55 0-4.71-1.72-5.48-4.04H3.1v2.53C4.75 19.95 8.12 22 12 22z" fill="#34A853"/>
+                      <path d="M6.52 13.16a5.99 5.99 0 010-3.28V7.35H3.1a9.997 9.997 0 000 9.3l3.42-2.4z" fill="#FBBC04"/>
+                      <path d="M12 6.02c1.43 0 2.72.49 3.74 1.45l2.8-2.8C16.84 3.15 14.64 2 12 2 8.12 2 4.75 4.05 3.1 7.35l3.42 2.53C7.29 7.74 9.45 6.02 12 6.02z" fill="#EA4335"/>
+                    </svg>
+                  </span>
+                  Continue with Google
+                </>
+              )}
             </Button>
 
             <div className="relative">
@@ -83,7 +106,7 @@ function LoginForm() {
               </div>
             </div>
 
-            <form onSubmit={handleCredentialsSubmit} className="space-y-4">
+            <form onSubmit={handleCredentialsSubmit} className="space-y-5">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <div className="relative">
@@ -91,7 +114,7 @@ function LoginForm() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="test@si-ware.com"
+                    placeholder="you@example.com"
                     className="pl-9"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -138,9 +161,11 @@ function LoginForm() {
           </CardContent>
         </Card>
 
-        <p className="text-center text-xs text-slate-500 mt-6">
-          Protected access for Si-Ware Systems
-        </p>
+        <div className="text-center text-xs text-slate-500 mt-6 space-y-1">
+          <p className="font-medium text-slate-700">Operated by IT Team</p>
+          <p>For assistance, please contact the IT Helpdesk.</p>
+          <p className="text-slate-500">ithelpdesk@si-ware.com</p>
+        </div>
       </div>
     </div>
   )
