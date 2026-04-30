@@ -27,17 +27,25 @@ function canManageRoles(role?: string) {
 }
 
 export async function GET() {
-  const session = await auth()
+  try {
+    const session = await auth()
 
-  if (!canManageRoles(session?.user?.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    if (!canManageRoles(session?.user?.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    const roles = await prisma.role.findMany({
+      orderBy: { createdAt: "desc" },
+    })
+
+    return NextResponse.json({ roles })
+  } catch (error) {
+    console.error("Role GET error:", error)
+    return NextResponse.json(
+      { error: "Failed to fetch roles", details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    )
   }
-
-  const roles = await prisma.role.findMany({
-    orderBy: { createdAt: "desc" },
-  })
-
-  return NextResponse.json({ roles })
 }
 
 export async function POST(request: Request) {
