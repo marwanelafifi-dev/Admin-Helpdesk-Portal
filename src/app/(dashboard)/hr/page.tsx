@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Search, Users, UserPlus, UserMinus, Plus, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
+import { Search, Users, UserPlus, UserMinus, Plus, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -13,6 +13,8 @@ import { getRequests, initializeMockData, type EngineRequest } from "@/services/
 import type { HRPayload } from "@/modules/hr/hr.schema"
 import { cn } from "@/lib/utils"
 import { requestsAPI } from "@/lib/apiClient"
+import { useCommentCounts } from "@/hooks/useCommentCounts"
+import { useViewedComments } from "@/hooks/useViewedComments"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -66,6 +68,9 @@ export default function HRPage() {
   const [sortKey, setSortKey]           = useState<SortKey>("id")
   const [sortDir, setSortDir]           = useState<SortDir>("asc")
   const [colWidths, setColWidths]       = useState<number[]>(() => COLS.map((c) => c.defaultW))
+
+  const commentCounts = useCommentCounts(requests.map(r => r.id))
+  const { viewedComments } = useViewedComments()
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -326,18 +331,32 @@ export default function HRPage() {
               {filtered.map((req, i) => {
                 const p = req.payload as HRPayload
                 const date = p.hrType === "onboarding" ? p.startDate : p.lastWorkingDay
+                const hasUnreadComments = (commentCounts[req.id] ?? 0) > (viewedComments[req.id] ?? 0)
                 return (
                   <tr
                     key={req.id}
                     className={cn(
                       "border-b border-gray-100 hover:bg-blue-50/30 transition-colors",
-                      i % 2 === 0 ? "bg-white" : "bg-gray-50/40"
+                      hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40")
                     )}
                   >
                     <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
-                      <Link href={`/requests/${req.id}`} className="text-sm font-medium text-blue-600 truncate block hover:underline">
-                        {req.id}
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        <Link href={`/requests/${req.id}`} className="text-sm font-medium text-blue-600 truncate hover:underline">
+                          {req.id}
+                        </Link>
+                        {(commentCounts[req.id] ?? 0) > 0 && (
+                          <span className={cn(
+                            "inline-flex items-center gap-1 flex-shrink-0 text-xs px-2 py-0.5 rounded-full font-semibold",
+                            hasUnreadComments
+                              ? "bg-red-100 text-red-700"
+                              : "bg-blue-50 text-blue-600"
+                          )}>
+                            <MessageCircle className="h-3 w-3" />
+                            {commentCounts[req.id]}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-3">
                       <span className="text-sm font-medium text-gray-700">{p.employeeId}</span>
