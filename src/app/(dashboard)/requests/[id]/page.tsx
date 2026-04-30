@@ -180,14 +180,37 @@ export default function RequestDetailPage() {
   const handleStatusChange = async (newStatus: string) => {
     if (!request) return
     try {
+      const now = new Date().toISOString()
+      const oldStatus = request.status
+
       // Update in engineService
       updateStatus(request.id, newStatus as any, request.requester?.id || "USR-001")
 
-      // Update local state
+      // Create new activity entry for status change
+      const newStatusActivity = {
+        id: `${request.id}-${now}`,
+        action: 'status_changed',
+        fieldName: 'status',
+        oldValue: oldStatus,
+        newValue: newStatus,
+        changedByUserId: request.requester?.id || "USR-001",
+        changedByUser: {
+          id: request.requester?.id || "USR-001",
+          name: request.requester?.name || "User",
+          email: request.requester?.email || "user@si-ware.com",
+        },
+        createdAt: now,
+      }
+
+      // Update local state with new status and activity
+      const updatedHistory = [...(request.history || []), newStatusActivity]
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+
       setRequest({
         ...request,
         status: newStatus,
-        updatedAt: new Date().toISOString(),
+        updatedAt: now,
+        history: updatedHistory,
       })
     } catch (error) {
       console.error("Failed to update status:", error)
