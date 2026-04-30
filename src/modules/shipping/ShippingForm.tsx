@@ -268,6 +268,24 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
       </Card>
 
       <Card>
+        <SectionHeader icon={Users} title="Approvers" subtitle="Select approval chain" />
+        <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Direct Manager <span className="text-red-500">*</span></Label>
+            <Controller name="approvers.directManager" control={control} render={({ field }) => (
+              <Select value={field.value} onValueChange={field.onChange}>
+                <SelectTrigger className={cn((errors.approvers as any)?.directManager && "border-red-400")}><SelectValue placeholder="Select direct manager" /></SelectTrigger>
+                <SelectContent>
+                  {mockUsers.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )} />
+            <FieldError message={(errors.approvers as any)?.directManager?.message} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
         <SectionHeader icon={Package} title="Shipment Details" subtitle="Carrier and tracking information" />
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -370,7 +388,7 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
       </Card>
 
       <div className="sticky bottom-0 bg-white border-t py-4 px-1 flex items-center justify-between gap-3 -mx-1">
-        <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
+        <Button type="button" variant="ghost" onClick={() => onCancel?.()}>Cancel</Button>
         <Button type="submit" disabled={isSubmitting} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px]">
           {isSubmitting ? "Submitting..." : "Submit"}
         </Button>

@@ -1,8 +1,17 @@
+"use client"
+
+import { useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import ShippingForm from "@/modules/shipping/ShippingForm"
 
 export default function NewReceivingRequestPage() {
+  const router = useRouter()
+
+  const handleCancel = () => {
+    router.push("/shipping/receiving")
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -19,7 +28,7 @@ export default function NewReceivingRequestPage() {
         </p>
       </div>
 
-      <ShippingForm />
+      <ShippingForm onCancel={handleCancel} />
     </div>
   )
 }
