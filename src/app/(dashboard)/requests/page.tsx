@@ -331,7 +331,7 @@ export default function RequestsPage() {
                       <Link href={`/requests/${req.id}`} className="text-sm font-medium text-blue-600 truncate hover:underline">
                         {req.id}
                       </Link>
-                      {commentCounts[req.id] && commentCounts[req.id] > 0 && (
+                      {(commentCounts[req.id] ?? 0) > 0 && (
                         <span className="inline-flex items-center gap-1 flex-shrink-0 text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
                           <MessageCircle className="h-3 w-3" />
                           {commentCounts[req.id]}
