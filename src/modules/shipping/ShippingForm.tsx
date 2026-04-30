@@ -13,7 +13,7 @@ import {
 } from "./shipping.schema"
 import { shippingFormDefaults } from "./shipping.mock"
 import { mockUsers } from "@/lib/mock-data"
-import { submitRequest, type EngineRequest } from "@/services/engineService"
+import { requestsAPI } from "@/lib/apiClient"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -192,22 +192,28 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
     }
     clearErrors("attachments")
 
-    const payload = {
-      ...data,
-      approvers: mapApprovers(data.approvers),
-      attachments: buildAttachmentPayload(stagedFiles),
-    }
+    try {
+      const payload = {
+        ...data,
+        approvers: mapApprovers(data.approvers),
+        attachments: buildAttachmentPayload(stagedFiles),
+      }
 
-    const request: EngineRequest = submitRequest("shipping", payload as unknown as Record<string, unknown>, {
-      title: payload.title,
-      requesterId: "USR-001",
-      requesterName: "Marwan Elafifi",
-      requesterEmail: "marwan.elafifi@si-ware.com",
-    })
+      const created = await requestsAPI.create("shipping", {
+        title: payload.title,
+        description: payload.notes,
+        payload: payload,
+        requesterId: "USR-001", // TODO: Get from session
+      })
 
-    if (request?.id) {
-      router.push("/requests")
+      router.push(`/requests/${created.id}`)
       router.refresh()
+    } catch (error) {
+      console.error("Failed to create request:", error)
+      setError("title", {
+        type: "manual",
+        message: "Failed to create request. Please try again.",
+      })
     }
   }
 

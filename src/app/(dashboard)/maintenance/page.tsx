@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
 import { cn } from "@/lib/utils"
+import { requestsAPI } from "@/lib/apiClient"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -65,12 +66,18 @@ export default function MaintenancePage() {
   const resizeStartW = useRef(0)
 
   useEffect(() => {
-    initializeMockData()
-    const sync = () => setRequests(getRequests().filter((r) => r.module === "maintenance"))
-    sync()
-    window.addEventListener("focus", sync)
-    window.addEventListener("storage", sync)
-    return () => { window.removeEventListener("focus", sync); window.removeEventListener("storage", sync) }
+    const fetchRequests = async () => {
+      try {
+        const data = await requestsAPI.listByModule("maintenance")
+        setRequests(data.data || [])
+      } catch (error) {
+        console.error("Failed to fetch maintenance requests:", error)
+        initializeMockData()
+        setRequests(getRequests().filter((r) => r.module === "maintenance"))
+      }
+    }
+
+    fetchRequests()
   }, [])
 
   const onResizeMouseDown = useCallback((e: React.MouseEvent, idx: number) => {

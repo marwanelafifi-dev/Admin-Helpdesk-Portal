@@ -10,7 +10,7 @@ import {
   FLOOR_NUMBERS,
   MaintenancePayloadSchema,
 } from "./maintenance.schema"
-import { submitRequest } from "@/services/engineService"
+import { requestsAPI } from "@/lib/apiClient"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -62,15 +62,18 @@ export function MaintenanceForm({ onCancel }: { onCancel?: () => void }) {
 
   const handleCancel = onCancel ?? (() => router.push("/maintenance"))
 
-  const onSubmit = (data: MaintenanceForm) => {
-    submitRequest("maintenance", data as unknown as Record<string, unknown>, {
-      title: `Maintenance – ${data.issueTitle}`,
-      requesterId: "USR-001",
-      requesterName: "Marwan Elafifi",
-      requesterEmail: "marwan.elafifi@si-ware.com",
-    })
-    router.push("/maintenance")
-    router.refresh()
+  const onSubmit = async (data: MaintenanceForm) => {
+    try {
+      await requestsAPI.create("maintenance", {
+        title: `Maintenance – ${data.issueTitle}`,
+        payload: data,
+        requesterId: "USR-001",
+      })
+      router.push("/maintenance")
+      router.refresh()
+    } catch (error) {
+      console.error("Failed to create request:", error)
+    }
   }
 
   return (

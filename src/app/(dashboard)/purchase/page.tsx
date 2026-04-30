@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
 import { cn } from "@/lib/utils"
+import { requestsAPI } from "@/lib/apiClient"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -67,12 +68,18 @@ export default function PurchasePage() {
   const resizeStartW = useRef(0)
 
   useEffect(() => {
-    initializeMockData()
-    const sync = () => setRequests(getRequests().filter((r) => r.module === "purchase"))
-    sync()
-    window.addEventListener("focus", sync)
-    window.addEventListener("storage", sync)
-    return () => { window.removeEventListener("focus", sync); window.removeEventListener("storage", sync) }
+    const fetchRequests = async () => {
+      try {
+        const data = await requestsAPI.listByModule("purchase")
+        setRequests(data.data || [])
+      } catch (error) {
+        console.error("Failed to fetch purchase requests:", error)
+        initializeMockData()
+        setRequests(getRequests().filter((r) => r.module === "purchase"))
+      }
+    }
+
+    fetchRequests()
   }, [])
 
   const onResizeMouseDown = useCallback((e: React.MouseEvent, idx: number) => {

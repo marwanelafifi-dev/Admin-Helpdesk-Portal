@@ -12,6 +12,7 @@ import {
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
 import type { HRPayload } from "@/modules/hr/hr.schema"
 import { cn } from "@/lib/utils"
+import { requestsAPI } from "@/lib/apiClient"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -66,12 +67,18 @@ export default function HRPage() {
   const [colWidths, setColWidths]       = useState<number[]>(() => COLS.map((c) => c.defaultW))
 
   useEffect(() => {
-    initializeMockData()
-    const sync = () => setRequests(getRequests())
-    sync()
-    window.addEventListener("focus", sync)
-    window.addEventListener("storage", sync)
-    return () => { window.removeEventListener("focus", sync); window.removeEventListener("storage", sync) }
+    const fetchRequests = async () => {
+      try {
+        const data = await requestsAPI.listByModule("hr")
+        setRequests(data.data || [])
+      } catch (error) {
+        console.error("Failed to fetch HR requests:", error)
+        initializeMockData()
+        setRequests(getRequests().filter((r) => r.module === "hr"))
+      }
+    }
+
+    fetchRequests()
   }, [])
 
   // ── Resize ────────────────────────────────────────────────────────────────

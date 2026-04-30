@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Search, Plus, Package, Truck, CheckCircle2, Clock, MoreHorizontal, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { mockShipments, type MockShipment } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
+import { requestsAPI } from "@/lib/apiClient"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -66,6 +67,28 @@ export default function ReceivingPage() {
   const [sortKey, setSortKey]         = useState<SortKey>("id")
   const [sortDir, setSortDir]         = useState<"asc" | "desc">("asc")
   const [colWidths, setColWidths]     = useState<number[]>(() => COLS.map((c) => c.defaultW))
+  const [shipments, setShipments] = useState<MockShipment[]>(mockShipments)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchShipments = async () => {
+      try {
+        setLoading(true)
+        const data = await requestsAPI.listByModule("shipping")
+        setShipments(data.data || [])
+        setError(null)
+      } catch (err) {
+        console.error("Failed to fetch shipments:", err)
+        setError(err instanceof Error ? err.message : "Failed to fetch shipments")
+        setShipments(mockShipments)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchShipments()
+  }, [])
 
   // ── Resize ──────────────────────────────────────────────────────────────
   function onResizeMouseDown(e: React.MouseEvent, idx: number) {
@@ -92,7 +115,7 @@ export default function ReceivingPage() {
   }
 
   const filtered = useMemo(() => {
-    let result = mockShipments.filter((s) => {
+    let result = shipments.filter((s) => {
       const q = search.toLowerCase()
       const matchSearch = s.id.toLowerCase().includes(q) || s.trackingNumber.toLowerCase().includes(q) || s.destination.toLowerCase().includes(q) || s.requester.toLowerCase().includes(q)
       const matchStatus  = statusFilter === "all" || s.status === statusFilter
@@ -103,13 +126,13 @@ export default function ReceivingPage() {
       const av = a[sortKey] ?? "", bv = b[sortKey] ?? ""
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
-  }, [search, statusFilter, carrierFilter, sortKey, sortDir])
+  }, [search, statusFilter, carrierFilter, sortKey, sortDir, shipments])
 
   const stats = {
-    total:      mockShipments.length,
-    inProgress: mockShipments.filter((s) => s.status === "In Progress").length,
-    inCustoms:  mockShipments.filter((s) => s.status === "In Customs").length,
-    delivered:  mockShipments.filter((s) => s.status === "Delivered").length,
+    total:      shipments.length,
+    inProgress: shipments.filter((s) => s.status === "In Progress").length,
+    inCustoms:  shipments.filter((s) => s.status === "In Customs").length,
+    delivered:  shipments.filter((s) => s.status === "Delivered").length,
   }
 
   const statCards = [
@@ -135,6 +158,18 @@ export default function ReceivingPage() {
           </Link>
         </Button>
       </div>
+
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+          {error} — Showing cached data below
+        </div>
+      )}
+
+      {loading && (
+        <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-center text-gray-600">
+          Loading shipments...
+        </div>
+      )}
 
       {/* Stat Cards — clickable */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -331,7 +366,7 @@ export default function ReceivingPage() {
 
           {filtered.length > 0 && (
             <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-[11px] text-gray-400 text-right">
-              Showing {filtered.length} of {mockShipments.length} shipments
+              Showing {filtered.length} of {shipments.length} shipments
             </div>
           )}
         </div>

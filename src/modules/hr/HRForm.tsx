@@ -13,7 +13,7 @@ import {
   OnboardingPayloadSchema,
   OffboardingPayloadSchema,
 } from "./hr.schema"
-import { submitRequest } from "@/services/engineService"
+import { requestsAPI } from "@/lib/apiClient"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -68,15 +68,18 @@ function OnboardingFormFields({ onCancel }: { onCancel: () => void }) {
     defaultValues: { hrType: "onboarding", items: [], attachments: [] },
   })
 
-  const onSubmit = (data: OnboardingForm) => {
-    submitRequest("hr", data as unknown as Record<string, unknown>, {
-      title: `Onboarding – ${data.employeeName}`,
-      requesterId: "USR-001",
-      requesterName: "Marwan Elafifi",
-      requesterEmail: "marwan.elafifi@si-ware.com",
-    })
-    router.push("/hr")
-    router.refresh()
+  const onSubmit = async (data: OnboardingForm) => {
+    try {
+      await requestsAPI.create("hr", {
+        title: `Onboarding – ${data.employeeName}`,
+        payload: data,
+        requesterId: "USR-001",
+      })
+      router.push("/hr")
+      router.refresh()
+    } catch (error) {
+      console.error("Failed to create request:", error)
+    }
   }
 
   return (
@@ -305,15 +308,18 @@ function OffboardingFormFields({ onCancel }: { onCancel: () => void }) {
     defaultValues: { hrType: "offboarding", items: [], attachments: [] },
   })
 
-  const onSubmit = (data: OffboardingForm) => {
-    submitRequest("hr", data as unknown as Record<string, unknown>, {
-      title: `Offboarding – ${data.employeeName}`,
-      requesterId: "USR-001",
-      requesterName: "Marwan Elafifi",
-      requesterEmail: "marwan.elafifi@si-ware.com",
-    })
-    router.push("/hr")
-    router.refresh()
+  const onSubmit = async (data: OffboardingForm) => {
+    try {
+      await requestsAPI.create("hr", {
+        title: `Offboarding – ${data.employeeName}`,
+        payload: data,
+        requesterId: "USR-001",
+      })
+      router.push("/hr")
+      router.refresh()
+    } catch (error) {
+      console.error("Failed to create request:", error)
+    }
   }
 
   return (

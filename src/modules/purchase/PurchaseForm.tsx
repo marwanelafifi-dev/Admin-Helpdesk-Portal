@@ -10,7 +10,7 @@ import {
   PURCHASE_PLATFORMS,
   PurchasePayloadSchema,
 } from "./purchase.schema"
-import { submitRequest } from "@/services/engineService"
+import { requestsAPI } from "@/lib/apiClient"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -64,15 +64,18 @@ export function PurchaseForm({ onCancel }: { onCancel?: () => void }) {
 
   const handleCancel = onCancel ?? (() => router.push("/purchase"))
 
-  const onSubmit = (data: PurchaseForm) => {
-    submitRequest("purchase", data as unknown as Record<string, unknown>, {
-      title: `Purchase – ${data.itemTitle}`,
-      requesterId: "USR-001",
-      requesterName: "Marwan Elafifi",
-      requesterEmail: "marwan.elafifi@si-ware.com",
-    })
-    router.push("/purchase")
-    router.refresh()
+  const onSubmit = async (data: PurchaseForm) => {
+    try {
+      await requestsAPI.create("purchase", {
+        title: `Purchase – ${data.itemTitle}`,
+        payload: data,
+        requesterId: "USR-001",
+      })
+      router.push("/purchase")
+      router.refresh()
+    } catch (error) {
+      console.error("Failed to create request:", error)
+    }
   }
 
   return (
