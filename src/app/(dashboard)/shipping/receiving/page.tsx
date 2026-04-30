@@ -46,17 +46,17 @@ const STATUS_PILL_ACTIVE: Record<string, string> = {
 type SortKey = keyof Pick<MockShipment, "id" | "title" | "pickupDate" | "trackingNumber" | "poNumber" | "costCenter" | "carrier" | "requester" | "status" | "expectedDelivery" | "lastUpdate">
 
 const COLS: { key: SortKey; label: string; defaultW: number }[] = [
-  { key: "id",              label: "Request ID",      defaultW: 120 },
-  { key: "title",           label: "Request Name",    defaultW: 160 },
-  { key: "pickupDate",      label: "Pickup Date",     defaultW: 120 },
-  { key: "trackingNumber",  label: "Tracking Number", defaultW: 160 },
-  { key: "poNumber",        label: "PO Number",       defaultW: 120 },
-  { key: "costCenter",      label: "Cost Center",     defaultW: 120 },
-  { key: "carrier",         label: "Carrier",         defaultW: 110 },
-  { key: "requester",       label: "Requester Name",  defaultW: 140 },
-  { key: "status",          label: "Status",          defaultW: 120 },
-  { key: "expectedDelivery",label: "Delivery Date",   defaultW: 120 },
-  { key: "lastUpdate",      label: "Last Update",     defaultW: 120 },
+  { key: "id",              label: "Request ID",          defaultW: 120 },
+  { key: "title",           label: "Request Title",       defaultW: 160 },
+  { key: "pickupDate",      label: "Pickup Date",         defaultW: 120 },
+  { key: "trackingNumber",  label: "Tracking Number",     defaultW: 160 },
+  { key: "poNumber",        label: "PO Number",           defaultW: 120 },
+  { key: "costCenter",      label: "Cost Center",         defaultW: 120 },
+  { key: "carrier",         label: "Carrier",             defaultW: 110 },
+  { key: "requester",       label: "Requester Name",      defaultW: 140 },
+  { key: "status",          label: "Status",              defaultW: 120 },
+  { key: "expectedDelivery",label: "Delivery Date",       defaultW: 120 },
+  { key: "lastUpdate",      label: "Last Update Date",    defaultW: 120 },
 ]
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -146,14 +146,14 @@ export default function ReceivingPage() {
 
   const stats = {
     total:      shipments.length,
-    inProgress: shipments.filter((s) => s.status === "In Progress").length,
+    onHold:     shipments.filter((s) => s.status === "On Hold").length,
     inCustoms:  shipments.filter((s) => s.status === "In Customs").length,
     delivered:  shipments.filter((s) => s.status === "Delivered").length,
   }
 
   const statCards = [
     { key: "all",          label: "Total Shipments", value: stats.total,      icon: Package,      iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
-    { key: "In Progress",  label: "In Progress",     value: stats.inProgress, icon: Truck,        iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
+    { key: "On Hold",      label: "On Hold",        value: stats.onHold,     icon: Truck,        iconBg: "bg-amber-50",  iconColor: "text-amber-600",  activeBg: "bg-amber-600",  activeBorder: "border-amber-600" },
     { key: "In Customs",   label: "In Customs",      value: stats.inCustoms,  icon: Clock,        iconBg: "bg-amber-50",  iconColor: "text-amber-600",  activeBg: "bg-amber-600",  activeBorder: "border-amber-600" },
     { key: "Delivered",    label: "Delivered",       value: stats.delivered,  icon: CheckCircle2, iconBg: "bg-green-50",  iconColor: "text-green-600",  activeBg: "bg-green-600",  activeBorder: "border-green-600" },
   ] as const
@@ -317,7 +317,12 @@ export default function ReceivingPage() {
                   )}
                 >
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
-                    <span className="text-sm text-gray-700 font-medium tracking-wide truncate block">{shipment.id}</span>
+                    <Link href={`/requests/${shipment.id}`} className="text-sm text-blue-600 font-medium tracking-wide truncate block hover:underline">
+                      {shipment.id}
+                    </Link>
+                  </td>
+                  <td className="py-3 px-3 overflow-hidden">
+                    <span className="text-sm text-gray-700 font-medium truncate block">{shipment.title}</span>
                   </td>
                   <td className="py-3 px-3 overflow-hidden">
                     <span className="text-sm text-gray-700 font-medium whitespace-nowrap">{shipment.pickupDate}</span>

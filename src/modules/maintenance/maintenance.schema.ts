@@ -13,6 +13,7 @@ export type FloorNumber = (typeof FLOOR_NUMBERS)[number]
 // ─── Maintenance Request Schema ────────────────────────────────────────────────
 
 export const MaintenancePayloadSchema = z.object({
+  requestTitle: z.string().min(1, "Request title is required"),
   issueTitle: z.string().min(1, "Issue title is required"),
   description: z.string().min(1, "Description is required"),
   priority: z.enum(MAINTENANCE_PRIORITIES),

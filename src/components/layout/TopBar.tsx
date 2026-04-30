@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { Bell, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -15,12 +16,22 @@ import {
 export function TopBar() {
   return (
     <header className="h-16 border-b bg-white flex items-center justify-between px-6 flex-shrink-0">
-      {/* Left: brand / breadcrumb placeholder */}
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-muted-foreground font-medium">
-          Admin Request Platform
-        </span>
+      {/* Left: Empty space */}
+      <div className="flex-1" />
+
+      {/* Center: Logo */}
+      <div className="flex items-center justify-center px-4 relative h-12 w-64">
+        <Image
+          src="/siware-logo.png"
+          alt="Si-Ware Systems"
+          fill
+          className="object-contain"
+          priority
+        />
       </div>
+
+      {/* Right: Empty space */}
+      <div className="flex-1" />
 
       {/* Right: actions */}
       <div className="flex items-center gap-2">

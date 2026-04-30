@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react"
+import Link from "next/link"
 import { Search, Layers, TrendingUp, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -354,7 +355,9 @@ export default function AllRequestsPage() {
                   )}
                 >
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
-                    <span className="text-sm font-medium text-gray-700 truncate block">{req.id}</span>
+                    <Link href={`/requests/${req.id}`} className="text-sm font-medium text-blue-600 truncate block hover:underline">
+                      {req.id}
+                    </Link>
                   </td>
                   <td className="py-3 px-3 overflow-hidden">
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.title}</span>

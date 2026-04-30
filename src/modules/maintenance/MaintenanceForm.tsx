@@ -65,7 +65,7 @@ export function MaintenanceForm({ onCancel }: { onCancel?: () => void }) {
   const onSubmit = async (data: MaintenanceForm) => {
     try {
       await requestsAPI.create("maintenance", {
-        title: `Maintenance – ${data.issueTitle}`,
+        title: data.requestTitle,
         payload: data,
         requesterId: "USR-001",
       })
@@ -79,6 +79,17 @@ export function MaintenanceForm({ onCancel }: { onCancel?: () => void }) {
   return (
     <div className="space-y-5 max-w-3xl mx-auto pb-12">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        {/* Request Title */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="space-y-1.5">
+              <Label htmlFor="requestTitle">Request Title <span className="text-red-500">*</span></Label>
+              <Input id="requestTitle" placeholder="e.g. AC Repair - Floor 3" {...register("requestTitle")} className={cn(errors.requestTitle && "border-red-400")} />
+              <FieldError message={errors.requestTitle?.message} />
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Issue Details */}
         <Card>
           <SectionHeader icon={Wrench} title="Issue Details" subtitle="Describe the maintenance issue" />

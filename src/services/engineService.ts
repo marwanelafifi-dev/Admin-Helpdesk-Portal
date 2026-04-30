@@ -32,6 +32,13 @@ export interface StatusChange {
   comment?: string
 }
 
+export interface CommentActivity {
+  id: string
+  action: 'comment_added'
+  changedBy: string
+  changedAt: string
+}
+
 export interface EngineRequest<T = Record<string, unknown>> {
   id: string
   module: RequestModule | string
@@ -43,6 +50,7 @@ export interface EngineRequest<T = Record<string, unknown>> {
   /** Module-specific fields live here — the "Extension" layer */
   payload: T
   statusHistory: StatusChange[]
+  commentHistory: CommentActivity[]
   createdAt: string
   updatedAt: string
 }
@@ -132,6 +140,7 @@ export function submitRequest<T extends Record<string, unknown>>(
         comment:   "Submitted",
       },
     ],
+    commentHistory: [],
     createdAt: now,
     updatedAt: now,
   }
@@ -168,6 +177,7 @@ export function saveDraft<T extends Record<string, unknown>>(
         changedAt: now,
       },
     ],
+    commentHistory: [],
     createdAt: now,
     updatedAt: now,
   }
@@ -211,6 +221,37 @@ export function updateStatus(
   }).catch(() => {
     // Email simulation is best-effort in local dev.
   })
+
+  return updated
+}
+
+/**
+ * recordCommentActivity
+ * Records a comment addition on an existing request's activity timeline.
+ * Returns the updated request, or null if the ID was not found.
+ */
+export function recordCommentActivity(
+  id: string,
+  changedBy: string
+): EngineRequest | null {
+  const requests = readAll()
+  const index    = requests.findIndex((r) => r.id === id)
+  if (index === -1) return null
+
+  const now     = new Date().toISOString()
+  const commentId = `CMT-${Date.now()}`
+
+  const updated = {
+    ...requests[index],
+    updatedAt: now,
+    commentHistory: [
+      ...requests[index].commentHistory,
+      { id: commentId, action: 'comment_added' as const, changedBy, changedAt: now },
+    ],
+  }
+
+  requests[index] = updated
+  writeAll(requests)
 
   return updated
 }
@@ -269,6 +310,7 @@ export function initializeMockData(): void {
         { status: "new", changedBy: "USR-001", changedAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
         { status: "on_hold", changedBy: "USR-002", changedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(), comment: "Package picked up" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -294,6 +336,7 @@ export function initializeMockData(): void {
         { status: "on_hold", changedBy: "USR-001", changedAt: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString(), comment: "In transit" },
         { status: "delivered", changedBy: "USR-001", changedAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString(), comment: "Delivered successfully" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -313,6 +356,7 @@ export function initializeMockData(): void {
       statusHistory: [
         { status: "new", changedBy: "USR-001", changedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -339,6 +383,7 @@ export function initializeMockData(): void {
         { status: "new", changedBy: "USR-001", changedAt: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
         { status: "in_customs", changedBy: "USR-001", changedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(), comment: "Order placed with supplier" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -360,6 +405,7 @@ export function initializeMockData(): void {
         { status: "new", changedBy: "USR-001", changedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
         { status: "on_hold", changedBy: "USR-002", changedAt: now.toISOString(), comment: "Awaiting venue confirmation" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: now.toISOString(),
     },
@@ -381,6 +427,7 @@ export function initializeMockData(): void {
       statusHistory: [
         { status: "new", changedBy: "USR-001", changedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(), comment: "Travel request submitted" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -404,6 +451,7 @@ export function initializeMockData(): void {
         { status: "new", changedBy: "USR-001", changedAt: new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
         { status: "in_customs", changedBy: "USR-002", changedAt: new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString(), comment: "Awaiting customs clearance" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString(),
     },
@@ -420,6 +468,7 @@ export function initializeMockData(): void {
         { status: "new", changedBy: "USR-001", changedAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
         { status: "on_hold", changedBy: "USR-002", changedAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(), comment: "Awaiting vendor availability" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -436,6 +485,7 @@ export function initializeMockData(): void {
         { status: "new", changedBy: "USR-001", changedAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
         { status: "on_hold", changedBy: "USR-002", changedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(), comment: "Technician dispatched" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -453,6 +503,7 @@ export function initializeMockData(): void {
         { status: "on_hold", changedBy: "USR-002", changedAt: new Date(now.getTime() - 12 * 24 * 60 * 60 * 1000).toISOString(), comment: "Test scheduled" },
         { status: "completed", changedBy: "USR-002", changedAt: new Date(now.getTime() - 11 * 24 * 60 * 60 * 1000).toISOString(), comment: "Test passed, report delivered" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 11 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -468,6 +519,7 @@ export function initializeMockData(): void {
       statusHistory: [
         { status: "new", changedBy: "USR-001", changedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -484,6 +536,7 @@ export function initializeMockData(): void {
         { status: "new", changedBy: "USR-001", changedAt: new Date(now.getTime() - 18 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
         { status: "delivered", changedBy: "USR-002", changedAt: new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString(), comment: "Licenses renewed and distributed" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 18 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -499,6 +552,7 @@ export function initializeMockData(): void {
       statusHistory: [
         { status: "new", changedBy: "USR-001", changedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -515,6 +569,7 @@ export function initializeMockData(): void {
         { status: "new", changedBy: "USR-001", changedAt: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
         { status: "on_hold", changedBy: "USR-002", changedAt: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString(), comment: "Venue booked and invitations sent" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -531,6 +586,7 @@ export function initializeMockData(): void {
         { status: "new", changedBy: "USR-001", changedAt: new Date(now.getTime() - 35 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
         { status: "completed", changedBy: "USR-002", changedAt: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString(), comment: "Event completed successfully" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 35 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -547,6 +603,7 @@ export function initializeMockData(): void {
         { status: "new", changedBy: "USR-001", changedAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
         { status: "on_hold", changedBy: "USR-002", changedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(), comment: "Awaiting manager approval" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -564,6 +621,7 @@ export function initializeMockData(): void {
         { status: "on_hold", changedBy: "USR-002", changedAt: new Date(now.getTime() - 88 * 24 * 60 * 60 * 1000).toISOString(), comment: "Trip started" },
         { status: "completed", changedBy: "USR-002", changedAt: new Date(now.getTime() - 85 * 24 * 60 * 60 * 1000).toISOString(), comment: "Trip completed" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 85 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -580,6 +638,7 @@ export function initializeMockData(): void {
         { status: "new", changedBy: "USR-001", changedAt: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
         { status: "on_hold", changedBy: "USR-002", changedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(), comment: "Trip in progress" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -601,6 +660,7 @@ export function initializeMockData(): void {
         { status: "on_hold", changedBy: "USR-001", changedAt: new Date(now.getTime() - 18 * 24 * 60 * 60 * 1000).toISOString(), comment: "Work in progress" },
         { status: "completed", changedBy: "USR-001", changedAt: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString(), comment: "Upgrade completed successfully" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 20 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -627,6 +687,7 @@ export function initializeMockData(): void {
       statusHistory: [
         { status: "new", changedBy: "USR-001", changedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -651,6 +712,7 @@ export function initializeMockData(): void {
         { status: "new", changedBy: "USR-001", changedAt: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
         { status: "on_hold", changedBy: "USR-002", changedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(), comment: "Awaiting medical provider approval" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -674,6 +736,7 @@ export function initializeMockData(): void {
         { status: "new", changedBy: "USR-001", changedAt: new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
         { status: "completed", changedBy: "USR-002", changedAt: new Date(now.getTime() - 12 * 24 * 60 * 60 * 1000).toISOString(), comment: "All onboarding items completed" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 12 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -697,6 +760,7 @@ export function initializeMockData(): void {
       statusHistory: [
         { status: "new", changedBy: "USR-001", changedAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -721,6 +785,7 @@ export function initializeMockData(): void {
         { status: "new", changedBy: "USR-001", changedAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
         { status: "on_hold", changedBy: "USR-002", changedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(), comment: "Employee unavailable for card collection" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -744,6 +809,7 @@ export function initializeMockData(): void {
         { status: "new", changedBy: "USR-001", changedAt: new Date(now.getTime() - 22 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
         { status: "completed", changedBy: "USR-002", changedAt: new Date(now.getTime() - 18 * 24 * 60 * 60 * 1000).toISOString(), comment: "All offboarding items completed" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 22 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 18 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -764,6 +830,7 @@ export function initializeMockData(): void {
         { status: "New", changedBy: "USR-002", changedAt: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
         { status: "In Progress", changedBy: "USR-002", changedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(), comment: "Picked up" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -779,6 +846,7 @@ export function initializeMockData(): void {
       statusHistory: [
         { status: "new", changedBy: "USR-002", changedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -795,6 +863,7 @@ export function initializeMockData(): void {
         { status: "new", changedBy: "USR-003", changedAt: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
         { status: "on_hold", changedBy: "USR-001", changedAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(), comment: "Awaiting budget approval from finance" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -812,6 +881,7 @@ export function initializeMockData(): void {
         { status: "in_transit", changedBy: "USR-003", changedAt: new Date(now.getTime() - 22 * 24 * 60 * 60 * 1000).toISOString(), comment: "Trip started" },
         { status: "completed", changedBy: "USR-003", changedAt: new Date(now.getTime() - 19 * 24 * 60 * 60 * 1000).toISOString(), comment: "Trip completed" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 25 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 19 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -829,6 +899,7 @@ export function initializeMockData(): void {
         { status: "In Progress", changedBy: "USR-007", changedAt: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString(), comment: "Picked up" },
         { status: "Delivered", changedBy: "USR-007", changedAt: new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000).toISOString(), comment: "Delivered to client" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 12 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000).toISOString(),
     },
@@ -845,6 +916,7 @@ export function initializeMockData(): void {
         { status: "new", changedBy: "USR-007", changedAt: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
         { status: "completed", changedBy: "USR-001", changedAt: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString(), comment: "All offboarding items completed" },
       ],
+      commentHistory: [],
       createdAt: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString(),
     },

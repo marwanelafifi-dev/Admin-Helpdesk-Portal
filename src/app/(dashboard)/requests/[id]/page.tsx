@@ -3,17 +3,25 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Calendar, User, FileText, Clock, CheckCircle2, AlertCircle } from "lucide-react"
+import { ArrowLeft, Calendar, User, FileText, Clock, CheckCircle2, AlertCircle, ChevronDown } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { requestsAPI } from "@/lib/apiClient"
+import { commentsAPI } from "@/lib/apiClient"
+import { getRequests, updateStatus, initializeMockData, recordCommentActivity, type EngineRequest } from "@/services/engineService"
 import { cn } from "@/lib/utils"
+import { CommentsTab } from "@/components/request/CommentsTab"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-zinc-100 text-zinc-600",
   new: "bg-sky-100 text-sky-700",
-  on_hold: "bg-amber-100 text-amber-700",
+  on_hold: "bg-blue-100 text-blue-700",
   in_transit: "bg-blue-100 text-blue-700",
   in_customs: "bg-amber-100 text-amber-700",
   delivered: "bg-green-100 text-green-700",
@@ -24,12 +32,30 @@ const STATUS_COLORS: Record<string, string> = {
 const STATUS_DOT: Record<string, string> = {
   draft: "bg-zinc-400",
   new: "bg-sky-500",
-  on_hold: "bg-amber-500",
+  on_hold: "bg-blue-500",
   in_transit: "bg-blue-500",
   in_customs: "bg-amber-500",
   delivered: "bg-green-500",
   completed: "bg-emerald-500",
   cancelled: "bg-red-500",
+}
+
+const getStatusLabel = (status: string, module?: string): string => {
+  // Module-specific status labels
+  if (module === 'purchase') {
+    const purchaseLabels: Record<string, string> = {
+      new: 'New',
+      in_customs: 'Awaiting Approval',
+      on_hold: 'In Progress',
+      delivered: 'Delivered',
+      cancelled: 'Cancelled',
+    }
+    return purchaseLabels[status] || status.replace(/_/g, ' ').charAt(0).toUpperCase() + status.replace(/_/g, ' ').slice(1)
+  }
+
+  // Default labels
+  if (status === 'new') return 'New'
+  return status.replace(/_/g, ' ').charAt(0).toUpperCase() + status.replace(/_/g, ' ').slice(1)
 }
 
 interface RequestDetail {
@@ -68,12 +94,13 @@ interface RequestDetail {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-GB", {
+  return new Date(iso).toLocaleDateString("en-US", {
     day: "2-digit",
     month: "short",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    hour12: true,
   })
 }
 
@@ -107,6 +134,8 @@ function getModuleColor(module: string) {
   }
 }
 
+type Tab = "details" | "activity" | "comments" | "attachments"
+
 export default function RequestDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -115,32 +144,171 @@ export default function RequestDetailPage() {
   const [request, setRequest] = useState<RequestDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<Tab>("details")
+
+  const fetchComments = async (requestId: string) => {
+    try {
+      const commentsData = await commentsAPI.list(requestId)
+      const comments = commentsData.data || []
+
+      // Extract attachments from comments
+      const commentAttachments = comments.flatMap((comment: any) =>
+        (comment.attachments || []).map((att: any) => ({
+          ...att,
+          source: 'comment',
+          commentAuthor: comment.author?.name || 'Unknown',
+        }))
+      )
+
+      setRequest((prev) => {
+        if (!prev) return null
+        return {
+          ...prev,
+          comments: comments,
+          attachments: [
+            ...(prev.attachments?.filter((a: any) => a.source !== 'comment') || []),
+            ...commentAttachments,
+          ],
+        }
+      })
+    } catch (err) {
+      console.log("Error fetching comments:", err)
+    }
+  }
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (!request) return
+    try {
+      // Update in engineService
+      updateStatus(request.id, newStatus as any, request.requester?.id || "USR-001")
+
+      // Update local state
+      setRequest({
+        ...request,
+        status: newStatus,
+        updatedAt: new Date().toISOString(),
+      })
+    } catch (error) {
+      console.error("Failed to update status:", error)
+      alert("Failed to update status. Please try again.")
+    }
+  }
+
+  const getStatusesByModule = (module: string): string[] => {
+    const moduleStatuses: Record<string, string[]> = {
+      shipping: ['new', 'delivered'],
+      hr: ['new', 'on_hold', 'completed'],
+      maintenance: ['new', 'on_hold', 'completed', 'cancelled'],
+      purchase: ['new', 'in_customs', 'on_hold', 'delivered', 'cancelled'],
+      event: ['new', 'on_hold', 'in_transit', 'delivered', 'completed', 'cancelled'],
+      travel: ['new', 'on_hold', 'in_transit', 'delivered', 'completed', 'cancelled'],
+    }
+    return moduleStatuses[module] || ['new', 'on_hold', 'completed', 'cancelled']
+  }
+
+  const STATUSES = request ? getStatusesByModule(request.module) : ['new', 'on_hold', 'completed', 'cancelled']
 
   useEffect(() => {
     const fetchRequest = async () => {
       try {
         setLoading(true)
-        // Try to fetch from all modules until we find it
-        const modules = ["shipping", "hr", "maintenance", "purchase"]
-        let found = false
-        let foundRequest: RequestDetail | null = null
+        // Initialize mock data if needed
+        initializeMockData()
 
-        for (const module of modules) {
-          try {
-            const data = await requestsAPI.getOne(module, id)
-            foundRequest = data as RequestDetail
-            found = true
-            break
-          } catch (err) {
-            // Continue to next module
-          }
-        }
+        // Get all requests from localStorage
+        const allRequests = getRequests()
 
-        if (!found) {
+        // Find the request by ID
+        const engineRequest = allRequests.find(req => req.id === id)
+
+        if (!engineRequest) {
           setError("Request not found")
-        } else {
-          setRequest(foundRequest)
+          return
         }
+
+        // Convert EngineRequest to RequestDetail
+        // Map statusHistory entries
+        const statusHistoryEntries = engineRequest.statusHistory?.map((sh: any) => ({
+          id: `${engineRequest.id}-${sh.changedAt}`,
+          action: 'status_changed',
+          fieldName: 'status',
+          oldValue: undefined,
+          newValue: sh.status,
+          changedByUserId: sh.changedBy,
+          changedByUser: {
+            id: sh.changedBy,
+            name: sh.changedBy,
+            email: '',
+          },
+          createdAt: sh.changedAt,
+        })) || []
+
+        // Map commentHistory entries
+        const commentHistoryEntries = engineRequest.commentHistory?.map((ca: any) => ({
+          id: `${engineRequest.id}-${ca.changedAt}`,
+          action: 'comment_added',
+          changedByUserId: ca.changedBy,
+          changedByUser: {
+            id: ca.changedBy,
+            name: ca.changedBy,
+            email: '',
+          },
+          createdAt: ca.changedAt,
+        })) || []
+
+        // Combine and sort all history by date
+        const allHistory = [...statusHistoryEntries, ...commentHistoryEntries]
+          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+
+        let foundRequest: RequestDetail = {
+          id: engineRequest.id,
+          title: engineRequest.title,
+          description: engineRequest.payload?.description,
+          module: engineRequest.module,
+          status: engineRequest.status,
+          payload: engineRequest.payload || {},
+          requesterId: engineRequest.requesterId,
+          requester: {
+            id: engineRequest.requesterId,
+            name: engineRequest.requesterName,
+            email: engineRequest.requesterEmail,
+          },
+          createdAt: engineRequest.createdAt,
+          updatedAt: engineRequest.updatedAt,
+          approvals: [],
+          attachments: engineRequest.payload?.attachments || [],
+          comments: [],
+          history: allHistory,
+        }
+
+        // Fetch comments for this request
+        try {
+          const commentsData = await commentsAPI.list(id)
+          const comments = commentsData.data || []
+
+          // Extract attachments from comments and add them to the main attachments list
+          const commentAttachments = comments.flatMap((comment: any) =>
+            (comment.attachments || []).map((att: any) => ({
+              ...att,
+              source: 'comment',
+              commentAuthor: comment.author?.name || 'Unknown',
+            }))
+          )
+
+          foundRequest = {
+            ...foundRequest,
+            comments: comments,
+            attachments: [
+              ...(foundRequest.attachments || []),
+              ...commentAttachments,
+            ],
+          }
+        } catch (err) {
+          console.log("No comments found or error fetching comments:", err)
+          // Comments are optional, continue without them
+        }
+
+        setRequest(foundRequest)
       } catch (err) {
         console.error("Failed to fetch request:", err)
         setError(err instanceof Error ? err.message : "Failed to fetch request")
@@ -211,10 +379,35 @@ export default function RequestDetailPage() {
                   <Badge className={`${getModuleColor(request.module)} border capitalize`}>
                     {request.module}
                   </Badge>
-                  <Badge className={`${STATUS_COLORS[request.status] || "bg-gray-100"}`}>
-                    <span className={`inline-block h-2 w-2 rounded-full mr-1.5 ${STATUS_DOT[request.status] || "bg-gray-400"}`} />
-                    {request.status === "new" ? "New" : request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                  </Badge>
+
+                  {/* Status Dropdown */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={`${STATUS_COLORS[request.status] || "bg-gray-100"} border-0 cursor-pointer`}
+                      >
+                        <span className={`inline-block h-2 w-2 rounded-full mr-1.5 ${STATUS_DOT[request.status] || "bg-gray-400"}`} />
+                        {getStatusLabel(request.status, request.module)}
+                        <ChevronDown className="h-4 w-4 ml-1" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-48">
+                      {STATUSES.map((status) => (
+                        <DropdownMenuItem
+                          key={status}
+                          onClick={() => handleStatusChange(status)}
+                          className={cn(
+                            "capitalize cursor-pointer",
+                            request.status === status && "bg-blue-50 font-medium"
+                          )}
+                        >
+                          <span className={`inline-block h-2 w-2 rounded-full mr-2 ${STATUS_DOT[status] || "bg-gray-400"}`} />
+                          {getStatusLabel(status, request.module)}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
                 <h1 className="text-3xl font-bold tracking-tight">{request.title}</h1>
                 <p className="text-sm text-muted-foreground mt-1">Request ID: {request.id}</p>
@@ -230,161 +423,252 @@ export default function RequestDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Details Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* Requester */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Requester
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="font-medium">{request.requester?.name || "Unknown"}</p>
-            <p className="text-xs text-muted-foreground">{request.requester?.email || request.requesterId}</p>
-          </CardContent>
-        </Card>
+      {/* Tabs */}
+      <Card>
+        <div className="border-b">
+          <div className="flex gap-8 px-6 bg-white rounded-t-lg">
+            {[
+              { id: "details", label: "Details" },
+              { id: "activity", label: `Activity ${request.history?.length ? `(${request.history.length})` : ""}` },
+              { id: "comments", label: `Comments ${request.comments?.length ? `(${request.comments.length})` : ""}` },
+              { id: "attachments", label: `Attachments ${request.attachments?.length ? `(${request.attachments.length})` : ""}` },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as Tab)}
+                className={cn(
+                  "py-4 px-1 border-b-2 font-medium text-sm transition-colors",
+                  activeTab === tab.id
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-gray-600 hover:text-gray-900"
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
-        {/* Created Date */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              Created
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm">{formatDate(request.createdAt)}</p>
-          </CardContent>
-        </Card>
+        <CardContent className="pt-6">
+          {/* Details Tab */}
+          {activeTab === "details" && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Requester */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Requester
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="font-medium">{request.requester?.name || "Unknown"}</p>
+                    <p className="text-xs text-muted-foreground">{request.requester?.email || request.requesterId}</p>
+                  </CardContent>
+                </Card>
 
-        {/* Last Updated */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              Last Updated
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm">{formatDate(request.updatedAt)}</p>
-          </CardContent>
-        </Card>
-      </div>
+                {/* Created Date */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Created
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm">{formatDate(request.createdAt)}</p>
+                  </CardContent>
+                </Card>
 
-      {/* Request Payload Details */}
-      {Object.keys(request.payload).length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Request Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {Object.entries(request.payload).map(([key, value]) => (
-                <div key={key} className="space-y-1">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    {key.replace(/([A-Z])/g, " $1").trim()}
-                  </p>
-                  <p className="text-sm font-medium text-gray-900">
-                    {typeof value === "object" ? JSON.stringify(value) : String(value)}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                {/* Last Updated */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Last Updated
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm">{formatDate(request.updatedAt)}</p>
+                  </CardContent>
+                </Card>
+              </div>
 
-      {/* Audit Trail / History */}
-      {request.history && request.history.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              Activity Timeline
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {request.history.map((item, idx) => (
-                <div key={item.id} className="flex gap-4">
-                  <div className="relative flex flex-col items-center">
-                    <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                      <CheckCircle2 className="h-4 w-4 text-blue-600" />
+              {/* Request Payload Details */}
+              {Object.keys(request.payload).length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Request Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {Object.entries(request.payload).map(([key, value]) => (
+                        <div key={key} className="space-y-1">
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                            {key.replace(/([A-Z])/g, " $1").trim()}
+                          </p>
+                          <p className="text-sm font-medium text-gray-900">
+                            {typeof value === "object" ? JSON.stringify(value) : String(value)}
+                          </p>
+                        </div>
+                      ))}
                     </div>
-                    {idx < request.history.length - 1 && <div className="w-0.5 h-12 bg-gray-200 my-2" />}
-                  </div>
-                  <div className="flex-1 pt-1">
-                    <p className="text-sm font-medium capitalize">
-                      {item.action.replace(/_/g, " ")}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      By {item.changedByUser?.name || item.changedByUserId}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{formatDate(item.createdAt)}</p>
-                  </div>
-                </div>
-              ))}
+                  </CardContent>
+                </Card>
+              )}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
 
-      {/* Attachments */}
-      {request.attachments && request.attachments.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Attachments</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {request.attachments.map((attachment) => (
-                <a
-                  key={attachment.id}
-                  href={attachment.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <FileText className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{attachment.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {(attachment.sizeBytes / 1024).toFixed(1)} KB
-                    </p>
-                  </div>
-                </a>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Comments Section */}
-      {request.comments && request.comments.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Comments</CardTitle>
-          </CardHeader>
-          <CardContent>
+          {/* Activity Tab */}
+          {activeTab === "activity" && (
             <div className="space-y-4">
-              {request.comments.map((comment) => (
-                <div key={comment.id} className="border-l-2 border-gray-200 pl-4 py-2">
-                  <div className="flex items-center justify-between">
-                    <p className="font-medium text-sm">{comment.author?.name || "Anonymous"}</p>
-                    <p className="text-xs text-muted-foreground">{formatDate(comment.createdAt)}</p>
+              {request.history && request.history.length > 0 ? (
+                request.history.map((item, idx) => (
+                  <div key={item.id} className="flex gap-4">
+                    <div className="relative flex flex-col items-center">
+                      <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                        <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                      </div>
+                      {idx < request.history.length - 1 && <div className="w-0.5 h-12 bg-gray-200 my-2" />}
+                    </div>
+                    <div className="flex-1 pt-1 pb-4">
+                      <p className="text-sm font-semibold text-gray-900 capitalize">
+                        {item.action.replace(/_/g, " ")}
+                      </p>
+                      {item.action === 'status_changed' && item.fieldName && (
+                        <p className="text-xs text-gray-600 mt-1">
+                          Field: <span className="font-medium">{item.fieldName.replace(/([A-Z])/g, " $1").trim()}</span>
+                        </p>
+                      )}
+                      {item.action === 'status_changed' && item.oldValue !== undefined && item.newValue !== undefined && (
+                        <p className="text-xs text-gray-600 mt-1">
+                          Changed from <span className="font-medium">{String(item.oldValue)}</span> to{" "}
+                          <span className="font-medium">{String(item.newValue)}</span>
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+                        <span>By {item.changedByUser?.name || item.changedByUserId}</span>
+                        <span>{formatDate(item.createdAt)}</span>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-sm text-gray-700 mt-2">{comment.content}</p>
+                ))
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No activity yet</p>
                 </div>
-              ))}
+              )}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+
+          {/* Comments Tab */}
+          {activeTab === "comments" && (
+            <CommentsTab
+              requestId={request.id}
+              comments={request.comments || []}
+              onAddComment={async (content, attachments) => {
+                try {
+                  console.log("Adding comment to request", request.id, { content, attachmentsCount: attachments.length })
+                  const result = await commentsAPI.create(
+                    request.id,
+                    content,
+                    request.requester?.id || "USR-001",
+                    request.requester?.name || "User",
+                    request.requester?.email || "user@si-ware.com",
+                    attachments.length > 0 ? attachments : undefined
+                  )
+                  console.log("Comment created:", result)
+
+                  // Record comment activity in history
+                  recordCommentActivity(request.id, request.requester?.id || "USR-001")
+
+                  // Refetch comments without reloading the page
+                  await fetchComments(request.id)
+
+                  // Add a new activity entry for the comment
+                  const now = new Date().toISOString()
+                  const newCommentActivity = {
+                    id: `${request.id}-${now}`,
+                    action: 'comment_added',
+                    changedByUserId: request.requester?.id || "USR-001",
+                    changedByUser: {
+                      id: request.requester?.id || "USR-001",
+                      name: request.requester?.name || "User",
+                      email: request.requester?.email || "user@si-ware.com",
+                    },
+                    createdAt: now,
+                  }
+
+                  // Update the request's history to include the new comment activity
+                  const updatedHistory = [...(request.history || []), newCommentActivity]
+                    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+
+                  setRequest({
+                    ...request,
+                    history: updatedHistory,
+                  })
+                } catch (error) {
+                  console.error("Failed to add comment:", error)
+                  alert(`Failed to add comment: ${error instanceof Error ? error.message : 'Unknown error'}`)
+                }
+              }}
+              onDeleteComment={async (commentId) => {
+                try {
+                  await commentsAPI.delete(commentId)
+                  // Refetch comments without reloading
+                  await fetchComments(request.id)
+                } catch (error) {
+                  console.error("Failed to delete comment:", error)
+                  alert("Failed to delete comment. Please try again.")
+                }
+              }}
+              currentUserId="USR-001"
+            />
+          )}
+
+          {/* Attachments Tab */}
+          {activeTab === "attachments" && (
+            <div className="space-y-2">
+              {request.attachments && request.attachments.length > 0 ? (
+                request.attachments.map((attachment: any) => (
+                  <a
+                    key={attachment.id}
+                    href={attachment.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 p-4 border rounded-lg hover:bg-gray-50 hover:border-blue-300 transition-colors group"
+                  >
+                    <FileText className="h-5 w-5 text-blue-600 flex-shrink-0 group-hover:scale-110 transition-transform" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate group-hover:text-blue-600">
+                        {attachment.name}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-xs text-gray-500">
+                          {(attachment.sizeBytes / 1024).toFixed(1)} KB
+                        </p>
+                        {attachment.source === 'comment' && (
+                          <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded">
+                            From comment by {attachment.commentAuthor}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </a>
+                ))
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No attachments</p>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

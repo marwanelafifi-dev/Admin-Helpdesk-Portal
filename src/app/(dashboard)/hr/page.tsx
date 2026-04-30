@@ -335,7 +335,9 @@ export default function HRPage() {
                     )}
                   >
                     <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
-                      <span className="text-sm font-medium text-gray-700 truncate block">{req.id}</span>
+                      <Link href={`/requests/${req.id}`} className="text-sm font-medium text-blue-600 truncate block hover:underline">
+                        {req.id}
+                      </Link>
                     </td>
                     <td className="py-3 px-3">
                       <span className="text-sm font-medium text-gray-700">{p.employeeId}</span>

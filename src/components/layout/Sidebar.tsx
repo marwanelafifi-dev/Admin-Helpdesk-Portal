@@ -20,7 +20,6 @@ import {
   ChevronRight,
   PanelLeftClose,
   PanelLeftOpen,
-  Building2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -79,23 +78,20 @@ export function Sidebar() {
         collapsed ? "w-16" : "w-64"
       )}
     >
-      {/* Logo */}
-      <div
-        className={cn(
-          "flex items-center gap-3 border-b border-slate-700 py-5",
-          collapsed ? "justify-center px-0" : "px-5"
-        )}
-      >
-        <Building2 className="h-6 w-6 text-blue-400 flex-shrink-0" />
+      {/* Branding */}
+      <Link href="/dashboard" className={cn(
+        "flex items-center gap-3 border-b border-slate-700 py-4 px-5 hover:bg-slate-800 transition-colors",
+        collapsed && "justify-center px-0"
+      )}>
         {!collapsed && (
           <div className="overflow-hidden">
-            <span className="font-bold text-base tracking-tight whitespace-nowrap">
-              AdminPortal
+            <span className="font-bold text-sm tracking-tight whitespace-nowrap text-white">
+              Admin Portal
             </span>
-            <p className="text-xs text-slate-400 mt-0.5">SI-Ware</p>
+            <p className="text-xs text-slate-400 mt-0.5">Si-Ware Systems</p>
           </div>
         )}
-      </div>
+      </Link>
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4 space-y-0.5 px-2">

@@ -11,6 +11,7 @@ export type PurchasePlatform = (typeof PURCHASE_PLATFORMS)[number]
 // ─── Purchase Request Schema ───────────────────────────────────────────────────
 
 export const PurchasePayloadSchema = z.object({
+  requestTitle: z.string().min(1, "Request title is required"),
   itemTitle: z.string().min(1, "Item title is required"),
   description: z.string().min(1, "Description is required"),
   category: z.enum(PURCHASE_CATEGORIES),

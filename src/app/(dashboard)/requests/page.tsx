@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useCallback, useState } from "react"
+import Link from "next/link"
 import { Search, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader } from "@/components/ui/card"
@@ -80,12 +81,12 @@ const STAT_CARDS = [
 type SortKey = "id" | "title" | "module" | "status" | "createdAt" | "updatedAt"
 
 const COLS: { key: SortKey; label: string; defaultW: number }[] = [
-  { key: "id",        label: "Request ID",    defaultW: 150 },
-  { key: "title",     label: "Request Title", defaultW: 340 },
-  { key: "createdAt", label: "Submitted",     defaultW: 120 },
-  { key: "module",    label: "Module",        defaultW: 130 },
-  { key: "status",    label: "Status",        defaultW: 130 },
-  { key: "updatedAt", label: "Updated",       defaultW: 120 },
+  { key: "id",        label: "Request ID",        defaultW: 150 },
+  { key: "title",     label: "Request Title",     defaultW: 340 },
+  { key: "createdAt", label: "Submitted",         defaultW: 120 },
+  { key: "module",    label: "Module",            defaultW: 130 },
+  { key: "status",    label: "Status",            defaultW: 130 },
+  { key: "updatedAt", label: "Last Update Date",  defaultW: 120 },
 ]
 
 function formatModule(m: string) { return m.charAt(0).toUpperCase() + m.slice(1) }
@@ -324,7 +325,9 @@ export default function RequestsPage() {
               {filtered.map((req, i) => (
                 <tr key={req.id} className={cn("border-b border-gray-100 hover:bg-blue-50/30 transition-colors", i % 2 === 0 ? "bg-white" : "bg-gray-50/40")}>
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
-                    <span className="text-sm font-medium text-gray-700 truncate block">{req.id}</span>
+                    <Link href={`/requests/${req.id}`} className="text-sm font-medium text-blue-600 truncate block hover:underline">
+                      {req.id}
+                    </Link>
                   </td>
                   <td className="py-3 px-3 overflow-hidden">
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.title}</span>

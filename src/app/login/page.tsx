@@ -1,8 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
-import { Eye, EyeOff, Building2, ShieldCheck, Lock, Mail } from "lucide-react"
+import { Eye, EyeOff, ShieldCheck, Lock, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -30,13 +29,10 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
+        {/* Branding */}
         <div className="flex flex-col items-center mb-8">
-          <div className="h-14 w-14 rounded-2xl bg-blue-600 flex items-center justify-center mb-4 shadow-lg shadow-blue-500/30">
-            <Building2 className="h-8 w-8 text-white" />
-          </div>
           <h1 className="text-2xl font-bold text-white">Admin Request Platform</h1>
-          <p className="text-slate-400 text-sm mt-1">SI-Ware Enterprise</p>
+          <p className="text-slate-400 text-sm mt-1">Si-Ware Systems</p>
         </div>
 
         <Card className="border-slate-200 shadow-2xl">
@@ -158,7 +154,7 @@ export default function LoginPage() {
         </Card>
 
         <p className="text-center text-xs text-slate-500 mt-6">
-          Protected by 2FA &bull; SI-Ware &copy; {new Date().getFullYear()}
+          Protected by 2FA &bull; Si-Ware Systems &copy; {new Date().getFullYear()}
         </p>
       </div>
     </div>

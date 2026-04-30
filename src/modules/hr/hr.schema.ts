@@ -26,6 +26,7 @@ export type HRType = "onboarding" | "offboarding"
 // ─── Onboarding Schema ────────────────────────────────────────────────────────
 
 export const OnboardingPayloadSchema = z.object({
+  requestTitle: z.string().min(1, "Request title is required"),
   hrType: z.literal("onboarding"),
   employeeName: z.string().min(1, "Employee name is required"),
   employeeId: z.string().min(1, "Employee ID is required"),
@@ -48,6 +49,7 @@ export const OnboardingPayloadSchema = z.object({
 // ─── Offboarding Schema ───────────────────────────────────────────────────────
 
 export const OffboardingPayloadSchema = z.object({
+  requestTitle: z.string().min(1, "Request title is required"),
   hrType: z.literal("offboarding"),
   employeeName: z.string().min(1, "Employee name is required"),
   employeeId: z.string().min(1, "Employee ID is required"),

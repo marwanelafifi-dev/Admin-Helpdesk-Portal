@@ -250,7 +250,9 @@ export default function MaintenancePage() {
               {filtered.map((req, i) => (
                 <tr key={req.id} className={cn("border-b border-gray-100 hover:bg-blue-50/30 transition-colors", i % 2 === 0 ? "bg-white" : "bg-gray-50/40")}>
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
-                    <span className="text-sm font-medium text-gray-700 truncate block">{req.id}</span>
+                    <Link href={`/requests/${req.id}`} className="text-sm font-medium text-blue-600 truncate block hover:underline">
+                      {req.id}
+                    </Link>
                   </td>
                   <td className="py-3 px-3 overflow-hidden">
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.title}</span>

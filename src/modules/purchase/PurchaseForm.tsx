@@ -67,7 +67,7 @@ export function PurchaseForm({ onCancel }: { onCancel?: () => void }) {
   const onSubmit = async (data: PurchaseForm) => {
     try {
       await requestsAPI.create("purchase", {
-        title: `Purchase – ${data.itemTitle}`,
+        title: data.requestTitle,
         payload: data,
         requesterId: "USR-001",
       })
@@ -81,6 +81,17 @@ export function PurchaseForm({ onCancel }: { onCancel?: () => void }) {
   return (
     <div className="space-y-5 max-w-3xl mx-auto pb-12">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        {/* Request Title */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="space-y-1.5">
+              <Label htmlFor="requestTitle">Request Title <span className="text-red-500">*</span></Label>
+              <Input id="requestTitle" placeholder="e.g. Purchase Monitors for Engineering Team" {...register("requestTitle")} className={cn(errors.requestTitle && "border-red-400")} />
+              <FieldError message={errors.requestTitle?.message} />
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Item Details */}
         <Card>
           <SectionHeader icon={ShoppingCart} title="Item Details" subtitle="What would you like to purchase?" />

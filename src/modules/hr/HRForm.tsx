@@ -71,7 +71,7 @@ function OnboardingFormFields({ onCancel }: { onCancel: () => void }) {
   const onSubmit = async (data: OnboardingForm) => {
     try {
       await requestsAPI.create("hr", {
-        title: `Onboarding – ${data.employeeName}`,
+        title: data.requestTitle,
         payload: data,
         requesterId: "USR-001",
       })
@@ -85,6 +85,17 @@ function OnboardingFormFields({ onCancel }: { onCancel: () => void }) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       <input type="hidden" {...register("hrType")} value="onboarding" />
+
+      {/* Request Title */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="space-y-1.5">
+            <Label htmlFor="requestTitle">Request Title <span className="text-red-500">*</span></Label>
+            <Input id="requestTitle" placeholder="e.g. Onboarding for New Engineer" {...register("requestTitle")} className={cn(errors.requestTitle && "border-red-400")} />
+            <FieldError message={errors.requestTitle?.message} />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Employee Details */}
       <Card>
@@ -311,7 +322,7 @@ function OffboardingFormFields({ onCancel }: { onCancel: () => void }) {
   const onSubmit = async (data: OffboardingForm) => {
     try {
       await requestsAPI.create("hr", {
-        title: `Offboarding – ${data.employeeName}`,
+        title: data.requestTitle,
         payload: data,
         requesterId: "USR-001",
       })
@@ -325,6 +336,17 @@ function OffboardingFormFields({ onCancel }: { onCancel: () => void }) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       <input type="hidden" {...register("hrType")} value="offboarding" />
+
+      {/* Request Title */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="space-y-1.5">
+            <Label htmlFor="requestTitle">Request Title <span className="text-red-500">*</span></Label>
+            <Input id="requestTitle" placeholder="e.g. Offboarding for Engineer" {...register("requestTitle")} className={cn(errors.requestTitle && "border-red-400")} />
+            <FieldError message={errors.requestTitle?.message} />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Employee Details */}
       <Card>
