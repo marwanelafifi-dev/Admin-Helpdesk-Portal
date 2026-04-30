@@ -641,13 +641,17 @@ export default function RequestDetailPage() {
           {activeTab === "attachments" && (
             <div className="space-y-2">
               {request.attachments && request.attachments.length > 0 ? (
-                request.attachments.map((attachment: any) => (
+                request.attachments.map((attachment: any) => {
+                  // For data URLs, use download attribute; for regular URLs, open in new tab
+                  const isDataUrl = attachment.url.startsWith('data:')
+                  return (
                   <a
                     key={attachment.id}
                     href={attachment.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3 p-4 border rounded-lg hover:bg-gray-50 hover:border-blue-300 transition-colors group"
+                    download={isDataUrl ? attachment.name : undefined}
+                    target={isDataUrl ? undefined : "_blank"}
+                    rel={isDataUrl ? undefined : "noopener noreferrer"}
+                    className="flex items-center gap-3 p-4 border rounded-lg hover:bg-gray-50 hover:border-blue-300 transition-colors group cursor-pointer"
                   >
                     <FileText className="h-5 w-5 text-blue-600 flex-shrink-0 group-hover:scale-110 transition-transform" />
                     <div className="flex-1 min-w-0">
@@ -666,7 +670,8 @@ export default function RequestDetailPage() {
                       </div>
                     </div>
                   </a>
-                ))
+                  )
+                })
               ) : (
                 <div className="text-center py-8 text-gray-500">
                   <p>No attachments</p>
