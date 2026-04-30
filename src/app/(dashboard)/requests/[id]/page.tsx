@@ -228,20 +228,24 @@ export default function RequestDetailPage() {
 
         // Convert EngineRequest to RequestDetail
         // Map statusHistory entries
-        const statusHistoryEntries = engineRequest.statusHistory?.map((sh: any) => ({
-          id: `${engineRequest.id}-${sh.changedAt}`,
-          action: 'status_changed',
-          fieldName: 'status',
-          oldValue: undefined,
-          newValue: sh.status,
-          changedByUserId: sh.changedBy,
-          changedByUser: {
-            id: sh.changedBy,
-            name: sh.changedBy,
-            email: '',
-          },
-          createdAt: sh.changedAt,
-        })) || []
+        const statusHistoryEntries = engineRequest.statusHistory?.map((sh: any, idx: number) => {
+          // Get the previous status (oldValue) from the previous entry if it exists
+          const previousStatus = idx > 0 ? engineRequest.statusHistory[idx - 1]?.status : undefined
+          return {
+            id: `${engineRequest.id}-${sh.changedAt}`,
+            action: 'status_changed',
+            fieldName: 'status',
+            oldValue: previousStatus,
+            newValue: sh.status,
+            changedByUserId: sh.changedBy,
+            changedByUser: {
+              id: sh.changedBy,
+              name: sh.changedBy,
+              email: '',
+            },
+            createdAt: sh.changedAt,
+          }
+        }) || []
 
         // Map commentHistory entries
         const commentHistoryEntries = engineRequest.commentHistory?.map((ca: any) => ({
@@ -539,15 +543,18 @@ export default function RequestDetailPage() {
                       <p className="text-sm font-semibold text-gray-900 capitalize">
                         {item.action.replace(/_/g, " ")}
                       </p>
-                      {item.action === 'status_changed' && item.fieldName && (
+                      {item.action === 'status_changed' && (
                         <p className="text-xs text-gray-600 mt-1">
-                          Field: <span className="font-medium">{item.fieldName.replace(/([A-Z])/g, " $1").trim()}</span>
-                        </p>
-                      )}
-                      {item.action === 'status_changed' && item.oldValue !== undefined && item.newValue !== undefined && (
-                        <p className="text-xs text-gray-600 mt-1">
-                          Changed from <span className="font-medium">{String(item.oldValue)}</span> to{" "}
-                          <span className="font-medium">{String(item.newValue)}</span>
+                          {item.oldValue ? (
+                            <>
+                              Changed from <span className="font-medium capitalize">{String(item.oldValue).replace(/_/g, ' ')}</span> to{" "}
+                              <span className="font-medium capitalize">{String(item.newValue).replace(/_/g, ' ')}</span>
+                            </>
+                          ) : (
+                            <>
+                              Status set to <span className="font-medium capitalize">{String(item.newValue).replace(/_/g, ' ')}</span>
+                            </>
+                          )}
                         </p>
                       )}
                       <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
