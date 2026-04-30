@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useCallback, useState } from "react"
 import { Search, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader } from "@/components/ui/card"
-import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
+import { fetchAllRequests, type EngineRequest } from "@/lib/requests-api"
 import { cn } from "@/lib/utils"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -109,12 +109,7 @@ export default function RequestsPage() {
   const resizeStartW = useRef(0)
 
   useEffect(() => {
-    initializeMockData()
-    const sync = () => setRequests(getRequests())
-    sync()
-    window.addEventListener("focus", sync)
-    window.addEventListener("storage", sync)
-    return () => { window.removeEventListener("focus", sync); window.removeEventListener("storage", sync) }
+    fetchAllRequests().then(setRequests)
   }, [])
 
   const onResizeMouseDown = useCallback((e: React.MouseEvent, idx: number) => {

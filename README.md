@@ -115,3 +115,16 @@ src/
 3. Wire up the login form to your auth provider
 4. Implement TOTP verification against your 2FA backend
 5. Add real notifications via WebSocket or polling
+
+## Built-in API (Local Dev Backend)
+
+This repo now includes a simple file-backed API (Next.js Route Handlers) for local development.
+
+- Health check: `GET /api/health`
+- Requests CRUD:
+  - `GET /api/requests/:module`
+  - `POST /api/requests/:module` (body: `{ payload, meta }`)
+  - `GET /api/requests/:module/:id`
+  - `PATCH /api/requests/:module/:id`
+  - `DELETE /api/requests/:module/:id`
+- Seed demo data (dev only): `POST /api/dev/seed` (use `?force=1` to overwrite)

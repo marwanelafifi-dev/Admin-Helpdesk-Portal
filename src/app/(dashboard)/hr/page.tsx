@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Search, Users, UserPlus, UserMinus, Plus, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
+import { Search, Users, UserPlus, UserMinus, CheckCircle2, Plus, ChevronUp, ChevronDown, ChevronsUpDown, MoreHorizontal, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button"
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
+import { fetchRequests, updateRequestStatus, deleteRequest } from "@/lib/requests-api"
+import type { EngineRequest } from "@/lib/requests-api"
 import type { HRPayload } from "@/modules/hr/hr.schema"
 import { cn } from "@/lib/utils"
 
@@ -43,7 +44,7 @@ type Tab = "all" | "onboarding" | "offboarding"
 type SortKey = "id" | "employeeId" | "employeeName" | "department" | "sector" | "hrType" | "status" | "date"
 type SortDir = "asc" | "desc"
 
-const COLS: { key: SortKey; label: string; defaultW: number }[] = [
+const COLS: { key: SortKey | "actions"; label: string; defaultW: number }[] = [
   { key: "id",           label: "Request ID",    defaultW: 140 },
   { key: "employeeId",   label: "Employee ID",   defaultW: 130 },
   { key: "employeeName", label: "Employee Name", defaultW: 180 },
@@ -52,6 +53,7 @@ const COLS: { key: SortKey; label: string; defaultW: number }[] = [
   { key: "hrType",       label: "Type",          defaultW: 110 },
   { key: "status",       label: "Status",        defaultW: 120 },
   { key: "date",         label: "Last Update Date", defaultW: 140 },
+  { key: "actions",      label: "",              defaultW: 60 },
 ]
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -65,14 +67,18 @@ export default function HRPage() {
   const [sortDir, setSortDir]           = useState<SortDir>("asc")
   const [colWidths, setColWidths]       = useState<number[]>(() => COLS.map((c) => c.defaultW))
 
-  useEffect(() => {
-    initializeMockData()
-    const sync = () => setRequests(getRequests())
-    sync()
-    window.addEventListener("focus", sync)
-    window.addEventListener("storage", sync)
-    return () => { window.removeEventListener("focus", sync); window.removeEventListener("storage", sync) }
-  }, [])
+  const load = async () => { setRequests(await fetchRequests("hr")) }
+  useEffect(() => { load() }, [])
+
+  async function handleStatusUpdate(req: EngineRequest, status: string) {
+    await updateRequestStatus("hr", req.id, status as never, req.requesterName)
+    load()
+  }
+  async function handleDelete(req: EngineRequest) {
+    if (!confirm(`Delete ${req.id}?`)) return
+    await deleteRequest("hr", req.id)
+    load()
+  }
 
   // ── Resize ────────────────────────────────────────────────────────────────
   function onResizeMouseDown(e: React.MouseEvent, idx: number) {
@@ -186,6 +192,7 @@ export default function HRPage() {
           { key: "all",         label: "Total Requests", value: stats.total,       icon: Users,    iconBg: "bg-slate-100", iconColor: "text-slate-600", activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
           { key: "onboarding",  label: "Onboarding",     value: stats.onboarding,  icon: UserPlus, iconBg: "bg-blue-50",   iconColor: "text-blue-600",  activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
           { key: "offboarding", label: "Offboarding",    value: stats.offboarding, icon: UserMinus,iconBg: "bg-red-50",    iconColor: "text-red-600",   activeBg: "bg-red-600",    activeBorder: "border-red-600" },
+          { key: "completed",   label: "Completed",      value: stats.completed,   icon: CheckCircle2, iconBg: "bg-emerald-50", iconColor: "text-emerald-600", activeBg: "bg-emerald-600", activeBorder: "border-emerald-600" },
         ] as const).map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }) => {
           const isTabActive  = key === "onboarding" || key === "offboarding"
           const isStatActive = isTabActive
@@ -296,11 +303,11 @@ export default function HRPage() {
                     style={{ paddingLeft: idx === 0 ? 20 : 12, paddingRight: 8 }}
                   >
                     <button
-                      onClick={() => handleSort(col.key)}
+                      onClick={() => col.key !== "actions" && handleSort(col.key as SortKey)}
                       className="inline-flex items-center gap-0.5 hover:text-white transition-colors w-full"
                     >
                       {col.label}
-                      <SortIcon col={col.key} />
+                      {col.key !== "actions" && <SortIcon col={col.key as SortKey} />}
                     </button>
                     {idx < COLS.length - 1 && (
                       <span
@@ -362,6 +369,23 @@ export default function HRPage() {
                     </td>
                     <td className="py-3 px-3">
                       <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{formatDate(req.updatedAt)}</span>
+                    </td>
+                    <td className="py-3 px-2 text-center">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="p-1 rounded hover:bg-gray-100"><MoreHorizontal className="h-4 w-4 text-gray-500" /></button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44">
+                          {(["new","on_hold","completed","cancelled"] as const).filter(s => s !== req.status).map(s => (
+                            <DropdownMenuItem key={s} onClick={() => handleStatusUpdate(req, s)} className="cursor-pointer text-xs">
+                              → {STATUS_LABELS[s] ?? s}
+                            </DropdownMenuItem>
+                          ))}
+                          <DropdownMenuItem onClick={() => handleDelete(req)} className="cursor-pointer text-xs text-red-600 focus:text-red-600">
+                            <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                   </tr>
                 )

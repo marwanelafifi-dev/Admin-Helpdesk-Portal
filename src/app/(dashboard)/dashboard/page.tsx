@@ -10,7 +10,7 @@ import {
   Package, UserCog, PauseCircle, Truck, Activity, Target,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
+import { fetchAllRequests, type EngineRequest } from "@/lib/requests-api"
 import { cn } from "@/lib/utils"
 
 const STATUS_COLORS: Record<string, string> = {
@@ -89,15 +89,7 @@ export default function DashboardPage() {
   const [requests, setRequests] = useState<EngineRequest[]>([])
 
   useEffect(() => {
-    initializeMockData()
-    const sync = () => setRequests(getRequests())
-    sync()
-    window.addEventListener("focus", sync)
-    window.addEventListener("storage", sync)
-    return () => {
-      window.removeEventListener("focus", sync)
-      window.removeEventListener("storage", sync)
-    }
+    fetchAllRequests().then(setRequests)
   }, [])
 
   const stats = useMemo(() => {

@@ -1,5 +1,6 @@
 "use client"
 
+import { z } from "zod"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useForm, Controller } from "react-hook-form"
@@ -10,7 +11,8 @@ import {
   FLOOR_NUMBERS,
   MaintenancePayloadSchema,
 } from "./maintenance.schema"
-import { submitRequest } from "@/services/engineService"
+import { createRequest } from "@/lib/requests-api"
+import { useSession } from "next-auth/react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -54,6 +56,7 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
 
 export function MaintenanceForm({ onCancel }: { onCancel?: () => void }) {
   const router = useRouter()
+  const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<MaintenanceForm>({
     resolver: zodResolver(MaintenancePayloadSchema),
@@ -62,13 +65,17 @@ export function MaintenanceForm({ onCancel }: { onCancel?: () => void }) {
 
   const handleCancel = onCancel ?? (() => router.push("/maintenance"))
 
-  const onSubmit = (data: MaintenanceForm) => {
-    submitRequest("maintenance", data as unknown as Record<string, unknown>, {
-      title: `Maintenance – ${data.issueTitle}`,
-      requesterId: "USR-001",
-      requesterName: "Marwan Elafifi",
-      requesterEmail: "marwan.elafifi@si-ware.com",
-    })
+  const onSubmit = async (data: MaintenanceForm) => {
+    await createRequest(
+      "maintenance",
+      data as unknown as Record<string, unknown>,
+      {
+        title: `Maintenance – ${data.issueTitle}`,
+        requesterId: session?.user?.id ?? "USR-CURRENT",
+        requesterName: session?.user?.name ?? "Current User",
+        requesterEmail: session?.user?.email ?? "",
+      }
+    )
     router.push("/maintenance")
     router.refresh()
   }

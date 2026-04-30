@@ -2,6 +2,48 @@
 
 This document tracks the phased development of the Admin Request Platform, moving from the core engine to full module implementation.
 
+## Architecture
+
+### Frontend (Next.js App Router)
+- UI routes live under `src/app/(dashboard)/...` (module pages + forms).
+- Shared UI layout is under `src/app/(dashboard)/layout.tsx` and `src/components/layout/*`.
+
+### Backend (Built-in API inside Next.js)
+- Route Handlers (Node runtime):
+  - `GET /api/health` -> `src/app/api/health/route.ts`
+  - `GET|POST /api/auth/[...nextauth]` -> `src/app/api/auth/[...nextauth]/route.ts`
+  - Requests CRUD:
+    - `GET|POST /api/requests/:module` -> `src/app/api/requests/[module]/route.ts`
+    - `GET|PATCH|DELETE /api/requests/:module/:id` -> `src/app/api/requests/[module]/[id]/route.ts`
+  - Dev seed (non-production): `POST /api/dev/seed` -> `src/app/api/dev/seed/route.ts`
+
+### Persistence (Current + Target)
+- Current store: file-backed JSON
+  - DB file: `.data/arp-db.json` (git-ignored)
+  - Store logic: `src/server/engine/*` (`db.ts`, `store.ts`, `seed.ts`)
+- Target relational store: PostgreSQL + Prisma (same API routes, store implementation can be swapped internally)
+
+### Docker Infrastructure (web + db)
+- Containerizes the Next.js app (frontend + built-in API) and a PostgreSQL database:
+  - `Dockerfile` builds and runs the app on port `3003`.
+  - `docker-compose.yml` runs:
+    - `web` (Next.js) on `3003:3003`
+    - `db` (PostgreSQL) on `5432:5432` with persistent volume `arp_pgdata`
+- Env template: `.env.example` (create local `.env` from it).
+  - `DATABASE_URL` uses docker service host `db`.
+
+### Prisma Connection Pooling (Dev Hot-Reload Safety)
+- Singleton Prisma client is provided:
+  - `src/server/engine/prisma.ts` exports `getPrisma()`.
+- Store-layer usage pattern:
+  - API route -> store function -> `const prisma = getPrisma()` -> Prisma queries.
+- Keep Prisma access centralized in store functions to avoid extra clients.
+
+### Auth (Google Domain Restricted)
+- `next-auth` + Prisma adapter is configured in `src/app/api/auth/[...nextauth]/route.ts`.
+- Domain restriction is enforced in two layers:
+  - Google authorization hint (`hd`) uses `GOOGLE_ALLOWED_DOMAIN`.
+  - `signIn` callback strictly rejects unverified emails or domains outside `GOOGLE_ALLOWED_DOMAIN`.
 ## Phase 1: Foundation (Completed)
 - [x] Architecture Planning & Diagramming.
 - [x] Core NestJS Request Engine Setup.

@@ -2,11 +2,13 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
-import { Search, Plus, Wrench, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
+import { Search, Plus, Wrench, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MoreHorizontal, Trash2 } from "lucide-react"
 import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { fetchRequests, updateRequestStatus, deleteRequest } from "@/lib/requests-api"
+import type { EngineRequest } from "@/lib/requests-api"
 import { cn } from "@/lib/utils"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -37,7 +39,7 @@ const STATUSES = ["new", "on_hold", "completed", "cancelled"] as const
 
 type SortKey = "id" | "title" | "createdAt" | "requesterName" | "priority" | "status" | "updatedAt"
 
-const COLS: { key: SortKey; label: string; defaultW: number }[] = [
+const COLS: { key: SortKey | "actions"; label: string; defaultW: number }[] = [
   { key: "id",            label: "Request ID",      defaultW: 130 },
   { key: "title",         label: "Request Title",   defaultW: 200 },
   { key: "createdAt",     label: "Submission Date", defaultW: 140 },
@@ -45,6 +47,7 @@ const COLS: { key: SortKey; label: string; defaultW: number }[] = [
   { key: "priority",      label: "Priority",        defaultW: 110 },
   { key: "status",        label: "Status",          defaultW: 130 },
   { key: "updatedAt",     label: "Last Update Date",defaultW: 140 },
+  { key: "actions",       label: "",                defaultW: 60 },
 ]
 
 function formatDate(iso: string) {
@@ -64,14 +67,18 @@ export default function MaintenancePage() {
   const resizeStartX = useRef(0)
   const resizeStartW = useRef(0)
 
-  useEffect(() => {
-    initializeMockData()
-    const sync = () => setRequests(getRequests().filter((r) => r.module === "maintenance"))
-    sync()
-    window.addEventListener("focus", sync)
-    window.addEventListener("storage", sync)
-    return () => { window.removeEventListener("focus", sync); window.removeEventListener("storage", sync) }
-  }, [])
+  const load = async () => { setRequests(await fetchRequests("maintenance")) }
+  useEffect(() => { load() }, [])
+
+  async function handleStatusUpdate(req: EngineRequest, status: string) {
+    await updateRequestStatus("maintenance", req.id, status as never, req.requesterName)
+    load()
+  }
+  async function handleDelete(req: EngineRequest) {
+    if (!confirm(`Delete ${req.id}?`)) return
+    await deleteRequest("maintenance", req.id)
+    load()
+  }
 
   const onResizeMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
     e.preventDefault(); e.stopPropagation()
@@ -225,9 +232,9 @@ export default function MaintenancePage() {
                     className="relative py-3 text-xs font-semibold text-slate-300 tracking-wide text-left select-none group"
                     style={{ paddingLeft: idx === 0 ? 20 : 12, paddingRight: 8 }}
                   >
-                    <button onClick={() => handleSort(col.key)} className="inline-flex items-center gap-0.5 hover:text-white transition-colors w-full">
+                    <button onClick={() => col.key !== "actions" && handleSort(col.key as SortKey)} className="inline-flex items-center gap-0.5 hover:text-white transition-colors w-full">
                       {col.label}
-                      <SortIcon col={col.key} />
+                      {col.key !== "actions" && <SortIcon col={col.key as SortKey} />}
                     </button>
                     <span
                       onMouseDown={(e) => onResizeMouseDown(e, idx)}
@@ -270,6 +277,23 @@ export default function MaintenancePage() {
                   </td>
                   <td className="py-3 px-3">
                     <span className="text-sm font-medium text-gray-700">{formatDate(req.updatedAt)}</span>
+                  </td>
+                  <td className="py-3 px-2 text-center">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="p-1 rounded hover:bg-gray-100"><MoreHorizontal className="h-4 w-4 text-gray-500" /></button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        {(["new","on_hold","completed","cancelled"] as const).filter(s => s !== req.status).map(s => (
+                          <DropdownMenuItem key={s} onClick={() => handleStatusUpdate(req, s)} className="cursor-pointer text-xs">
+                            → {STATUS_LABELS[s] ?? s}
+                          </DropdownMenuItem>
+                        ))}
+                        <DropdownMenuItem onClick={() => handleDelete(req)} className="cursor-pointer text-xs text-red-600 focus:text-red-600">
+                          <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </td>
                 </tr>
               ))}

@@ -10,7 +10,8 @@ import {
   PURCHASE_PLATFORMS,
   PurchasePayloadSchema,
 } from "./purchase.schema"
-import { submitRequest } from "@/services/engineService"
+import { createRequest } from "@/lib/requests-api"
+import { useSession } from "next-auth/react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -54,6 +55,7 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
 
 export function PurchaseForm({ onCancel }: { onCancel?: () => void }) {
   const router = useRouter()
+  const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const { register, control, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<PurchaseForm>({
     resolver: zodResolver(PurchasePayloadSchema),
@@ -64,12 +66,12 @@ export function PurchaseForm({ onCancel }: { onCancel?: () => void }) {
 
   const handleCancel = onCancel ?? (() => router.push("/purchase"))
 
-  const onSubmit = (data: PurchaseForm) => {
-    submitRequest("purchase", data as unknown as Record<string, unknown>, {
+  const onSubmit = async (data: PurchaseForm) => {
+    await createRequest("purchase", data as unknown as Record<string, unknown>, {
       title: `Purchase – ${data.itemTitle}`,
-      requesterId: "USR-001",
-      requesterName: "Marwan Elafifi",
-      requesterEmail: "marwan.elafifi@si-ware.com",
+      requesterId: session?.user?.id ?? "USR-CURRENT",
+      requesterName: session?.user?.name ?? "Current User",
+      requesterEmail: session?.user?.email ?? "",
     })
     router.push("/purchase")
     router.refresh()

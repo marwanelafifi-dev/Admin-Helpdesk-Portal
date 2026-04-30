@@ -79,14 +79,21 @@ export const ShippingPayloadSchema = z
   .object({
     supplier: z.enum(SUPPLIERS, { error: "Select a valid supplier" }),
     costCenter: z.enum(COST_CENTERS, { error: "Select a valid cost center" }),
-    poNumber: z.string().min(1, "PO number is required"),
+    poNumber: z
+      .string()
+      .min(3, "PO number must be at least 3 characters")
+      .max(50, "PO number cannot exceed 50 characters")
+      .regex(/^[A-Za-z0-9\-_/]+$/, "PO number must only contain letters, numbers, hyphens, underscores, or slashes"),
 
     approvers: ShippingApproversSchema,
     ccEmails: z.array(z.email({ error: "Invalid email address" })).default([]),
 
     carrier: z.enum(CARRIERS),
-    carrierName: z.string().optional(),
-    trackingNumber: z.string().min(1, "Tracking Number is required"),
+    carrierName: z.string().max(100, "Carrier name cannot exceed 100 characters").optional(),
+    trackingNumber: z
+      .string()
+      .min(3, "Tracking number must be at least 3 characters")
+      .max(50, "Tracking number cannot exceed 50 characters"),
     trackingLink: z.string().optional(),
     description: z.string().max(500).optional(),
 
@@ -118,11 +125,18 @@ export const ShippingRequestFormSchema = z
 
     supplier: z.enum(SUPPLIERS, { error: "Select a valid supplier" }),
     costCenter: z.enum(COST_CENTERS, { error: "Select a valid cost center" }),
-    poNumber: z.string().min(1, "PO number is required"),
+    poNumber: z
+      .string()
+      .min(3, "PO number must be at least 3 characters")
+      .max(50, "PO number cannot exceed 50 characters")
+      .regex(/^[A-Za-z0-9\-_/]+$/, "PO number must only contain letters, numbers, hyphens, underscores, or slashes"),
 
     carrier: z.enum(CARRIERS),
-    carrierName: z.string().optional(),
-    trackingNumber: z.string().min(1, "Tracking Number is required"),
+    carrierName: z.string().max(100, "Carrier name cannot exceed 100 characters").optional(),
+    trackingNumber: z
+      .string()
+      .min(3, "Tracking number must be at least 3 characters")
+      .max(50, "Tracking number cannot exceed 50 characters"),
     trackingLink: z.string().optional(),
     description: z.string().max(500).optional(),
 

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
-import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
+import { fetchAllRequests, type EngineRequest } from "@/lib/requests-api"
 import { cn } from "@/lib/utils"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -122,12 +122,7 @@ export default function AllRequestsPage() {
   }
 
   useEffect(() => {
-    initializeMockData()
-    const sync = () => setRequests(getRequests())
-    sync()
-    window.addEventListener("focus", sync)
-    window.addEventListener("storage", sync)
-    return () => { window.removeEventListener("focus", sync); window.removeEventListener("storage", sync) }
+    fetchAllRequests().then(setRequests)
   }, [])
 
   const filtered = useMemo(() => {

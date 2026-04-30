@@ -13,7 +13,8 @@ import {
   OnboardingPayloadSchema,
   OffboardingPayloadSchema,
 } from "./hr.schema"
-import { submitRequest } from "@/services/engineService"
+import { createRequest } from "@/lib/requests-api"
+import { useSession } from "next-auth/react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -62,18 +63,19 @@ type OffboardingForm = z.infer<typeof OffboardingPayloadSchema>
 
 function OnboardingFormFields({ onCancel }: { onCancel: () => void }) {
   const router = useRouter()
+  const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<OnboardingForm>({
     resolver: zodResolver(OnboardingPayloadSchema),
     defaultValues: { hrType: "onboarding", items: [], attachments: [] },
   })
 
-  const onSubmit = (data: OnboardingForm) => {
-    submitRequest("hr", data as unknown as Record<string, unknown>, {
+  const onSubmit = async (data: OnboardingForm) => {
+    await createRequest("hr", data as unknown as Record<string, unknown>, {
       title: `Onboarding – ${data.employeeName}`,
-      requesterId: "USR-001",
-      requesterName: "Marwan Elafifi",
-      requesterEmail: "marwan.elafifi@si-ware.com",
+      requesterId: session?.user?.id ?? "USR-CURRENT",
+      requesterName: session?.user?.name ?? "Current User",
+      requesterEmail: session?.user?.email ?? "",
     })
     router.push("/hr")
     router.refresh()
@@ -299,18 +301,19 @@ function OnboardingFormFields({ onCancel }: { onCancel: () => void }) {
 
 function OffboardingFormFields({ onCancel }: { onCancel: () => void }) {
   const router = useRouter()
+  const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<OffboardingForm>({
     resolver: zodResolver(OffboardingPayloadSchema),
     defaultValues: { hrType: "offboarding", items: [], attachments: [] },
   })
 
-  const onSubmit = (data: OffboardingForm) => {
-    submitRequest("hr", data as unknown as Record<string, unknown>, {
+  const onSubmit = async (data: OffboardingForm) => {
+    await createRequest("hr", data as unknown as Record<string, unknown>, {
       title: `Offboarding – ${data.employeeName}`,
-      requesterId: "USR-001",
-      requesterName: "Marwan Elafifi",
-      requesterEmail: "marwan.elafifi@si-ware.com",
+      requesterId: session?.user?.id ?? "USR-CURRENT",
+      requesterName: session?.user?.name ?? "Current User",
+      requesterEmail: session?.user?.email ?? "",
     })
     router.push("/hr")
     router.refresh()

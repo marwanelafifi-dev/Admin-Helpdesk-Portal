@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useForm, Controller } from "react-hook-form"
+import { useForm, Controller, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
   ShippingRequestFormSchema,
@@ -11,9 +11,27 @@ import {
   SUPPLIERS,
   COST_CENTERS,
 } from "./shipping.schema"
-import { shippingFormDefaults } from "./shipping.mock"
+import { createRequest } from "@/lib/requests-api"
 import { mockUsers } from "@/lib/mock-data"
-import { submitRequest, type EngineRequest } from "@/services/engineService"
+
+const shippingFormDefaults: ShippingRequestForm = {
+  title: "",
+  notes: "",
+  approvers: { directManager: "", techManager: [], pm: [] },
+  ccEmails: [],
+  supplier: "" as ShippingRequestForm["supplier"],
+  costCenter: "" as ShippingRequestForm["costCenter"],
+  poNumber: "",
+  carrier: "" as ShippingRequestForm["carrier"],
+  carrierName: "",
+  trackingNumber: "",
+  trackingLink: "",
+  description: "",
+  expectedPickupDate: "",
+  expectedDeliveryDate: "",
+  attachments: [],
+}
+import { useSession } from "next-auth/react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -171,12 +189,13 @@ function FileUploadZone({
 
 export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
   const router = useRouter()
+  const { data: session } = useSession()
   const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([])
   const [ccEmailInput, setCcEmailInput] = useState("")
 
   const { register, control, handleSubmit, watch, setValue, setError, clearErrors, formState: { errors, isSubmitting } } = useForm<ShippingRequestForm>({
-    resolver: zodResolver(ShippingRequestFormSchema) as any,
-    defaultValues: shippingFormDefaults as any,
+    resolver: zodResolver(ShippingRequestFormSchema) as unknown as Resolver<ShippingRequestForm>,
+    defaultValues: shippingFormDefaults,
   })
 
   const ccEmails = watch("ccEmails") ?? []
@@ -198,15 +217,19 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
       attachments: buildAttachmentPayload(stagedFiles),
     }
 
-    const request: EngineRequest = submitRequest("shipping", payload as unknown as Record<string, unknown>, {
-      title: payload.title,
-      requesterId: "USR-001",
-      requesterName: "Marwan Elafifi",
-      requesterEmail: "marwan.elafifi@si-ware.com",
-    })
+    const request = await createRequest(
+      "shipping",
+      payload as unknown as Record<string, unknown>,
+      {
+        title: payload.title,
+        requesterId: session?.user?.id ?? "USR-CURRENT",
+        requesterName: session?.user?.name ?? "Current User",
+        requesterEmail: session?.user?.email ?? "",
+      }
+    )
 
     if (request?.id) {
-      router.push("/requests")
+      router.push("/shipping")
       router.refresh()
     }
   }

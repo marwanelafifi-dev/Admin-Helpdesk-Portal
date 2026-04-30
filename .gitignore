@@ -10,6 +10,9 @@ node_modules/
 .next-dev/
 out/
 
+# local dev database (file-backed API store)
+.data/
+
 # production
 /build
 dist/
@@ -39,3 +42,5 @@ next-env.d.ts
 
 # editor
 .vscode/
+
+/src/generated/prisma

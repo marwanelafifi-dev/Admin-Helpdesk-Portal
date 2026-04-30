@@ -1,73 +1,105 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { Search, Plus, Package, Truck, CheckCircle2, Clock, MoreHorizontal, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
+import { useState, useMemo, useEffect } from "react"
+import { Search, Plus, Package, Truck, Clock, CheckCircle2, MoreHorizontal, ChevronUp, ChevronDown, ChevronsUpDown, Trash2 } from "lucide-react"
 import Link from "next/link"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { mockShipments, type MockShipment } from "@/lib/mock-data"
+import { fetchRequests, updateRequestStatus, deleteRequest } from "@/lib/requests-api"
+import type { EngineRequest } from "@/lib/requests-api"
 import { cn } from "@/lib/utils"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STATUSES = ["New", "In Progress", "In Customs", "Delivered", "Cancelled"] as const
+const STATUSES = ["new", "on_hold", "in_customs", "in_transit", "delivered", "completed", "cancelled"] as const
 const CARRIERS = ["DHL", "FedEx", "UPS", "Aramex", "Other"] as const
 
+const STATUS_LABELS: Record<string, string> = {
+  new: "New", on_hold: "On Hold", in_customs: "In Customs",
+  in_transit: "In Transit", delivered: "Delivered",
+  completed: "Completed", cancelled: "Cancelled",
+}
+
 const STATUS_COLORS: Record<string, string> = {
-  "New":        "bg-sky-50 text-sky-700",
-  "In Progress": "bg-blue-50 text-blue-700",
-  "In Customs": "bg-amber-50 text-amber-700",
-  "Delivered":  "bg-green-50 text-green-700",
-  "Cancelled":  "bg-red-50 text-red-600",
+  new:        "bg-sky-50 text-sky-700",
+  on_hold:    "bg-amber-50 text-amber-700",
+  in_customs: "bg-amber-50 text-amber-700",
+  in_transit: "bg-blue-50 text-blue-700",
+  delivered:  "bg-green-50 text-green-700",
+  completed:  "bg-emerald-50 text-emerald-700",
+  cancelled:  "bg-red-50 text-red-600",
 }
 
 const STATUS_DOT: Record<string, string> = {
-  "New":        "bg-sky-500",
-  "In Progress": "bg-blue-500",
-  "In Customs": "bg-amber-500",
-  "Delivered":  "bg-green-500",
-  "Cancelled":  "bg-red-500",
+  new: "bg-sky-500", on_hold: "bg-amber-500", in_customs: "bg-amber-500",
+  in_transit: "bg-blue-500", delivered: "bg-green-500",
+  completed: "bg-emerald-500", cancelled: "bg-red-500",
 }
 
 const STATUS_PILL_ACTIVE: Record<string, string> = {
-  "New":        "bg-sky-500 border-sky-500 text-white",
-  "In Progress": "bg-blue-600 border-blue-600 text-white",
-  "In Customs": "bg-amber-600 border-amber-600 text-white",
-  "Delivered":  "bg-green-600 border-green-600 text-white",
-  "Cancelled":  "bg-red-600 border-red-600 text-white",
+  new:        "bg-sky-500 border-sky-500 text-white",
+  on_hold:    "bg-amber-500 border-amber-500 text-white",
+  in_customs: "bg-amber-600 border-amber-600 text-white",
+  in_transit: "bg-blue-600 border-blue-600 text-white",
+  delivered:  "bg-green-600 border-green-600 text-white",
+  completed:  "bg-emerald-600 border-emerald-600 text-white",
+  cancelled:  "bg-red-600 border-red-600 text-white",
 }
 
-type SortKey = keyof Pick<MockShipment, "id" | "pickupDate" | "trackingNumber" | "poNumber" | "costCenter" | "carrier" | "requester" | "status" | "expectedDelivery" | "lastUpdate">
+type SortKey = "id" | "pickupDate" | "trackingNumber" | "poNumber" | "costCenter" | "carrier" | "requesterName" | "status" | "deliveryDate" | "updatedAt"
 
 const COLS: { key: SortKey; label: string; defaultW: number }[] = [
-  { key: "id",              label: "Request ID",      defaultW: 120 },
-  { key: "pickupDate",      label: "Pickup Date",     defaultW: 120 },
-  { key: "trackingNumber",  label: "Tracking Number", defaultW: 160 },
-  { key: "poNumber",        label: "PO Number",       defaultW: 120 },
-  { key: "costCenter",      label: "Cost Center",     defaultW: 120 },
-  { key: "carrier",         label: "Carrier",         defaultW: 110 },
-  { key: "requester",       label: "Requester Name",  defaultW: 140 },
-  { key: "status",          label: "Status",          defaultW: 120 },
-  { key: "expectedDelivery",label: "Delivery Date",   defaultW: 120 },
-  { key: "lastUpdate",      label: "Last Update",     defaultW: 120 },
+  { key: "id",             label: "Request ID",      defaultW: 120 },
+  { key: "pickupDate",     label: "Pickup Date",     defaultW: 120 },
+  { key: "trackingNumber", label: "Tracking Number", defaultW: 160 },
+  { key: "poNumber",       label: "PO Number",       defaultW: 120 },
+  { key: "costCenter",     label: "Cost Center",     defaultW: 120 },
+  { key: "carrier",        label: "Carrier",         defaultW: 110 },
+  { key: "requesterName",  label: "Requester Name",  defaultW: 140 },
+  { key: "status",         label: "Status",          defaultW: 120 },
+  { key: "deliveryDate",   label: "Delivery Date",   defaultW: 120 },
+  { key: "updatedAt",      label: "Last Update",     defaultW: 120 },
 ]
+
+function p(req: EngineRequest): Record<string, unknown> {
+  return req.payload as Record<string, unknown>
+}
+
+function formatDate(iso?: string) {
+  if (!iso) return "—"
+  return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ShippingPage() {
-  const [search, setSearch]           = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
+  const [requests, setRequests]           = useState<EngineRequest[]>([])
+  const [search, setSearch]               = useState("")
+  const [statusFilter, setStatusFilter]   = useState("all")
   const [carrierFilter, setCarrierFilter] = useState("all")
-  const [sortKey, setSortKey]         = useState<SortKey>("id")
-  const [sortDir, setSortDir]         = useState<"asc" | "desc">("asc")
-  const [colWidths, setColWidths]     = useState<number[]>(() => COLS.map((c) => c.defaultW))
+  const [sortKey, setSortKey]             = useState<SortKey>("id")
+  const [sortDir, setSortDir]             = useState<"asc" | "desc">("asc")
+  const [colWidths, setColWidths]         = useState<number[]>(() => COLS.map((c) => c.defaultW))
 
-  // ── Resize ──────────────────────────────────────────────────────────────
+  const load = async () => { setRequests(await fetchRequests("shipping")) }
+  useEffect(() => { load() }, [])
+
+  async function handleStatusUpdate(req: EngineRequest, status: string) {
+    await updateRequestStatus("shipping", req.id, status as never, req.requesterName)
+    load()
+  }
+  async function handleDelete(req: EngineRequest) {
+    if (!confirm(`Delete ${req.id}?`)) return
+    await deleteRequest("shipping", req.id)
+    load()
+  }
+
+  // ── Resize ────────────────────────────────────────────────────────────────
   function onResizeMouseDown(e: React.MouseEvent, idx: number) {
     e.preventDefault(); e.stopPropagation()
     const startX = e.clientX, startW = colWidths[idx]
@@ -80,7 +112,6 @@ export default function ShippingPage() {
     window.addEventListener("mouseup", onUp)
   }
 
-  // ── Sort ────────────────────────────────────────────────────────────────
   function handleSort(key: SortKey) {
     if (sortKey === key) setSortDir((d) => d === "asc" ? "desc" : "asc")
     else { setSortKey(key); setSortDir("asc") }
@@ -91,32 +122,47 @@ export default function ShippingPage() {
     return sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1 shrink-0" /> : <ChevronDown className="h-3 w-3 ml-1 shrink-0" />
   }
 
-  const filtered = useMemo(() => {
-    let result = mockShipments.filter((s) => {
-      const q = search.toLowerCase()
-      const matchSearch = s.id.toLowerCase().includes(q) || s.trackingNumber.toLowerCase().includes(q) || s.destination.toLowerCase().includes(q) || s.requester.toLowerCase().includes(q)
-      const matchStatus  = statusFilter === "all" || s.status === statusFilter
-      const matchCarrier = carrierFilter === "all" || s.carrier === carrierFilter
-      return matchSearch && matchStatus && matchCarrier
-    })
-    return result.sort((a, b) => {
-      const av = a[sortKey] ?? "", bv = b[sortKey] ?? ""
-      return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
-    })
-  }, [search, statusFilter, carrierFilter, sortKey, sortDir])
-
-  const stats = {
-    total:      mockShipments.length,
-    inProgress: mockShipments.filter((s) => s.status === "In Progress").length,
-    inCustoms:  mockShipments.filter((s) => s.status === "In Customs").length,
-    delivered:  mockShipments.filter((s) => s.status === "Delivered").length,
+  const getSortVal = (req: EngineRequest, key: SortKey): string => {
+    const pl = p(req)
+    if (key === "pickupDate")     return String(pl.expectedPickupDate ?? "")
+    if (key === "trackingNumber") return String(pl.trackingNumber ?? "")
+    if (key === "poNumber")       return String(pl.poNumber ?? "")
+    if (key === "costCenter")     return String(pl.costCenter ?? "")
+    if (key === "carrier")        return String(pl.carrier ?? pl.carrierName ?? "")
+    if (key === "deliveryDate")   return String(pl.expectedDeliveryDate ?? "")
+    if (key === "requesterName")  return req.requesterName ?? ""
+    return String(req[key as keyof EngineRequest] ?? "")
   }
 
+  const filtered = useMemo(() => {
+    return requests.filter((req) => {
+      const pl = p(req)
+      const q = search.toLowerCase()
+      const matchSearch = !q || req.id.toLowerCase().includes(q) ||
+        String(pl.trackingNumber ?? "").toLowerCase().includes(q) ||
+        req.requesterName?.toLowerCase().includes(q) ||
+        String(pl.carrier ?? "").toLowerCase().includes(q)
+      const matchStatus  = statusFilter === "all" || req.status === statusFilter
+      const matchCarrier = carrierFilter === "all" || String(pl.carrier ?? pl.carrierName) === carrierFilter
+      return matchSearch && matchStatus && matchCarrier
+    }).sort((a, b) => {
+      const av = getSortVal(a, sortKey), bv = getSortVal(b, sortKey)
+      return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
+    })
+  }, [requests, search, statusFilter, carrierFilter, sortKey, sortDir])
+
+  const stats = useMemo(() => ({
+    total:      requests.length,
+    onHold:     requests.filter((r) => r.status === "on_hold").length,
+    inTransit:  requests.filter((r) => r.status === "in_transit").length,
+    delivered:  requests.filter((r) => r.status === "delivered").length,
+  }), [requests])
+
   const statCards = [
-    { key: "all",          label: "Total Shipments", value: stats.total,      icon: Package,      iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
-    { key: "In Progress",  label: "In Progress",     value: stats.inProgress, icon: Truck,        iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
-    { key: "In Customs",   label: "In Customs",      value: stats.inCustoms,  icon: Clock,        iconBg: "bg-amber-50",  iconColor: "text-amber-600",  activeBg: "bg-amber-600",  activeBorder: "border-amber-600" },
-    { key: "Delivered",    label: "Delivered",       value: stats.delivered,  icon: CheckCircle2, iconBg: "bg-green-50",  iconColor: "text-green-600",  activeBg: "bg-green-600",  activeBorder: "border-green-600" },
+    { key: "all",        label: "Total Shipments", value: stats.total,     icon: Package,      iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
+    { key: "on_hold",    label: "On Hold",         value: stats.onHold,    icon: Clock,        iconBg: "bg-amber-50",  iconColor: "text-amber-600",  activeBg: "bg-amber-600",  activeBorder: "border-amber-600" },
+    { key: "in_transit", label: "In Transit",      value: stats.inTransit, icon: Truck,        iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
+    { key: "delivered",  label: "Delivered",       value: stats.delivered, icon: CheckCircle2, iconBg: "bg-green-50",  iconColor: "text-green-600",  activeBg: "bg-green-600",  activeBorder: "border-green-600" },
   ] as const
 
   return (
@@ -136,7 +182,7 @@ export default function ShippingPage() {
         </Button>
       </div>
 
-      {/* Stat Cards — clickable */}
+      {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {statCards.map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }) => {
           const isActive = statusFilter === key || (key === "all" && statusFilter === "all")
@@ -164,20 +210,16 @@ export default function ShippingPage() {
       {/* Table Card */}
       <Card>
         <CardHeader className="pb-4">
-
-          {/* Search + filters */}
           <div className="flex flex-wrap gap-3">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by ID, tracking, requester, or destination..."
+                placeholder="Search by ID, tracking, requester, or carrier..."
                 className="pl-9"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-
-            {/* Status pills */}
             <div className="flex flex-wrap gap-1.5 items-center">
               {(["all", ...STATUSES] as const).map((s) => {
                 const activeClass = s === "all" ? "bg-slate-900 border-slate-900 text-white" : STATUS_PILL_ACTIVE[s]
@@ -190,7 +232,7 @@ export default function ShippingPage() {
                       statusFilter === s ? activeClass : "bg-white border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700"
                     )}
                   >
-                    {s === "all" ? "All Statuses" : s}
+                    {s === "all" ? "All Statuses" : STATUS_LABELS[s]}
                   </button>
                 )
               })}
@@ -238,10 +280,7 @@ export default function ShippingPage() {
                     className="relative py-3 text-xs font-semibold text-slate-300 tracking-wide text-left select-none group"
                     style={{ paddingLeft: idx === 0 ? 20 : 12, paddingRight: 8 }}
                   >
-                    <button
-                      onClick={() => handleSort(col.key)}
-                      className="inline-flex items-center gap-0.5 hover:text-white transition-colors w-full"
-                    >
+                    <button onClick={() => handleSort(col.key)} className="inline-flex items-center gap-0.5 hover:text-white transition-colors w-full">
                       {col.label}
                       <SortIcon col={col.key} />
                     </button>
@@ -253,71 +292,70 @@ export default function ShippingPage() {
                     </span>
                   </th>
                 ))}
-                <th className="py-3 text-xs font-semibold text-slate-300 tracking-wide text-left" style={{ paddingLeft: 12 }} />
+                <th className="py-3 text-xs font-semibold text-slate-300 tracking-wide" style={{ paddingLeft: 12 }} />
               </tr>
             </thead>
             <tbody>
-              {filtered.map((shipment, i) => (
-                <tr
-                  key={shipment.id}
-                  className={cn(
-                    "border-b border-gray-100 hover:bg-blue-50/30 transition-colors",
-                    i % 2 === 0 ? "bg-white" : "bg-gray-50/40"
-                  )}
-                >
-                  <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
-                    <span className="text-sm text-gray-700 font-medium tracking-wide truncate block">{shipment.id}</span>
-                  </td>
-                  <td className="py-3 px-3 overflow-hidden">
-                    <span className="text-sm text-gray-700 font-medium whitespace-nowrap">{shipment.pickupDate}</span>
-                  </td>
-                  <td className="py-3 px-3 overflow-hidden">
-                    <span className="text-sm text-gray-700 font-medium truncate block">{shipment.trackingNumber}</span>
-                  </td>
-                  <td className="py-3 px-3 overflow-hidden">
-                    <span className="text-sm text-gray-700 font-medium truncate block">{shipment.poNumber}</span>
-                  </td>
-                  <td className="py-3 px-3 overflow-hidden">
-                    <span className="text-sm text-gray-700 font-medium truncate block">{shipment.costCenter}</span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="text-sm text-gray-700 font-medium">{shipment.carrier}</span>
-                  </td>
-                  <td className="py-3 px-3 overflow-hidden">
-                    <span className="text-sm text-gray-700 font-medium truncate block">{shipment.requester}</span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className={cn(
-                      "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap",
-                      STATUS_COLORS[shipment.status] ?? "bg-zinc-100 text-zinc-600"
-                    )}>
-                      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[shipment.status] ?? "bg-gray-400")} />
-                      {shipment.status}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="text-sm text-gray-700 font-medium whitespace-nowrap">{shipment.expectedDelivery}</span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="text-sm text-gray-700 font-medium whitespace-nowrap">{shipment.lastUpdate}</span>
-                  </td>
-                  <td className="py-3 px-2 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-600">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>View details</DropdownMenuItem>
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive focus:text-destructive">Cancel shipment</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
-                </tr>
-              ))}
+              {filtered.map((req, i) => {
+                const pl = p(req)
+                return (
+                  <tr key={req.id} className={cn("border-b border-gray-100 hover:bg-blue-50/30 transition-colors", i % 2 === 0 ? "bg-white" : "bg-gray-50/40")}>
+                    <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
+                      <span className="text-sm text-gray-700 font-medium tracking-wide truncate block">{req.id}</span>
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className="text-sm text-gray-700 font-medium whitespace-nowrap">{formatDate(String(pl.expectedPickupDate ?? ""))}</span>
+                    </td>
+                    <td className="py-3 px-3 overflow-hidden">
+                      <span className="text-sm text-gray-700 font-medium truncate block">{String(pl.trackingNumber ?? "—")}</span>
+                    </td>
+                    <td className="py-3 px-3 overflow-hidden">
+                      <span className="text-sm text-gray-700 font-medium truncate block">{String(pl.poNumber ?? "—")}</span>
+                    </td>
+                    <td className="py-3 px-3 overflow-hidden">
+                      <span className="text-sm text-gray-700 font-medium truncate block">{String(pl.costCenter ?? "—")}</span>
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className="text-sm text-gray-700 font-medium">{String(pl.carrier === "Other" ? (pl.carrierName ?? "Other") : (pl.carrier ?? "—"))}</span>
+                    </td>
+                    <td className="py-3 px-3 overflow-hidden">
+                      <span className="text-sm text-gray-700 font-medium truncate block">{req.requesterName}</span>
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap", STATUS_COLORS[req.status] ?? "bg-zinc-100 text-zinc-600")}>
+                        <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[req.status] ?? "bg-gray-400")} />
+                        {STATUS_LABELS[req.status] ?? req.status}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className="text-sm text-gray-700 font-medium whitespace-nowrap">{formatDate(String(pl.expectedDeliveryDate ?? ""))}</span>
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className="text-sm text-gray-700 font-medium whitespace-nowrap">{formatDate(req.updatedAt)}</span>
+                    </td>
+                    <td className="py-3 px-2 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-600">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44">
+                          {STATUSES.filter(s => s !== req.status).map(s => (
+                            <DropdownMenuItem key={s} onClick={() => handleStatusUpdate(req, s)} className="cursor-pointer text-xs">
+                              → {STATUS_LABELS[s]}
+                            </DropdownMenuItem>
+                          ))}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleDelete(req)} className="cursor-pointer text-xs text-red-600 focus:text-red-600">
+                            <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
+                )
+              })}
 
               {filtered.length === 0 && (
                 <tr>
@@ -331,7 +369,7 @@ export default function ShippingPage() {
 
           {filtered.length > 0 && (
             <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-[11px] text-gray-400 text-right">
-              Showing {filtered.length} of {mockShipments.length} shipments
+              Showing {filtered.length} of {requests.length} shipments
             </div>
           )}
         </div>

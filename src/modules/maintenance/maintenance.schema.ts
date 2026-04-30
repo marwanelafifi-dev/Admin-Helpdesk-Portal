@@ -13,14 +13,23 @@ export type FloorNumber = (typeof FLOOR_NUMBERS)[number]
 // ─── Maintenance Request Schema ────────────────────────────────────────────────
 
 export const MaintenancePayloadSchema = z.object({
-  issueTitle: z.string().min(1, "Issue title is required"),
-  description: z.string().min(1, "Description is required"),
-  priority: z.enum(MAINTENANCE_PRIORITIES),
-  category: z.enum(MAINTENANCE_CATEGORIES),
-  floorNumber: z.enum(FLOOR_NUMBERS),
-  roomArea: z.string().min(1, "Room/Area is required"),
+  issueTitle: z
+    .string()
+    .min(3, "Issue title must be at least 3 characters")
+    .max(100, "Issue title cannot exceed 100 characters"),
+  description: z
+    .string()
+    .min(10, "Please describe the issue in more detail (min 10 characters)")
+    .max(1000, "Description cannot exceed 1000 characters"),
+  priority: z.enum(MAINTENANCE_PRIORITIES, { error: "Please select a priority" }),
+  category: z.enum(MAINTENANCE_CATEGORIES, { error: "Please select a category" }),
+  floorNumber: z.enum(FLOOR_NUMBERS, { error: "Please select a floor" }),
+  roomArea: z
+    .string()
+    .min(2, "Room/Area must be at least 2 characters")
+    .max(100, "Room/Area cannot exceed 100 characters"),
   attachments: z.array(z.string()).optional(),
-  notes: z.string().max(500).optional(),
+  notes: z.string().max(500, "Notes cannot exceed 500 characters").optional(),
 })
 
 export type MaintenancePayload = z.infer<typeof MaintenancePayloadSchema>
