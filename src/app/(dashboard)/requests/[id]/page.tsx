@@ -145,7 +145,6 @@ export default function RequestDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>("details")
-  const [isMounted, setIsMounted] = useState(false)
 
   const fetchComments = async (requestId: string) => {
     try {
@@ -350,9 +349,8 @@ export default function RequestDetailPage() {
     }
   }, [id])
 
-  // Set mounted flag and mark comments as viewed
+  // Mark comments as viewed
   useEffect(() => {
-    setIsMounted(true)
     if (request && request.comments && request.comments.length > 0) {
       const viewed = localStorage.getItem('arp_viewed_comments')
       const viewedComments = viewed ? JSON.parse(viewed) : {}
@@ -516,7 +514,7 @@ export default function RequestDetailPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm">{isMounted ? formatDate(request.createdAt) : "—"}</p>
+                    <p className="text-sm">{formatDate(request.createdAt)}</p>
                   </CardContent>
                 </Card>
 
@@ -529,7 +527,7 @@ export default function RequestDetailPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm">{isMounted ? formatDate(request.updatedAt) : "—"}</p>
+                    <p className="text-sm">{formatDate(request.updatedAt)}</p>
                   </CardContent>
                 </Card>
               </div>
@@ -594,7 +592,7 @@ export default function RequestDetailPage() {
                       )}
                       <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
                         <span>By {item.changedByUser?.name || item.changedByUserId}</span>
-                        <span>{isMounted ? formatDate(item.createdAt) : "—"}</span>
+                        <span>{formatDate(item.createdAt)}</span>
                       </div>
                     </div>
                   </div>
