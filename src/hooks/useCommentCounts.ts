@@ -1,14 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { commentsAPI } from '@/lib/apiClient'
 
 export function useCommentCounts(requestIds: string[]) {
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({})
 
+  // Memoize valid IDs to prevent unnecessary re-renders
+  const validIds = useMemo(() => {
+    return (requestIds || []).filter(id => id)
+  }, [requestIds.length, requestIds.join(',')])
+
   useEffect(() => {
     const fetchCounts = async () => {
       const counts: Record<string, number> = {}
-      // Filter out undefined/null IDs
-      const validIds = (requestIds || []).filter(id => id)
 
       for (const id of validIds) {
         try {
@@ -23,14 +26,13 @@ export function useCommentCounts(requestIds: string[]) {
     }
 
     // Only fetch if we have valid request IDs
-    const validIds = (requestIds || []).filter(id => id)
     if (validIds.length > 0) {
       fetchCounts()
     } else {
       // Clear counts if no valid request IDs
       setCommentCounts({})
     }
-  }, [requestIds])
+  }, [validIds.length, validIds.join(',')])
 
   return commentCounts
 }

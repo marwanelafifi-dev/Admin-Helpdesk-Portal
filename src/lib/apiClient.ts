@@ -41,22 +41,24 @@ export const requestsAPI = {
 }
 
 export const commentsAPI = {
-  list: (requestId: string, limit?: number, offset?: number) => {
+  list: async (requestId: string, limit?: number, offset?: number) => {
     const params = new URLSearchParams()
     params.append('requestId', requestId)
     if (limit) params.append('limit', limit.toString())
     if (offset) params.append('offset', offset.toString())
-    // Use relative path for Next.js API routes
-    return fetch(`/api/requests/comments?${params.toString()}`).then(r => {
-      if (!r.ok) {
-        console.error(`API Error fetching comments for ${requestId}: ${r.status}`, r.statusText)
-        throw new Error(`API Error: ${r.status} ${r.statusText}`)
+    try {
+      // Use relative path for Next.js API routes
+      const url = `/api/requests/comments?${params.toString()}`
+      const response = await fetch(url)
+      if (!response.ok) {
+        console.error(`API Error fetching comments for ${requestId}: ${response.status}`, response.statusText)
+        throw new Error(`API Error: ${response.status} ${response.statusText}`)
       }
-      return r.json()
-    }).catch(error => {
+      return await response.json()
+    } catch (error) {
       console.error(`Failed to fetch comments for ${requestId}:`, error)
       throw error
-    })
+    }
   },
 
   create: async (requestId: string, content: string, authorId: string, authorName: string, authorEmail: string, files?: File[]) => {
