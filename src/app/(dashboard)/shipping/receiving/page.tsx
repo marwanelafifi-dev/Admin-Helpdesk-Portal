@@ -43,10 +43,11 @@ const STATUS_PILL_ACTIVE: Record<string, string> = {
   "Cancelled":  "bg-red-600 border-red-600 text-white",
 }
 
-type SortKey = keyof Pick<MockShipment, "id" | "pickupDate" | "trackingNumber" | "poNumber" | "costCenter" | "carrier" | "requester" | "status" | "expectedDelivery" | "lastUpdate">
+type SortKey = keyof Pick<MockShipment, "id" | "title" | "pickupDate" | "trackingNumber" | "poNumber" | "costCenter" | "carrier" | "requester" | "status" | "expectedDelivery" | "lastUpdate">
 
 const COLS: { key: SortKey; label: string; defaultW: number }[] = [
   { key: "id",              label: "Request ID",      defaultW: 120 },
+  { key: "title",           label: "Request Name",    defaultW: 160 },
   { key: "pickupDate",      label: "Pickup Date",     defaultW: 120 },
   { key: "trackingNumber",  label: "Tracking Number", defaultW: 160 },
   { key: "poNumber",        label: "PO Number",       defaultW: 120 },
@@ -78,6 +79,7 @@ export default function ReceivingPage() {
         const data = await requestsAPI.listByModule("shipping")
         const transformed = ((data as any)?.data || []).map((req: any) => ({
           id: req.id,
+          title: req.title || "Untitled Request",
           trackingNumber: req.payload?.trackingNumber || "",
           carrier: req.payload?.carrier || "",
           origin: req.payload?.origin || "N/A",

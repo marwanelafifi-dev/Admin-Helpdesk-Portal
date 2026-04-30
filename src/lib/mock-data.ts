@@ -10,6 +10,7 @@ export interface MockRequest {
 
 export interface MockShipment {
   id: string
+  title: string
   trackingNumber: string
   carrier: string
   origin: string
@@ -91,13 +92,13 @@ export const mockRequests: MockRequest[] = [
 ]
 
 export const mockShipments: MockShipment[] = [
-  { id: "SHP-0067", trackingNumber: "1Z999AA10123456784", carrier: "DHL", origin: "Cairo, EG", destination: "Dubai, AE", status: "In Customs", expectedDelivery: "2026-04-30", requester: "Marwan Elafifi", pickupDate: "2026-04-25", poNumber: "PO-2026-0067", costCenter: "Operations", lastUpdate: "2026-04-29" },
-  { id: "SHP-0066", trackingNumber: "9400111899223388456", carrier: "FedEx", origin: "Alexandria, EG", destination: "London, UK", status: "Delivered", expectedDelivery: "2026-04-22", requester: "Sara Ali", pickupDate: "2026-04-20", poNumber: "PO-2026-0066", costCenter: "Sales", lastUpdate: "2026-04-22" },
-  { id: "SHP-0065", trackingNumber: "JD014600006741234567", carrier: "Aramex", origin: "Cairo, EG", destination: "Riyadh, SA", status: "On Hold", expectedDelivery: "2026-05-03", requester: "Ahmed Hassan", pickupDate: "2026-04-27", poNumber: "PO-2026-0065", costCenter: "Operations", lastUpdate: "2026-04-28" },
-  { id: "SHP-0064", trackingNumber: "1Z999AA10123456785", carrier: "UPS", origin: "Giza, EG", destination: "Frankfurt, DE", status: "In Customs", expectedDelivery: "2026-04-29", requester: "Omar Farouk", pickupDate: "2026-04-26", poNumber: "PO-2026-0064", costCenter: "Logistics", lastUpdate: "2026-04-28" },
-  { id: "SHP-0063", trackingNumber: "4206300192748927005377", carrier: "USPS", origin: "Cairo, EG", destination: "New York, US", status: "Delivered", expectedDelivery: "2026-04-18", requester: "Nour Ibrahim", pickupDate: "2026-04-15", poNumber: "PO-2026-0063", costCenter: "Sales", lastUpdate: "2026-04-18" },
-  { id: "SHP-0062", trackingNumber: "JD014600006741234568", carrier: "TNT", origin: "Cairo, EG", destination: "Paris, FR", status: "Cancelled", expectedDelivery: "2026-04-15", requester: "Khalid Mahmoud", pickupDate: "2026-04-13", poNumber: "PO-2026-0062", costCenter: "Operations", lastUpdate: "2026-04-14" },
-  { id: "SHP-0061", trackingNumber: "1Z999AA10123456786", carrier: "Maersk", origin: "Port Said, EG", destination: "Rotterdam, NL", status: "In Customs", expectedDelivery: "2026-05-10", requester: "Dina Youssef", pickupDate: "2026-04-28", poNumber: "PO-2026-0061", costCenter: "Logistics", lastUpdate: "2026-04-29" },
+  { id: "SHP-0067", title: "Shipment to Dubai", trackingNumber: "1Z999AA10123456784", carrier: "DHL", origin: "Cairo, EG", destination: "Dubai, AE", status: "In Customs", expectedDelivery: "2026-04-30", requester: "Marwan Elafifi", pickupDate: "2026-04-25", poNumber: "PO-2026-0067", costCenter: "Operations", lastUpdate: "2026-04-29" },
+  { id: "SHP-0066", title: "Shipment to London", trackingNumber: "9400111899223388456", carrier: "FedEx", origin: "Alexandria, EG", destination: "London, UK", status: "Delivered", expectedDelivery: "2026-04-22", requester: "Sara Ali", pickupDate: "2026-04-20", poNumber: "PO-2026-0066", costCenter: "Sales", lastUpdate: "2026-04-22" },
+  { id: "SHP-0065", title: "Shipment to Riyadh", trackingNumber: "JD014600006741234567", carrier: "Aramex", origin: "Cairo, EG", destination: "Riyadh, SA", status: "On Hold", expectedDelivery: "2026-05-03", requester: "Ahmed Hassan", pickupDate: "2026-04-27", poNumber: "PO-2026-0065", costCenter: "Operations", lastUpdate: "2026-04-28" },
+  { id: "SHP-0064", title: "Shipment to Frankfurt", trackingNumber: "1Z999AA10123456785", carrier: "UPS", origin: "Giza, EG", destination: "Frankfurt, DE", status: "In Customs", expectedDelivery: "2026-04-29", requester: "Omar Farouk", pickupDate: "2026-04-26", poNumber: "PO-2026-0064", costCenter: "Logistics", lastUpdate: "2026-04-28" },
+  { id: "SHP-0063", title: "Shipment to New York", trackingNumber: "4206300192748927005377", carrier: "USPS", origin: "Cairo, EG", destination: "New York, US", status: "Delivered", expectedDelivery: "2026-04-18", requester: "Nour Ibrahim", pickupDate: "2026-04-15", poNumber: "PO-2026-0063", costCenter: "Sales", lastUpdate: "2026-04-18" },
+  { id: "SHP-0062", title: "Shipment to Paris", trackingNumber: "JD014600006741234568", carrier: "TNT", origin: "Cairo, EG", destination: "Paris, FR", status: "Cancelled", expectedDelivery: "2026-04-15", requester: "Khalid Mahmoud", pickupDate: "2026-04-13", poNumber: "PO-2026-0062", costCenter: "Operations", lastUpdate: "2026-04-14" },
+  { id: "SHP-0061", title: "Shipment to Rotterdam", trackingNumber: "1Z999AA10123456786", carrier: "Maersk", origin: "Port Said, EG", destination: "Rotterdam, NL", status: "In Customs", expectedDelivery: "2026-05-10", requester: "Dina Youssef", pickupDate: "2026-04-28", poNumber: "PO-2026-0061", costCenter: "Logistics", lastUpdate: "2026-04-29" },
 ]
 
 export const mockUsers: MockUser[] = [
