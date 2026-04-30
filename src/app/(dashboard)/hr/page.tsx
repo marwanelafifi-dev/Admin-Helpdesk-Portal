@@ -41,11 +41,12 @@ function formatDate(iso: string) {
 }
 
 type Tab = "all" | "onboarding" | "offboarding"
-type SortKey = "id" | "employeeId" | "employeeName" | "department" | "sector" | "hrType" | "status" | "date"
+type SortKey = "id" | "title" | "employeeId" | "employeeName" | "department" | "sector" | "hrType" | "status" | "date"
 type SortDir = "asc" | "desc"
 
 const COLS: { key: SortKey; label: string; defaultW: number }[] = [
   { key: "id",           label: "Request ID",    defaultW: 140 },
+  { key: "title",        label: "Request Title", defaultW: 160 },
   { key: "employeeId",   label: "Employee ID",   defaultW: 130 },
   { key: "employeeName", label: "Employee Name", defaultW: 180 },
   { key: "department",   label: "Department",    defaultW: 140 },
