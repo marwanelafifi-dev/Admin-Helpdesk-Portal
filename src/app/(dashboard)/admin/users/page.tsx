@@ -101,7 +101,7 @@ export default function AdminUsersPage() {
     setLoading(true)
     setLoadError("")
 
-    const response = await fetch("/api/users")
+    const response = await fetch("/api/users", { credentials: "include" })
 
     if (!response.ok) {
       setLoadError(response.status === 403 ? "You do not have access to manage users." : "Users could not be loaded.")
@@ -137,6 +137,7 @@ export default function AdminUsersPage() {
 
     const response = await fetch("/api/users", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     })
@@ -183,6 +184,7 @@ export default function AdminUsersPage() {
 
     const response = await fetch(`/api/users/${editingUser.id}`, {
       method: "PATCH",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     })
@@ -209,6 +211,7 @@ export default function AdminUsersPage() {
 
     const response = await fetch(`/api/users/${userId}`, {
       method: "PATCH",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ role: newRole }),
     })
@@ -227,6 +230,7 @@ export default function AdminUsersPage() {
 
     const response = await fetch(`/api/users/${userId}`, {
       method: "PATCH",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ active: !user.active }),
     })
@@ -246,6 +250,7 @@ export default function AdminUsersPage() {
 
     const response = await fetch(`/api/users/${userId}`, {
       method: "DELETE",
+      credentials: "include",
     })
 
     if (response.ok) {

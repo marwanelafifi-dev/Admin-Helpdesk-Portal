@@ -103,7 +103,7 @@ export default function AdminRolesPage() {
 
   const loadRoles = async () => {
     setLoading(true)
-    const response = await fetch("/api/roles")
+    const response = await fetch("/api/roles", { credentials: "include" })
     const data = await response.json()
     if (response.ok) {
       setRoles(data.roles || [])
@@ -157,6 +157,7 @@ export default function AdminRolesPage() {
 
     const response = await fetch(url, {
       method,
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     })
@@ -185,6 +186,7 @@ export default function AdminRolesPage() {
 
     const response = await fetch(`/api/roles/${roleId}`, {
       method: "DELETE",
+      credentials: "include",
     })
 
     if (response.ok) {
