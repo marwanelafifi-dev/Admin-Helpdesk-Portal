@@ -12,6 +12,7 @@ import { commentsAPI } from "@/lib/apiClient"
 import { getRequests, updateStatus, initializeMockData, recordCommentActivity, type EngineRequest } from "@/services/engineService"
 import { cn } from "@/lib/utils"
 import { hasPermission } from "@/lib/access"
+import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { CommentsTab } from "@/components/request/CommentsTab"
 import { invalidateCommentCountCache } from "@/hooks/useCommentCounts"
 import {
@@ -181,6 +182,14 @@ export default function RequestDetailPage() {
   }
 
   const canChangeStatus = session?.user?.permissions && hasPermission(session.user.permissions, "update")
+  const canViewActivity = session?.user?.permissions && hasPermission(session.user.permissions, "activity")
+  const currentUserId = session?.user?.id || "USR-001"
+
+  useEffect(() => {
+    if (!canViewActivity && activeTab === "activity") {
+      setActiveTab("details")
+    }
+  }, [activeTab, canViewActivity])
 
   const handleStatusChange = async (newStatus: string) => {
     if (!request || !canChangeStatus) return
@@ -189,7 +198,7 @@ export default function RequestDetailPage() {
       const oldStatus = request.status
 
       // Update in engineService
-      updateStatus(request.id, newStatus as any, request.requester?.id || "USR-001")
+      updateStatus(request.id, newStatus as any, currentUserId)
 
       // Create new activity entry for status change
       const newStatusActivity = {
@@ -198,14 +207,25 @@ export default function RequestDetailPage() {
         fieldName: 'status',
         oldValue: oldStatus,
         newValue: newStatus,
-        changedByUserId: request.requester?.id || "USR-001",
+        changedByUserId: currentUserId,
         changedByUser: {
-          id: request.requester?.id || "USR-001",
-          name: request.requester?.name || "User",
-          email: request.requester?.email || "user@si-ware.com",
+          id: currentUserId,
+          name: session?.user?.name || "User",
+          email: session?.user?.email || "user@si-ware.com",
         },
         createdAt: now,
       }
+
+      // Create notifications for the request update
+      createRequestUpdateNotifications({
+        requestId: request.id,
+        requestTitle: request.title,
+        module: request.module,
+        requestOwnerId: request.requester?.id || "USR-001",
+        actionUserId: currentUserId,
+        preview: `Status changed from ${oldStatus} to ${newStatus}`,
+        updateType: "status",
+      })
 
       // Update local state with new status and activity
       const updatedHistory = [...(request.history || []), newStatusActivity]
@@ -476,7 +496,7 @@ export default function RequestDetailPage() {
           <div className="flex gap-8 px-6 bg-white rounded-t-lg">
             {[
               { id: "details", label: "Details" },
-              { id: "activity", label: `Activity ${request.history?.length ? `(${request.history.length})` : ""}` },
+              ...(canViewActivity ? [{ id: "activity", label: `Activity ${request.history?.length ? `(${request.history.length})` : ""}` }] : []),
               { id: "comments", label: `Comments ${request.comments?.length ? `(${request.comments.length})` : ""}` },
               { id: "attachments", label: `Attachments ${request.attachments?.length ? `(${request.attachments.length})` : ""}` },
             ].map((tab) => (
@@ -571,7 +591,7 @@ export default function RequestDetailPage() {
           )}
 
           {/* Activity Tab */}
-          {activeTab === "activity" && (
+          {canViewActivity && activeTab === "activity" && (
             <div className="space-y-4">
               {request.history && request.history.length > 0 ? (
                 request.history.map((item, idx) => (
@@ -636,14 +656,25 @@ export default function RequestDetailPage() {
                   // Record comment activity in history
                   recordCommentActivity(request.id, request.requester?.id || "USR-001")
 
+                  // Create notifications for the new comment
+                  createRequestUpdateNotifications({
+                    requestId: request.id,
+                    requestTitle: request.title,
+                    module: request.module,
+                    requestOwnerId: request.requester?.id || "USR-001",
+                    actionUserId: currentUserId,
+                    preview: content,
+                    updateType: "comment",
+                  })
+
                   // Add optimistic update - add comment immediately to state
                   const newComment = {
                     id: result?.id || `${Date.now()}`,
                     content: content,
                     author: {
-                      id: request.requester?.id || "USR-001",
-                      name: request.requester?.name || "User",
-                      email: request.requester?.email || "user@si-ware.com",
+                      id: currentUserId,
+                      name: session?.user?.name || "User",
+                      email: session?.user?.email || "user@si-ware.com",
                     },
                     attachments: result?.attachments || [],
                     createdAt: new Date().toISOString(),

@@ -325,7 +325,7 @@ export default function RequestsPage() {
                 )}>
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
                     <div className="flex items-center gap-2">
-                      <Link href={`/requests/${req.id}`} className="text-sm font-medium text-blue-600 truncate hover:underline">
+                      <Link href={`/requests/${req.id}?source=my-requests`} className="text-sm font-medium text-blue-600 truncate hover:underline">
                         {req.id}
                       </Link>
                       {(commentCounts[req.id] ?? 0) > 0 && (

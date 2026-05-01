@@ -10,7 +10,7 @@ export default function UnauthorizedPage({
       <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-sm border">
         <h1 className="text-2xl font-semibold text-slate-900">Access denied</h1>
         <p className="mt-3 text-sm text-slate-600">
-          Your current role does not allow access to this page.
+          You don’t have permission to do this action.
         </p>
         {searchParams?.from ? (
           <p className="mt-2 text-xs text-slate-500">Blocked route: {searchParams.from}</p>

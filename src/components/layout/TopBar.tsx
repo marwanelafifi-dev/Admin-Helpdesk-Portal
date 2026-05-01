@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Image from "next/image"
 import { signOut, useSession } from "next-auth/react"
 import { Bell, LogOut } from "lucide-react"
@@ -13,6 +14,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useNotifications } from "@/hooks/useNotifications"
+import { markNotificationAsRead } from "@/lib/notificationStore"
 
 function getInitials(name?: string | null, email?: string | null) {
   const label = name || email || "User"
@@ -37,6 +40,16 @@ function roleLabel(role?: string) {
 export function TopBar() {
   const { data: session } = useSession()
   const user = session?.user
+  const userId = user?.id
+  const { notifications, unreadCount } = useNotifications(userId)
+  const [isOpen, setIsOpen] = useState(false)
+
+  useEffect(() => {
+    if (!isOpen || !userId) return
+    notifications
+      .filter((notification) => !notification.read)
+      .forEach((notification) => markNotificationAsRead(notification.id))
+  }, [isOpen, notifications, userId])
 
   return (
     <header className="h-16 border-b bg-white flex items-center justify-between px-6 flex-shrink-0">
@@ -60,30 +73,35 @@ export function TopBar() {
       {/* Right: actions */}
       <div className="flex items-center gap-2">
         {/* Notification Bell */}
-        <DropdownMenu>
+        <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5 text-slate-600" />
-              <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                3
-              </span>
+              {unreadCount > 0 ? (
+                <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              ) : null}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-72">
+          <DropdownMenuContent align="end" className="w-80">
             <DropdownMenuLabel>Notifications</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="flex flex-col items-start gap-0.5 cursor-pointer">
-              <span className="text-sm font-medium">REQ-2041 approved</span>
-              <span className="text-xs text-muted-foreground">2 minutes ago</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem className="flex flex-col items-start gap-0.5 cursor-pointer">
-              <span className="text-sm font-medium">New purchase request submitted</span>
-              <span className="text-xs text-muted-foreground">15 minutes ago</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem className="flex flex-col items-start gap-0.5 cursor-pointer">
-              <span className="text-sm font-medium">Shipment SHP-0067 in transit</span>
-              <span className="text-xs text-muted-foreground">1 hour ago</span>
-            </DropdownMenuItem>
+            {notifications.length === 0 ? (
+              <div className="px-4 py-6 text-center text-sm text-slate-500">
+                No notifications yet.
+              </div>
+            ) : (
+              notifications.slice(0, 6).map((notification) => (
+                <DropdownMenuItem
+                  key={notification.id}
+                  className="flex flex-col items-start gap-0.5 cursor-pointer"
+                >
+                  <span className="text-sm font-medium">{notification.title}</span>
+                  <span className="text-xs text-muted-foreground">{notification.description}</span>
+                </DropdownMenuItem>
+              ))
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-center text-sm text-blue-600 cursor-pointer justify-center">
               View all notifications

@@ -97,10 +97,13 @@ export const commentsAPI = {
     })
 
     if (!response.ok) {
-      throw new Error(`API Error: ${response.status}`)
+      const errorBody = await response.json().catch(() => null)
+      const message = errorBody?.error || `API Error: ${response.status}`
+      throw new Error(message)
     }
 
-    return response.json()
+    const result = await response.json()
+    return result.data || result
   },
 
   delete: (commentId: string) =>

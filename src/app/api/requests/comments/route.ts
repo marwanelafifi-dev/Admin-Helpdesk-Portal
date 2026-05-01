@@ -40,19 +40,28 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
     const requestId = (formData.get('requestId') as string)?.trim()
-    const content = (formData.get('content') as string)?.trim()
+    const content = (formData.get('content') as string)?.trim() ?? ''
     const authorId = (formData.get('authorId') as string)?.trim()
     const authorName = (formData.get('authorName') as string)?.trim()
     const authorEmail = (formData.get('authorEmail') as string)?.trim()
     const files = formData.getAll('files') as File[]
 
-    console.log('POST /api/requests/comments:', { requestId, content, authorId, authorName, filesCount: files.length })
+    const hasContent = content.length > 0
+    const hasFiles = files.length > 0
 
-    if (!requestId || !content || !authorId) {
+    console.log('POST /api/requests/comments:', {
+      requestId,
+      contentLength: content.length,
+      authorId,
+      authorName,
+      filesCount: files.length,
+    })
+
+    if (!requestId || !authorId || (!hasContent && !hasFiles)) {
       const missing = []
       if (!requestId) missing.push('requestId')
-      if (!content) missing.push('content')
       if (!authorId) missing.push('authorId')
+      if (!hasContent && !hasFiles) missing.push('content or attachment')
       console.error('Missing fields:', missing)
       return NextResponse.json(
         { error: `Missing fields: ${missing.join(', ')}` },

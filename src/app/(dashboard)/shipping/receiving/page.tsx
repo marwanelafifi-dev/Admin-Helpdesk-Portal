@@ -337,7 +337,7 @@ export default function ReceivingPage() {
                 >
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
                     <div className="flex items-center gap-2">
-                      <Link href={`/requests/${shipment.id}`} className="text-sm text-blue-600 font-medium tracking-wide truncate block hover:underline">
+                      <Link href={`/requests/${shipment.id}?source=shipping`} className="text-sm text-blue-600 font-medium tracking-wide truncate block hover:underline">
                         {shipment.id}
                       </Link>
                       {(commentCounts[shipment.id] ?? 0) > 0 && (

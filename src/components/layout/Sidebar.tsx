@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import {
   LayoutDashboard,
@@ -66,10 +66,15 @@ export function Sidebar() {
   const pathname = usePathname()
   const { data: session, status } = useSession()
   const [collapsed, setCollapsed] = useState(false)
-  const [adminExpanded, setAdminExpanded] = useState(pathname.startsWith("/admin"))
+  const [adminExpanded, setAdminExpanded] = useState(
+    pathname.startsWith("/admin") && pathname !== "/admin/all-requests"
+  )
   const [shippingExpanded, setShippingExpanded] = useState(pathname.startsWith("/shipping"))
   const permissions = session?.user?.permissions ?? []
   const role = session?.user?.role
+
+  const searchParams = useSearchParams()
+  const source = searchParams.get("source")
 
   const canSee = (href: string) => status === "authenticated" && canAccessPath(href, permissions, role)
 
@@ -89,10 +94,35 @@ export function Sidebar() {
       return items
     }, [])
 
-  const isActive = (href: string) =>
-    href === "/dashboard" || href === "/admin/all-requests"
-      ? pathname === href
-      : pathname.startsWith(href)
+  const isActive = (href: string) => {
+    if (href === "/dashboard") {
+      return pathname === "/dashboard"
+    }
+
+    if (pathname.startsWith("/requests/")) {
+      if (href === "/admin/all-requests") {
+        return source === "all-requests"
+      }
+      if (href === "/requests") {
+        return source === "my-requests"
+      }
+      return source === href.slice(1)
+    }
+
+    if (href === "/admin") {
+      return pathname.startsWith("/admin") && pathname !== "/admin/all-requests"
+    }
+
+    if (href === "/admin/all-requests") {
+      return pathname === "/admin/all-requests"
+    }
+
+    if (href === "/requests") {
+      return pathname === "/requests"
+    }
+
+    return pathname.startsWith(href)
+  }
 
   return (
     <aside

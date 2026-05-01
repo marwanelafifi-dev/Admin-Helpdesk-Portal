@@ -76,11 +76,17 @@ export function canManageRoles(role?: string, permissions: string[] = []) {
 }
 
 export function canAccessPath(pathname: string, permissions: string[] = [], role?: string) {
+  const path = normalizePathname(pathname)
+
+  if (path === "/admin") {
+    return false
+  }
+
   if (isSuperAdmin(role) || permissions.includes("*")) {
     return true
   }
 
-  const permission = permissionForPath(pathname)
+  const permission = permissionForPath(path)
 
   if (!permission) {
     return true
