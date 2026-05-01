@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
 import type { HRPayload } from "@/modules/hr/hr.schema"
 import { cn } from "@/lib/utils"
@@ -38,8 +39,20 @@ const STATUS_PILL_ACTIVE: Record<string, string> = {
   completed: "bg-emerald-600 border-emerald-600 text-white",
 }
 
+const STATUS_OPTIONS = [
+  { value: "new", label: "New", colorClass: "bg-sky-50 text-sky-700 border-transparent", dotClass: "bg-sky-500" },
+  { value: "on_hold", label: "In Progress", colorClass: "bg-amber-50 text-amber-700 border-transparent", dotClass: "bg-amber-500" },
+  { value: "completed", label: "Completed", colorClass: "bg-emerald-50 text-emerald-700 border-transparent", dotClass: "bg-emerald-500" },
+]
+
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+}
+
+function updateRequestStatus(requests: EngineRequest[], id: string, status: string) {
+  return requests.map((request) =>
+    request.id === id ? { ...request, status, updatedAt: new Date().toISOString() } : request
+  )
 }
 
 type Tab = "all" | "onboarding" | "offboarding"
@@ -381,13 +394,11 @@ export default function HRPage() {
                       </span>
                     </td>
                     <td className="py-3 px-3">
-                      <span className={cn(
-                        "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap",
-                        STATUS_COLORS[req.status] ?? "bg-zinc-100 text-zinc-600"
-                      )}>
-                        <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[req.status] ?? "bg-gray-400")} />
-                        {STATUS_LABELS[req.status] ?? req.status}
-                      </span>
+                      <InlineStatusSelect
+                        status={req.status}
+                        options={STATUS_OPTIONS}
+                        onChange={(nextStatus) => setRequests((prev) => updateRequestStatus(prev, req.id, nextStatus))}
+                      />
                     </td>
                     <td className="py-3 px-3">
                       <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{formatDate(req.updatedAt)}</span>

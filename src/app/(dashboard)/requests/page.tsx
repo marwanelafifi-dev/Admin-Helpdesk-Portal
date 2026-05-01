@@ -5,6 +5,8 @@ import Link from "next/link"
 import { Search, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader } from "@/components/ui/card"
+import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
+import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
 import { cn } from "@/lib/utils"
 import { requestsAPI } from "@/lib/apiClient"
@@ -43,6 +45,34 @@ const STATUS_PILL_ACTIVE: Record<string, string> = {
   completed: "bg-emerald-600 border-emerald-600 text-white",
   cancelled: "bg-red-600 border-red-600 text-white",
   "New": "bg-sky-500 border-sky-500 text-white", "In Progress": "bg-blue-600 border-blue-600 text-white", "In Customs": "bg-amber-600 border-amber-600 text-white", "In Transit": "bg-blue-600 border-blue-600 text-white",
+}
+STATUS_OPTIONS = [
+  { value: "draft", label: "Draft", colorClass: "bg-zinc-100 text-zinc-600 border-transparent", dotClass: "bg-zinc-400" },
+  { value: "new", label: "New", colorClass: "bg-sky-50 text-sky-700 border-transparent", dotClass: "bg-sky-500" },
+  { value: "on_hold", label: "In Progress", colorClass: "bg-amber-50 text-amber-700 border-transparent", dotClass: "bg-amber-500" },
+  { value: "in_transit", label: "In Customs", colorClass: "bg-blue-50 text-blue-700 border-transparent", dotClass: "bg-blue-500" },
+  { value: "delivered", label: "Delivered", colorClass: "bg-green-50 text-green-700 border-transparent", dotClass: "bg-green-500" },
+  { value: "completed", label: "Completed", colorClass: "bg-emerald-50 text-emerald-700 border-transparent", dotClass: "bg-emerald-500" },
+  { value: "cancelled", label: "Cancelled", colorClass: "bg-red-50 text-red-600 border-transparent", dotClass: "bg-red-500" },
+  { value: "New", label: "New", colorClass: "bg-sky-50 text-sky-700 border-transparent", dotClass: "bg-sky-500" },
+  { value: "In Progress", label: "In Progress", colorClass: "bg-blue-50 text-blue-700 border-transparent", dotClass: "bg-blue-500" },
+  { value: "In Customs", label: "In Customs", colorClass: "bg-amber-50 text-amber-700 border-transparent", dotClass: "bg-amber-500" },
+  { value: "In Transit", label: "In Transit", colorClass: "bg-blue-50 text-blue-700 border-transparent", dotClass: "bg-blue-500" },
+}
+
+const 
+const STATUS_OPTIONS = [
+  { value: "draft", label: "Draft", colorClass: "bg-zinc-100 text-zinc-600 border-transparent", dotClass: "bg-zinc-400" },
+  { value: "new", label: "New", colorClass: "bg-sky-50 text-sky-700 border-transparent", dotClass: "bg-sky-500" },
+  { value: "on_hold", label: "In Progress", colorClass: "bg-amber-50 text-amber-700 border-transparent", dotClass: "bg-amber-500" },
+  { value: "in_transit", label: "In Customs", colorClass: "bg-blue-50 text-blue-700 border-transparent", dotClass: "bg-blue-500" },
+  { value: "delivered", label: "Delivered", colorClass: "bg-green-50 text-green-700 border-transparent", dotClass: "bg-green-500" },
+  { value: "completed", label: "Completed", colorClass: "bg-emerald-50 text-emerald-700 border-transparent", dotClass: "bg-emerald-500" },
+  { value: "cancelled", label: "Cancelled", colorClass: "bg-red-50 text-red-600 border-transparent", dotClass: "bg-red-500" },
+  { value: "New", label: "New", colorClass: "bg-sky-50 text-sky-700 border-transparent", dotClass: "bg-sky-500" },
+  { value: "In Progress", label: "In Progress", colorClass: "bg-blue-50 text-blue-700 border-transparent", dotClass: "bg-blue-500" },
+  { value: "In Customs", label: "In Customs", colorClass: "bg-amber-50 text-amber-700 border-transparent", dotClass: "bg-amber-500" },
+  { value: "In Transit", label: "In Transit", colorClass: "bg-blue-50 text-blue-700 border-transparent", dotClass: "bg-blue-500" },
 }
 
 const MODULE_COLORS: Record<string, string> = {
@@ -158,6 +188,12 @@ export default function RequestsPage() {
 
   const userRequests = useMemo(() => requests.filter((r) => r.requesterId === CURRENT_USER_ID), [requests])
 
+  function updateRequestStatus(id: string, status: string) {
+    setRequests((prev) => prev.map((request) =>
+      request.id === id ? { ...request, status, updatedAt: new Date().toISOString() } : request
+    ))
+  }
+
   const filtered = useMemo(() => {
     let result = userRequests
     if (statusFilter !== "all") result = result.filter((r) => r.status === statusFilter)
@@ -172,6 +208,12 @@ export default function RequestsPage() {
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
   }, [userRequests, statusFilter, moduleFilter, search, sortKey, sortDir])
+
+  function updateRequestStatus(id: string, status: string) {
+    setRequests((prev) => prev.map((request) =>
+      request.id === id ? { ...request, status, updatedAt: new Date().toISOString() } : request
+    ))
+  }
 
   const counts = useMemo(() => ({
     total:      userRequests.length,
@@ -333,10 +375,11 @@ export default function RequestsPage() {
                           "inline-flex items-center gap-1 flex-shrink-0 text-xs px-2 py-0.5 rounded-full font-semibold",
                           hasUnreadComments
                             ? "bg-red-100 text-red-700"
-                            : "bg-blue-50 text-blue-600"
-                        )}>
-                          <MessageCircle className="h-3 w-3" />
-                          {commentCounts[req.id]}
+                     InlineStatusSelect
+                      status={req.status}
+                      options={STATUS_OPTIONS}
+                      onChange={(nextStatus) => updateRequestStatus(req.id, nextStatus)}
+                    /{commentCounts[req.id]}
                         </span>
                       )}
                     </div>
@@ -354,10 +397,11 @@ export default function RequestsPage() {
                     </span>
                   </td>
                   <td className="py-3 px-3">
-                    <span className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap", STATUS_COLORS[req.status] ?? "bg-zinc-100 text-zinc-600")}>
-                      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[req.status] ?? "bg-gray-400")} />
-                      {STATUS_LABELS[req.status] ?? req.status}
-                    </span>
+                    <InlineStatusSelect
+                      status={req.status}
+                      options={STATUS_OPTIONS}
+                      onChange={(nextStatus) => updateRequestStatus(req.id, nextStatus)}
+                    />
                   </td>
                   <td className="py-3 px-3">
                     <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{formatDate(req.updatedAt)}</span>

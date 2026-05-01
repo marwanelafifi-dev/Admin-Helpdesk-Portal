@@ -646,15 +646,15 @@ export default function RequestDetailPage() {
                   const result = await commentsAPI.create(
                     request.id,
                     content,
-                    request.requester?.id || "USR-001",
-                    request.requester?.name || "User",
-                    request.requester?.email || "user@si-ware.com",
+                    currentUserId,
+                    session?.user?.name || request.requester?.name || "User",
+                    session?.user?.email || request.requester?.email || "user@si-ware.com",
                     attachments.length > 0 ? attachments : undefined
                   )
                   console.log("Comment created:", result)
 
                   // Record comment activity in history
-                  recordCommentActivity(request.id, request.requester?.id || "USR-001")
+                  recordCommentActivity(request.id, currentUserId)
 
                   // Create notifications for the new comment
                   createRequestUpdateNotifications({
@@ -685,11 +685,11 @@ export default function RequestDetailPage() {
                   const newCommentActivity = {
                     id: `${request.id}-${now}`,
                     action: 'comment_added',
-                    changedByUserId: request.requester?.id || "USR-001",
+                    changedByUserId: currentUserId,
                     changedByUser: {
-                      id: request.requester?.id || "USR-001",
-                      name: request.requester?.name || "User",
-                      email: request.requester?.email || "user@si-ware.com",
+                      id: currentUserId,
+                      name: session?.user?.name || request.requester?.name || "User",
+                      email: session?.user?.email || session?.user?.email || request.requester?.email || "user@si-ware.com",
                     },
                     createdAt: now,
                   }
@@ -724,7 +724,7 @@ export default function RequestDetailPage() {
                   alert("Failed to delete comment. Please try again.")
                 }
               }}
-              currentUserId="USR-001"
+              currentUserId={currentUserId}
             />
           )}
 

@@ -6,6 +6,7 @@ import { Search, Plus, Wrench, Clock, CheckCircle2, ChevronUp, ChevronDown, Chev
 import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
 import { cn } from "@/lib/utils"
 import { requestsAPI } from "@/lib/apiClient"
@@ -36,18 +37,25 @@ const STATUS_PILL_ACTIVE: Record<string, string> = {
   cancelled: "bg-red-600 border-red-600 text-white",
 }
 
+const STATUS_OPTIONS = [
+  { value: "new", label: "New", colorClass: "bg-sky-50 text-sky-700 border-transparent", dotClass: "bg-sky-500" },
+  { value: "on_hold", label: "In Progress", colorClass: "bg-amber-50 text-amber-700 border-transparent", dotClass: "bg-amber-500" },
+  { value: "completed", label: "Completed", colorClass: "bg-emerald-50 text-emerald-700 border-transparent", dotClass: "bg-emerald-500" },
+  { value: "cancelled", label: "Cancelled", colorClass: "bg-red-50 text-red-600 border-transparent", dotClass: "bg-red-500" },
+]
+
 const STATUSES = ["new", "on_hold", "completed", "cancelled"] as const
 
 type SortKey = "id" | "title" | "createdAt" | "requesterName" | "priority" | "status" | "updatedAt"
 
 const COLS: { key: SortKey; label: string; defaultW: number }[] = [
-  { key: "id",            label: "Request ID",      defaultW: 130 },
-  { key: "title",         label: "Request Title",   defaultW: 200 },
-  { key: "createdAt",     label: "Submission Date", defaultW: 140 },
-  { key: "requesterName", label: "Requester Name",  defaultW: 160 },
-  { key: "priority",      label: "Priority",        defaultW: 110 },
-  { key: "status",        label: "Status",          defaultW: 130 },
-  { key: "updatedAt",     label: "Last Update Date",defaultW: 140 },
+  { key: "id",           label: "Request ID",      defaultW: 130 },
+  { key: "title",        label: "Request Title",   defaultW: 200 },
+  { key: "createdAt",    label: "Submission Date", defaultW: 140 },
+  { key: "requesterName",label: "Requester Name",  defaultW: 160 },
+  { key: "priority",     label: "Priority",        defaultW: 110 },
+  { key: "status",       label: "Status",          defaultW: 130 },
+  { key: "updatedAt",    label: "Last Update Date",defaultW: 140 },
 ]
 
 function formatDate(iso: string) {
@@ -131,17 +139,23 @@ export default function MaintenancePage() {
     })
   }, [requests, statusFilter, search, sortKey, sortDir])
 
+  function updateRequestStatus(id: string, status: string) {
+    setRequests((prev) => prev.map((request) =>
+      request.id === id ? { ...request, status, updatedAt: new Date().toISOString() } : request
+    ))
+  }
+
   const counts = useMemo(() => ({
-    total:     requests.length,
-    new:       requests.filter((r) => r.status === "new").length,
+    total:    requests.length,
+    new:      requests.filter((r) => r.status === "new").length,
     inProgress:requests.filter((r) => r.status === "on_hold").length,
     completed: requests.filter((r) => r.status === "completed").length,
   }), [requests])
 
   const statCards = [
-    { key: "all",       label: "Total Tickets", value: counts.total,      icon: Wrench,       iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
-    { key: "new",       label: "New",           value: counts.new,        icon: Clock,        iconBg: "bg-sky-50",    iconColor: "text-sky-600",    activeBg: "bg-sky-500",    activeBorder: "border-sky-500" },
-    { key: "on_hold",   label: "In Progress",   value: counts.inProgress, icon: Wrench,       iconBg: "bg-amber-50",  iconColor: "text-amber-600",  activeBg: "bg-amber-500",  activeBorder: "border-amber-500" },
+    { key: "all",       label: "Total Tickets", value: counts.total,      icon: Wrench,       iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-slate-800",   activeBorder: "border-slate-800" },
+    { key: "new",       label: "New",           value: counts.new,        icon: Clock,        iconBg: "bg-sky-50",    iconColor: "text-sky-600",    activeBg: "bg-sky-500",     activeBorder: "border-sky-500" },
+    { key: "on_hold",   label: "In Progress",   value: counts.inProgress, icon: Wrench,       iconBg: "bg-amber-50",  iconColor: "text-amber-600",  activeBg: "bg-amber-500",   activeBorder: "border-amber-500" },
     { key: "completed", label: "Completed",     value: counts.completed,  icon: CheckCircle2, iconBg: "bg-emerald-50",iconColor: "text-emerald-600",activeBg: "bg-emerald-600",activeBorder: "border-emerald-600" },
   ] as const
 
@@ -292,10 +306,11 @@ export default function MaintenancePage() {
                     </span>
                   </td>
                   <td className="py-3 px-3">
-                    <span className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap", STATUS_COLORS[req.status] ?? "bg-zinc-100 text-zinc-600")}>
-                      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[req.status] ?? "bg-gray-400")} />
-                      {STATUS_LABELS[req.status] ?? req.status}
-                    </span>
+                    <InlineStatusSelect
+                      status={req.status}
+                      options={STATUS_OPTIONS}
+                      onChange={(nextStatus) => updateRequestStatus(req.id, nextStatus)}
+                    />
                   </td>
                   <td className="py-3 px-3">
                     <span className="text-sm font-medium text-gray-700">{formatDate(req.updatedAt)}</span>

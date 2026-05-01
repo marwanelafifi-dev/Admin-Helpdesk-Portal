@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { Search, Plus, Package, Truck, CheckCircle2, Clock, MoreHorizontal, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -67,9 +69,15 @@ export default function ShippingPage() {
   const [carrierFilter, setCarrierFilter] = useState("all")
   const [sortKey, setSortKey]         = useState<SortKey>("id")
   const [sortDir, setSortDir]         = useState<"asc" | "desc">("asc")
-  const [colWidths, setColWidths]     = useState<number[]>(() => COLS.map((c) => c.defaultW))
+  const [shipments, setShipments]     = useState<MockShipment[]>(mockShipments)
+  const [expandedShipmentId, setExpandedShipmentId] = useState<string | null>(null)
+  const router = useRouter()
 
-  const commentCounts = useCommentCounts(mockShipments.map(s => s.id))
+  const commentCounts = useCommentCounts(ste<MockShipment[]>(mockShipments)
+  const [expandedShipmentId, setExpandedShipmentId] = useState<string | null>(null)
+  const router = useRouter()
+
+  const commentCounts = useCommentCounts(shipments.map(s => s.id))
   const { viewedComments } = useViewedComments()
 
   // ── Resize ──────────────────────────────────────────────────────────────
@@ -93,11 +101,11 @@ export default function ShippingPage() {
 
   function SortIcon({ col }: { col: SortKey }) {
     if (sortKey !== col) return <ChevronsUpDown className="h-3 w-3 ml-1 opacity-40 shrink-0" />
-    return sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1 shrink-0" /> : <ChevronDown className="h-3 w-3 ml-1 shrink-0" />
+    return sortDis "asc" ? <ChevronUp className="h-3 w-3 ml-1 shrink-0" /> : <ChevronDown className="h-3 w-3 ml-1 shrink-0" />
   }
 
   const filtered = useMemo(() => {
-    let result = mockShipments.filter((s) => {
+    let result = shipments.filter((s) => {
       const q = search.toLowerCase()
       const matchSearch = s.id.toLowerCase().includes(q) || s.trackingNumber.toLowerCase().includes(q) || s.destination.toLowerCase().includes(q) || s.requester.toLowerCase().includes(q)
       const matchStatus  = statusFilter === "all" || s.status === statusFilter
@@ -107,15 +115,15 @@ export default function ShippingPage() {
     return result.sort((a, b) => {
       const av = a[sortKey] ?? "", bv = b[sortKey] ?? ""
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
-    })
-  }, [search, statusFilter, carrierFilter, sortKey, sortDir])
-
-  const stats = useMemo(() => ({
-    total:      mockShipments.length,
-    inProgress: mockShipments.filter((s) => s.status === "In Progress").length,
-    inCustoms:  mockShipments.filter((s) => s.status === "In Customs").length,
-    delivered:  mockShipments.filter((s) => s.status === "Delivered").length,
-  }), [mockShipments])
+    })shipments.length,
+    inProgress: shipments.filter((s) => s.status === "In Progress").length,
+    inCustoms:  shipments.filter((s) => s.status === "In Customs").length,
+    delivered:  shipments.filter((s) => s.status === "Delivered").length,
+  }), [s    shipments.length,
+    inProgress: shipments.filter((s) => s.status === "In Progress").length,
+    inCustoms:  shipments.filter((s) => s.status === "In Customs").length,
+    delivered:  shipments.filter((s) => s.status === "Delivered").length,
+  }), [shipments])
 
   const statCards = [
     { key: "all",          label: "Total Shipments", value: stats.total,      icon: Package,      iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
@@ -331,15 +339,51 @@ export default function ShippingPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>View details</DropdownMenuItem>
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => toggleShipmentDetails(shipment.id)}>
+                          View details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openShipment(shipment.id)}>
+                          Edit
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive focus:text-destructive">Cancel shipment</DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => cancelShipment(shipment.id)}
+                        >
+                          Cancel shipment
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </td>
                 </tr>
-                )
+                {expandedShipmentId === shipment.id && (
+                  <tr className="bg-slate-50">
+                    <td colSpan={11} className="px-4 py-4">
+                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        <div className="rounded-xl border border-slate-200 bg-white p-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Shipment Details</p>
+                          <p className="mt-2 text-sm text-slate-700"><span className="font-semibold">Supplier:</span> {shipment.supplier}</p>
+                          <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">Requester Name:</span> {shipment.requester}</p>
+                          <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">Cost Center:</span> {shipment.costCenter}</p>
+                          <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">PO Number:</span> {shipment.poNumber}</p>
+                          <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">Tracking Number:</span> {shipment.trackingNumber}</p>
+                        </div>
+                        <div className="rounded-xl border border-slate-200 bg-white p-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Logistics</p>
+                          <p className="mt-2 text-sm text-slate-700"><span className="font-semibold">Carrier:</span> {shipment.carrier}</p>
+                          <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">Pickup Date:</span> {shipment.pickupDate}</p>
+                          <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">Expected Delivery Date:</span> {shipment.expectedDelivery}</p>
+                        </div>
+                        <div className="rounded-xl border border-slate-200 bg-white p-4">
+                          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Status</p>
+                          <p className="mt-2 text-sm text-slate-700"><span className="font-semibold">Status:</span> {shipment.status}</p>
+                          <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">Last Update:</span> {shipment.lastUpdate}</p>
+                          <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">Description:</span> {shipment.description}</p>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
               })}
 
               {filtered.length === 0 && (
@@ -354,7 +398,7 @@ export default function ShippingPage() {
 
           {filtered.length > 0 && (
             <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-[11px] text-gray-400 text-right">
-              Showing {filtered.length} of {mockShipments.length} shipments
+              Showing {filtered.length} of {shipments.length} shipments
             </div>
           )}
         </div>

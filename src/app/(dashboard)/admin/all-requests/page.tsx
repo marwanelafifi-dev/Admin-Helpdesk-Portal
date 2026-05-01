@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
+import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
 import { cn } from "@/lib/utils"
 import { requestsAPI } from "@/lib/apiClient"
@@ -40,6 +41,20 @@ const STATUS_DOT: Record<string, string> = {
   delivered: "bg-green-500",
   completed: "bg-emerald-500", cancelled: "bg-red-500",
 }
+
+const STATUS_OPTIONS = [
+  { value: "draft", label: "Draft", colorClass: "bg-zinc-100 text-zinc-600 border-transparent", dotClass: "bg-zinc-400" },
+  { value: "new", label: "New", colorClass: "bg-sky-50 text-sky-700 border-transparent", dotClass: "bg-sky-500" },
+  { value: "on_hold", label: "In Progress", colorClass: "bg-amber-50 text-amber-700 border-transparent", dotClass: "bg-amber-500" },
+  { value: "in_transit", label: "In Customs", colorClass: "bg-blue-50 text-blue-700 border-transparent", dotClass: "bg-blue-500" },
+  { value: "delivered", label: "Delivered", colorClass: "bg-green-50 text-green-700 border-transparent", dotClass: "bg-green-500" },
+  { value: "completed", label: "Completed", colorClass: "bg-emerald-50 text-emerald-700 border-transparent", dotClass: "bg-emerald-500" },
+  { value: "cancelled", label: "Cancelled", colorClass: "bg-red-50 text-red-600 border-transparent", dotClass: "bg-red-500" },
+  { value: "New", label: "New", colorClass: "bg-sky-50 text-sky-700 border-transparent", dotClass: "bg-sky-500" },
+  { value: "In Progress", label: "In Progress", colorClass: "bg-blue-50 text-blue-700 border-transparent", dotClass: "bg-blue-500" },
+  { value: "In Customs", label: "In Customs", colorClass: "bg-amber-50 text-amber-700 border-transparent", dotClass: "bg-amber-500" },
+  { value: "In Transit", label: "In Transit", colorClass: "bg-blue-50 text-blue-700 border-transparent", dotClass: "bg-blue-500" },
+]
 
 const MODULE_COLORS: Record<string, string> = {
   shipping: "text-blue-700", maintenance: "text-purple-700",
@@ -177,6 +192,18 @@ export default function AllRequestsPage() {
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
   }, [requests, activeTab, statusFilter, search, sortKey, sortDir])
+
+  function updateRequestStatus(id: string, status: string) {
+    setRequests((prev) => prev.map((request) =>
+      request.id === id ? { ...request, status, updatedAt: new Date().toISOString() } : request
+    ))
+  }
+
+  function updateRequestStatus(id: string, status: string) {
+    setRequests((prev) => prev.map((request) =>
+      request.id === id ? { ...request, status, updatedAt: new Date().toISOString() } : request
+    ))
+  }
 
   const stats = useMemo(() => ({
     total:     requests.length,
@@ -374,9 +401,6 @@ export default function AllRequestsPage() {
                       )}
                     </div>
                   </td>
-                  <td className="py-3 px-3 overflow-hidden">
-                    <span className="text-sm font-medium text-gray-700 truncate block">{req.title}</span>
-                  </td>
                   <td className="py-3 px-3">
                     <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{formatDate(req.createdAt)}</span>
                   </td>
@@ -391,13 +415,11 @@ export default function AllRequestsPage() {
                     </span>
                   </td>
                   <td className="py-3 px-3">
-                    <span className={cn(
-                      "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap",
-                      STATUS_COLORS[req.status] ?? "bg-zinc-100 text-zinc-600"
-                    )}>
-                      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[req.status] ?? "bg-gray-400")} />
-                      {STATUS_LABELS[req.status] ?? req.status}
-                    </span>
+                    <InlineStatusSelect
+                      status={req.status}
+                      options={STATUS_OPTIONS}
+                      onChange={(nextStatus) => updateRequestStatus(req.id, nextStatus)}
+                    />
                   </td>
                   <td className="py-3 px-3">
                     <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{formatDate(req.updatedAt)}</span>

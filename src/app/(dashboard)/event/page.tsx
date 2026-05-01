@@ -5,6 +5,7 @@ import { Search, Plus, CalendarDays, Clock, CheckCircle2, ChevronUp, ChevronDown
 import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
 import { cn } from "@/lib/utils"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
@@ -36,6 +37,15 @@ const STATUS_PILL_ACTIVE: Record<string, string> = {
   completed: "bg-emerald-600 border-emerald-600 text-white",
   cancelled: "bg-red-600 border-red-600 text-white",
 }
+
+const STATUS_OPTIONS = [
+  { value: "new", label: "New", colorClass: "bg-sky-50 text-sky-700 border-transparent", dotClass: "bg-sky-500" },
+  { value: "on_hold", label: "In Progress", colorClass: "bg-amber-50 text-amber-700 border-transparent", dotClass: "bg-amber-500" },
+  { value: "in_transit", label: "In Transit", colorClass: "bg-blue-50 text-blue-700 border-transparent", dotClass: "bg-blue-500" },
+  { value: "delivered", label: "Delivered", colorClass: "bg-green-50 text-green-700 border-transparent", dotClass: "bg-green-500" },
+  { value: "completed", label: "Completed", colorClass: "bg-emerald-50 text-emerald-700 border-transparent", dotClass: "bg-emerald-500" },
+  { value: "cancelled", label: "Cancelled", colorClass: "bg-red-50 text-red-600 border-transparent", dotClass: "bg-red-500" },
+]
 
 const STATUSES = ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"] as const
 
@@ -129,6 +139,12 @@ export default function EventPage() {
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
   }, [requests, statusFilter, search, sortKey, sortDir])
+
+  function updateRequestStatus(id: string, status: string) {
+    setRequests((prev) => prev.map((request) =>
+      request.id === id ? { ...request, status, updatedAt: new Date().toISOString() } : request
+    ))
+  }
 
   const counts = useMemo(() => ({
     total:    requests.length,
@@ -285,10 +301,11 @@ export default function EventPage() {
                     </span>
                   </td>
                   <td className="py-3 px-3">
-                    <span className={cn("inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap", STATUS_COLORS[req.status] ?? "bg-zinc-100 text-zinc-600")}>
-                      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[req.status] ?? "bg-gray-400")} />
-                      {STATUS_LABELS[req.status] ?? req.status}
-                    </span>
+                    <InlineStatusSelect
+                      status={req.status}
+                      options={STATUS_OPTIONS}
+                      onChange={(nextStatus) => updateRequestStatus(req.id, nextStatus)}
+                    />
                   </td>
                   <td className="py-3 px-3">
                     <span className="text-sm font-medium text-gray-700">{formatDate(req.updatedAt)}</span>

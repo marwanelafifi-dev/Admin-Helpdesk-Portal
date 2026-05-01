@@ -6,6 +6,7 @@ import { Search, Plus, ShoppingCart, Clock, CheckCircle2, ChevronUp, ChevronDown
 import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
 import { cn } from "@/lib/utils"
 import { requestsAPI } from "@/lib/apiClient"
@@ -38,9 +39,17 @@ const STATUS_PILL_ACTIVE: Record<string, string> = {
   cancelled: "bg-red-600 border-red-600 text-white",
 }
 
+const STATUS_OPTIONS = [
+  { value: "new", label: "New", colorClass: "bg-sky-50 text-sky-700 border-transparent", dotClass: "bg-sky-500" },
+  { value: "on_hold", label: "In Progress", colorClass: "bg-blue-50 text-blue-700 border-transparent", dotClass: "bg-blue-500" },
+  { value: "in_customs", label: "Awaiting Approval", colorClass: "bg-amber-50 text-amber-700 border-transparent", dotClass: "bg-amber-500" },
+  { value: "delivered", label: "Delivered", colorClass: "bg-green-50 text-green-700 border-transparent", dotClass: "bg-green-500" },
+  { value: "cancelled", label: "Cancelled", colorClass: "bg-red-50 text-red-600 border-transparent", dotClass: "bg-red-500" },
+]
+
 const STATUSES = ["new", "in_customs", "on_hold", "delivered", "cancelled"] as const
 
-type SortKey = "id" | "title" | "supplier" | "estimatedPrice" | "requesterName" | "createdAt" | "updatedAt"
+type SortKey = "id" | "title" | "supplier" | "estimatedPrice" | "requesterName" | "createdAt" | "status" | "updatedAt"
 
 const COLS: { key: SortKey; label: string; defaultW: number }[] = [
   { key: "id",             label: "Request ID",      defaultW: 130 },
@@ -49,6 +58,7 @@ const COLS: { key: SortKey; label: string; defaultW: number }[] = [
   { key: "requesterName",  label: "Requester Name",  defaultW: 160 },
   { key: "supplier",       label: "Supplier",        defaultW: 140 },
   { key: "estimatedPrice", label: "Estimated Price", defaultW: 140 },
+  { key: "status",         label: "Status",          defaultW: 130 },
   { key: "updatedAt",      label: "Last Update Date",defaultW: 140 },
 ]
 
@@ -122,7 +132,6 @@ export default function PurchasePage() {
       r.requesterName.toLowerCase().includes(q)
     )
     return result.sort((a, b) => {
-      let av: string = "", bv: string = ""
       if (sortKey === "createdAt" || sortKey === "updatedAt") {
         const diff = new Date(a[sortKey]).getTime() - new Date(b[sortKey]).getTime()
         return sortDir === "asc" ? diff : -diff
@@ -133,11 +142,17 @@ export default function PurchasePage() {
         return sortDir === "asc" ? aVal - bVal : bVal - aVal
       }
       if (sortKey === "supplier") return String((a.payload as Record<string, unknown>).supplier ?? "").localeCompare(String((b.payload as Record<string, unknown>).supplier ?? ""))
-      av = (a[sortKey as keyof EngineRequest] as string) ?? ""
-      bv = (b[sortKey as keyof EngineRequest] as string) ?? ""
+      const av = String(a[sortKey as keyof EngineRequest] ?? "")
+      const bv = String(b[sortKey as keyof EngineRequest] ?? "")
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
   }, [requests, statusFilter, search, sortKey, sortDir])
+
+  function updateRequestStatus(id: string, status: string) {
+    setRequests((prev) => prev.map((request) =>
+      request.id === id ? { ...request, status, updatedAt: new Date().toISOString() } : request
+    ))
+  }
 
   const counts = useMemo(() => ({
     total:   requests.length,
@@ -294,6 +309,13 @@ export default function PurchasePage() {
                     <span className="text-sm font-medium text-gray-700">
                       EGP {Number((req.payload as Record<string, unknown>).estimatedPrice ?? 0).toLocaleString()}
                     </span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <InlineStatusSelect
+                      status={req.status}
+                      options={STATUS_OPTIONS}
+                      onChange={(nextStatus) => updateRequestStatus(req.id, nextStatus)}
+                    />
                   </td>
                   <td className="py-3 px-3">
                     <span className="text-sm font-medium text-gray-700">{formatDate(req.updatedAt)}</span>

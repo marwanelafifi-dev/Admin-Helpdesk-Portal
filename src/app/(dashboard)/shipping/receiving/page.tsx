@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Search, Plus, Package, Truck, CheckCircle2, Clock, MoreHorizontal, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -71,8 +72,10 @@ export default function ReceivingPage() {
   const [sortDir, setSortDir]         = useState<"asc" | "desc">("asc")
   const [colWidths, setColWidths]     = useState<number[]>(() => COLS.map((c) => c.defaultW))
   const [shipments, setShipments] = useState<MockShipment[]>(mockShipments)
+  const [expandedShipmentId, setExpandedShipmentId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   useEffect(() => {
     const fetchShipments = () => {
@@ -167,6 +170,22 @@ export default function ReceivingPage() {
     inCustoms:  shipments.filter((s) => s.status === "In Customs").length,
     delivered:  shipments.filter((s) => s.status === "Delivered").length,
   }), [shipments])
+
+  const toggleShipmentDetails = (shipmentId: string) => {
+    setExpandedShipmentId((current) => (current === shipmentId ? null : shipmentId))
+  }
+
+  const cancelShipment = (shipmentId: string) => {
+    setShipments((current) => current.map((shipment) =>
+      shipment.id === shipmentId
+        ? { ...shipment, status: "Cancelled", lastUpdate: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) }
+        : shipment
+    ))
+  }
+
+  const openShipment = (shipmentId: string) => {
+    router.push(`/requests/${shipmentId}?source=shipping-receiving`)
+  }
 
   const statCards = [
     { key: "all",          label: "Total Shipments", value: stats.total,      icon: Package,      iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
@@ -328,79 +347,115 @@ export default function ReceivingPage() {
               {filtered.map((shipment, i) => {
                 const hasUnreadComments = (commentCounts[shipment.id] ?? 0) > (viewedComments[shipment.id] ?? 0)
                 return (
-                <tr
-                  key={shipment.id}
-                  className={cn(
-                    "border-b border-gray-100 hover:bg-blue-50/30 transition-colors",
-                    hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40")
-                  )}
-                >
-                  <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
-                    <div className="flex items-center gap-2">
-                      <Link href={`/requests/${shipment.id}?source=shipping`} className="text-sm text-blue-600 font-medium tracking-wide truncate block hover:underline">
-                        {shipment.id}
-                      </Link>
-                      {(commentCounts[shipment.id] ?? 0) > 0 && (
-                        <span className={cn("flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap flex-shrink-0", hasUnreadComments ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700")}>
-                          <MessageCircle className="h-3 w-3" />
-                          {commentCounts[shipment.id]}
-                        </span>
+                  <>
+                    <tr
+                      key={shipment.id}
+                      className={cn(
+                        "border-b border-gray-100 hover:bg-blue-50/30 transition-colors",
+                        hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40")
                       )}
-                    </div>
-                  </td>
-                  <td className="py-3 px-3 overflow-hidden">
-                    <span className="text-sm text-gray-700 font-medium truncate block">{shipment.title}</span>
-                  </td>
-                  <td className="py-3 px-3 overflow-hidden">
-                    <span className="text-sm text-gray-700 font-medium whitespace-nowrap">{shipment.pickupDate}</span>
-                  </td>
-                  <td className="py-3 px-3 overflow-hidden">
-                    <span className="text-sm text-gray-700 font-medium truncate block">{shipment.trackingNumber}</span>
-                  </td>
-                  <td className="py-3 px-3 overflow-hidden">
-                    <span className="text-sm text-gray-700 font-medium truncate block">{shipment.poNumber}</span>
-                  </td>
-                  <td className="py-3 px-3 overflow-hidden">
-                    <span className="text-sm text-gray-700 font-medium truncate block">{shipment.costCenter}</span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="text-sm text-gray-700 font-medium">{shipment.carrier}</span>
-                  </td>
-                  <td className="py-3 px-3 overflow-hidden">
-                    <span className="text-sm text-gray-700 font-medium truncate block">{shipment.requester}</span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className={cn(
-                      "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap",
-                      STATUS_COLORS[shipment.status] ?? "bg-zinc-100 text-zinc-600"
-                    )}>
-                      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[shipment.status] ?? "bg-gray-400")} />
-                      {shipment.status}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="text-sm text-gray-700 font-medium whitespace-nowrap">{shipment.expectedDelivery}</span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="text-sm text-gray-700 font-medium whitespace-nowrap">{shipment.lastUpdate}</span>
-                  </td>
-                  <td className="py-3 px-2 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-600">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>View details</DropdownMenuItem>
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive focus:text-destructive">Cancel shipment</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
-                </tr>
-              )
+                    >
+                      <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
+                        <div className="flex items-center gap-2">
+                          <Link href={`/requests/${shipment.id}?source=shipping`} className="text-sm text-blue-600 font-medium tracking-wide truncate block hover:underline">
+                            {shipment.id}
+                          </Link>
+                          {(commentCounts[shipment.id] ?? 0) > 0 && (
+                            <span className={cn("flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap flex-shrink-0", hasUnreadComments ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700")}>
+                              <MessageCircle className="h-3 w-3" />
+                              {commentCounts[shipment.id]}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 px-3 overflow-hidden">
+                        <span className="text-sm text-gray-700 font-medium truncate block">{shipment.title}</span>
+                      </td>
+                      <td className="py-3 px-3 overflow-hidden">
+                        <span className="text-sm text-gray-700 font-medium whitespace-nowrap">{shipment.pickupDate}</span>
+                      </td>
+                      <td className="py-3 px-3 overflow-hidden">
+                        <span className="text-sm text-gray-700 font-medium truncate block">{shipment.trackingNumber}</span>
+                      </td>
+                      <td className="py-3 px-3 overflow-hidden">
+                        <span className="text-sm text-gray-700 font-medium truncate block">{shipment.poNumber}</span>
+                      </td>
+                      <td className="py-3 px-3 overflow-hidden">
+                        <span className="text-sm text-gray-700 font-medium truncate block">{shipment.costCenter}</span>
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className="text-sm text-gray-700 font-medium">{shipment.carrier}</span>
+                      </td>
+                      <td className="py-3 px-3 overflow-hidden">
+                        <span className="text-sm text-gray-700 font-medium truncate block">{shipment.requester}</span>
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className={cn(
+                          "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap",
+                          STATUS_COLORS[shipment.status] ?? "bg-zinc-100 text-zinc-600"
+                        )}>
+                          <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[shipment.status] ?? "bg-gray-400")} />
+                          {shipment.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className="text-sm text-gray-700 font-medium whitespace-nowrap">{shipment.expectedDelivery}</span>
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className="text-sm text-gray-700 font-medium whitespace-nowrap">{shipment.lastUpdate}</span>
+                      </td>
+                      <td className="py-3 px-2 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-600">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => toggleShipmentDetails(shipment.id)}>
+                              View details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openShipment(shipment.id)}>
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => cancelShipment(shipment.id)}>
+                              Cancel shipment
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                    {expandedShipmentId === shipment.id && (
+                      <tr className="bg-slate-50">
+                        <td colSpan={12} className="px-4 py-4">
+                          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                            <div className="rounded-xl border border-slate-200 bg-white p-4">
+                              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Shipment Details</p>
+                              <p className="mt-2 text-sm text-slate-700"><span className="font-semibold">Supplier:</span> {shipment.supplier}</p>
+                              <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">Requester Name:</span> {shipment.requester}</p>
+                              <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">Cost Center:</span> {shipment.costCenter}</p>
+                              <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">PO Number:</span> {shipment.poNumber}</p>
+                              <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">Tracking Number:</span> {shipment.trackingNumber}</p>
+                            </div>
+                            <div className="rounded-xl border border-slate-200 bg-white p-4">
+                              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Logistics</p>
+                              <p className="mt-2 text-sm text-slate-700"><span className="font-semibold">Carrier:</span> {shipment.carrier}</p>
+                              <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">Pickup Date:</span> {shipment.pickupDate}</p>
+                              <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">Expected Delivery Date:</span> {shipment.expectedDelivery}</p>
+                            </div>
+                            <div className="rounded-xl border border-slate-200 bg-white p-4">
+                              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Status</p>
+                              <p className="mt-2 text-sm text-slate-700"><span className="font-semibold">Status:</span> {shipment.status}</p>
+                              <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">Last Update:</span> {shipment.lastUpdate}</p>
+                              <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">Description:</span> {shipment.description}</p>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                )
               })}
 
               {filtered.length === 0 && (
