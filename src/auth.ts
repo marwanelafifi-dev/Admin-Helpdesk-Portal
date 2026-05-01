@@ -6,11 +6,55 @@ import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { getPermissionsForRole } from "@/lib/userRoles"
 import { z } from "zod"
+import https from "https"
 
 const credentialsSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 })
+
+const disableTlsCertCheck = process.env.DISABLE_TLS_CERT_CHECK === "true"
+
+// Create custom HTTPS agent for bypassing certificate validation
+const httpsAgent = disableTlsCertCheck
+  ? new https.Agent({
+      rejectUnauthorized: false,
+    })
+  : undefined
+
+// Custom fetch function that uses the HTTPS agent
+const customFetch = disableTlsCertCheck
+  ? (url: RequestInfo | URL, init?: RequestInit) => {
+      return fetch(url, {
+        ...init,
+        agent: httpsAgent,
+      })
+    }
+  : fetch
+
+if (disableTlsCertCheck) {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"
+}
+
+const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET
+const googleClientId =
+  process.env.AUTH_GOOGLE_ID ??
+  process.env.GOOGLE_CLIENT_ID ??
+  process.env.NEXTAUTH_GOOGLE_ID
+const googleClientSecret =
+  process.env.AUTH_GOOGLE_SECRET ??
+  process.env.GOOGLE_CLIENT_SECRET ??
+  process.env.NEXTAUTH_GOOGLE_SECRET
+
+if (!authSecret) {
+  throw new Error("Missing required auth secret. Set AUTH_SECRET or NEXTAUTH_SECRET.")
+}
+
+if (!googleClientId || !googleClientSecret) {
+  throw new Error(
+    "Missing required Google OAuth credentials. Set AUTH_GOOGLE_ID and AUTH_GOOGLE_SECRET, or GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET."
+  )
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
@@ -22,10 +66,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: {
     signIn: "/login",
   },
+  ...(disableTlsCertCheck && { fetch: customFetch }),
   providers: [
     Google({
-      clientId: process.env.AUTH_GOOGLE_ID || "",
-      clientSecret: process.env.AUTH_GOOGLE_SECRET || "",
+      clientId: googleClientId,
+      clientSecret: googleClientSecret,
       allowDangerousEmailAccountLinking: true,
     }),
     Credentials({
