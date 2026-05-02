@@ -1,32 +1,33 @@
 import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
-
-const ADMIN_ROLES = ["super_admin", "admin", "manager"]
+import { can, isRestricted } from "@/lib/permissions"
 
 function checkAccess(pathname: string, role: string): boolean {
-  // Admin panel (users/roles/settings) — super_admin only
-  if (
-    pathname.startsWith("/admin/users") ||
-    pathname.startsWith("/admin/roles") ||
-    pathname.startsWith("/admin/settings")
-  ) return role === "super_admin"
+  if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
+    return can(role, "dashboard")
+  }
 
-  // HR create/edit — super_admin and manager only (admin excluded)
-  if (pathname.startsWith("/hr/new") || pathname.startsWith("/hr/edit"))
-    return role === "super_admin" || role === "manager"
+  if (pathname === "/admin/all-requests" || pathname.startsWith("/admin/all-requests/")) {
+    return can(role, "allRequests")
+  }
 
-  // HR, Dashboard, All Requests — admin roles only
-  if (
-    pathname === "/dashboard" ||
-    pathname.startsWith("/hr") ||
-    pathname.startsWith("/admin/all-requests")
-  ) return ADMIN_ROLES.includes(role)
+  if (pathname === "/hr/new" || pathname.startsWith("/hr/new/") || pathname === "/hr/edit" || pathname.startsWith("/hr/edit/")) {
+    return can(role, "hrCreate")
+  }
 
-  return true // all authenticated users
+  if (pathname === "/hr" || pathname.startsWith("/hr/")) {
+    return can(role, "hrModule")
+  }
+
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    return can(role, "adminPanel")
+  }
+
+  return true
 }
 
 function fallback(role: string): string {
-  return role === "employee" || role === "external" ? "/requests" : "/dashboard"
+  return isRestricted(role) ? "/requests" : "/dashboard"
 }
 
 export default withAuth(
@@ -34,7 +35,6 @@ export default withAuth(
     const { pathname } = req.nextUrl
     const token = req.nextauth.token
 
-    // Redirect authenticated users away from /login
     if (pathname === "/login" && token) {
       return NextResponse.redirect(new URL(fallback(token.role as string), req.url))
     }

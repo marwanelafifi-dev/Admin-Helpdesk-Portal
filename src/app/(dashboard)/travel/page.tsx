@@ -311,9 +311,11 @@ export default function TravelPage() {
                             → {STATUS_LABELS[s] ?? s}
                           </DropdownMenuItem>
                         ))}
-                        <DropdownMenuItem onClick={() => handleDelete(req)} className="cursor-pointer text-xs text-red-600 focus:text-red-600">
-                          <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
-                        </DropdownMenuItem>
+                        {can(role, "deleteRequests") && (
+                          <DropdownMenuItem onClick={() => handleDelete(req)} className="cursor-pointer text-xs text-red-600 focus:text-red-600">
+                            <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </td>

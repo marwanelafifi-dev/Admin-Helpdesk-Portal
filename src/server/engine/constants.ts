@@ -18,6 +18,11 @@ export const REQUEST_STATUSES = [
   "delivered",
   "completed",
   "cancelled",
+  "pending_assignment",
+  "assigned",
+  "awaiting_input",
+  "resolved",
+  "closed",
 ] as const
 
 export type RequestStatus = (typeof REQUEST_STATUSES)[number]

@@ -23,6 +23,11 @@ enum RequestStatus {
   delivered
   completed
   cancelled
+  pending_assignment
+  assigned
+  awaiting_input
+  resolved
+  closed
 }
 
 model User {
@@ -33,8 +38,13 @@ model User {
   image         String?
   password      String?   // null for Google users, bcrypt hash for external users
 
+  // Hybrid RBAC: base role + optional per-user overrides
   role          UserRole  @default(employee)
+  /// `customPermissions` stores an array of permission overrides for the user.
+  /// Expected shape: [{ permission: string, allowed: boolean }, ...]
+  customPermissions Json?
   requests      Request[]
+  notifications Notification[]
 
   accounts      Account[]
   sessions      Session[]
@@ -107,4 +117,66 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────
+
+enum NotificationType {
+  request_submitted
+  request_approved
+  request_rejected
+  request_updated
+  comment_added
+  admin_alert
+}
+
+model Notification {
+  id          String            @id @default(cuid())
+  type        NotificationType
+  title       String
+  message     String
+  read        Boolean           @default(false)
+  
+  userId      String
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  requestId   String?
+  link        String?           // Link to the request page
+  
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  
+  @@index([userId, read, createdAt])
+  @@index([requestId])
+}
+
+// ─── Role Permissions ─────────────────────────────────────────────────────
+
+model RolePermission {
+  id          String   @id @default(cuid())
+  role        UserRole
+  permission  String   // e.g., "view_requests", "create_requests", "approve_requests"
+  allowed     Boolean  @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([role, permission])
+}
+
+// ─── Audit Logs ───────────────────────────────────────────────────────────
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  action      String   // "create", "update", "delete", "approve", etc.
+  module      String   // "requests", "users", "roles", etc.
+  recordId    String
+  userId      String
+  changes     Json?    // old and new values
+  metadata    Json?    // additional context
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([module, recordId])
+  @@index([userId, createdAt])
 }

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useSession } from "next-auth/react"
 import { Search, UserPlus, Trash2, Chrome, KeyRound, X, Check } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -13,6 +14,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
+import { can } from "@/lib/permissions"
 
 type DBUser = {
   id: string
@@ -83,6 +85,8 @@ function RoleCell({ user, onRoleChange }: { user: DBUser; onRoleChange: (id: str
 }
 
 export default function AdminUsersPage() {
+  const { data: session } = useSession()
+  const role = session?.user?.role as string | undefined
   const [users, setUsers] = useState<DBUser[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
@@ -255,15 +259,17 @@ export default function AdminUsersPage() {
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{formatDate(user.createdAt)}</TableCell>
                   <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-gray-400 hover:text-red-500"
-                      disabled={deletingId === user.id}
-                      onClick={() => handleDelete(user.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {can(role, "deleteRequests") && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-gray-400 hover:text-red-500"
+                        disabled={deletingId === user.id}
+                        onClick={() => handleDelete(user.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

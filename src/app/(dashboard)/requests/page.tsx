@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useCallback, useState } from "react"
 import { Search, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
+import { useSession } from "next-auth/react"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader } from "@/components/ui/card"
 import { fetchAllRequests, type EngineRequest } from "@/lib/requests-api"
@@ -92,11 +93,10 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
 }
 
-const CURRENT_USER_ID = "USR-001"
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function RequestsPage() {
+  const { data: session, status } = useSession()
   const [requests, setRequests]           = useState<EngineRequest[]>([])
   const [search, setSearch]               = useState("")
   const [statusFilter, setStatusFilter]   = useState("all")
@@ -109,8 +109,14 @@ export default function RequestsPage() {
   const resizeStartW = useRef(0)
 
   useEffect(() => {
-    fetchAllRequests().then(setRequests)
-  }, [])
+    if (status === "loading") return
+    const requesterId = session?.user?.id
+    if (!requesterId) {
+      setRequests([])
+      return
+    }
+    fetchAllRequests(requesterId).then(setRequests)
+  }, [status, session?.user?.id])
 
   const onResizeMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
     e.preventDefault(); e.stopPropagation()
@@ -137,10 +143,8 @@ export default function RequestsPage() {
     return sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1 shrink-0" /> : <ChevronDown className="h-3 w-3 ml-1 shrink-0" />
   }
 
-  const userRequests = useMemo(() => requests.filter((r) => r.requesterId === CURRENT_USER_ID), [requests])
-
   const filtered = useMemo(() => {
-    let result = userRequests
+    let result = requests
     if (statusFilter !== "all") result = result.filter((r) => r.status === statusFilter)
     if (moduleFilter !== "all") result = result.filter((r) => r.module === moduleFilter)
     const q = search.trim().toLowerCase()
@@ -152,18 +156,18 @@ export default function RequestsPage() {
       const bv = String(b[sortKey as keyof EngineRequest] ?? "")
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
-  }, [userRequests, statusFilter, moduleFilter, search, sortKey, sortDir])
+  }, [requests, statusFilter, moduleFilter, search, sortKey, sortDir])
 
   const counts = useMemo(() => ({
-    total:      userRequests.length,
-    draft:      userRequests.filter((r) => r.status === "draft").length,
-    new:        userRequests.filter((r) => r.status === "new").length,
-    on_hold:    userRequests.filter((r) => r.status === "on_hold").length,
-    in_transit: userRequests.filter((r) => r.status === "in_transit").length,
-    delivered:  userRequests.filter((r) => r.status === "delivered").length,
-    completed:  userRequests.filter((r) => r.status === "completed").length,
-    cancelled:  userRequests.filter((r) => r.status === "cancelled").length,
-  }), [userRequests])
+    total:      requests.length,
+    draft:      requests.filter((r) => r.status === "draft").length,
+    new:        requests.filter((r) => r.status === "new").length,
+    on_hold:    requests.filter((r) => r.status === "on_hold").length,
+    in_transit: requests.filter((r) => r.status === "in_transit").length,
+    delivered:  requests.filter((r) => r.status === "delivered").length,
+    completed:  requests.filter((r) => r.status === "completed").length,
+    cancelled:  requests.filter((r) => r.status === "cancelled").length,
+  }), [requests])
 
   return (
     <div className="space-y-6">

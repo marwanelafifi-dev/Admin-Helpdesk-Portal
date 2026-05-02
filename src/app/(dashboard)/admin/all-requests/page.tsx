@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react"
-import { Search, Layers, TrendingUp, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react"
+import { Search, Layers, TrendingUp, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, ExternalLink } from "lucide-react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import {
@@ -9,6 +9,10 @@ import {
 } from "@/components/ui/table"
 import { fetchAllRequests, type EngineRequest } from "@/lib/requests-api"
 import { cn } from "@/lib/utils"
+import { useSession } from "next-auth/react"
+import { StatusDropdown } from "@/components/ui/status-dropdown"
+import type { RequestStatus } from "@/components/ui/status-dropdown"
+import Link from "next/link"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -64,14 +68,18 @@ type SortKey = "id" | "title" | "requesterName" | "createdAt" | "module" | "stat
 type SortDir = "asc" | "desc"
 
 export default function AllRequestsPage() {
+  const { data: session } = useSession()
   const [requests, setRequests]         = useState<EngineRequest[]>([])
   const [search, setSearch]             = useState("")
   const [activeTab, setActiveTab]       = useState<ModuleTab>("all")
   const [statusFilter, setStatusFilter] = useState("all")
   const [sortKey, setSortKey]           = useState<SortKey>("updatedAt")
   const [sortDir, setSortDir]           = useState<SortDir>("desc")
+  const [updatingId, setUpdatingId]     = useState<string | null>(null)
 
   // ── Column resize ──────────────────────────────────────────────────────────
+  const isAdmin = session?.user?.role === 'super_admin' || session?.user?.role === 'admin'
+  
   const COLS = useMemo(() => [
     { key: "id"            as SortKey, label: "Request ID",      defaultW: 140 },
     { key: "title"         as SortKey, label: "Request Title",   defaultW: 200 },
@@ -167,6 +175,36 @@ export default function AllRequestsPage() {
     { key: "event",       label: "Event" },
     { key: "travel",      label: "Travel" },
   ]
+
+  const handleStatusChange = async (requestId: string, module: string, newStatus: RequestStatus) => {
+    setUpdatingId(requestId)
+    try {
+      const response = await fetch(`/api/requests/${module}/${requestId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': session?.user?.id || '',
+          'x-user-role': session?.user?.role || '',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      })
+
+      if (response.ok) {
+        // Update local state
+        setRequests((prev) =>
+          prev.map((r) =>
+            r.id === requestId
+              ? { ...r, status: newStatus as unknown as typeof r.status, updatedAt: new Date().toISOString() }
+              : r
+          )
+        )
+      }
+    } catch (error) {
+      console.error('Failed to update status:', error)
+    } finally {
+      setUpdatingId(null)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -330,7 +368,12 @@ export default function AllRequestsPage() {
                   )}
                 >
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
-                    <span className="text-sm font-medium text-gray-700 truncate block">{req.id}</span>
+                    <Link href={`/${req.module}/${req.id}`}>
+                      <span className="text-sm font-medium text-blue-600 hover:text-blue-800 truncate block flex items-center gap-1 cursor-pointer">
+                        {req.id}
+                        <ExternalLink className="h-3 w-3" />
+                      </span>
+                    </Link>
                   </td>
                   <td className="py-3 px-3 overflow-hidden">
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.title}</span>
@@ -349,13 +392,23 @@ export default function AllRequestsPage() {
                     </span>
                   </td>
                   <td className="py-3 px-3">
-                    <span className={cn(
-                      "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap",
-                      STATUS_COLORS[req.status] ?? "bg-zinc-100 text-zinc-600"
-                    )}>
-                      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[req.status] ?? "bg-gray-400")} />
-                      {STATUS_LABELS[req.status] ?? req.status}
-                    </span>
+                    {isAdmin ? (
+                      <StatusDropdown
+                        currentStatus={req.status as RequestStatus}
+                        onStatusChange={(newStatus) => handleStatusChange(req.id, req.module, newStatus)}
+                        disabled={updatingId === req.id}
+                        compact={true}
+                        adminOnly={true}
+                      />
+                    ) : (
+                      <span className={cn(
+                        "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap",
+                        STATUS_COLORS[req.status] ?? "bg-zinc-100 text-zinc-600"
+                      )}>
+                        <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[req.status] ?? "bg-gray-400")} />
+                        {STATUS_LABELS[req.status] ?? req.status}
+                      </span>
+                    )}
                   </td>
                   <td className="py-3 px-3">
                     <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{formatDate(req.updatedAt)}</span>

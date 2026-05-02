@@ -12,9 +12,24 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useEffect, useState } from "react"
+import { fetchNotifications, markNotificationAsRead } from "@/lib/api-client"
+
+interface Notification {
+  id: string
+  type: string
+  title: string
+  message: string
+  read: boolean
+  createdAt: string
+  link?: string
+}
 
 export function TopBar() {
   const { data: session } = useSession()
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [isLoading, setIsLoading] = useState(false)
 
   const name = session?.user?.name ?? "User"
   const email = session?.user?.email ?? ""
@@ -25,6 +40,42 @@ export function TopBar() {
     .join("")
     .toUpperCase()
     .slice(0, 2)
+
+  useEffect(() => {
+    if (!session?.user?.id) return
+
+    // Load notifications on mount
+    loadNotifications()
+
+    // Poll for new notifications every 30 seconds
+    const interval = setInterval(loadNotifications, 30000)
+
+    return () => clearInterval(interval)
+  }, [session?.user?.id])
+
+  async function loadNotifications() {
+    setIsLoading(true)
+    const result = await fetchNotifications({ take: 10 })
+    if (result.success) {
+      const notificationsList = result.notifications as Notification[]
+      setNotifications(notificationsList)
+      setUnreadCount(
+        notificationsList.filter((n) => !n.read).length
+      )
+    }
+    setIsLoading(false)
+  }
+
+  async function handleMarkAsRead(id: string, link?: string) {
+    await markNotificationAsRead(id)
+    await loadNotifications()
+    if (link) {
+      window.location.href = link
+    }
+  }
+
+  const recentNotifications = notifications.slice(0, 5)
+  const displayCount = Math.min(unreadCount, 99)
 
   return (
     <header className="h-16 border-b bg-white flex items-center justify-between px-6 flex-shrink-0">
@@ -42,30 +93,66 @@ export function TopBar() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5 text-slate-600" />
-              <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                3
-              </span>
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  {displayCount}
+                </span>
+              )}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-72">
-            <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+
+          <DropdownMenuContent align="end" className="w-80">
+            <DropdownMenuLabel className="flex justify-between">
+              <span>Notifications</span>
+              {unreadCount > 0 && (
+                <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">
+                  {unreadCount} unread
+                </span>
+              )}
+            </DropdownMenuLabel>
+
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="flex flex-col items-start gap-0.5 cursor-pointer">
-              <span className="text-sm font-medium">REQ-2041 approved</span>
-              <span className="text-xs text-muted-foreground">2 minutes ago</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem className="flex flex-col items-start gap-0.5 cursor-pointer">
-              <span className="text-sm font-medium">New purchase request submitted</span>
-              <span className="text-xs text-muted-foreground">15 minutes ago</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem className="flex flex-col items-start gap-0.5 cursor-pointer">
-              <span className="text-sm font-medium">Shipment SHP-0067 in transit</span>
-              <span className="text-xs text-muted-foreground">1 hour ago</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-center text-sm text-blue-600 cursor-pointer justify-center">
-              View all notifications
-            </DropdownMenuItem>
+
+            {isLoading ? (
+              <DropdownMenuItem disabled>Loading...</DropdownMenuItem>
+            ) : recentNotifications.length === 0 ? (
+              <DropdownMenuItem disabled>
+                <span className="text-xs text-muted-foreground">
+                  No notifications yet
+                </span>
+              </DropdownMenuItem>
+            ) : (
+              recentNotifications.map((notification) => (
+                <DropdownMenuItem
+                  key={notification.id}
+                  className={`flex flex-col items-start gap-0.5 cursor-pointer p-3 hover:bg-gray-100 ${
+                    !notification.read ? "bg-blue-50" : ""
+                  }`}
+                  onClick={() =>
+                    handleMarkAsRead(notification.id, notification.link)
+                  }
+                >
+                  <span className="text-sm font-medium">
+                    {notification.title}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {notification.message}
+                  </span>
+                  <span className="text-[10px] text-gray-400">
+                    {new Date(notification.createdAt).toLocaleString()}
+                  </span>
+                </DropdownMenuItem>
+              ))
+            )}
+
+            {notifications.length > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-center text-sm text-blue-600 cursor-pointer justify-center">
+                  View all notifications
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -79,18 +166,23 @@ export function TopBar() {
                   {initials}
                 </AvatarFallback>
               </Avatar>
+
               <div className="hidden md:block text-left">
                 <p className="text-sm font-medium leading-tight">{name}</p>
-                <p className="text-xs text-muted-foreground leading-tight">{email}</p>
+                <p className="text-xs text-muted-foreground leading-tight">
+                  {email}
+                </p>
               </div>
             </button>
           </DropdownMenuTrigger>
+
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem>Profile</DropdownMenuItem>
             <DropdownMenuItem>Settings</DropdownMenuItem>
             <DropdownMenuSeparator />
+
             <DropdownMenuItem
               className="text-destructive focus:text-destructive cursor-pointer"
               onClick={() => signOut({ callbackUrl: "/login" })}

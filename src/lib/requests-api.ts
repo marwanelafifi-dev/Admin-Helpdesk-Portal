@@ -2,6 +2,7 @@
 export type RequestStatus =
   | "draft" | "new" | "on_hold" | "in_customs"
   | "in_transit" | "delivered" | "completed" | "cancelled"
+  | "pending_assignment" | "assigned" | "awaiting_input" | "resolved" | "closed"
 
 export interface StatusChange {
   status: RequestStatus
@@ -34,9 +35,9 @@ export async function fetchRequests(module: string, requesterId?: string): Promi
   return Array.isArray(json) ? json : (json.data ?? [])
 }
 
-export async function fetchAllRequests(): Promise<EngineRequest[]> {
+export async function fetchAllRequests(requesterId?: string): Promise<EngineRequest[]> {
   const modules = ["shipping", "maintenance", "purchase", "event", "travel", "hr"]
-  const results = await Promise.all(modules.map(fetchRequests))
+  const results = await Promise.all(modules.map((module) => fetchRequests(module, requesterId)))
   return results.flat()
 }
 

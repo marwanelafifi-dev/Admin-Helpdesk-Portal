@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { motion } from "framer-motion"
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -46,32 +47,39 @@ interface KPICardProps {
 }
 
 function KPICard({ title, value, icon: Icon, iconColor, iconBg, trend }: KPICardProps) {
+
   return (
-    <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{title}</p>
-            <p className="text-4xl font-bold mt-3 tracking-tight">{value}</p>
-            {trend && (
-              <div className="flex items-center gap-2 mt-3">
-                <div className={cn("px-2 py-1 rounded-md text-xs font-semibold flex items-center gap-1", trend.isPositive ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700")}>
-                  {trend.isPositive ? (
-                    <TrendingUp className="h-3 w-3" />
-                  ) : (
-                    <TrendingDown className="h-3 w-3" />
-                  )}
-                  <span>{trend.value}% {trend.label}</span>
+    <motion.div
+      initial={{ opacity: 0, y: 32 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, ease: "easeOut" }}
+    >
+      <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+        <CardContent className="p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{title}</p>
+              <p className="text-4xl font-bold mt-3 tracking-tight">{value}</p>
+              {trend && (
+                <div className="flex items-center gap-2 mt-3">
+                  <div className={cn("px-2 py-1 rounded-md text-xs font-semibold flex items-center gap-1", trend.isPositive ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700")}> 
+                    {trend.isPositive ? (
+                      <TrendingUp className="h-3 w-3" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3" />
+                    )}
+                    <span>{trend.value}% {trend.label}</span>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+            <div className={`h-14 w-14 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}>
+              <Icon className={`h-6 w-6 ${iconColor}`} />
+            </div>
           </div>
-          <div className={`h-14 w-14 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}>
-            <Icon className={`h-6 w-6 ${iconColor}`} />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </motion.div>
   )
 }
 
@@ -322,8 +330,14 @@ export default function DashboardPage() {
               </CardTitle>
             </CardHeader>
           <CardContent className="space-y-3">
-            {recentActivity.map((req) => (
-              <div key={req.id} className="flex items-start gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
+            {recentActivity.map((req, idx) => (
+              <motion.div
+                key={req.id}
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: idx * 0.07, ease: "easeOut" }}
+                className="flex items-start gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0"
+              >
                 <span className={cn("h-2.5 w-2.5 rounded-full mt-1.5 flex-shrink-0", STATUS_DOT[req.status] ?? "bg-gray-400")} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{req.title}</p>
@@ -335,7 +349,7 @@ export default function DashboardPage() {
                   </span>
                   <span className="text-xs text-muted-foreground">{timeAgo(req.updatedAt)}</span>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </CardContent>
         </Card>

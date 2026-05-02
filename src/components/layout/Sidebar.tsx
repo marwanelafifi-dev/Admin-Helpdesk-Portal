@@ -55,11 +55,11 @@ const navItems: NavItem[] = [
     title: "Admin",
     href: "/admin",
     icon: Settings,
-    roles: ["super_admin"],
+    roles: ["super_admin", "manager"],
     children: [
-      { title: "Users",    href: "/admin/users",    icon: Users,    roles: ["super_admin"] },
-      { title: "Roles",    href: "/admin/roles",    icon: Shield,   roles: ["super_admin"] },
-      { title: "Settings", href: "/admin/settings", icon: Settings, roles: ["super_admin"] },
+      { title: "Users",    href: "/admin/users",    icon: Users,    roles: ["super_admin", "manager"] },
+      { title: "Roles",    href: "/admin/roles",    icon: Shield,   roles: ["super_admin", "manager"] },
+      { title: "Settings", href: "/admin/settings", icon: Settings, roles: ["super_admin", "manager"] },
     ],
   },
 ]

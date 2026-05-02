@@ -5,7 +5,8 @@ export const PERMISSIONS = {
   allRequests:    ["super_admin", "admin", "manager"],
   hrModule:       ["super_admin", "admin", "manager"],
   hrCreate:       ["super_admin", "manager"],
-  adminPanel:     ["super_admin"],
+  adminPanel:     ["super_admin", "manager"],
+  updateRequests: ["super_admin", "admin", "manager"],
   deleteRequests: ["super_admin", "admin"],
 } as const
 
