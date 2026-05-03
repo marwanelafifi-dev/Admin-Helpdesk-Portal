@@ -179,8 +179,8 @@ export default function AllRequestsPage() {
   const handleStatusChange = async (requestId: string, module: string, newStatus: RequestStatus) => {
     setUpdatingId(requestId)
     try {
-      const response = await fetch(`/api/requests/${module}/${requestId}`, {
-        method: 'PATCH',
+      const response = await fetch(`/api/requests/${module}/${requestId}/status`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'x-user-id': session?.user?.id || '',

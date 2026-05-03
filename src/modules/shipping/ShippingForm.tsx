@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useForm, Controller, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -12,7 +12,7 @@ import {
   COST_CENTERS,
 } from "./shipping.schema"
 import { createRequest } from "@/lib/requests-api"
-import { mockUsers } from "@/lib/mock-data"
+import { getApprovers, type Approver } from "@/lib/approvers-api"
 
 const shippingFormDefaults: ShippingRequestForm = {
   title: "",
@@ -113,10 +113,10 @@ function hasRequiredDocs(files: StagedFile[]) {
   return hasAwb && hasInvoice
 }
 
-function mapApprovers(approvers: ShippingRequestForm["approvers"]) {
+function mapApprovers(approvers: ShippingRequestForm["approvers"], allApprovers: Approver[]) {
   const toPerson = (id: string) => {
-    const u = mockUsers.find((x) => x.id === id)
-    return u ? { userId: u.id, name: u.name, email: u.email } : undefined
+    const u = allApprovers.find((x) => x.id === id)
+    return u ? { userId: u.id, name: u.name || "", email: u.email || "" } : undefined
   }
   return {
     directManager: toPerson(approvers.directManager)!,
@@ -194,6 +194,9 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
   const [ccEmailInput, setCcEmailInput] = useState("")
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitSuccess, setSubmitSuccess] = useState(false)
+  const [approvers, setApprovers] = useState<Approver[]>([])
+  const [approversLoading, setApproversLoading] = useState(true)
+  const [approversError, setApproversError] = useState<string | null>(null)
 
   const { register, control, handleSubmit, watch, setValue, setError, clearErrors, formState: { errors, isSubmitting } } = useForm<ShippingRequestForm>({
     resolver: zodResolver(ShippingRequestFormSchema) as unknown as Resolver<ShippingRequestForm>,
@@ -206,6 +209,25 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
   const addStagedFiles = useCallback((newFiles: StagedFile[]) => setStagedFiles((prev) => [...prev, ...newFiles]), [])
   const removeStagedFile = useCallback((id: string) => setStagedFiles((prev) => prev.filter((f) => f.id !== id)), [])
 
+  // Fetch approvers on component mount
+  useEffect(() => {
+    const fetchApprovers = async () => {
+      try {
+        setApproversLoading(true)
+        const response = await getApprovers()
+        setApprovers(response.users)
+        setApproversError(null)
+      } catch (error) {
+        console.error('Failed to fetch approvers:', error)
+        setApproversError('Failed to load approvers')
+      } finally {
+        setApproversLoading(false)
+      }
+    }
+
+    fetchApprovers()
+  }, [])
+
   const onSubmit = async (data: ShippingRequestForm) => {
     setSubmitError(null)
     if (!hasRequiredDocs(stagedFiles)) {
@@ -216,7 +238,7 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
 
     const payload = {
       ...data,
-      approvers: mapApprovers(data.approvers),
+      approvers: mapApprovers(data.approvers, approvers),
       attachments: buildAttachmentPayload(stagedFiles),
     }
 
@@ -274,6 +296,74 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
             <Label htmlFor="notes">Notes</Label>
             <Textarea id="notes" rows={3} {...register("notes")} />
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <SectionHeader icon={Users} title="Approvers" subtitle="Select users who need to approve this request" />
+        <CardContent className="space-y-4">
+          {approversLoading && (
+            <div className="text-sm text-muted-foreground">Loading approvers...</div>
+          )}
+          {approversError && (
+            <div className="text-sm text-red-500">{approversError}</div>
+          )}
+          {!approversLoading && !approversError && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label>Direct Manager <span className="text-red-500">*</span></Label>
+                <Controller name="approvers.directManager" control={control} render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className={cn(errors.approvers?.directManager && "border-red-400")}>
+                      <SelectValue placeholder="Select direct manager" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {approvers.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.name} ({user.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )} />
+                <FieldError message={errors.approvers?.directManager?.message} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Technical Manager</Label>
+                <Controller name="approvers.techManager" control={control} render={({ field }) => (
+                  <Select value={field.value?.[0] || ""} onValueChange={(value) => field.onChange(value ? [value] : [])}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select technical manager (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {approvers.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.name} ({user.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Project Manager</Label>
+                <Controller name="approvers.pm" control={control} render={({ field }) => (
+                  <Select value={field.value?.[0] || ""} onValueChange={(value) => field.onChange(value ? [value] : [])}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select project manager (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {approvers.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.name} ({user.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )} />
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

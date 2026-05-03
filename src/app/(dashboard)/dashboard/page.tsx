@@ -11,7 +11,7 @@ import {
   Package, UserCog, PauseCircle, Truck, Activity, Target,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { fetchAllRequests, type EngineRequest } from "@/lib/requests-api"
+import { fetchDashboardData, type DashboardRequest } from "@/lib/dashboard-api"
 import { cn } from "@/lib/utils"
 
 const STATUS_COLORS: Record<string, string> = {
@@ -94,53 +94,50 @@ function timeAgo(iso: string) {
 }
 
 export default function DashboardPage() {
-  const [requests, setRequests] = useState<EngineRequest[]>([])
+  const [dashboardData, setDashboardData] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchAllRequests().then(setRequests)
+    const loadDashboardData = async () => {
+      try {
+        setLoading(true)
+        const data = await fetchDashboardData()
+        setDashboardData(data)
+        setError(null)
+      } catch (err) {
+        console.error('Failed to load dashboard data:', err)
+        setError('Failed to load dashboard data')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadDashboardData()
   }, [])
 
   const stats = useMemo(() => {
-    const statusBreakdown: Record<string, number> = {}
-    const moduleBreakdown: Record<string, number> = {}
-    let avgResolutionDays = 0
-    let activeCount = 0
-
-    requests.forEach((r) => {
-      statusBreakdown[r.status] = (statusBreakdown[r.status] || 0) + 1
-      moduleBreakdown[r.module] = (moduleBreakdown[r.module] || 0) + 1
-      if (["new", "on_hold", "in_transit"].includes(r.status)) activeCount++
-    })
-
-    const completed = requests.filter((r) => r.status === "completed").length
-    if (completed > 0) {
-      avgResolutionDays = Math.round(
-        requests
-          .filter((r) => r.status === "completed")
-          .reduce((sum, r) => sum + (new Date(r.updatedAt).getTime() - new Date(r.createdAt).getTime()), 0) /
-          completed /
-          (1000 * 60 * 60 * 24)
-      )
+    if (!dashboardData) return {
+      total: 0,
+      active: 0,
+      completed: 0,
+      cancelled: 0,
+      avgResolution: 0,
+      onTimeRate: 0,
+      statusBreakdown: {},
+      moduleBreakdown: {},
     }
-
-    return {
-      total: requests.length,
-      active: activeCount,
-      completed: statusBreakdown["completed"] || 0,
-      cancelled: statusBreakdown["cancelled"] || 0,
-      avgResolution: avgResolutionDays,
-      onTimeRate: requests.length > 0 ? Math.round((completed / requests.length) * 100) : 0,
-      statusBreakdown,
-      moduleBreakdown,
-    }
-  }, [requests])
+    return dashboardData.stats
+  }, [dashboardData])
 
   const moduleChartData = useMemo(() => {
-    return ["shipping", "maintenance", "purchase", "event", "travel", "hr"].map((mod) => ({
-      name: mod.charAt(0).toUpperCase() + mod.slice(1),
-      value: stats.moduleBreakdown[mod] || 0,
-      fill: MODULE_COLORS[mod].pie,
-    }))
+    return ["shipping", "maintenance", "purchase", "event", "travel", "hr"]
+      .map((mod) => ({
+        name: mod.charAt(0).toUpperCase() + mod.slice(1),
+        value: stats.moduleBreakdown[mod] || 0,
+        fill: MODULE_COLORS[mod].pie,
+      }))
+      .filter((item) => item.value > 0) // Filter out modules with 0 values
   }, [stats])
 
   const statusTrendData = useMemo(() => {
@@ -152,24 +149,47 @@ export default function DashboardPage() {
   }, [stats])
 
   const recentActivity = useMemo(() => {
-    return [...requests]
+    if (!dashboardData?.requests) return []
+    return [...dashboardData.requests]
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       .slice(0, 10)
-  }, [requests])
+  }, [dashboardData])
 
   const pendingApprovals = useMemo(() => {
-    return requests.filter((r) => r.status === "new" || r.status === "on_hold")
-  }, [requests])
+    return dashboardData?.pendingApprovals || 0
+  }, [dashboardData])
 
   const overdueItems = useMemo(() => {
-    const now = new Date()
-    return requests.filter((r) => {
-      if (["completed", "cancelled", "delivered"].includes(r.status)) return false
-      const createdDate = new Date(r.createdAt)
-      const daysSinceCreation = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)
-      return daysSinceCreation > 7
-    })
-  }, [requests])
+    return dashboardData?.overdueItems || 0
+  }, [dashboardData])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading dashboard data...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <p className="text-red-600 font-medium">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-8">
@@ -226,15 +246,15 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KPICard
           title="Pending Approvals"
-          value={pendingApprovals.length}
+          value={pendingApprovals}
           icon={Clock}
           iconColor="text-amber-600"
           iconBg="bg-amber-50"
-          trend={{ value: pendingApprovals.filter((r) => r.status === "new").length, label: "new", isPositive: false }}
+          trend={{ value: Math.round((pendingApprovals / stats.total) * 100), label: "of total", isPositive: false }}
         />
         <KPICard
           title="Overdue Items"
-          value={overdueItems.length}
+          value={overdueItems}
           icon={AlertCircle}
           iconColor="text-red-600"
           iconBg="bg-red-50"
@@ -287,32 +307,55 @@ export default function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={moduleChartData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, value }) => `${name}: ${value}`}
-                    outerRadius={90}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {moduleChartData.map((entry, idx) => (
-                      <Cell key={`cell-${idx}`} fill={entry.fill} />
+              <div className="flex flex-col lg:flex-row items-center gap-6">
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={moduleChartData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, value }) => `${name}: ${value}`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {moduleChartData.map((entry, idx) => (
+                        <Cell key={`cell-${idx}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: "12px",
+                        border: "1px solid #e2e8f0",
+                        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                        backgroundColor: "#ffffff"
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                
+                {/* Legend */}
+                <div className="flex-1">
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Modules</h4>
+                  <div className="space-y-2">
+                    {moduleChartData.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full flex-shrink-0" 
+                          style={{ backgroundColor: item.fill }}
+                        />
+                        <span className="text-sm text-gray-600">
+                          {item.name} ({item.value})
+                        </span>
+                      </div>
                     ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: "12px",
-                      border: "1px solid #e2e8f0",
-                      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-                      backgroundColor: "#ffffff"
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+                    {moduleChartData.length === 0 && (
+                      <p className="text-sm text-gray-500 italic">No requests available</p>
+                    )}
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -362,15 +405,15 @@ export default function DashboardPage() {
               </CardTitle>
             </CardHeader>
           <CardContent className="space-y-3">
-            {overdueItems.length > 0 && (
+            {overdueItems > 0 && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="font-medium text-red-900 text-sm">{overdueItems.length} Overdue Items</p>
+                <p className="font-medium text-red-900 text-sm">{overdueItems} Overdue Items</p>
                 <p className="text-xs text-red-700 mt-1">Requests pending for more than 7 days</p>
               </div>
             )}
-            {pendingApprovals.length > 5 && (
+            {pendingApprovals > 5 && (
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                <p className="font-medium text-amber-900 text-sm">{pendingApprovals.length} Pending Approvals</p>
+                <p className="font-medium text-amber-900 text-sm">{pendingApprovals} Pending Approvals</p>
                 <p className="text-xs text-amber-700 mt-1">Requests awaiting review or approval</p>
               </div>
             )}
@@ -380,7 +423,7 @@ export default function DashboardPage() {
                 <p className="text-xs text-orange-700 mt-1">{stats.cancelled} cancelled out of {stats.total} total</p>
               </div>
             )}
-            {pendingApprovals.length === 0 && overdueItems.length === 0 && (
+            {pendingApprovals === 0 && overdueItems === 0 && (
               <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                 <p className="font-medium text-green-900 text-sm">All Clear</p>
                 <p className="text-xs text-green-700 mt-1">No critical alerts at this time</p>

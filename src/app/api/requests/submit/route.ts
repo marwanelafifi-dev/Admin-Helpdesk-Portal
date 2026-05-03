@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/server/db'
-import { sendEmail, emailTemplates } from '@/server/email'
+import { getPrisma } from '@/server/engine/prisma'
+import { sendNewRequestNotification, sendEmailAsync } from '@/lib/mailer'
+import { getAdminEmails } from '@/lib/admin-emails-api'
 
 /**
  * POST /api/requests/submit
@@ -36,6 +37,8 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    const prisma = getPrisma()
+
     // 1. Save request to database
     const request = await prisma.request.create({
       data: {
@@ -59,25 +62,26 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // 3. Send email to admin team
-    const adminEmails = (
-      process.env.NOTIFICATION_EMAIL_ADMINS || ''
-    )
-      .split(',')
-      .map((e) => e.trim())
-      .filter(Boolean)
+    // 3. Send email to admin team (asynchronously)
+    try {
+      const adminEmailsResponse = await getAdminEmails()
+      const requestForEmail = {
+        id: request.id,
+        module: request.module,
+        title: request.title,
+        status: request.status,
+        requesterId: request.requesterId,
+        requesterName: userName || 'Unknown User',
+        requesterEmail: '', // We'll need to fetch this from user record
+        payload: request.payload as Record<string, unknown>,
+        statusHistory: [], // New requests start with empty status history
+        createdAt: request.createdAt.toISOString(),
+        updatedAt: request.updatedAt.toISOString(),
+      }
 
-    if (adminEmails.length > 0) {
-      const emailTemplate = emailTemplates.newRequest(
-        userName || 'Unknown User',
-        title,
-        module,
-        `${process.env.NEXTAUTH_URL}/${module}?id=${request.id}`
-      )
-
-      await sendEmail({
-        to: adminEmails,
-        ...emailTemplate,
+      // Send email asynchronously without blocking the response
+      sendEmailAsync(async () => {
+        await sendNewRequestNotification(requestForEmail, adminEmailsResponse.emails)
       })
 
       // Create admin notifications
@@ -97,6 +101,9 @@ export async function POST(req: NextRequest) {
           },
         })
       }
+    } catch (emailError) {
+      console.error('Failed to send admin notifications:', emailError)
+      // Don't fail the request if email sending fails
     }
 
     return NextResponse.json(
