@@ -57,6 +57,7 @@ export function PurchaseForm({ onCancel }: { onCancel?: () => void }) {
   const router = useRouter()
   const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const [apiError, setApiError] = useState<string | null>(null)
   const { register, control, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<PurchaseForm>({
     resolver: zodResolver(PurchasePayloadSchema),
     defaultValues: { attachments: [] },
@@ -67,12 +68,17 @@ export function PurchaseForm({ onCancel }: { onCancel?: () => void }) {
   const handleCancel = onCancel ?? (() => router.push("/purchase"))
 
   const onSubmit = async (data: PurchaseForm) => {
-    await createRequest("purchase", data as unknown as Record<string, unknown>, {
+    setApiError(null)
+    const result = await createRequest("purchase", data as unknown as Record<string, unknown>, {
       title: `Purchase – ${data.itemTitle}`,
       requesterId: session?.user?.id ?? "USR-CURRENT",
       requesterName: session?.user?.name ?? "Current User",
       requesterEmail: session?.user?.email ?? "",
     })
+    if (!result.ok) {
+      setApiError(result.error)
+      return
+    }
     router.push("/purchase")
     router.refresh()
   }
@@ -80,6 +86,9 @@ export function PurchaseForm({ onCancel }: { onCancel?: () => void }) {
   return (
     <div className="space-y-5 max-w-3xl mx-auto pb-12">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        {apiError && (
+          <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{apiError}</p>
+        )}
         {/* Item Details */}
         <Card>
           <SectionHeader icon={ShoppingCart} title="Item Details" subtitle="What would you like to purchase?" />

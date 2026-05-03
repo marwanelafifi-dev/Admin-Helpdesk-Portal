@@ -83,6 +83,7 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
   const router = useRouter()
   const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const [apiError, setApiError] = useState<string | null>(null)
   const {
     register,
     control,
@@ -100,18 +101,26 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
   const hotelRequired = watch("hotelRequired")
 
   const onSubmit = async (data: TravelPayload) => {
-    await createRequest("travel", data as unknown as Record<string, unknown>, {
+    setApiError(null)
+    const result = await createRequest("travel", data as unknown as Record<string, unknown>, {
       title: `Travel – ${data.tripName}`,
       requesterId: session?.user?.id ?? "USR-CURRENT",
       requesterName: session?.user?.name ?? "Current User",
       requesterEmail: session?.user?.email ?? "",
     })
+    if (!result.ok) {
+      setApiError(result.error)
+      return
+    }
     router.push("/travel")
     router.refresh()
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      {apiError && (
+        <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{apiError}</p>
+      )}
       {/* Trip Details */}
       <Card>
         <SectionHeader

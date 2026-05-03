@@ -12,8 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { useEffect, useState } from "react"
-import { fetchNotifications, markNotificationAsRead } from "@/lib/api-client"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 interface Notification {
   id: string
@@ -26,10 +25,14 @@ interface Notification {
 }
 
 export function TopBar() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
+  /** After a 401, do not poll or refetch until session identity changes */
+  const notificationsBlockedRef = useRef(false)
+
+  const userId = session?.user?.id
 
   const name = session?.user?.name ?? "User"
   const email = session?.user?.email ?? ""
@@ -42,32 +45,69 @@ export function TopBar() {
     .slice(0, 2)
 
   useEffect(() => {
-    if (!session?.user?.id) return
+    notificationsBlockedRef.current = false
+  }, [userId, status])
 
-    // Load notifications on mount
-    loadNotifications()
+  const loadNotifications = useCallback(async () => {
+    if (status !== "authenticated" || !userId) return
+    if (notificationsBlockedRef.current) return
 
-    // Poll for new notifications every 30 seconds
-    const interval = setInterval(loadNotifications, 30000)
+    setIsLoading(true)
+    try {
+      const params = new URLSearchParams({ take: "10" })
+      const response = await fetch(`/api/notifications?${params}`, {
+        credentials: "include",
+        cache: "no-store",
+        headers: { "x-user-id": userId },
+      })
+
+      if (response.status === 401) {
+        notificationsBlockedRef.current = true
+        return
+      }
+
+      if (!response.ok) return
+
+      const result = (await response.json()) as {
+        notifications?: Notification[]
+      }
+      const notificationsList = result.notifications ?? []
+      setNotifications(notificationsList)
+      setUnreadCount(notificationsList.filter((n) => !n.read).length)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [status, userId])
+
+  useEffect(() => {
+    if (status !== "authenticated" || !userId) return
+
+    void loadNotifications()
+    const interval = setInterval(() => {
+      if (!notificationsBlockedRef.current) void loadNotifications()
+    }, 30000)
 
     return () => clearInterval(interval)
-  }, [session?.user?.id])
-
-  async function loadNotifications() {
-    setIsLoading(true)
-    const result = await fetchNotifications({ take: 10 })
-    if (result.success) {
-      const notificationsList = result.notifications as Notification[]
-      setNotifications(notificationsList)
-      setUnreadCount(
-        notificationsList.filter((n) => !n.read).length
-      )
-    }
-    setIsLoading(false)
-  }
+  }, [status, userId, loadNotifications])
 
   async function handleMarkAsRead(id: string, link?: string) {
-    await markNotificationAsRead(id)
+    if (status !== "authenticated" || !userId || notificationsBlockedRef.current)
+      return
+
+    const response = await fetch(`/api/notifications/${id}`, {
+      method: "PATCH",
+      credentials: "include",
+      cache: "no-store",
+      headers: { "x-user-id": userId },
+    })
+
+    if (response.status === 401) {
+      notificationsBlockedRef.current = true
+      return
+    }
+
+    if (!response.ok) return
+
     await loadNotifications()
     if (link) {
       window.location.href = link

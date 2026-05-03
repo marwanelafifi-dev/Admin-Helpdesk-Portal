@@ -6,8 +6,12 @@ if (process.env.ALLOW_INSECURE_TLS === "1") {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"
 }
 
+const isProd = process.env.NODE_ENV === "production"
+
 const nextConfig: NextConfig = {
-  distDir: ".next-dev",
+  // Dev keeps a separate folder so local `.next` can be used for Docker/CI builds.
+  distDir: isProd ? ".next" : ".next-dev",
+  ...(isProd ? { output: "standalone" } : {}),
 }
 
 export default nextConfig

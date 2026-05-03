@@ -192,6 +192,8 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
   const { data: session } = useSession()
   const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([])
   const [ccEmailInput, setCcEmailInput] = useState("")
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [submitSuccess, setSubmitSuccess] = useState(false)
 
   const { register, control, handleSubmit, watch, setValue, setError, clearErrors, formState: { errors, isSubmitting } } = useForm<ShippingRequestForm>({
     resolver: zodResolver(ShippingRequestFormSchema) as unknown as Resolver<ShippingRequestForm>,
@@ -205,6 +207,7 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
   const removeStagedFile = useCallback((id: string) => setStagedFiles((prev) => prev.filter((f) => f.id !== id)), [])
 
   const onSubmit = async (data: ShippingRequestForm) => {
+    setSubmitError(null)
     if (!hasRequiredDocs(stagedFiles)) {
       setError("attachments", { type: "manual", message: "AWB and Commercial Invoice are both required." })
       return
@@ -217,7 +220,7 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
       attachments: buildAttachmentPayload(stagedFiles),
     }
 
-    const request = await createRequest(
+    const result = await createRequest(
       "shipping",
       payload as unknown as Record<string, unknown>,
       {
@@ -228,14 +231,37 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
       }
     )
 
-    if (request?.id) {
+    if (!result.ok) {
+      setSubmitError(result.error)
+      return
+    }
+
+    setSubmitSuccess(true)
+    window.setTimeout(() => {
       router.push("/shipping")
       router.refresh()
-    }
+    }, 900)
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 max-w-4xl mx-auto pb-12">
+      {submitSuccess && (
+        <div
+          role="status"
+          className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900"
+        >
+          Request submitted successfully. Redirecting to Shipping…
+        </div>
+      )}
+      {submitError && (
+        <div
+          role="alert"
+          className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800"
+        >
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {submitError}
+        </div>
+      )}
       <Card>
         <SectionHeader icon={FileText} title="Request Details" subtitle="General information about this request" />
         <CardContent className="space-y-4">
@@ -388,8 +414,13 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
 
       <div className="sticky bottom-0 bg-white border-t py-4 px-1 flex items-center justify-between gap-3 -mx-1">
         <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
-        <Button type="submit" disabled={isSubmitting} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px]">
-          {isSubmitting ? "Submitting..." : "Submit"}
+        <Button
+          type="submit"
+          disabled={isSubmitting || submitSuccess}
+          style={{ backgroundColor: BRAND }}
+          className="text-white hover:opacity-90 min-w-[160px]"
+        >
+          {isSubmitting ? "Submitting..." : submitSuccess ? "Done" : "Submit"}
         </Button>
       </div>
     </form>

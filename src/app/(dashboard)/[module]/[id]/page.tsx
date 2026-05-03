@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
+import { isReservedRequestPathId } from '@/lib/request-path-guards'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -25,6 +26,7 @@ export default function RequestDetailsPage({
 }: {
   params: Promise<{ module: string; id: string }>
 }) {
+  const router = useRouter()
   const { data: session } = useSession()
   
   const [resolvedParams, setResolvedParams] = useState<{ module: string; id: string } | null>(null)
@@ -41,12 +43,26 @@ export default function RequestDetailsPage({
   const isAdmin = session?.user?.role === 'super_admin' || session?.user?.role === 'admin'
 
   useEffect(() => {
-    if (!resolvedParams?.id || !resolvedParams?.module || !session?.user?.id) return
+    if (!resolvedParams?.id || !resolvedParams?.module) return
+
+    if (isReservedRequestPathId(resolvedParams.id)) {
+      setError(null)
+      const m = resolvedParams.module
+      if (resolvedParams.id.toLowerCase() === 'new') {
+        router.replace(`/${m}/new`)
+      } else {
+        router.replace(`/${m}`)
+      }
+      return
+    }
+
+    if (!session?.user?.id) return
 
     const fetchRequest = async () => {
       try {
         setIsLoading(true)
         const response = await fetch(`/api/requests/${resolvedParams.module}/${resolvedParams.id}`, {
+          credentials: 'include',
           headers: {
             'x-user-id': session?.user?.id || '',
             'x-user-role': session?.user?.role || '',
@@ -67,7 +83,7 @@ export default function RequestDetailsPage({
     }
 
     fetchRequest()
-  }, [resolvedParams, session])
+  }, [resolvedParams, session, router])
 
   const handleStatusChange = async (newStatus: RequestStatus) => {
     if (!isAdmin || isUpdating || !resolvedParams) return

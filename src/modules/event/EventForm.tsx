@@ -80,6 +80,7 @@ export function EventForm({ onCancel }: { onCancel?: () => void }) {
   const router = useRouter()
   const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const [apiError, setApiError] = useState<string | null>(null)
   const {
     register,
     control,
@@ -90,18 +91,26 @@ export function EventForm({ onCancel }: { onCancel?: () => void }) {
   })
 
   const onSubmit = async (data: EventPayload) => {
-    await createRequest("event", data as unknown as Record<string, unknown>, {
+    setApiError(null)
+    const result = await createRequest("event", data as unknown as Record<string, unknown>, {
       title: `Event – ${data.eventName}`,
       requesterId: session?.user?.id ?? "USR-CURRENT",
       requesterName: session?.user?.name ?? "Current User",
       requesterEmail: session?.user?.email ?? "",
     })
+    if (!result.ok) {
+      setApiError(result.error)
+      return
+    }
     router.push("/event")
     router.refresh()
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      {apiError && (
+        <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{apiError}</p>
+      )}
       {/* Event Details */}
       <Card>
         <SectionHeader

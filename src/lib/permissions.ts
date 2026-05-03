@@ -1,20 +1,3 @@
-export type AppRole = "super_admin" | "admin" | "manager" | "employee" | "external"
-
-export const PERMISSIONS = {
-  dashboard:      ["super_admin", "admin", "manager"],
-  allRequests:    ["super_admin", "admin", "manager"],
-  hrModule:       ["super_admin", "admin", "manager"],
-  hrCreate:       ["super_admin", "manager"],
-  adminPanel:     ["super_admin", "manager"],
-  updateRequests: ["super_admin", "admin", "manager"],
-  deleteRequests: ["super_admin", "admin"],
-} as const
-
-export function can(role: string | undefined, perm: keyof typeof PERMISSIONS): boolean {
-  if (!role) return false
-  return (PERMISSIONS[perm] as readonly string[]).includes(role)
-}
-
-export function isRestricted(role: string | undefined): boolean {
-  return role === "employee" || role === "external"
-}
+/** Role matrix + client-safe helpers — see `./permissions/client`. */
+export type { AppRole } from "./permissions/client"
+export { PERMISSIONS, can, isRestricted } from "./permissions/client"

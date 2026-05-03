@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { getServerSession } from "next-auth"
+import type { Prisma } from "@prisma/client"
 
 import { REQUEST_MODULES, REQUEST_STATUSES } from "@/server/engine/constants"
-import { deleteRequest, getRequest, updateRequest } from "@/server/engine/store"
 import { authOptions } from "@/lib/auth"
 import { can, isRestricted } from "@/lib/permissions"
+import { isReservedRequestPathId } from "@/lib/request-path-guards"
+import { prisma } from "@/server/db"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -34,9 +36,17 @@ export async function GET(_request: Request, context: { params: Promise<{ module
   if (!isKnownModule(module)) {
     return NextResponse.json({ ok: false, error: "Unknown module" }, { status: 404 })
   }
+  if (isReservedRequestPathId(id)) {
+    return NextResponse.json({ ok: false, error: "Invalid request id" }, { status: 404 })
+  }
 
-  const data = await getRequest(module, id)
-  if (!data) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 })
+  const data = await prisma.request.findUnique({
+    where: { id },
+    include: { requester: { select: { id: true, name: true, email: true } } },
+  })
+  if (!data || data.module !== module) {
+    return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 })
+  }
   if (isRestricted(session.user.role) && data.requesterId !== session.user.id) {
     return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 })
   }
@@ -56,11 +66,47 @@ export async function PATCH(request: Request, context: { params: Promise<{ modul
   if (!isKnownModule(module)) {
     return NextResponse.json({ ok: false, error: "Unknown module" }, { status: 404 })
   }
+  if (isReservedRequestPathId(id)) {
+    return NextResponse.json({ ok: false, error: "Invalid request id" }, { status: 404 })
+  }
 
   try {
     const body = PatchSchema.parse(await request.json())
-    const updated = await updateRequest(module, id, body)
-    if (!updated) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 })
+    const existing = await prisma.request.findUnique({
+      where: { id },
+      select: { id: true, module: true, requesterId: true, status: true, statusHistory: true },
+    })
+    if (!existing || existing.module !== module) {
+      return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 })
+    }
+
+    const nextStatus = body.status
+    const shouldRecord = !!nextStatus && nextStatus !== existing.status
+    const nowIso = new Date().toISOString()
+    const prevHistory = Array.isArray(existing.statusHistory) ? existing.statusHistory : []
+    const nextHistory = shouldRecord
+      ? [
+          ...prevHistory,
+          {
+            status: nextStatus,
+            changedBy: body.changedBy ?? session.user.id,
+            changedAt: nowIso,
+            comment: body.comment,
+          },
+        ]
+      : prevHistory
+
+    const updateData: Prisma.RequestUpdateInput = {}
+    if (body.title) updateData.title = body.title
+    if (body.payload) updateData.payload = body.payload as Prisma.InputJsonValue
+    if (body.status) updateData.status = body.status
+    if (nextHistory.length > 0) updateData.statusHistory = nextHistory as Prisma.InputJsonValue
+
+    const updated = await prisma.request.update({
+      where: { id },
+      data: updateData,
+      include: { requester: { select: { id: true, name: true, email: true } } },
+    })
     return NextResponse.json({ ok: true, data: updated })
   } catch (error) {
     const message = error instanceof Error ? error.message : "Invalid patch"
@@ -81,8 +127,15 @@ export async function DELETE(_request: Request, context: { params: Promise<{ mod
   if (!isKnownModule(module)) {
     return NextResponse.json({ ok: false, error: "Unknown module" }, { status: 404 })
   }
+  if (isReservedRequestPathId(id)) {
+    return NextResponse.json({ ok: false, error: "Invalid request id" }, { status: 404 })
+  }
 
-  const ok = await deleteRequest(module, id)
-  if (!ok) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 })
+  const existing = await prisma.request.findUnique({ where: { id }, select: { id: true, module: true } })
+  if (!existing || existing.module !== module) {
+    return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 })
+  }
+
+  await prisma.request.delete({ where: { id } })
   return NextResponse.json({ ok: true })
 }

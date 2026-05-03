@@ -65,18 +65,24 @@ function OnboardingFormFields({ onCancel }: { onCancel: () => void }) {
   const router = useRouter()
   const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const [apiError, setApiError] = useState<string | null>(null)
   const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<OnboardingForm>({
     resolver: zodResolver(OnboardingPayloadSchema),
     defaultValues: { hrType: "onboarding", items: [], attachments: [] },
   })
 
   const onSubmit = async (data: OnboardingForm) => {
-    await createRequest("hr", data as unknown as Record<string, unknown>, {
+    setApiError(null)
+    const result = await createRequest("hr", data as unknown as Record<string, unknown>, {
       title: `Onboarding – ${data.employeeName}`,
       requesterId: session?.user?.id ?? "USR-CURRENT",
       requesterName: session?.user?.name ?? "Current User",
       requesterEmail: session?.user?.email ?? "",
     })
+    if (!result.ok) {
+      setApiError(result.error)
+      return
+    }
     router.push("/hr")
     router.refresh()
   }
@@ -84,6 +90,9 @@ function OnboardingFormFields({ onCancel }: { onCancel: () => void }) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       <input type="hidden" {...register("hrType")} value="onboarding" />
+      {apiError && (
+        <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{apiError}</p>
+      )}
 
       {/* Employee Details */}
       <Card>
@@ -303,18 +312,24 @@ function OffboardingFormFields({ onCancel }: { onCancel: () => void }) {
   const router = useRouter()
   const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const [apiError, setApiError] = useState<string | null>(null)
   const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<OffboardingForm>({
     resolver: zodResolver(OffboardingPayloadSchema),
     defaultValues: { hrType: "offboarding", items: [], attachments: [] },
   })
 
   const onSubmit = async (data: OffboardingForm) => {
-    await createRequest("hr", data as unknown as Record<string, unknown>, {
+    setApiError(null)
+    const result = await createRequest("hr", data as unknown as Record<string, unknown>, {
       title: `Offboarding – ${data.employeeName}`,
       requesterId: session?.user?.id ?? "USR-CURRENT",
       requesterName: session?.user?.name ?? "Current User",
       requesterEmail: session?.user?.email ?? "",
     })
+    if (!result.ok) {
+      setApiError(result.error)
+      return
+    }
     router.push("/hr")
     router.refresh()
   }
@@ -322,6 +337,9 @@ function OffboardingFormFields({ onCancel }: { onCancel: () => void }) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       <input type="hidden" {...register("hrType")} value="offboarding" />
+      {apiError && (
+        <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{apiError}</p>
+      )}
 
       {/* Employee Details */}
       <Card>

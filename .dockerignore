@@ -11,4 +11,12 @@ yarn-error.log*
 dist
 out
 coverage
-
+docs
+*.md
+!README.md
+.cursor
+.vscode
+Dockerfile*
+docker-compose*.yml
+.gitignore
+.eslintrc.json
