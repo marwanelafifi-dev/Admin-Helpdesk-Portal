@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { Building2, Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react"
+import { Building2, Mail, Lock, Eye, EyeOff, AlertCircle, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,6 +16,16 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [urlWarning, setUrlWarning] = useState(false)
+
+  useEffect(() => {
+    // Check if current URL matches NEXTAUTH_URL (roughly)
+    const nextAuthUrl = process.env.NEXT_PUBLIC_NEXTAUTH_URL || "http://localhost:3003"
+    if (typeof window !== "undefined" && !window.location.href.startsWith(nextAuthUrl)) {
+      console.warn(`URL mismatch: Current origin is ${window.location.origin}, but NEXTAUTH_URL is ${nextAuthUrl}`)
+      setUrlWarning(true)
+    }
+  }, [])
 
   const handleCredentials = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -56,6 +66,16 @@ export default function LoginPage() {
           </CardHeader>
 
           <CardContent className="space-y-4">
+            {urlWarning && (
+              <div className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">
+                <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold">URL Mismatch Warning</p>
+                  <p>You are accessing the app from a URL that doesn't match the configured NEXTAUTH_URL. This may prevent login from working.</p>
+                </div>
+              </div>
+            )}
+
             {/* Google Sign-In */}
             <Button
               onClick={() => signIn("google", { callbackUrl: "/dashboard" })}

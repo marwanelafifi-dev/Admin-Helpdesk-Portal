@@ -8,6 +8,8 @@ export interface SubmitRequestOptions {
   title: string
   payload: unknown
   status?: string
+  userId?: string
+  userName?: string
 }
 
 export interface SubmitRequestResult {
@@ -24,12 +26,15 @@ export async function submitRequest(
   options: SubmitRequestOptions
 ): Promise<SubmitRequestResult> {
   try {
-    const response = await fetch(`/api/requests/${options.module}`, {
+    const response = await fetch(`/api/requests/submit`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-user-id': options.userId || '',
+        'x-user-name': options.userName || '',
       },
       body: JSON.stringify({
+        module: options.module,
         title: options.title,
         payload: options.payload,
         status: options.status || 'new',

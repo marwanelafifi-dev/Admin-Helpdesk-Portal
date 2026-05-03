@@ -24,6 +24,17 @@ interface Notification {
   link?: string
 }
 
+function dedupeNotifications(items: Notification[]): Notification[] {
+  const seen = new Set<string>()
+  const output: Notification[] = []
+  for (const item of items) {
+    if (seen.has(item.id)) continue
+    seen.add(item.id)
+    output.push(item)
+  }
+  return output
+}
+
 export function TopBar() {
   const { data: session, status } = useSession()
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -71,7 +82,7 @@ export function TopBar() {
       const result = (await response.json()) as {
         notifications?: Notification[]
       }
-      const notificationsList = result.notifications ?? []
+      const notificationsList = dedupeNotifications(result.notifications ?? [])
       setNotifications(notificationsList)
       setUnreadCount(notificationsList.filter((n) => !n.read).length)
     } finally {

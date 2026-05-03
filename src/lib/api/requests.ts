@@ -25,12 +25,34 @@ export interface EngineRequest<T = Record<string, unknown>> {
   updatedAt: string
 }
 
+function dedupeRequests(items: EngineRequest[]): EngineRequest[] {
+  const seen = new Set<string>()
+  const output: EngineRequest[] = []
+  for (const item of items) {
+    const key = `${item.module}:${item.id}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    output.push(item)
+  }
+  return output
+}
+
 function mapApiRequestRow(row: Record<string, unknown>): EngineRequest {
   const requester = row.requester as { name?: string; email?: string } | undefined
   const createdAt = row.createdAt
   const updatedAt = row.updatedAt
-  const toIso = (v: unknown) =>
-    typeof v === "string" ? v : v instanceof Date ? v.toISOString() : new Date(String(v)).toISOString()
+  const toIso = (v: unknown) => {
+    if (v instanceof Date) {
+      return Number.isNaN(v.getTime()) ? new Date(0).toISOString() : v.toISOString()
+    }
+    if (typeof v === "string") {
+      const parsed = new Date(v)
+      return Number.isNaN(parsed.getTime()) ? new Date(0).toISOString() : parsed.toISOString()
+    }
+    if (v == null) return new Date(0).toISOString()
+    const parsed = new Date(String(v))
+    return Number.isNaN(parsed.getTime()) ? new Date(0).toISOString() : parsed.toISOString()
+  }
 
   return {
     id: String(row.id),
@@ -53,16 +75,16 @@ export async function fetchRequests(module: string, requesterId?: string): Promi
   const res = await fetch(`/api/requests/${module}${qs}`, { cache: "no-store", credentials: "include" })
   if (!res.ok) return []
   const json = await res.json()
-  if (Array.isArray(json)) return json as EngineRequest[]
+  if (Array.isArray(json)) return dedupeRequests(json as EngineRequest[])
   const rows = json.requests as Record<string, unknown>[] | undefined
-  if (Array.isArray(rows)) return rows.map(mapApiRequestRow)
-  return (json.data as EngineRequest[]) ?? []
+  if (Array.isArray(rows)) return dedupeRequests(rows.map(mapApiRequestRow))
+  return dedupeRequests((json.data as EngineRequest[]) ?? [])
 }
 
 export async function fetchAllRequests(requesterId?: string): Promise<EngineRequest[]> {
   const modules = ["shipping", "maintenance", "purchase", "event", "travel", "hr"]
   const results = await Promise.all(modules.map((module) => fetchRequests(module, requesterId)))
-  return results.flat()
+  return dedupeRequests(results.flat())
 }
 
 export async function fetchRequestById(
@@ -78,8 +100,8 @@ export async function fetchRequestById(
     const msg = typeof json.error === "string" ? json.error : `Request failed (${res.status})`
     return { ok: false, error: msg }
   }
-  const payload = (json.ok && json.data ? json.data : json) as Record<string, unknown>
-  return { ok: true, data: mapApiRequestRow(payload) }
+  const responsePayload = (json.ok && json.data ? json.data : json) as Record<string, unknown>
+  return { ok: true, data: mapApiRequestRow(responsePayload) }
 }
 
 export async function createRequest(
@@ -87,11 +109,16 @@ export async function createRequest(
   payload: Record<string, unknown>,
   meta: { title: string; requesterId: string; requesterName: string; requesterEmail: string }
 ): Promise<{ ok: true; data: EngineRequest } | { ok: false; error: string }> {
-  const res = await fetch(`/api/requests/${module}`, {
+  const res = await fetch(`/api/requests/submit`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-user-id": meta.requesterId || "",
+      "x-user-name": meta.requesterName || "",
+    },
     credentials: "include",
     body: JSON.stringify({
+      module,
       title: meta.title,
       payload,
       status: "new",
@@ -102,7 +129,8 @@ export async function createRequest(
     const msg = typeof json.error === "string" ? json.error : `Request failed (${res.status})`
     return { ok: false, error: msg }
   }
-  return { ok: true, data: mapApiRequestRow(json as Record<string, unknown>) }
+  const responsePayload = (json.ok && json.data ? json.data : json) as Record<string, unknown>
+  return { ok: true, data: mapApiRequestRow(responsePayload) }
 }
 
 export async function updateRequestStatus(

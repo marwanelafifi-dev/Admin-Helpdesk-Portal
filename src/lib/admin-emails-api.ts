@@ -12,9 +12,13 @@ export interface AdminEmailsResponse {
 }
 
 export async function getAdminEmails(): Promise<AdminEmailsResponse> {
-  const response = await fetch('/api/admin-emails')
+  const baseUrl =
+    typeof window === "undefined"
+      ? (process.env.NEXTAUTH_URL ?? "http://localhost:3003")
+      : ""
+  const response = await fetch(`${baseUrl}/api/admin-emails`)
   if (!response.ok) {
-    throw new Error('Failed to fetch admin emails')
+    throw new Error("Failed to fetch admin emails")
   }
   return response.json()
 }

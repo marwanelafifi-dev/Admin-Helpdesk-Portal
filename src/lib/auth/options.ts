@@ -8,6 +8,7 @@ import type { UserRole } from "@prisma/client"
 const companyDomain = (process.env.GOOGLE_ALLOWED_DOMAIN ?? "").toLowerCase().trim()
 
 export const authOptions: AuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
 
@@ -30,31 +31,67 @@ export const authOptions: AuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null
-        const prisma = getPrisma()
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email.toLowerCase() },
-        })
-        if (!user?.password) return null
-        const valid = await bcrypt.compare(credentials.password, user.password)
-        if (!valid) return null
-        return { id: user.id, name: user.name ?? "", email: user.email ?? "", role: user.role }
+        console.log("[Auth] Credentials login attempt for:", credentials?.email)
+        if (!credentials?.email || !credentials?.password) {
+          console.warn("[Auth] Missing email or password")
+          return null
+        }
+        
+        try {
+          const prisma = getPrisma()
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email.toLowerCase() },
+          })
+
+          if (!user) {
+            console.warn("[Auth] User not found:", credentials.email)
+            return null
+          }
+
+          if (!user.password) {
+            console.warn("[Auth] User has no password set (likely Google user):", credentials.email)
+            return null
+          }
+
+          const valid = await bcrypt.compare(credentials.password, user.password)
+          if (!valid) {
+            console.warn("[Auth] Invalid password for:", credentials.email)
+            return null
+          }
+
+          console.log("[Auth] Login successful for:", credentials.email)
+          return { id: user.id, name: user.name ?? "", email: user.email ?? "", role: user.role }
+        } catch (error) {
+          console.error("[Auth] Error during authorize:", error)
+          return null
+        }
       },
     }),
   ],
 
   callbacks: {
     async signIn({ account, profile }) {
+      console.log("[Auth] Sign-in attempt with provider:", account?.provider)
       // Credentials logins are handled by authorize() above
       if (account?.provider === "credentials") return true
 
       // Google: verify domain + email_verified
       if (account?.provider === "google") {
         const email = profile?.email?.toLowerCase()
-        if (!email) return false
+        console.log("[Auth] Google sign-in for:", email)
+        if (!email) {
+          console.warn("[Auth] No email in Google profile")
+          return false
+        }
         const isVerified = (profile as { email_verified?: boolean }).email_verified === true
-        if (!isVerified) return false
-        if (companyDomain && email.split("@")[1] !== companyDomain) return false
+        if (!isVerified) {
+          console.warn("[Auth] Google email not verified")
+          return false
+        }
+        if (companyDomain && email.split("@")[1] !== companyDomain) {
+          console.warn(`[Auth] Email domain mismatch. Expected: ${companyDomain}, Got: ${email.split("@")[1]}`)
+          return false
+        }
 
         // Upsert user in DB so Google users exist as rows
         try {
@@ -69,12 +106,15 @@ export const authOptions: AuthOptions = {
               role: "employee",
             },
           })
-        } catch {
-          // Don't block sign-in if DB upsert fails
+          console.log("[Auth] Google user upserted successfully")
+        } catch (dbError) {
+          // Don't block sign-in if DB upsert fails, but log it
+          console.error("[Auth] Database error during Google upsert:", dbError)
         }
         return true
       }
 
+      console.warn("[Auth] Unknown provider:", account?.provider)
       return false
     },
 

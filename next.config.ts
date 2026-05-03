@@ -9,8 +9,8 @@ if (process.env.ALLOW_INSECURE_TLS === "1") {
 const isProd = process.env.NODE_ENV === "production"
 
 const nextConfig: NextConfig = {
-  // Dev keeps a separate folder so local `.next` can be used for Docker/CI builds.
-  distDir: isProd ? ".next" : ".next-dev",
+  // If you want to use standalone output for Docker, keep this.
+  // Next.js 15+ will warn you to run `node .next/standalone/server.js` if you use `next start`.
   ...(isProd ? { output: "standalone" } : {}),
   // Ignore linting and TypeScript errors for build
   eslint: { ignoreDuringBuilds: true },

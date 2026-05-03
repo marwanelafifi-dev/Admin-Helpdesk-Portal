@@ -8,6 +8,7 @@
     "dev:custom": "node scripts/dev-server.cjs",
     "build": "next build",
     "start": "next start -p 3003",
+    "start:standalone": "node .next/standalone/server.js",
     "lint": "next lint"
   },
   "dependencies": {
