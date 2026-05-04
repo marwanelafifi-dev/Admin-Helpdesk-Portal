@@ -95,6 +95,40 @@ This document tracks the phased development of the Admin Request Platform, movin
   - [x] Auto-mark comments as viewed when request detail page loads.
   - [x] Implemented on: My Requests, Shipping, Shipping Receiving, HR, Maintenance, Purchase, Event, Travel, Admin All Requests pages.
 
+## Phase 2c: UX Enhancements (Completed)
+- [x] **Inline Status Editing:** Change request status directly from the list row without navigating to detail view.
+  - [x] `InlineStatusSelect` component — clickable badge opens a dropdown of allowed statuses per module.
+  - [x] Module-aware status lists: Shipping (new/in_customs/delivered/cancelled), HR (new/on_hold/completed), Maintenance (new/on_hold/completed/cancelled), Purchase (new/in_customs/on_hold/delivered/cancelled), Event/Travel (new/on_hold/in_transit/delivered/completed/cancelled).
+  - [x] Optimistic UI update + `updateStatus()` persistence via engineService.
+  - [x] Last Update Date refreshed automatically on status change.
+  - [x] Implemented on: Shipping, HR, Maintenance, Purchase, Event, Travel, All Requests (module-aware), My Requests.
+- [x] **Three-dot Action Menus:** `RequestActionsMenu` component on all module list rows.
+  - [x] Actions: View Details (inline expand), Edit (links to module form).
+  - [x] Chevron indicator on row when expanded.
+  - [x] Implemented on all module pages + All Requests (module-specific form routing).
+- [x] **Inline Row Expansion:** Click "View Details" to expand a row in-place showing request details.
+  - [x] `useExpandedRows` hook managing expand/collapse state per request ID.
+  - [x] Light blue `bg-blue-50` expansion row with grid layout showing key fields.
+  - [x] Purchase expansion shows Product URL as clickable hyperlink.
+  - [x] Implemented on: Shipping, HR, Maintenance, Purchase, Event, Travel, All Requests.
+- [x] **Form Submissions Enabled:** All module forms now persist via `submitRequest()` from engineService.
+  - [x] Maintenance, Purchase, HR (Onboarding + Offboarding) forms: fully working submit.
+  - [x] Event, Travel forms: submit wired but button shows "Coming Soon" (disabled).
+- [x] **Full-Width Table Layout:** Tables extend edge-to-edge inside their Card containers.
+  - [x] `-mx-6 px-6 -mb-6` wrapper pattern applied to all module table cards.
+  - [x] `bg-slate-800` moved to `<thead>` element (not `<tr>`) for full-width dark header.
+  - [x] Filler `<col /><th className="bg-slate-800" />` ensures header bg fills remaining space.
+- [x] **Auto-Sizing Columns:** Columns size to content by default; user can resize manually.
+  - [x] `colWidths` initialized as `null[]` — no fixed pixel widths on first load.
+  - [x] `tableLayout` switches to `"fixed"` only after user drags a column header.
+  - [x] Resize handler reads actual rendered DOM width via `getBoundingClientRect()` at drag start.
+  - [x] Applied to all module pages: Shipping, Receiving, HR, Maintenance, Purchase, Event, Travel, All Requests, My Requests.
+- [x] **Stat Card Consistency:** All module pages use identical stat card style.
+  - [x] `rounded-xl p-5`, `h-11 w-11` icon, `text-sm` label, `text-2xl font-bold` value, `gap-4` grid.
+  - [x] Purchase page fixed to match standard (was using compact `p-3` / `text-xl` / `h-8 w-8` style).
+  - [x] Purchase stat cards forced to single row (`grid-cols-5`).
+- [x] **Google Fonts Removed:** Replaced `next/font/google` Inter with system font stack to avoid certificate errors in restricted network environments.
+
 ## Phase 3: Advanced Functionality (Upcoming)
 - [ ] **Audit Trail Enhancement:** Add granular history logs to the dashboard.
 - [ ] **Notifications System:** Automated email/in-app notifications for pending approvals.
@@ -109,9 +143,11 @@ This document tracks the phased development of the Admin Request Platform, movin
 ## UI Design System (All Pages — Consistent Pattern)
 Every module page follows the same formal layout:
 1. **Header** — page title + subtitle + action button (blue-600).
-2. **Stat cards** — 4 clickable rounded-xl border-2 cards; active card fills in its color; synced with status filter.
-3. **Table card** — `<Card>` with `<CardHeader>` containing search input + status filter pills (+ any module-specific secondary pills).
-4. **Table** — native `<table>` with `tableLayout: fixed`, `<colgroup>` for resizable columns, dark slate (`bg-slate-800`) sortable header with drag handles, zebra rows, dot + badge status indicators, footer count.
+2. **Stat cards** — clickable `rounded-xl border-2 p-5` cards with `h-11 w-11` icon, `text-sm` label, `text-2xl font-bold` value; active card fills in its color; synced with status filter.
+3. **Table card** — `<Card>` with `-mx-6 px-6 -mb-6` wrapper; `<CardHeader>` containing search input + status filter pills.
+4. **Table** — native `<table>` with `tableLayout: auto` by default (columns size to content), switches to `tableLayout: fixed` after user manually resizes; `<thead className="bg-slate-800">` + filler `<col /><th className="bg-slate-800" />` ensures full-width dark header; drag handles on each `<th>` for resizing; zebra rows; dot + badge status indicators; footer count.
+5. **Inline actions** — three-dot `RequestActionsMenu` on each row: View Details (expands row in-place) + Edit (links to form).
+6. **Inline status editing** — `InlineStatusSelect` badge on Status column; dropdown shows module-specific allowed statuses; updates optimistically + persists via `updateStatus()`.
 
 ## Standardized Table Column Structure (All Modules)
 All module pages follow a consistent column ordering for professional appearance:
@@ -172,6 +208,9 @@ Status column preserves color styling with dot indicators; other columns use neu
 | `src/components/layout/Sidebar.tsx` | Navigation sidebar | Module navigation with active state highlighting |
 | `src/lib/mock-data.ts` | Static mock data | Legacy shipments, users, roles |
 | `src/modules/shipping/ShippingForm.tsx` | Shipping request form | Full form with carrier selection and validation |
+| `src/components/ui/InlineStatusSelect.tsx` | Inline status dropdown | Module-aware status list, optimistic update, chevron indicator |
+| `src/components/ui/RequestActionsMenu.tsx` | Three-dot row action menu | View Details (inline expand) + Edit (form link) |
+| `src/hooks/useExpandedRows.ts` | Row expansion state hook | `toggleRow()`, `isExpanded()` keyed by request ID |
 
 ---
 ### Development Loop (Repeat for each module)

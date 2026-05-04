@@ -1,11 +1,13 @@
 "use client"
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import { useSession } from "next-auth/react"
 import { Search, Plus, CalendarDays, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
 import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { getRequests, initializeMockData, updateStatus, type EngineRequest, type RequestStatus } from "@/services/engineService"
+import { notifyStatusChange } from "@/services/notificationService"
 import { cn } from "@/lib/utils"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
@@ -62,6 +64,7 @@ function formatDate(iso: string) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function EventPage() {
+  const { data: session } = useSession()
   const [requests, setRequests]           = useState<EngineRequest[]>([])
   const [search, setSearch]               = useState("")
   const [statusFilter, setStatusFilter]   = useState("all")
@@ -69,6 +72,10 @@ export default function EventPage() {
   const [sortDir, setSortDir]             = useState<"asc" | "desc">("desc")
   const [colWidths, setColWidths]         = useState<(number | null)[]>(() => COLS.map(() => null))
   const tableRef = useRef<HTMLTableElement>(null)
+
+  const canUpdateStatus = ((session?.user?.permissions as string[])?.includes("update_status") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  const canEditRequest = ((session?.user?.permissions as string[])?.includes("edit_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  const canCancelRequest = ((session?.user?.permissions as string[])?.includes("cancel_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
 
   useEffect(() => {
     initializeMockData()
@@ -80,8 +87,14 @@ export default function EventPage() {
   }, [])
 
   function handleStatusChange(id: string, newStatus: string) {
+    const request = requests.find(r => r.id === id)
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status: newStatus as RequestStatus, updatedAt: new Date().toISOString() } : r))
     updateStatus(id, newStatus as RequestStatus, "USR-001")
+
+    // Notify relevant users about status change
+    if (request) {
+      notifyStatusChange("USR-001", id, request.title, "event", newStatus)
+    }
   }
 
   function handleCancelRequest(id: string) {
@@ -233,7 +246,7 @@ export default function EventPage() {
         </CardHeader>
 
         <div className="-mx-6 px-6 -mb-6">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overflow-y-visible">
             <table ref={tableRef} className="w-full text-sm border-collapse" style={{ tableLayout: colWidths.some(w => w !== null) ? "fixed" : "auto" }}>
             <colgroup>
               {colWidths.map((w, i) => <col key={i} style={w !== null ? { width: w } : undefined} />)}
@@ -308,6 +321,7 @@ export default function EventPage() {
                       statusDot={STATUS_DOT}
                       statusLabels={STATUS_LABELS}
                       onStatusChange={(newStatus) => handleStatusChange(req.id, newStatus)}
+                      canUpdateStatus={canUpdateStatus}
                     />
                   </td>
                   <td className="py-3 px-3">
@@ -316,10 +330,11 @@ export default function EventPage() {
                   <td className="py-3 px-2 text-right">
                     <RequestActionsMenu
                       requestId={req.id}
-                      showCancelOption={false}
+                      showCancelOption={canCancelRequest}
                       isExpanded={isExpanded(req.id)}
                       onViewDetails={() => toggleRow(req.id)}
-                      onEdit={(id) => window.open(`/event/new?id=${id}`, '_blank')}
+                      onEdit={canEditRequest ? (id) => window.open(`/requests/${id}?source=event`, '_blank') : undefined}
+                      onCancel={handleCancelRequest}
                     />
                   </td>
                 </tr>

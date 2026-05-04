@@ -1,11 +1,10 @@
 "use client"
 
-import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
-import MaintenanceForm from "@/modules/maintenance/MaintenanceForm"
+import { useRouter, useSearchParams } from "next/navigation"
 import { getRequests, type EngineRequest } from "@/services/engineService"
 
-export default function NewMaintenanceRequestPage() {
+export default function NewEventRequestPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const requestId = searchParams.get("id")
@@ -22,8 +21,8 @@ export default function NewMaintenanceRequestPage() {
   }, [requestId])
 
   const isEditing = !!requestId
-  const title = isEditing ? "Edit Maintenance Request" : "New Maintenance Request"
-  const subtitle = isEditing ? "Update the maintenance issue details" : "Submit a new maintenance issue for our facilities team"
+  const title = isEditing ? "Edit Event Request" : "New Event Request"
+  const subtitle = isEditing ? "Update the event request details" : "Submit a new event request"
 
   return (
     <div className="space-y-6">
@@ -33,12 +32,10 @@ export default function NewMaintenanceRequestPage() {
         <p className="text-muted-foreground text-sm mt-0.5">{subtitle}</p>
       </div>
 
-      {/* Form */}
-      <MaintenanceForm
-        onCancel={() => router.push("/maintenance")}
-        editingRequest={existingRequest}
-        isEditing={isEditing}
-      />
+      {/* Coming Soon Message */}
+      <div className="p-6 bg-blue-50 border border-blue-200 rounded-lg">
+        <p className="text-blue-900">Event request form is coming soon</p>
+      </div>
     </div>
   )
 }

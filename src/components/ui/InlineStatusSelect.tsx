@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { ChevronDown } from "lucide-react"
+import { ChevronDown, Lock } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface InlineStatusSelectProps {
@@ -12,6 +12,7 @@ interface InlineStatusSelectProps {
   statusLabels: Record<string, string>
   onStatusChange: (newStatus: string) => void
   disabled?: boolean
+  canUpdateStatus?: boolean
 }
 
 export function InlineStatusSelect({
@@ -22,10 +23,12 @@ export function InlineStatusSelect({
   statusLabels,
   onStatusChange,
   disabled = false,
+  canUpdateStatus = true,
 }: InlineStatusSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [openUpward, setOpenUpward] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -36,15 +39,19 @@ export function InlineStatusSelect({
 
     if (isOpen) {
       // Check if dropdown would go off-screen and flip upward if needed
-      if (ref.current) {
+      if (ref.current && dropdownRef.current) {
         const rect = ref.current.getBoundingClientRect()
-        const dropdownHeight = statuses.length * 40
-        setOpenUpward(rect.bottom + dropdownHeight > window.innerHeight - 16)
+        const dropdownHeight = dropdownRef.current.offsetHeight
+        const spaceBelow = window.innerHeight - rect.bottom
+        const spaceAbove = rect.top
+
+        // Flip upward if not enough space below and more space above
+        setOpenUpward(spaceBelow < dropdownHeight && spaceAbove > spaceBelow)
       }
       document.addEventListener("mousedown", handleClickOutside)
       return () => document.removeEventListener("mousedown", handleClickOutside)
     }
-  }, [isOpen, statuses.length])
+  }, [isOpen])
 
   function handleSelect(status: string) {
     if (status !== currentStatus) {
@@ -60,25 +67,33 @@ export function InlineStatusSelect({
   return (
     <div ref={ref} className="relative inline-block">
       <button
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-        disabled={disabled}
+        onClick={() => canUpdateStatus && !disabled && setIsOpen(!isOpen)}
+        disabled={disabled || !canUpdateStatus}
         className={cn(
           "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap",
-          "transition-all hover:ring-2 hover:ring-offset-1 cursor-pointer",
-          color,
-          disabled && "opacity-50 cursor-not-allowed"
+          "transition-all",
+          canUpdateStatus && !disabled && "hover:ring-2 hover:ring-offset-1 cursor-pointer",
+          !canUpdateStatus && "cursor-not-allowed",
+          color
         )}
       >
         <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", dot)} />
         <span>{label}</span>
-        <ChevronDown className={cn("h-3 w-3 transition-transform", isOpen && "rotate-180")} />
+        {canUpdateStatus && !disabled ? (
+          <ChevronDown className={cn("h-3 w-3 transition-transform", isOpen && "rotate-180")} />
+        ) : (
+          <Lock className="h-3 w-3 text-gray-400" />
+        )}
       </button>
 
       {isOpen && (
-        <div className={cn(
-          "absolute left-0 bg-white border border-gray-200 rounded-md shadow-lg z-50 min-w-max",
-          openUpward ? "bottom-full mb-1" : "top-full mt-1"
-        )}>
+        <div
+          ref={dropdownRef}
+          className={cn(
+            "absolute left-0 bg-white border border-gray-200 rounded-md shadow-lg z-50 min-w-max max-h-72 overflow-y-auto",
+            openUpward ? "bottom-full mb-1" : "top-full mt-1"
+          )}
+        >
           {statuses.map((status) => {
             const statusLabel = statusLabels[status] ?? status
             const statusColor = statusColors[status] ?? "bg-zinc-100 text-zinc-600"

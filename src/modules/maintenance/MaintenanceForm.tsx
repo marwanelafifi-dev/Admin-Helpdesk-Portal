@@ -1,16 +1,17 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
 import {
   MAINTENANCE_CATEGORIES,
   MAINTENANCE_PRIORITIES,
   FLOOR_NUMBERS,
   MaintenancePayloadSchema,
 } from "./maintenance.schema"
-import { submitRequest } from "@/services/engineService"
+import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -52,28 +53,56 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
   )
 }
 
-export function MaintenanceForm({ onCancel }: { onCancel?: () => void }) {
+export function MaintenanceForm({ onCancel, editingRequest, isEditing }: { onCancel?: () => void; editingRequest?: EngineRequest | null; isEditing?: boolean }) {
   const router = useRouter()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
-  const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<MaintenanceForm>({
+  const { register, control, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<MaintenanceForm>({
     resolver: zodResolver(MaintenancePayloadSchema),
     defaultValues: { attachments: [] },
   })
+
+  useEffect(() => {
+    if (isEditing && editingRequest?.payload) {
+      const payload = editingRequest.payload as any
+      reset({
+        requestTitle: editingRequest.title || "",
+        issueTitle: payload.issueTitle || "",
+        description: payload.description || "",
+        priority: payload.priority || "",
+        category: payload.category || "",
+        floorNumber: payload.floorNumber || "",
+        roomArea: payload.roomArea || "",
+        notes: payload.notes || "",
+        attachments: payload.attachments || [],
+      })
+    }
+  }, [editingRequest, isEditing, reset])
 
   const handleCancel = onCancel ?? (() => router.push("/maintenance"))
 
   const onSubmit = async (data: MaintenanceForm) => {
     try {
-      submitRequest("maintenance", data, {
-        title: data.requestTitle,
-        requesterId: "USR-001",
-        requesterName: "Current User",
-        requesterEmail: "user@si-ware.com",
-      })
+      if (isEditing && editingRequest) {
+        // Update existing request
+        updateRequest(editingRequest.id, data, {
+          title: data.requestTitle,
+          requesterId: editingRequest.requesterId,
+          requesterName: editingRequest.requesterName,
+          requesterEmail: editingRequest.requesterEmail,
+        })
+      } else {
+        // Create new request
+        submitRequest("maintenance", data, {
+          title: data.requestTitle,
+          requesterId: "USR-001",
+          requesterName: "Current User",
+          requesterEmail: "user@si-ware.com",
+        })
+      }
       router.push("/maintenance")
       router.refresh()
     } catch (error) {
-      console.error("Failed to create request:", error)
+      console.error(isEditing ? "Failed to update request:" : "Failed to create request:", error)
     }
   }
 
@@ -243,7 +272,7 @@ export function MaintenanceForm({ onCancel }: { onCancel?: () => void }) {
         <div className="sticky bottom-0 bg-white border-t py-4 px-1 flex items-center justify-between gap-3">
           <Button type="button" variant="ghost" onClick={handleCancel}>Cancel</Button>
           <Button type="submit" disabled={isSubmitting} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px]">
-            {isSubmitting ? "Submitting..." : "Submit Maintenance Request"}
+            {isSubmitting ? (isEditing ? "Updating..." : "Submitting...") : (isEditing ? "Update Request" : "Submit Maintenance Request")}
           </Button>
         </div>
       </form>

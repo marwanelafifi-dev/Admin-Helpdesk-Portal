@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect, useRef } from "react"
+import { useSession } from "next-auth/react"
 import { Search, Plus, Package, Truck, CheckCircle2, Clock, MoreHorizontal, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -13,6 +14,7 @@ import {
 import { mockShipments, type MockShipment } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
 import { getRequestsByModule, initializeMockData, updateStatus } from "@/services/engineService"
+import { notifyStatusChange } from "@/services/notificationService"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { useExpandedRows } from "@/hooks/useExpandedRows"
@@ -67,6 +69,7 @@ const COLS: { key: SortKey; label: string; defaultW: number }[] = [
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ReceivingPage() {
+  const { data: session } = useSession()
   const [search, setSearch]           = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [carrierFilter, setCarrierFilter] = useState("all")
@@ -76,6 +79,10 @@ export default function ReceivingPage() {
   const tableRef = useRef<HTMLTableElement>(null)
   const [shipments, setShipments] = useState<MockShipment[]>(mockShipments)
   const [loading, setLoading] = useState(true)
+
+  const canUpdateStatus = ((session?.user?.permissions as string[])?.includes("update_status") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  const canEditRequest = ((session?.user?.permissions as string[])?.includes("edit_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  const canCancelRequest = ((session?.user?.permissions as string[])?.includes("cancel_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -125,6 +132,7 @@ export default function ReceivingPage() {
   }, [])
 
   function handleStatusChange(id: string, newStatus: string) {
+    const shipment = shipments.find(s => s.id === id)
     const today = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
     setShipments(prev => prev.map(s => s.id === id ? { ...s, status: newStatus as any, lastUpdate: today } : s))
     const statusMap: Record<string, string> = {
@@ -136,6 +144,9 @@ export default function ReceivingPage() {
       "Cancelled": "cancelled",
     }
     updateStatus(id, statusMap[newStatus] as any, "USR-001")
+    if (shipment) {
+      notifyStatusChange("USR-001", id, shipment.title || shipment.id, "shipping", statusMap[newStatus])
+    }
   }
 
   function handleCancelRequest(id: string) {
@@ -320,7 +331,7 @@ export default function ReceivingPage() {
         </CardHeader>
 
         {/* Table */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-visible">
           <table ref={tableRef} className="w-full text-sm" style={{ tableLayout: colWidths.some(w => w !== null) ? "fixed" : "auto" }}>
             <colgroup>
               {colWidths.map((w, i) => <col key={i} style={w !== null ? { width: w } : undefined} />)}
@@ -408,6 +419,7 @@ export default function ReceivingPage() {
                       statusDot={STATUS_DOT}
                       statusLabels={{ "New": "New", "In Progress": "In Progress", "In Customs": "In Customs", "Delivered": "Delivered", "Cancelled": "Cancelled" }}
                       onStatusChange={(newStatus) => handleStatusChange(shipment.id, newStatus)}
+                      canUpdateStatus={canUpdateStatus}
                     />
                   </td>
                   <td className="py-3 px-3">
@@ -419,10 +431,10 @@ export default function ReceivingPage() {
                   <td className="py-3 px-2 text-right">
                     <RequestActionsMenu
                       requestId={shipment.id}
-                      showCancelOption={true}
+                      showCancelOption={canCancelRequest}
                       isExpanded={isExpanded(shipment.id)}
                       onViewDetails={() => toggleRow(shipment.id)}
-                      onEdit={(id) => window.open(`/shipping/new?id=${id}`, '_blank')}
+                      onEdit={canEditRequest ? (id) => window.open(`/requests/${id}?source=shipping`, '_blank') : undefined}
                       onCancel={handleCancelRequest}
                     />
                   </td>

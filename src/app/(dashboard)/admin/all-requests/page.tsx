@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react"
+import { useSession } from "next-auth/react"
 import Link from "next/link"
 import { Search, Layers, TrendingUp, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -9,6 +10,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import { getRequests, initializeMockData, updateStatus, type EngineRequest, type RequestStatus } from "@/services/engineService"
+import { notifyStatusChange } from "@/services/notificationService"
 import { cn } from "@/lib/utils"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
@@ -80,6 +82,7 @@ type SortKey = "id" | "title" | "requesterName" | "createdAt" | "module" | "stat
 type SortDir = "asc" | "desc"
 
 export default function AllRequestsPage() {
+  const { data: session } = useSession()
   const [requests, setRequests]         = useState<EngineRequest[]>([])
   const [search, setSearch]             = useState("")
   const [activeTab, setActiveTab]       = useState<ModuleTab>("all")
@@ -87,6 +90,10 @@ export default function AllRequestsPage() {
   const [sortKey, setSortKey]           = useState<SortKey>("updatedAt")
   const [sortDir, setSortDir]           = useState<SortDir>("desc")
   const { isExpanded, toggleRow } = useExpandedRows()
+
+  const canUpdateStatus = ((session?.user?.permissions as string[])?.includes("update_status") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  const canEditRequest = ((session?.user?.permissions as string[])?.includes("edit_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  const canCancelRequest = ((session?.user?.permissions as string[])?.includes("cancel_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
 
   // ── Column resize ──────────────────────────────────────────────────────────
   const COLS = useMemo(() => [
@@ -189,10 +196,20 @@ export default function AllRequestsPage() {
   ]
 
   const handleStatusChange = (id: string, newStatus: string) => {
+    const request = requests.find(r => r.id === id)
     setRequests(prev => prev.map(r =>
       r.id === id ? { ...r, status: newStatus as RequestStatus, updatedAt: new Date().toISOString() } : r
     ))
     updateStatus(id, newStatus as RequestStatus, "USR-001")
+    if (request) {
+      notifyStatusChange("USR-001", id, request.title, request.module, newStatus)
+    }
+  }
+
+  const handleCancelRequest = (id: string) => {
+    if (confirm("Are you sure you want to cancel this request?")) {
+      handleStatusChange(id, "cancelled")
+    }
   }
 
   return (
@@ -312,7 +329,7 @@ export default function AllRequestsPage() {
           </p>
         </CardHeader>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-visible">
           <table ref={tableRef} className="w-full text-sm" style={{ tableLayout: colWidths.some(w => w !== null) ? "fixed" : "auto" }}>
             <colgroup>
               {colWidths.map((w, i) => <col key={i} style={w !== null ? { width: w } : undefined} />)}
@@ -397,6 +414,7 @@ export default function AllRequestsPage() {
                       statusDot={STATUS_DOT}
                       statusLabels={STATUS_LABELS}
                       onStatusChange={(newStatus) => handleStatusChange(req.id, newStatus)}
+                      canUpdateStatus={canUpdateStatus}
                     />
                   </td>
                   <td className="py-3 px-3">
@@ -405,19 +423,13 @@ export default function AllRequestsPage() {
                   <td className="py-3 px-2 text-right">
                     <RequestActionsMenu
                       requestId={req.id}
-                      showCancelOption={false}
+                      showCancelOption={canCancelRequest}
                       isExpanded={isExpanded(req.id)}
                       onViewDetails={() => toggleRow(req.id)}
-                      onEdit={(id) => {
-                        const route = req.module === "shipping" ? "/shipping/new"
-                          : req.module === "hr" ? "/hr/new"
-                          : req.module === "maintenance" ? "/maintenance/new"
-                          : req.module === "purchase" ? "/purchase/new"
-                          : req.module === "event" ? "/event/new"
-                          : req.module === "travel" ? "/travel/new"
-                          : "/shipping/new"
-                        window.open(`${route}?id=${id}`, '_blank')
-                      }}
+                      onEdit={canEditRequest ? (id) => {
+                        window.open(`/requests/${id}?source=all-requests`, '_blank')
+                      } : undefined}
+                      onCancel={handleCancelRequest}
                     />
                   </td>
                 </tr>

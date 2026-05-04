@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -13,7 +13,7 @@ import {
 } from "./shipping.schema"
 import { shippingFormDefaults } from "./shipping.mock"
 import { mockUsers } from "@/lib/mock-data"
-import { submitRequest } from "@/services/engineService"
+import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -169,15 +169,41 @@ function FileUploadZone({
   )
 }
 
-export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
+export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel?: () => void; editingRequest?: EngineRequest | null; isEditing?: boolean }) {
   const router = useRouter()
   const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([])
   const [ccEmailInput, setCcEmailInput] = useState("")
 
-  const { register, control, handleSubmit, watch, setValue, setError, clearErrors, formState: { errors, isSubmitting } } = useForm<ShippingRequestForm>({
+  const { register, control, handleSubmit, watch, setValue, setError, clearErrors, formState: { errors, isSubmitting }, reset } = useForm<ShippingRequestForm>({
     resolver: zodResolver(ShippingRequestFormSchema) as any,
     defaultValues: shippingFormDefaults as any,
   })
+
+  useEffect(() => {
+    if (isEditing && editingRequest?.payload) {
+      const payload = editingRequest.payload as any
+      reset({
+        title: editingRequest.title || "",
+        notes: payload.notes || "",
+        supplier: payload.supplier || "",
+        poNumber: payload.poNumber || "",
+        costCenter: payload.costCenter || "",
+        carrier: payload.carrier || "",
+        carrierName: payload.carrierName || "",
+        trackingNumber: payload.trackingNumber || "",
+        trackingLink: payload.trackingLink || "",
+        description: payload.description || "",
+        expectedPickupDate: payload.expectedPickupDate || "",
+        expectedDeliveryDate: payload.expectedDeliveryDate || "",
+        approvers: {
+          directManager: payload.approvers?.directManager?.userId || "",
+          techManager: payload.approvers?.techManager?.map((a: any) => a.userId) || [],
+          pm: payload.approvers?.pm?.map((a: any) => a.userId) || [],
+        },
+        ccEmails: payload.ccEmails || [],
+      })
+    }
+  }, [editingRequest, isEditing, reset])
 
   const ccEmails = watch("ccEmails") ?? []
   const carrier = watch("carrier")
@@ -186,7 +212,7 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
   const removeStagedFile = useCallback((id: string) => setStagedFiles((prev) => prev.filter((f) => f.id !== id)), [])
 
   const onSubmit = async (data: ShippingRequestForm) => {
-    if (!hasRequiredDocs(stagedFiles)) {
+    if (!isEditing && !hasRequiredDocs(stagedFiles)) {
       setError("attachments", { type: "manual", message: "AWB and Commercial Invoice are both required." })
       return
     }
@@ -196,23 +222,32 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
       const payload = {
         ...data,
         approvers: mapApprovers(data.approvers),
-        attachments: buildAttachmentPayload(stagedFiles),
+        attachments: isEditing ? (editingRequest?.payload as any)?.attachments : buildAttachmentPayload(stagedFiles),
       }
 
-      const created = submitRequest("shipping", payload, {
-        title: data.title,
-        requesterId: "USR-001",
-        requesterName: "Marwan Elafifi",
-        requesterEmail: "marwan.elafifi@si-ware.com",
-      })
-
-      router.push(`/requests/${created.id}`)
+      if (isEditing && editingRequest) {
+        updateRequest(editingRequest.id, payload, {
+          title: data.title,
+          requesterId: editingRequest.requesterId,
+          requesterName: editingRequest.requesterName,
+          requesterEmail: editingRequest.requesterEmail,
+        })
+        router.push(`/requests/${editingRequest.id}`)
+      } else {
+        const created = submitRequest("shipping", payload, {
+          title: data.title,
+          requesterId: "USR-001",
+          requesterName: "Marwan Elafifi",
+          requesterEmail: "marwan.elafifi@si-ware.com",
+        })
+        router.push(`/requests/${created.id}`)
+      }
       router.refresh()
     } catch (error) {
-      console.error("Failed to create request:", error)
+      console.error(isEditing ? "Failed to update request:" : "Failed to create request:", error)
       setError("title", {
         type: "manual",
-        message: "Failed to create request. Please try again.",
+        message: isEditing ? "Failed to update request. Please try again." : "Failed to create request. Please try again.",
       })
     }
   }
@@ -390,7 +425,7 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
       <div className="sticky bottom-0 bg-white border-t py-4 px-1 flex items-center justify-between gap-3 -mx-1">
         <Button type="button" variant="ghost" onClick={() => onCancel?.()}>Cancel</Button>
         <Button type="submit" disabled={isSubmitting} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px]">
-          {isSubmitting ? "Submitting..." : "Submit"}
+          {isSubmitting ? (isEditing ? "Updating..." : "Submitting...") : (isEditing ? "Update Request" : "Submit")}
         </Button>
       </div>
     </form>

@@ -175,7 +175,7 @@ export default function RequestsPage() {
     draft:      userRequests.filter((r) => r.status === "draft").length,
     new:        userRequests.filter((r) => r.status === "new").length,
     on_hold:    userRequests.filter((r) => r.status === "on_hold").length,
-    in_transit: userRequests.filter((r) => r.status === "in_transit").length,
+    in_transit: userRequests.filter((r) => r.status === "in_customs").length,
     delivered:  userRequests.filter((r) => r.status === "delivered").length,
     completed:  userRequests.filter((r) => r.status === "completed").length,
     cancelled:  userRequests.filter((r) => r.status === "cancelled").length,
@@ -285,7 +285,7 @@ export default function RequestsPage() {
         </CardHeader>
 
         {/* Table */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-visible">
           <table ref={tableRef} className="w-full text-sm" style={{ tableLayout: colWidths.some(w => w !== null) ? "fixed" : "auto" }}>
             <colgroup>
               {colWidths.map((w, i) => <col key={i} style={w !== null ? { width: w } : undefined} />)}

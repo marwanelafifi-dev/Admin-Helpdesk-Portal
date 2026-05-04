@@ -38,6 +38,7 @@ type PlatformUser = {
   department: string | null
   active: boolean
   createdAt: string
+  provider?: string
 }
 
 type RoleOption = {
@@ -310,6 +311,31 @@ export default function AdminUsersPage() {
     }
   }
 
+  const handleResetPassword = async (userId: string) => {
+    const user = users.find((u) => u.id === userId)
+    if (!user) return
+
+    const newPassword = prompt("Enter a new temporary password (minimum 8 characters):")
+    if (!newPassword || newPassword.length < 8) {
+      alert("Password must be at least 8 characters.")
+      return
+    }
+
+    const response = await fetch(`/api/users/${userId}/reset-password`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: newPassword }),
+    })
+
+    const data = await response.json()
+    if (response.ok) {
+      alert(`Password has been reset successfully. New password: ${newPassword}`)
+    } else {
+      alert(`Failed to reset password: ${data.error || "Unknown error"}`)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -375,6 +401,7 @@ export default function AdminUsersPage() {
                 <TableRow className="bg-gray-50">
                   <TableHead>User</TableHead>
                   <TableHead>Role</TableHead>
+                  <TableHead>Auth Type</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Joined</TableHead>
                   <TableHead className="w-[60px]"></TableHead>
@@ -405,6 +432,17 @@ export default function AdminUsersPage() {
                           }`}
                         >
                           {roleLabel(user.role, roles)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            user.provider === "google" || user.provider === "oauth"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-blue-100 text-blue-700"
+                          }`}
+                        >
+                          {user.provider === "google" || user.provider === "oauth" ? "Google" : "Local"}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -457,6 +495,17 @@ export default function AdminUsersPage() {
                                 ))}
                               </DropdownMenuContent>
                             </DropdownMenu>
+                            {(!user.provider || user.provider === "local" || user.provider === "credentials") && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => handleResetPassword(user.id)}
+                                  className="text-blue-600 focus:text-blue-600"
+                                >
+                                  Reset password
+                                </DropdownMenuItem>
+                              </>
+                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() => handleDeactivateUser(user.id)}

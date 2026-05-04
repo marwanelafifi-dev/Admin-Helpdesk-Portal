@@ -1,263 +1,241 @@
-import { prisma } from '@/lib/prisma'
-
 /**
- * Create a notification
+ * Notification Service — localStorage-based notification system
+ * Handles role-based notifications for status changes, pending approvals, and comments
  */
-export async function createNotification(params: {
+
+export type NotificationType = 'status_change' | 'pending_approval' | 'comment' | 'general'
+
+export interface Notification {
+  id: string
   userId: string
-  type: string
+  type: NotificationType
   title: string
-  description: string
-  requestId?: string
-  commentId?: string
-  actionUrl?: string
-}) {
-  const { userId, type, title, description, requestId, commentId, actionUrl } =
-    params
+  message: string
+  requestId: string
+  requestTitle: string
+  module: string
+  read: boolean
+  createdAt: string
+  metadata?: Record<string, unknown>
+}
 
-  const notification = await prisma.notification.create({
-    data: {
-      userId,
-      type,
-      title,
-      description,
-      requestId: requestId || null,
-      commentId: commentId || null,
-      actionUrl: actionUrl || null,
-    },
+export interface NotificationPreferences {
+  userId: string
+  role: string
+  statusChanges: boolean
+  pendingApprovals: boolean
+  comments: boolean
+  emailNotifications: boolean
+}
+
+const NOTIFICATIONS_KEY = "arp_notifications"
+const PREFERENCES_KEY = "arp_notification_preferences"
+
+function readNotifications(): Notification[] {
+  if (typeof window === "undefined") return []
+  try {
+    const raw = localStorage.getItem(NOTIFICATIONS_KEY)
+    return raw ? (JSON.parse(raw) as Notification[]) : []
+  } catch {
+    return []
+  }
+}
+
+function writeNotifications(notifications: Notification[]): void {
+  if (typeof window === "undefined") return
+  try {
+    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(notifications))
+  } catch {
+    console.error("Failed to write notifications to storage")
+  }
+}
+
+function readPreferences(userId: string): NotificationPreferences {
+  if (typeof window === "undefined") {
+    return getDefaultPreferences(userId, "Requester")
+  }
+  try {
+    const raw = localStorage.getItem(PREFERENCES_KEY)
+    const all = raw ? (JSON.parse(raw) as NotificationPreferences[]) : []
+    return all.find(p => p.userId === userId) || getDefaultPreferences(userId, "Requester")
+  } catch {
+    return getDefaultPreferences(userId, "Requester")
+  }
+}
+
+function writePreferences(prefs: NotificationPreferences): void {
+  if (typeof window === "undefined") return
+  try {
+    const raw = localStorage.getItem(PREFERENCES_KEY)
+    const all = raw ? (JSON.parse(raw) as NotificationPreferences[]) : []
+    const idx = all.findIndex(p => p.userId === prefs.userId)
+    if (idx >= 0) {
+      all[idx] = prefs
+    } else {
+      all.push(prefs)
+    }
+    localStorage.setItem(PREFERENCES_KEY, JSON.stringify(all))
+  } catch {
+    console.error("Failed to write preferences to storage")
+  }
+}
+
+function getDefaultPreferences(userId: string, role: string): NotificationPreferences {
+  return {
+    userId,
+    role,
+    statusChanges: true,
+    pendingApprovals: role !== "Requester",
+    comments: true,
+    emailNotifications: true,
+  }
+}
+
+export function getNotifications(userId: string): Notification[] {
+  return readNotifications().filter(n => n.userId === userId)
+}
+
+export function getUnreadCount(userId: string): number {
+  return getNotifications(userId).filter(n => !n.read).length
+}
+
+export function markAsRead(notificationId: string): void {
+  const notifications = readNotifications()
+  const notification = notifications.find(n => n.id === notificationId)
+  if (notification) {
+    notification.read = true
+    writeNotifications(notifications)
+  }
+}
+
+export function markAllAsRead(userId: string): void {
+  const notifications = readNotifications()
+  notifications.forEach(n => {
+    if (n.userId === userId && !n.read) {
+      n.read = true
+    }
   })
+  writeNotifications(notifications)
+}
 
+export function deleteNotification(notificationId: string): void {
+  const notifications = readNotifications()
+  writeNotifications(notifications.filter(n => n.id !== notificationId))
+}
+
+export function createNotification(
+  userId: string,
+  type: NotificationType,
+  title: string,
+  message: string,
+  requestId: string,
+  requestTitle: string,
+  module: string,
+  metadata?: Record<string, unknown>
+): Notification {
+  const notification: Notification = {
+    id: `notif_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+    userId,
+    type,
+    title,
+    message,
+    requestId,
+    requestTitle,
+    module,
+    read: false,
+    createdAt: new Date().toISOString(),
+    metadata,
+  }
+  const notifications = readNotifications()
+  notifications.push(notification)
+  writeNotifications(notifications)
   return notification
 }
 
-/**
- * Notify on status change
- */
-export async function notifyOnStatusChange(params: {
-  requestId: string
-  oldStatus: string
+export function getPreferences(userId: string): NotificationPreferences {
+  return readPreferences(userId)
+}
+
+export function updatePreferences(prefs: NotificationPreferences): void {
+  writePreferences(prefs)
+}
+
+export function notifyStatusChange(
+  userId: string,
+  requestId: string,
+  requestTitle: string,
+  module: string,
   newStatus: string
-  changedByUserId: string
-  request: {
-    title: string
-    module: string
-  }
-}) {
-  const { requestId, oldStatus, newStatus, changedByUserId, request } = params
+): void {
+  const prefs = readPreferences(userId)
+  if (!prefs.statusChanges) return
 
-  const title = `Status Changed: ${oldStatus} → ${newStatus}`
-  const description = `${request.title} status was updated by you`
-  const actionUrl = `/requests/${requestId}`
-
-  // Get request requester and approvers
-  const dbRequest = await prisma.request.findUnique({
-    where: { id: requestId },
-    select: {
-      requesterId: true,
-      approvals: {
-        select: { approverId: true },
-      },
-    },
-  })
-
-  if (!dbRequest) return
-
-  // Notify requester
-  if (dbRequest.requesterId !== changedByUserId) {
-    await createNotification({
-      userId: dbRequest.requesterId,
-      type: 'status_change',
-      title,
-      description,
-      requestId,
-      actionUrl,
-    })
-  }
-
-  // Notify approvers
-  for (const approval of dbRequest.approvals) {
-    if (approval.approverId !== changedByUserId) {
-      await createNotification({
-        userId: approval.approverId,
-        type: 'status_change',
-        title,
-        description,
-        requestId,
-        actionUrl,
-      })
-    }
-  }
+  createNotification(
+    userId,
+    'status_change',
+    'Status Changed',
+    `Request "${requestTitle}" status changed to ${newStatus}`,
+    requestId,
+    requestTitle,
+    module,
+    { newStatus }
+  )
 }
 
-/**
- * Notify on comment added
- */
-export async function notifyOnComment(params: {
-  requestId: string
-  commentId: string
-  authorId: string
-  preview: string
-}) {
-  const { requestId, commentId, authorId, preview } = params
-
-  const author = await prisma.user.findUnique({
-    where: { id: authorId },
-    select: { name: true },
-  })
-
-  const title = `New Comment: ${preview.substring(0, 50)}...`
-  const description = `${author?.name} commented on your request`
-  const actionUrl = `/requests/${requestId}?tab=comments`
-
-  // Get all previous commenters + requester + approvers
-  const dbRequest = await prisma.request.findUnique({
-    where: { id: requestId },
-    select: {
-      requesterId: true,
-      approvals: {
-        select: { approverId: true },
-      },
-      comments: {
-        where: {
-          id: { not: commentId },
-        },
-        select: { authorId: true },
-        distinct: ['authorId'],
-      },
-    },
-  })
-
-  if (!dbRequest) return
-
-  const userIds = new Set<string>()
-  userIds.add(dbRequest.requesterId)
-
-  for (const approval of dbRequest.approvals) {
-    userIds.add(approval.approverId)
-  }
-
-  for (const comment of dbRequest.comments) {
-    userIds.add(comment.authorId)
-  }
-
-  // Remove the comment author
-  userIds.delete(authorId)
-
-  // Notify all
-  for (const userId of userIds) {
-    await createNotification({
-      userId,
-      type: 'comment_added',
-      title,
-      description,
-      commentId,
-      requestId,
-      actionUrl,
-    })
-  }
-}
-
-/**
- * Notify on mention
- */
-export async function notifyOnMention(params: {
-  requestId: string
-  commentId: string
-  authorId: string
-  mentionedUserIds: string[]
-  preview: string
-}) {
-  const { requestId, commentId, authorId, mentionedUserIds, preview } = params
-
-  const author = await prisma.user.findUnique({
-    where: { id: authorId },
-    select: { name: true },
-  })
-
-  const title = 'You were mentioned in a comment'
-  const description = `${author?.name} mentioned you: ${preview.substring(0, 50)}...`
-  const actionUrl = `/requests/${requestId}?tab=comments`
-
-  // Notify mentioned users
-  for (const userId of mentionedUserIds) {
-    if (userId !== authorId) {
-      await createNotification({
-        userId,
-        type: 'mentioned',
-        title,
-        description,
-        commentId,
-        requestId,
-        actionUrl,
-      })
-    }
-  }
-}
-
-/**
- * Get unread notifications for user
- */
-export async function getUnreadNotifications(
+export function notifyPendingApproval(
   userId: string,
-  limit = 10
-) {
-  const notifications = await prisma.notification.findMany({
-    where: {
-      userId,
-      read: false,
-    },
-    orderBy: { createdAt: 'desc' },
-    take: limit,
-  })
+  requestId: string,
+  requestTitle: string,
+  module: string,
+  requesterName: string
+): void {
+  const prefs = readPreferences(userId)
+  if (!prefs.pendingApprovals) return
 
-  return notifications
+  createNotification(
+    userId,
+    'pending_approval',
+    'Pending Approval',
+    `Request from ${requesterName}: "${requestTitle}" awaiting your approval`,
+    requestId,
+    requestTitle,
+    module,
+    { requesterName }
+  )
 }
 
-/**
- * Mark notification as read
- */
-export async function markAsRead(notificationId: string) {
-  const notification = await prisma.notification.update({
-    where: { id: notificationId },
-    data: {
-      read: true,
-      readAt: new Date(),
-    },
-  })
-
-  return notification
-}
-
-/**
- * Get user notification preferences
- */
-export async function getNotificationPreferences(userId: string) {
-  let prefs = await prisma.notificationPreference.findUnique({
-    where: { userId },
-  })
-
-  // Create if doesn't exist
-  if (!prefs) {
-    prefs = await prisma.notificationPreference.create({
-      data: { userId },
-    })
-  }
-
-  return prefs
-}
-
-/**
- * Update user notification preferences
- */
-export async function updateNotificationPreferences(
+export function notifyNewComment(
   userId: string,
-  updates: any
-) {
-  const prefs = await prisma.notificationPreference.upsert({
-    where: { userId },
-    create: { userId, ...updates },
-    update: updates,
-  })
+  requestId: string,
+  requestTitle: string,
+  module: string,
+  commenterName: string,
+  commentPreview: string
+): void {
+  const prefs = readPreferences(userId)
+  if (!prefs.comments) return
 
-  return prefs
+  createNotification(
+    userId,
+    'comment',
+    'New Comment',
+    `${commenterName} commented on "${requestTitle}": ${commentPreview.slice(0, 50)}...`,
+    requestId,
+    requestTitle,
+    module,
+    { commenterName, commentPreview }
+  )
+}
+
+export async function sendEmailNotification(
+  userEmail: string,
+  notification: Notification
+): Promise<boolean> {
+  try {
+    console.log(`📧 Email sent to ${userEmail}:`, notification.title, notification.message)
+    return true
+  } catch (error) {
+    console.error("Failed to send email:", error)
+    return false
+  }
 }

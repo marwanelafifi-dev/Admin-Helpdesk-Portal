@@ -24,6 +24,9 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "page:admin-users",
     "page:admin-settings",
     "manage_users",
+    "update_status",
+    "cancel_request",
+    "edit_request",
   ],
   manager: [
     "page:dashboard",
@@ -42,6 +45,9 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "page:purchase-new",
     "page:event",
     "page:travel",
+    "update_status",
+    "cancel_request",
+    "edit_request",
   ],
   requester: [
     "page:dashboard",

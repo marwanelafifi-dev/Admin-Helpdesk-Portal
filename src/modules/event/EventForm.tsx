@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -9,7 +9,7 @@ import {
   EVENT_TYPES,
   EventPayloadSchema,
 } from "./event.schema"
-import { submitRequest } from "@/services/engineService"
+import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -51,28 +51,57 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
   )
 }
 
-export function EventForm({ onCancel }: { onCancel?: () => void }) {
+export function EventForm({ onCancel, editingRequest, isEditing }: { onCancel?: () => void; editingRequest?: EngineRequest | null; isEditing?: boolean }) {
   const router = useRouter()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
-  const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<EventForm>({
+  const { register, control, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<EventForm>({
     resolver: zodResolver(EventPayloadSchema),
     defaultValues: { attachments: [] },
   })
+
+  useEffect(() => {
+    if (isEditing && editingRequest?.payload) {
+      const payload = editingRequest.payload as any
+      reset({
+        requestTitle: editingRequest.title || "",
+        eventName: payload.eventName || "",
+        eventType: payload.eventType || "",
+        description: payload.description || "",
+        eventDate: payload.eventDate || "",
+        eventTime: payload.eventTime || "",
+        location: payload.location || "",
+        expectedAttendees: payload.expectedAttendees || 0,
+        department: payload.department || "",
+        organizer: payload.organizer || "",
+        budget: payload.budget || 0,
+        notes: payload.notes || "",
+      })
+    }
+  }, [editingRequest, isEditing, reset])
 
   const handleCancel = onCancel ?? (() => router.push("/event"))
 
   const onSubmit = async (data: EventForm) => {
     try {
-      submitRequest("event", data, {
-        title: data.requestTitle,
-        requesterId: "USR-001",
-        requesterName: "Current User",
-        requesterEmail: "user@si-ware.com",
-      })
+      if (isEditing && editingRequest) {
+        updateRequest(editingRequest.id, data, {
+          title: data.requestTitle,
+          requesterId: editingRequest.requesterId,
+          requesterName: editingRequest.requesterName,
+          requesterEmail: editingRequest.requesterEmail,
+        })
+      } else {
+        submitRequest("event", data, {
+          title: data.requestTitle,
+          requesterId: "USR-001",
+          requesterName: "Current User",
+          requesterEmail: "user@si-ware.com",
+        })
+      }
       router.push("/event")
       router.refresh()
     } catch (error) {
-      console.error("Failed to create request:", error)
+      console.error(isEditing ? "Failed to update request:" : "Failed to create request:", error)
     }
   }
 

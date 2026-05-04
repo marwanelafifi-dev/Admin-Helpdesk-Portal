@@ -181,8 +181,9 @@ export default function RequestDetailPage() {
     }
   }
 
-  const canChangeStatus = session?.user?.permissions && hasPermission(session.user.permissions, "update")
+  const canChangeStatus = session?.user?.permissions && hasPermission(session.user.permissions, "update_status")
   const canViewActivity = session?.user?.permissions && hasPermission(session.user.permissions, "activity")
+  const canEditRequest = session?.user?.permissions && hasPermission(session.user.permissions, "edit_request")
   const currentUserId = session?.user?.id || "USR-001"
 
   useEffect(() => {
@@ -316,7 +317,7 @@ export default function RequestDetailPage() {
         let foundRequest: RequestDetail = {
           id: engineRequest.id,
           title: engineRequest.title,
-          description: engineRequest.payload?.description,
+          description: (engineRequest.payload?.description as string | undefined) || undefined,
           module: engineRequest.module,
           status: engineRequest.status,
           payload: engineRequest.payload || {},
@@ -329,7 +330,7 @@ export default function RequestDetailPage() {
           createdAt: engineRequest.createdAt,
           updatedAt: engineRequest.updatedAt,
           approvals: [],
-          attachments: engineRequest.payload?.attachments || [],
+          attachments: (Array.isArray(engineRequest.payload?.attachments) ? engineRequest.payload.attachments : []) as any[],
           comments: [],
           history: allHistory,
         }
@@ -475,6 +476,17 @@ export default function RequestDetailPage() {
                       ))}
                     </DropdownMenuContent>
                   </DropdownMenu>
+
+                  {/* Edit Button */}
+                  {canEditRequest && (
+                    <Button
+                      variant="outline"
+                      onClick={() => window.open(`/${request.module}/new?id=${request.id}`, '_blank')}
+                      className="ml-auto"
+                    >
+                      Edit
+                    </Button>
+                  )}
                 </div>
                 <h1 className="text-3xl font-bold tracking-tight">{request.title}</h1>
                 <p className="text-sm text-muted-foreground mt-1">Request ID: {request.id}</p>

@@ -11,7 +11,7 @@ export const mockShippingRequests: ShippingRequest[] = [
     id: "SHP-2026-0001",
     module: "shipping",
     title: "Client samples to Dubai distributor",
-    status: "approved",
+    status: "New",
     requesterId: "USR-007",
     requesterName: "Omar Farouk",
     requesterEmail: "omar.farouk@si-ware.com",

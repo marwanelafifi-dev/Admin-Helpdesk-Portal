@@ -150,6 +150,35 @@ export function submitRequest<T extends Record<string, unknown>>(
 }
 
 /**
+ * updateRequest
+ * Updates an existing request's payload and metadata.
+ * Returns the updated request, or null if the ID was not found.
+ */
+export function updateRequest<T extends Record<string, unknown>>(
+  id: string,
+  payload: T,
+  meta: Partial<SubmitMeta>
+): EngineRequest<T> | null {
+  const requests = readAll()
+  const index = requests.findIndex((r) => r.id === id)
+  if (index === -1) return null
+
+  const now = new Date().toISOString()
+  const request = requests[index]
+
+  const updated: EngineRequest<T> = {
+    ...request,
+    title: meta.title ?? request.title,
+    payload,
+    updatedAt: now,
+  } as EngineRequest<T>
+
+  requests[index] = updated
+  writeAll(requests)
+  return updated
+}
+
+/**
  * saveDraft
  * Saves an incomplete request as "draft" — does not trigger the approval flow.
  */

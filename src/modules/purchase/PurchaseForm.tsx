@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -10,7 +10,7 @@ import {
   PURCHASE_PLATFORMS,
   PurchasePayloadSchema,
 } from "./purchase.schema"
-import { submitRequest } from "@/services/engineService"
+import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -52,13 +52,33 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
   )
 }
 
-export function PurchaseForm({ onCancel }: { onCancel?: () => void }) {
+export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel?: () => void; editingRequest?: EngineRequest | null; isEditing?: boolean }) {
   const router = useRouter()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
-  const { register, control, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<PurchaseForm>({
+  const { register, control, handleSubmit, watch, formState: { errors, isSubmitting }, reset } = useForm<PurchaseForm>({
     resolver: zodResolver(PurchasePayloadSchema),
     defaultValues: { attachments: [] },
   })
+
+  useEffect(() => {
+    if (isEditing && editingRequest?.payload) {
+      const payload = editingRequest.payload as any
+      reset({
+        requestTitle: editingRequest.title || "",
+        itemTitle: payload.itemTitle || "",
+        description: payload.description || "",
+        category: payload.category || "Other",
+        supplier: payload.supplier || "",
+        platform: payload.platform || "Other",
+        productUrl: payload.productUrl || "",
+        quantity: payload.quantity || 1,
+        estimatedPrice: payload.estimatedPrice || 0,
+        department: payload.department || "",
+        notes: payload.notes || "",
+        attachments: payload.attachments || [],
+      })
+    }
+  }, [editingRequest, isEditing, reset])
 
   const platformValue = watch("platform")
 
@@ -66,16 +86,27 @@ export function PurchaseForm({ onCancel }: { onCancel?: () => void }) {
 
   const onSubmit = async (data: PurchaseForm) => {
     try {
-      submitRequest("purchase", data, {
-        title: data.requestTitle,
-        requesterId: "USR-001",
-        requesterName: "Current User",
-        requesterEmail: "user@si-ware.com",
-      })
+      if (isEditing && editingRequest) {
+        // Update existing request
+        updateRequest(editingRequest.id, data, {
+          title: data.requestTitle,
+          requesterId: editingRequest.requesterId,
+          requesterName: editingRequest.requesterName,
+          requesterEmail: editingRequest.requesterEmail,
+        })
+      } else {
+        // Create new request
+        submitRequest("purchase", data, {
+          title: data.requestTitle,
+          requesterId: "USR-001",
+          requesterName: "Current User",
+          requesterEmail: "user@si-ware.com",
+        })
+      }
       router.push("/purchase")
       router.refresh()
     } catch (error) {
-      console.error("Failed to create request:", error)
+      console.error(isEditing ? "Failed to update request:" : "Failed to create request:", error)
     }
   }
 
@@ -262,7 +293,7 @@ export function PurchaseForm({ onCancel }: { onCancel?: () => void }) {
         <div className="sticky bottom-0 bg-white border-t py-4 px-1 flex items-center justify-between gap-3">
           <Button type="button" variant="ghost" onClick={handleCancel}>Cancel</Button>
           <Button type="submit" disabled={isSubmitting} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px]">
-            {isSubmitting ? "Submitting..." : "Submit Purchase Request"}
+            {isSubmitting ? (isEditing ? "Updating..." : "Submitting...") : (isEditing ? "Update Request" : "Submit Purchase Request")}
           </Button>
         </div>
       </form>

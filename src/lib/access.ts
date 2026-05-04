@@ -21,6 +21,9 @@ export type RoutePermission =
   | "manage_users"
   | "manage_roles"
   | "settings"
+  | "update_status"
+  | "cancel_request"
+  | "edit_request"
 
 function normalizePathname(pathname: string) {
   if (pathname.length > 1 && pathname.endsWith("/")) {

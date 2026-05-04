@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useRef } from "react"
+import { useSession } from "next-auth/react"
 import { Search, Plus, Package, Truck, CheckCircle2, Clock, MoreHorizontal, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -16,6 +17,7 @@ import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { updateStatus } from "@/services/engineService"
+import { notifyStatusChange } from "@/services/notificationService"
 import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 import { useExpandedRows } from "@/hooks/useExpandedRows"
 
@@ -66,6 +68,7 @@ const COLS: { key: SortKey; label: string; defaultW: number }[] = [
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ShippingPage() {
+  const { data: session } = useSession()
   const [search, setSearch]           = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [carrierFilter, setCarrierFilter] = useState("all")
@@ -74,6 +77,10 @@ export default function ShippingPage() {
   const [colWidths, setColWidths]     = useState<(number | null)[]>(() => COLS.map(() => null))
   const tableRef = useRef<HTMLTableElement>(null)
   const [statusOverrides, setStatusOverrides] = useState<Record<string, string>>({})
+
+  const canUpdateStatus = ((session?.user?.permissions as string[])?.includes("update_status") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  const canEditRequest = ((session?.user?.permissions as string[])?.includes("edit_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  const canCancelRequest = ((session?.user?.permissions as string[])?.includes("cancel_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
 
   const shipments = useMemo(() =>
     mockShipments.map(s => ({
@@ -88,6 +95,7 @@ export default function ShippingPage() {
   const { expandedRows, toggleRow, isExpanded } = useExpandedRows()
 
   function handleStatusChange(id: string, newStatus: string) {
+    const shipment = shipments.find(s => s.id === id)
     setStatusOverrides(prev => ({ ...prev, [id]: newStatus }))
     const statusMap: Record<string, string> = {
       "New": "new",
@@ -97,6 +105,9 @@ export default function ShippingPage() {
       "Cancelled": "cancelled",
     }
     updateStatus(id, statusMap[newStatus] as any, "USR-001")
+    if (shipment) {
+      notifyStatusChange("USR-001", id, shipment.title || shipment.id, "shipping", newStatus.toLowerCase().replace(" ", "_"))
+    }
   }
 
   function handleCancelRequest(id: string) {
@@ -265,7 +276,7 @@ export default function ShippingPage() {
 
         {/* Table */}
         <div className="-mx-6 px-6 -mb-6">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overflow-y-visible">
             <table ref={tableRef} className="w-full text-sm border-collapse" style={{ tableLayout: colWidths.some(w => w !== null) ? "fixed" : "auto" }}>
             <colgroup>
               {colWidths.map((w, i) => <col key={i} style={w !== null ? { width: w } : undefined} />)}
@@ -355,6 +366,7 @@ export default function ShippingPage() {
                       statusDot={STATUS_DOT}
                       statusLabels={{ "New": "New", "In Progress": "In Progress", "In Customs": "In Customs", "Delivered": "Delivered", "Cancelled": "Cancelled" }}
                       onStatusChange={(newStatus) => handleStatusChange(shipment.id, newStatus)}
+                      canUpdateStatus={canUpdateStatus}
                     />
                   </td>
                   <td className="py-3 px-3">
@@ -366,10 +378,10 @@ export default function ShippingPage() {
                   <td className="py-3 px-2 text-right">
                     <RequestActionsMenu
                       requestId={shipment.id}
-                      showCancelOption={true}
+                      showCancelOption={canCancelRequest}
                       isExpanded={isExpanded(shipment.id)}
                       onViewDetails={() => toggleRow(shipment.id)}
-                      onEdit={(id) => window.open(`/shipping/new?id=${id}`, '_blank')}
+                      onEdit={canEditRequest ? (id) => window.open(`/requests/${id}?source=shipping`, '_blank') : undefined}
                       onCancel={handleCancelRequest}
                     />
                   </td>

@@ -32,10 +32,30 @@ export async function GET() {
       active: true,
       createdAt: true,
       image: true,
+      passwordHash: true,
+      accounts: {
+        select: {
+          provider: true,
+        },
+        take: 1,
+      },
     },
   })
 
-  return NextResponse.json({ users })
+  // Map accounts to provider field
+  const mappedUsers = users.map((user) => ({
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    department: user.department,
+    active: user.active,
+    createdAt: user.createdAt,
+    image: user.image,
+    provider: user.accounts[0]?.provider || (user.passwordHash ? "local" : undefined),
+  }))
+
+  return NextResponse.json({ users: mappedUsers })
 }
 
 export async function POST(request: Request) {

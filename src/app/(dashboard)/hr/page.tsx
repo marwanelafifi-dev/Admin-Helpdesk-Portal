@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useSession } from "next-auth/react"
 import { Search, Users, UserPlus, UserMinus, Plus, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -10,6 +11,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { getRequests, initializeMockData, updateStatus, type EngineRequest, type RequestStatus } from "@/services/engineService"
+import { notifyStatusChange } from "@/services/notificationService"
 import type { HRPayload } from "@/modules/hr/hr.schema"
 import { cn } from "@/lib/utils"
 import { requestsAPI } from "@/lib/apiClient"
@@ -48,16 +50,17 @@ function formatDate(iso: string) {
 }
 
 type Tab = "all" | "onboarding" | "offboarding"
-type SortKey = "id" | "title" | "employeeId" | "employeeName" | "department" | "sector" | "hrType" | "status" | "date"
+type SortKey = "id" | "title" | "employeeId" | "employeeName" | "department" | "sector" | "directManager" | "hrType" | "status" | "date"
 type SortDir = "asc" | "desc"
 
 const COLS: { key: SortKey; label: string; defaultW: number }[] = [
-  { key: "id",           label: "Request ID",    defaultW: 140 },
+  { key: "id",           label: "Request ID",    defaultW: 120 },
   { key: "title",        label: "Request Title", defaultW: 160 },
   { key: "employeeId",   label: "Employee ID",   defaultW: 130 },
   { key: "employeeName", label: "Employee Name", defaultW: 180 },
-  { key: "department",   label: "Department",    defaultW: 140 },
   { key: "sector",       label: "Sector",        defaultW: 130 },
+  { key: "department",   label: "Department",    defaultW: 140 },
+  { key: "directManager", label: "Direct Manager", defaultW: 150 },
   { key: "hrType",       label: "Type",          defaultW: 110 },
   { key: "status",       label: "Status",        defaultW: 120 },
   { key: "date",         label: "Last Update Date", defaultW: 140 },
@@ -66,6 +69,7 @@ const COLS: { key: SortKey; label: string; defaultW: number }[] = [
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function HRPage() {
+  const { data: session } = useSession()
   const [requests, setRequests]         = useState<EngineRequest[]>([])
   const [search, setSearch]             = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -74,6 +78,10 @@ export default function HRPage() {
   const [sortDir, setSortDir]           = useState<SortDir>("asc")
   const [colWidths, setColWidths]       = useState<(number | null)[]>(() => COLS.map(() => null))
   const tableRef = useRef<HTMLTableElement>(null)
+
+  const canUpdateStatus = ((session?.user?.permissions as string[])?.includes("update_status") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  const canCancelRequest = ((session?.user?.permissions as string[])?.includes("cancel_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  const canEditRequest = ((session?.user?.permissions as string[])?.includes("edit_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
 
   const commentCounts = useCommentCounts(requests.map(r => r.id))
   const { viewedComments } = useViewedComments()
@@ -85,8 +93,14 @@ export default function HRPage() {
   }, [])
 
   function handleStatusChange(id: string, newStatus: string) {
+    const request = requests.find(r => r.id === id)
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status: newStatus as RequestStatus, updatedAt: new Date().toISOString() } : r))
     updateStatus(id, newStatus as RequestStatus, "USR-001")
+
+    // Notify relevant users about status change
+    if (request) {
+      notifyStatusChange("USR-001", id, request.title, "hr", newStatus)
+    }
   }
 
   function handleCancelRequest(id: string) {
@@ -138,10 +152,13 @@ export default function HRPage() {
       const pa = a.payload as HRPayload, pb = b.payload as HRPayload
       const getVal = (r: EngineRequest, p: HRPayload) => {
         if (sortKey === "id")           return r.id
+        if (sortKey === "title")        return r.title
         if (sortKey === "hrType")       return p.hrType
         if (sortKey === "employeeName") return p.employeeName
         if (sortKey === "employeeId")   return p.employeeId
+        if (sortKey === "sector")       return p.sector || ""
         if (sortKey === "department")   return p.department
+        if (sortKey === "directManager") return p.directManager || ""
         if (sortKey === "date")         return p.hrType === "onboarding" ? p.startDate : p.lastWorkingDay
         if (sortKey === "status")       return r.status
         return ""
@@ -303,7 +320,7 @@ export default function HRPage() {
 
         {/* Table */}
         <div className="-mx-6 px-6 -mb-6">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overflow-y-visible">
             <table ref={tableRef} className="w-full text-sm border-collapse" style={{ tableLayout: colWidths.some(w => w !== null) ? "fixed" : "auto" }}>
             <colgroup>
               {colWidths.map((w, i) => <col key={i} style={w !== null ? { width: w } : undefined} />)}
@@ -367,6 +384,9 @@ export default function HRPage() {
                         )}
                       </div>
                     </td>
+                    <td className="py-3 px-3 overflow-hidden">
+                      <span className="text-sm font-medium text-gray-700 truncate block">{req.title}</span>
+                    </td>
                     <td className="py-3 px-3">
                       <span className="text-sm font-medium text-gray-700">{p.employeeId}</span>
                     </td>
@@ -374,10 +394,13 @@ export default function HRPage() {
                       <span className="text-sm font-medium text-gray-700 truncate block">{p.employeeName}</span>
                     </td>
                     <td className="py-3 px-3 overflow-hidden">
+                      <span className="text-sm font-medium text-gray-700 truncate block">{p.sector || "—"}</span>
+                    </td>
+                    <td className="py-3 px-3 overflow-hidden">
                       <span className="text-sm font-medium text-gray-700 truncate block">{p.department}</span>
                     </td>
                     <td className="py-3 px-3 overflow-hidden">
-                      <span className="text-sm font-medium text-gray-700 truncate block">{p.sector || "—"}</span>
+                      <span className="text-sm font-medium text-gray-700 truncate block">{p.directManager || "—"}</span>
                     </td>
                     <td className="py-3 px-3">
                       <span className={cn(
@@ -397,6 +420,7 @@ export default function HRPage() {
                         statusDot={STATUS_DOT}
                         statusLabels={STATUS_LABELS}
                         onStatusChange={(newStatus) => handleStatusChange(req.id, newStatus)}
+                        canUpdateStatus={canUpdateStatus}
                       />
                     </td>
                     <td className="py-3 px-3">
@@ -405,17 +429,18 @@ export default function HRPage() {
                     <td className="py-3 px-2 text-right">
                       <RequestActionsMenu
                         requestId={req.id}
-                        showCancelOption={false}
+                        showCancelOption={canCancelRequest}
                         isExpanded={isExpanded(req.id)}
                         onViewDetails={() => toggleRow(req.id)}
-                        onEdit={(id) => window.open(`/hr/new?id=${id}`, '_blank')}
+                        onEdit={canEditRequest ? (id) => window.open(`/requests/${id}?source=hr`, '_blank') : undefined}
+                        onCancel={handleCancelRequest}
                       />
                     </td>
                   </tr>
                   {isExpanded(req.id) && (
                     <tr className="bg-blue-50">
-                      <td colSpan={10} className="py-4 px-6">
-                        <div className="space-y-3 text-sm">
+                      <td colSpan={11} className="py-4 px-6">
+                        <div className="space-y-5 text-sm">
                           <div className="grid grid-cols-2 gap-6">
                             <div>
                               <p className="font-semibold text-gray-700">Employee Name</p>
@@ -449,13 +474,38 @@ export default function HRPage() {
                               <p className="font-semibold text-gray-700">Direct Manager</p>
                               <p className="text-gray-600">{p.directManager || "—"}</p>
                             </div>
-                            {p.notes && (
-                              <div className="col-span-2">
-                                <p className="font-semibold text-gray-700">Notes</p>
-                                <p className="text-gray-600">{p.notes}</p>
-                              </div>
-                            )}
                           </div>
+
+                          {/* Items Section */}
+                          <div className="border-t pt-4">
+                            <p className="font-semibold text-gray-700 mb-3">
+                              {p.hrType === "onboarding" ? "Onboarding Items" : "Offboarding Items"}
+                            </p>
+                            <div className="space-y-2">
+                              {p.items && p.items.length > 0 ? (
+                                p.items.map((item, idx) => (
+                                  <div key={idx} className="flex items-center gap-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={true}
+                                      disabled
+                                      className="w-4 h-4 rounded border-gray-300 text-blue-600"
+                                    />
+                                    <span className="text-gray-600">{item}</span>
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="text-gray-500">No items selected</p>
+                              )}
+                            </div>
+                          </div>
+
+                          {p.notes && (
+                            <div className="border-t pt-4">
+                              <p className="font-semibold text-gray-700">Notes</p>
+                              <p className="text-gray-600">{p.notes}</p>
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -466,7 +516,7 @@ export default function HRPage() {
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="text-center text-gray-400 text-sm py-16">
+                  <td colSpan={11} className="text-center text-gray-400 text-sm py-16">
                     No HR requests match the current filters
                   </td>
                 </tr>

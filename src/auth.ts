@@ -27,7 +27,7 @@ const customFetch = disableTlsCertCheck
   ? (url: RequestInfo | URL, init?: RequestInit) => {
       return fetch(url, {
         ...init,
-        agent: httpsAgent,
+        ...(httpsAgent && { agent: httpsAgent as any }),
       })
     }
   : fetch
