@@ -94,6 +94,7 @@ export default function EventPage() {
 
   const commentCounts = useCommentCounts(requests.map(r => r.id))
   const { viewedComments } = useViewedComments()
+  const { expandedRows, toggleRow, isExpanded } = useExpandedRows()
 
   const onResizeMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
     e.preventDefault(); e.stopPropagation()
@@ -315,11 +316,42 @@ export default function EventPage() {
                     <RequestActionsMenu
                       requestId={req.id}
                       showCancelOption={false}
-                      onViewDetails={(id) => window.open(`/requests/${id}?source=event`, '_blank')}
+                      isExpanded={isExpanded(req.id)}
+                      onViewDetails={() => toggleRow(req.id)}
                       onEdit={(id) => window.open(`/event/new?id=${id}`, '_blank')}
                     />
                   </td>
                 </tr>
+                {isExpanded(req.id) && (
+                  <tr className="bg-blue-50">
+                    <td colSpan={9} className="py-4 px-6">
+                      <div className="space-y-3 text-sm">
+                        <div className="grid grid-cols-2 gap-6">
+                          <div>
+                            <p className="font-semibold text-gray-700">Title</p>
+                            <p className="text-gray-600">{req.title}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Event Date</p>
+                            <p className="text-gray-600">{(req.payload as Record<string, unknown>).eventDate ? formatDate(String((req.payload as Record<string, unknown>).eventDate)) : "—"}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Attendees</p>
+                            <p className="text-gray-600">{String((req.payload as Record<string, unknown>).expectedAttendees ?? "—")}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Status</p>
+                            <p className="text-gray-600">{STATUS_LABELS[req.status] || req.status}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Requester</p>
+                            <p className="text-gray-600">{req.requesterName}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
               )
               })}
 

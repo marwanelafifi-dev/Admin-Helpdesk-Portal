@@ -17,6 +17,7 @@ import { useViewedComments } from "@/hooks/useViewedComments"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { updateStatus } from "@/services/engineService"
 import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
+import { useExpandedRows } from "@/hooks/useExpandedRows"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -83,6 +84,7 @@ export default function ShippingPage() {
 
   const commentCounts = useCommentCounts(shipments.map(s => s.id))
   const { viewedComments } = useViewedComments()
+  const { expandedRows, toggleRow, isExpanded } = useExpandedRows()
 
   function handleStatusChange(id: string, newStatus: string) {
     setStatusOverrides(prev => ({ ...prev, [id]: newStatus }))
@@ -358,12 +360,47 @@ export default function ShippingPage() {
                     <RequestActionsMenu
                       requestId={shipment.id}
                       showCancelOption={true}
-                      onViewDetails={(id) => window.open(`/requests/${id}?source=shipping`, '_blank')}
+                      isExpanded={isExpanded(shipment.id)}
+                      onViewDetails={() => toggleRow(shipment.id)}
                       onEdit={(id) => window.open(`/shipping/new?id=${id}`, '_blank')}
                       onCancel={handleCancelRequest}
                     />
                   </td>
                 </tr>
+                {isExpanded(shipment.id) && (
+                  <tr className="bg-blue-50">
+                    <td colSpan={11} className="py-4 px-6">
+                      <div className="space-y-3 text-sm">
+                        <div className="grid grid-cols-3 gap-6">
+                          <div>
+                            <p className="font-semibold text-gray-700">Tracking Number</p>
+                            <p className="text-gray-600">{shipment.trackingNumber}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Carrier</p>
+                            <p className="text-gray-600">{shipment.carrier}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">PO Number</p>
+                            <p className="text-gray-600">{shipment.poNumber}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Cost Center</p>
+                            <p className="text-gray-600">{shipment.costCenter}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Status</p>
+                            <p className="text-gray-600">{shipment.status}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Requester</p>
+                            <p className="text-gray-600">{shipment.requester}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
                 )
               })}
 
