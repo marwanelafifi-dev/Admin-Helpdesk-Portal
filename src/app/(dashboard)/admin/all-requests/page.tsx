@@ -8,11 +8,14 @@ import { Input } from "@/components/ui/input"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
-import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
+import { getRequests, initializeMockData, updateStatus, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { cn } from "@/lib/utils"
 import { requestsAPI } from "@/lib/apiClient"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
+import { useExpandedRows } from "@/hooks/useExpandedRows"
+import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
+import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -56,6 +59,16 @@ const MODULE_DOT: Record<string, string> = {
 const MODULES  = ["shipping", "maintenance", "purchase", "event", "travel", "hr"] as const
 const STATUSES = ["draft", "new", "on_hold", "in_transit", "delivered", "completed", "cancelled"] as const
 
+// Module-specific statuses
+const MODULE_STATUSES: Record<string, readonly string[]> = {
+  shipping: ["new", "in_customs", "delivered", "cancelled"],
+  maintenance: ["new", "on_hold", "completed", "cancelled"],
+  purchase: ["new", "in_customs", "on_hold", "delivered", "cancelled"],
+  event: ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"],
+  travel: ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"],
+  hr: ["new", "on_hold", "completed"],
+}
+
 function formatModule(m: string) { return m.charAt(0).toUpperCase() + m.slice(1) }
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
@@ -74,6 +87,7 @@ export default function AllRequestsPage() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [sortKey, setSortKey]           = useState<SortKey>("updatedAt")
   const [sortDir, setSortDir]           = useState<SortDir>("desc")
+  const { isExpanded, toggleRow } = useExpandedRows()
 
   // ── Column resize ──────────────────────────────────────────────────────────
   const COLS = useMemo(() => [
@@ -84,6 +98,7 @@ export default function AllRequestsPage() {
     { key: "module"        as SortKey, label: "Module",          defaultW: 110 },
     { key: "status"        as SortKey, label: "Status",          defaultW: 120 },
     { key: "updatedAt"     as SortKey, label: "Last Update Date",defaultW: 140 },
+    { key: "actions"       as SortKey, label: "",                defaultW: 50   },
   ], [])
 
   const [colWidths, setColWidths] = useState<number[]>(() => COLS.map((c) => c.defaultW))
@@ -197,6 +212,17 @@ export default function AllRequestsPage() {
     { key: "event",       label: "Event" },
     { key: "travel",      label: "Travel" },
   ]
+
+  const handleStatusChange = async (id: string, newStatus: string) => {
+    setRequests(prev => prev.map(r =>
+      r.id === id ? { ...r, status: newStatus as RequestStatus, updatedAt: new Date().toISOString() } : r
+    ))
+    try {
+      await requestsAPI.updateStatus(id, newStatus)
+    } catch {
+      updateStatus(id, newStatus as RequestStatus, "USR-001")
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -353,7 +379,9 @@ export default function AllRequestsPage() {
             <tbody>
               {filtered.map((req, i) => {
                 const hasUnreadComments = (commentCounts[req.id] ?? 0) > (viewedComments[req.id] ?? 0)
+                const moduleStatuses = MODULE_STATUSES[req.module] || []
                 return (
+                <>
                 <tr
                   key={req.id}
                   className={cn(
@@ -391,24 +419,78 @@ export default function AllRequestsPage() {
                     </span>
                   </td>
                   <td className="py-3 px-3">
-                    <span className={cn(
-                      "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap",
-                      STATUS_COLORS[req.status] ?? "bg-zinc-100 text-zinc-600"
-                    )}>
-                      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[req.status] ?? "bg-gray-400")} />
-                      {STATUS_LABELS[req.status] ?? req.status}
-                    </span>
+                    <InlineStatusSelect
+                      currentStatus={req.status}
+                      statuses={moduleStatuses}
+                      statusColors={STATUS_COLORS}
+                      statusDot={STATUS_DOT}
+                      statusLabels={STATUS_LABELS}
+                      onStatusChange={(newStatus) => handleStatusChange(req.id, newStatus)}
+                    />
                   </td>
                   <td className="py-3 px-3">
                     <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{formatDate(req.updatedAt)}</span>
                   </td>
+                  <td className="py-3 px-2 text-right">
+                    <RequestActionsMenu
+                      requestId={req.id}
+                      showCancelOption={false}
+                      isExpanded={isExpanded(req.id)}
+                      onViewDetails={() => toggleRow(req.id)}
+                      onEdit={(id) => {
+                        const route = req.module === "shipping" ? "/shipping/new"
+                          : req.module === "hr" ? "/hr/new"
+                          : req.module === "maintenance" ? "/maintenance/new"
+                          : req.module === "purchase" ? "/purchase/new"
+                          : req.module === "event" ? "/event/new"
+                          : req.module === "travel" ? "/travel/new"
+                          : "/shipping/new"
+                        window.open(`${route}?id=${id}`, '_blank')
+                      }}
+                    />
+                  </td>
                 </tr>
+                {isExpanded(req.id) && (
+                  <tr className="bg-blue-50">
+                    <td colSpan={8} className="py-4 px-6">
+                      <div className="space-y-3 text-sm">
+                        <div className="grid grid-cols-2 gap-6">
+                          <div>
+                            <p className="font-semibold text-gray-700">Title</p>
+                            <p className="text-gray-600">{req.title}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Module</p>
+                            <p className="text-gray-600">{formatModule(req.module)}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Requester</p>
+                            <p className="text-gray-600">{req.requesterName} ({req.requesterEmail})</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Status</p>
+                            <p className="text-gray-600">{STATUS_LABELS[req.status] || req.status}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Submission Date</p>
+                            <p className="text-gray-600">{formatDate(req.createdAt)}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Last Update</p>
+                            <p className="text-gray-600">{formatDate(req.updatedAt)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </>
               )
               })}
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="text-center text-gray-400 text-sm py-16">
+                  <td colSpan={8} className="text-center text-gray-400 text-sm py-16">
                     No records match the current filters
                   </td>
                 </tr>
