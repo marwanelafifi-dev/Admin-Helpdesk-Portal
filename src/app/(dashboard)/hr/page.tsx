@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
 import { useSession } from "next-auth/react"
 import { Search, Users, UserPlus, UserMinus, Plus, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
 import Link from "next/link"
@@ -358,9 +358,8 @@ export default function HRPage() {
                 const date = p.hrType === "onboarding" ? p.startDate : p.lastWorkingDay
                 const hasUnreadComments = (commentCounts[req.id] ?? 0) > (viewedComments[req.id] ?? 0)
                 return (
-                  <>
+                  <React.Fragment key={req.id}>
                   <tr
-                    key={req.id}
                     className={cn(
                       "border-b border-gray-100 hover:bg-blue-50/30 transition-colors",
                       hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40")
