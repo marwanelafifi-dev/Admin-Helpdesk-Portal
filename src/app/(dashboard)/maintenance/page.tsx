@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
 import { Search, Plus, Wrench, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
@@ -272,8 +272,8 @@ export default function MaintenancePage() {
               {filtered.map((req, i) => {
                 const hasUnreadComments = (commentCounts[req.id] ?? 0) > (viewedComments[req.id] ?? 0)
                 return (
-                <>
-                <tr key={req.id} className={cn("border-b border-gray-100 hover:bg-blue-50/30 transition-colors", hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40"))}>
+                <React.Fragment key={req.id}>
+                <tr className={cn("border-b border-gray-100 hover:bg-blue-50/30 transition-colors", hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40"))}>
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
                     <div className="flex items-center gap-2">
                       <Link href={`/requests/${req.id}?source=maintenance`} className="text-sm font-medium text-blue-600 truncate hover:underline">
@@ -371,7 +371,7 @@ export default function MaintenancePage() {
                     </td>
                   </tr>
                 )}
-                </>
+                </React.Fragment>
                 )
               })}
 

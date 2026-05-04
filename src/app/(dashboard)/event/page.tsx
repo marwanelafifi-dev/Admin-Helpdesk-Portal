@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import { Search, Plus, CalendarDays, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
 import { Card, CardHeader } from "@/components/ui/card"
@@ -279,8 +279,8 @@ export default function EventPage() {
               {filtered.map((req, i) => {
                 const hasUnreadComments = (commentCounts[req.id] ?? 0) > (viewedComments[req.id] ?? 0)
                 return (
-                <>
-                <tr key={req.id} className={cn("border-b border-gray-100 hover:bg-blue-50/30 transition-colors", hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40"))}>
+                <React.Fragment key={req.id}>
+                <tr className={cn("border-b border-gray-100 hover:bg-blue-50/30 transition-colors", hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40"))}>
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-gray-700 truncate block">{req.id}</span>
@@ -368,7 +368,7 @@ export default function EventPage() {
                     </td>
                   </tr>
                 )}
-                </>
+                </React.Fragment>
               )
               })}
 

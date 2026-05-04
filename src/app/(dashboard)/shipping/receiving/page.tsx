@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect, useRef } from "react"
+import React, { useState, useMemo, useEffect, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { Search, Plus, Package, Truck, CheckCircle2, Clock, MoreHorizontal, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
 import Link from "next/link"
@@ -353,9 +353,8 @@ export default function ReceivingPage() {
               {filtered.map((shipment, i) => {
                 const hasUnreadComments = (commentCounts[shipment.id] ?? 0) > (viewedComments[shipment.id] ?? 0)
                 return (
-                <>
+                <React.Fragment key={shipment.id}>
                 <tr
-                  key={shipment.id}
                   className={cn(
                     "border-b border-gray-100 hover:bg-blue-50/30 transition-colors",
                     hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40")
@@ -458,7 +457,7 @@ export default function ReceivingPage() {
                     </td>
                   </tr>
                 )}
-                </>
+                </React.Fragment>
               )
               })}
 
