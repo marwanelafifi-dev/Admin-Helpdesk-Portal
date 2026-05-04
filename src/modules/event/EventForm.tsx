@@ -241,8 +241,8 @@ export function EventForm({ onCancel }: { onCancel?: () => void }) {
 
         <div className="sticky bottom-0 bg-white border-t py-4 px-1 flex items-center justify-between gap-3">
           <Button type="button" variant="ghost" onClick={handleCancel}>Cancel</Button>
-          <Button type="submit" disabled={isSubmitting} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px]">
-            {isSubmitting ? "Submitting..." : "Submit Event Request"}
+          <Button type="submit" disabled={true} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px] opacity-50 cursor-not-allowed">
+            Coming Soon
           </Button>
         </div>
       </form>
