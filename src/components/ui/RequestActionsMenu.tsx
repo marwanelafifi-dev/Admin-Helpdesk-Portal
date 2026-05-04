@@ -1,6 +1,6 @@
 "use client"
 
-import { MoreHorizontal } from "lucide-react"
+import { MoreHorizontal, ChevronDown, ChevronUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils"
 interface RequestActionsMenuProps {
   requestId: string
   showCancelOption?: boolean
+  isExpanded?: boolean
   onViewDetails?: (id: string) => void
   onEdit?: (id: string) => void
   onCancel?: (id: string) => void
@@ -23,6 +24,7 @@ interface RequestActionsMenuProps {
 export function RequestActionsMenu({
   requestId,
   showCancelOption = false,
+  isExpanded = false,
   onViewDetails,
   onEdit,
   onCancel,
@@ -42,8 +44,10 @@ export function RequestActionsMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {onViewDetails && (
-          <DropdownMenuItem onClick={() => onViewDetails(requestId)}>
-            View details
+          <DropdownMenuItem onClick={() => onViewDetails(requestId)} className="flex items-center justify-between">
+            <span>View details</span>
+            {isExpanded && <ChevronUp className="h-3.5 w-3.5 ml-2" />}
+            {!isExpanded && <ChevronDown className="h-3.5 w-3.5 ml-2" />}
           </DropdownMenuItem>
         )}
         {onEdit && (

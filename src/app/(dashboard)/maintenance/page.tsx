@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 import { requestsAPI } from "@/lib/apiClient"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
+import { useExpandedRows } from "@/hooks/useExpandedRows"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 
@@ -71,6 +72,7 @@ export default function MaintenancePage() {
 
   const commentCounts = useCommentCounts(requests.map(r => r.id))
   const { viewedComments } = useViewedComments()
+  const { expandedRows, toggleRow, isExpanded } = useExpandedRows()
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -325,11 +327,49 @@ export default function MaintenancePage() {
                     <RequestActionsMenu
                       requestId={req.id}
                       showCancelOption={false}
-                      onViewDetails={(id) => window.open(`/requests/${id}?source=maintenance`, '_blank')}
+                      isExpanded={isExpanded(req.id)}
+                      onViewDetails={() => toggleRow(req.id)}
                       onEdit={(id) => window.open(`/maintenance/new?id=${id}`, '_blank')}
                     />
                   </td>
                 </tr>
+                {isExpanded(req.id) && (
+                  <tr className="bg-blue-50">
+                    <td colSpan={8} className="py-4 px-6">
+                      <div className="space-y-3 text-sm">
+                        <div className="grid grid-cols-2 gap-6">
+                          <div>
+                            <p className="font-semibold text-gray-700">Title</p>
+                            <p className="text-gray-600">{req.title}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Priority</p>
+                            <p className={cn("text-gray-600 font-medium",
+                              (req.payload as Record<string, unknown>).priority === "High" ? "text-red-600" :
+                              (req.payload as Record<string, unknown>).priority === "Medium" ? "text-amber-600" : "text-gray-700"
+                            )}>
+                              {String((req.payload as Record<string, unknown>).priority ?? "—")}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Requester</p>
+                            <p className="text-gray-600">{req.requesterName}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Status</p>
+                            <p className="text-gray-600">{STATUS_LABELS[req.status] || req.status}</p>
+                          </div>
+                          {(req.payload as Record<string, unknown>).description && (
+                            <div className="col-span-2">
+                              <p className="font-semibold text-gray-700">Description</p>
+                              <p className="text-gray-600">{String((req.payload as Record<string, unknown>).description)}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
                 )
               })}
 

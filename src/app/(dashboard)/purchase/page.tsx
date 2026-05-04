@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 import { requestsAPI } from "@/lib/apiClient"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
+import { useExpandedRows } from "@/hooks/useExpandedRows"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 
@@ -104,6 +105,7 @@ export default function PurchasePage() {
 
   const commentCounts = useCommentCounts(requests.map(r => r.id))
   const { viewedComments } = useViewedComments()
+  const { expandedRows, toggleRow, isExpanded } = useExpandedRows()
 
   const onResizeMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
     e.preventDefault(); e.stopPropagation()
@@ -330,12 +332,49 @@ export default function PurchasePage() {
                     <RequestActionsMenu
                       requestId={req.id}
                       showCancelOption={true}
-                      onViewDetails={(id) => window.open(`/requests/${id}?source=purchase`, '_blank')}
+                      isExpanded={isExpanded(req.id)}
+                      onViewDetails={() => toggleRow(req.id)}
                       onEdit={(id) => window.open(`/purchase/new?id=${id}`, '_blank')}
                       onCancel={handleCancelRequest}
                     />
                   </td>
                 </tr>
+                {isExpanded(req.id) && (
+                  <tr className="bg-blue-50">
+                    <td colSpan={9} className="py-4 px-6">
+                      <div className="space-y-3 text-sm">
+                        <div className="grid grid-cols-2 gap-6">
+                          <div>
+                            <p className="font-semibold text-gray-700">Title</p>
+                            <p className="text-gray-600">{req.title}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Supplier</p>
+                            <p className="text-gray-600">{String((req.payload as Record<string, unknown>).supplier ?? "—")}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Estimated Price</p>
+                            <p className="text-gray-600">EGP {Number((req.payload as Record<string, unknown>).estimatedPrice ?? 0).toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Status</p>
+                            <p className="text-gray-600">{STATUS_LABELS[req.status] || req.status}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Requester</p>
+                            <p className="text-gray-600">{req.requesterName}</p>
+                          </div>
+                          {(req.payload as Record<string, unknown>).description && (
+                            <div className="col-span-2">
+                              <p className="font-semibold text-gray-700">Description</p>
+                              <p className="text-gray-600">{String((req.payload as Record<string, unknown>).description)}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
               )
               })}
 

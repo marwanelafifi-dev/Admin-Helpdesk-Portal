@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils"
 import { requestsAPI } from "@/lib/apiClient"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
+import { useExpandedRows } from "@/hooks/useExpandedRows"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 
@@ -75,6 +76,7 @@ export default function HRPage() {
 
   const commentCounts = useCommentCounts(requests.map(r => r.id))
   const { viewedComments } = useViewedComments()
+  const { expandedRows, toggleRow, isExpanded } = useExpandedRows()
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -416,11 +418,60 @@ export default function HRPage() {
                       <RequestActionsMenu
                         requestId={req.id}
                         showCancelOption={false}
-                        onViewDetails={(id) => window.open(`/requests/${id}?source=hr`, '_blank')}
+                        isExpanded={isExpanded(req.id)}
+                        onViewDetails={() => toggleRow(req.id)}
                         onEdit={(id) => window.open(`/hr/new?id=${id}`, '_blank')}
                       />
                     </td>
                   </tr>
+                  {isExpanded(req.id) && (
+                    <tr className="bg-blue-50">
+                      <td colSpan={10} className="py-4 px-6">
+                        <div className="space-y-3 text-sm">
+                          <div className="grid grid-cols-2 gap-6">
+                            <div>
+                              <p className="font-semibold text-gray-700">Employee Name</p>
+                              <p className="text-gray-600">{p.employeeName}</p>
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-700">Employee ID</p>
+                              <p className="text-gray-600">{p.employeeId}</p>
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-700">Department</p>
+                              <p className="text-gray-600">{p.department}</p>
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-700">Sector</p>
+                              <p className="text-gray-600">{p.sector || "—"}</p>
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-700">Type</p>
+                              <p className="text-gray-600">{p.hrType === "onboarding" ? "Onboarding" : "Offboarding"}</p>
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-700">Status</p>
+                              <p className="text-gray-600">{STATUS_LABELS[req.status] || req.status}</p>
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-700">Job Title</p>
+                              <p className="text-gray-600">{p.jobTitle || "—"}</p>
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-700">Direct Manager</p>
+                              <p className="text-gray-600">{p.directManager || "—"}</p>
+                            </div>
+                            {p.notes && (
+                              <div className="col-span-2">
+                                <p className="font-semibold text-gray-700">Notes</p>
+                                <p className="text-gray-600">{p.notes}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                 )
               })}
 
