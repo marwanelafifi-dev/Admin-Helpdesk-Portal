@@ -100,29 +100,19 @@ export default function AllRequestsPage() {
     { key: "actions"       as SortKey, label: "",                defaultW: 50   },
   ], [])
 
-  const [colWidths, setColWidths] = useState<number[]>(() => COLS.map((c) => c.defaultW))
-  const resizingCol  = useRef<number | null>(null)
-  const resizeStartX = useRef(0)
-  const resizeStartW = useRef(0)
+  const [colWidths, setColWidths] = useState<(number | null)[]>(() => COLS.map(() => null))
+  const tableRef = useRef<HTMLTableElement>(null)
 
   const onResizeMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
-    e.preventDefault()
-    e.stopPropagation()
-    resizingCol.current  = idx
-    resizeStartX.current = e.clientX
-    resizeStartW.current = colWidths[idx]
-
+    e.preventDefault(); e.stopPropagation()
+    const startX = e.clientX
+    const th = (e.currentTarget as HTMLElement).closest("th")
+    const startW = th ? th.getBoundingClientRect().width : (colWidths[idx] ?? 120)
     const onMove = (ev: MouseEvent) => {
-      if (resizingCol.current === null) return
-      const delta = ev.clientX - resizeStartX.current
-      const newW  = Math.max(60, resizeStartW.current + delta)
-      setColWidths((prev) => prev.map((w, i) => i === resizingCol.current ? newW : w))
+      const newW = Math.max(60, startW + ev.clientX - startX)
+      setColWidths((prev) => prev.map((w, i) => i === idx ? newW : w))
     }
-    const onUp = () => {
-      resizingCol.current = null
-      window.removeEventListener("mousemove", onMove)
-      window.removeEventListener("mouseup", onUp)
-    }
+    const onUp = () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp) }
     window.addEventListener("mousemove", onMove)
     window.addEventListener("mouseup", onUp)
   }, [colWidths])
@@ -323,10 +313,10 @@ export default function AllRequestsPage() {
         </CardHeader>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm" style={{ tableLayout: "fixed", minWidth: colWidths.reduce((a, b) => a + b, 0) }}>
+          <table ref={tableRef} className="w-full text-sm" style={{ tableLayout: colWidths.some(w => w !== null) ? "fixed" : "auto" }}>
             <colgroup>
-              {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
-              <col style={{ width: "auto" }} />
+              {colWidths.map((w, i) => <col key={i} style={w !== null ? { width: w } : undefined} />)}
+              <col />
             </colgroup>
             <thead className="bg-slate-800">
               <tr className="border-b border-slate-700">
@@ -346,17 +336,15 @@ export default function AllRequestsPage() {
                     </button>
 
                     {/* Resize handle */}
-                    {idx < COLS.length - 1 && (
-                      <span
-                        onMouseDown={(e) => onResizeMouseDown(e, idx)}
-                        className="absolute right-0 top-0 h-full w-4 flex items-center justify-center cursor-col-resize z-10 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <span className="w-px h-4 bg-slate-500 rounded" />
-                      </span>
-                    )}
+                    <span
+                      onMouseDown={(e) => onResizeMouseDown(e, idx)}
+                      className="absolute right-0 top-0 h-full w-4 flex items-center justify-center cursor-col-resize z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <span className="w-px h-4 bg-slate-500 rounded" />
+                    </span>
                   </th>
                 ))}
-                <th className="py-3" />
+                <th className="bg-slate-800" />
               </tr>
             </thead>
             <tbody>
@@ -432,7 +420,6 @@ export default function AllRequestsPage() {
                       }}
                     />
                   </td>
-                  <td />
                 </tr>
                 {isExpanded(req.id) && (
                   <tr className="bg-blue-50">

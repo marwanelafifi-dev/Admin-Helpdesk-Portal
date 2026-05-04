@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useRef } from "react"
 import { Search, Plus, Package, Truck, CheckCircle2, Clock, MoreHorizontal, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -71,7 +71,8 @@ export default function ShippingPage() {
   const [carrierFilter, setCarrierFilter] = useState("all")
   const [sortKey, setSortKey]         = useState<SortKey>("id")
   const [sortDir, setSortDir]         = useState<"asc" | "desc">("asc")
-  const [colWidths, setColWidths]     = useState<number[]>(() => COLS.map((c) => c.defaultW))
+  const [colWidths, setColWidths]     = useState<(number | null)[]>(() => COLS.map(() => null))
+  const tableRef = useRef<HTMLTableElement>(null)
   const [statusOverrides, setStatusOverrides] = useState<Record<string, string>>({})
 
   const shipments = useMemo(() =>
@@ -107,7 +108,9 @@ export default function ShippingPage() {
   // ── Resize ──────────────────────────────────────────────────────────────
   function onResizeMouseDown(e: React.MouseEvent, idx: number) {
     e.preventDefault(); e.stopPropagation()
-    const startX = e.clientX, startW = colWidths[idx]
+    const startX = e.clientX
+    const th = (e.currentTarget as HTMLElement).closest("th")
+    const startW = th ? th.getBoundingClientRect().width : (colWidths[idx] ?? 120)
     const onMove = (ev: MouseEvent) => {
       const newW = Math.max(60, startW + ev.clientX - startX)
       setColWidths((prev) => prev.map((w, i) => i === idx ? newW : w))
@@ -263,11 +266,11 @@ export default function ShippingPage() {
         {/* Table */}
         <div className="-mx-6 px-6 -mb-6">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse" style={{ tableLayout: "fixed", minWidth: colWidths.reduce((a, b) => a + b, 0) + 56 }}>
+            <table ref={tableRef} className="w-full text-sm border-collapse" style={{ tableLayout: colWidths.some(w => w !== null) ? "fixed" : "auto" }}>
             <colgroup>
-              {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
+              {colWidths.map((w, i) => <col key={i} style={w !== null ? { width: w } : undefined} />)}
               <col style={{ width: 56 }} />
-              <col style={{ width: "auto" }} />
+              <col />
             </colgroup>
             <thead className="bg-slate-800">
               <tr className="border-b border-slate-700">
@@ -293,7 +296,7 @@ export default function ShippingPage() {
                   </th>
                 ))}
                 <th className="py-3 text-xs font-semibold text-slate-300 tracking-wide text-left" style={{ paddingLeft: 12 }} />
-                <th className="py-3" />
+                <th className="bg-slate-800" />
               </tr>
             </thead>
             <tbody>
@@ -370,7 +373,6 @@ export default function ShippingPage() {
                       onCancel={handleCancelRequest}
                     />
                   </td>
-                  <td />
                 </tr>
                 {isExpanded(shipment.id) && (
                   <tr className="bg-blue-50">

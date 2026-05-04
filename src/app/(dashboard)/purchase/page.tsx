@@ -67,10 +67,8 @@ export default function PurchasePage() {
   const [statusFilter, setStatusFilter]   = useState("all")
   const [sortKey, setSortKey]             = useState<SortKey>("updatedAt")
   const [sortDir, setSortDir]             = useState<"asc" | "desc">("desc")
-  const [colWidths, setColWidths]         = useState<number[]>(() => COLS.map((c) => c.defaultW))
-  const resizingCol  = useRef<number | null>(null)
-  const resizeStartX = useRef(0)
-  const resizeStartW = useRef(0)
+  const [colWidths, setColWidths]         = useState<(number | null)[]>(() => COLS.map(() => null))
+  const tableRef = useRef<HTMLTableElement>(null)
 
   useEffect(() => {
     initializeMockData()
@@ -94,15 +92,14 @@ export default function PurchasePage() {
 
   const onResizeMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
     e.preventDefault(); e.stopPropagation()
-    resizingCol.current = idx
-    resizeStartX.current = e.clientX
-    resizeStartW.current = colWidths[idx]
+    const startX = e.clientX
+    const th = (e.currentTarget as HTMLElement).closest("th")
+    const startW = th ? th.getBoundingClientRect().width : (colWidths[idx] ?? 120)
     const onMove = (ev: MouseEvent) => {
-      if (resizingCol.current === null) return
-      const newW = Math.max(60, resizeStartW.current + ev.clientX - resizeStartX.current)
-      setColWidths((prev) => prev.map((w, i) => i === resizingCol.current ? newW : w))
+      const newW = Math.max(60, startW + ev.clientX - startX)
+      setColWidths((prev) => prev.map((w, i) => i === idx ? newW : w))
     }
-    const onUp = () => { resizingCol.current = null; window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp) }
+    const onUp = () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp) }
     window.addEventListener("mousemove", onMove)
     window.addEventListener("mouseup", onUp)
   }, [colWidths])
@@ -240,10 +237,10 @@ export default function PurchasePage() {
 
         <div className="-mx-6 px-6 -mb-6">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse" style={{ tableLayout: "fixed", minWidth: colWidths.reduce((a, b) => a + b, 0) }}>
+            <table ref={tableRef} className="w-full text-sm border-collapse" style={{ tableLayout: colWidths.some(w => w !== null) ? "fixed" : "auto" }}>
             <colgroup>
-              {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
-              <col style={{ width: "auto" }} />
+              {colWidths.map((w, i) => <col key={i} style={w !== null ? { width: w } : undefined} />)}
+              <col />
             </colgroup>
             <thead className="bg-slate-800">
               <tr className="border-b border-slate-700">
@@ -265,7 +262,7 @@ export default function PurchasePage() {
                     </span>
                   </th>
                 ))}
-                <th className="py-3" />
+                <th className="bg-slate-800" />
               </tr>
             </thead>
             <tbody>
@@ -327,7 +324,6 @@ export default function PurchasePage() {
                       onCancel={handleCancelRequest}
                     />
                   </td>
-                  <td />
                 </tr>
                 {isExpanded(req.id) && (
                   <tr className="bg-blue-50">
