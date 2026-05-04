@@ -247,7 +247,7 @@ export default function DashboardPage() {
   }, [filteredRequests])
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" suppressHydrationWarning>
       {/* Header */}
       <div className="border-b pb-6">
         <div className="flex items-start justify-between mb-4">

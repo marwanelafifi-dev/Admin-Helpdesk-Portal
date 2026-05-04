@@ -396,8 +396,9 @@ export default function AllRequestsPage() {
                 const hasUnreadComments = (commentCounts[req.id] ?? 0) > (viewedComments[req.id] ?? 0)
                 const moduleStatuses = MODULE_STATUSES[req.module] || []
                 return (
-                <tbody key={req.id}>
+                <>
                 <tr
+                  key={req.id}
                   className={cn(
                     "border-b border-gray-100 hover:bg-blue-50/30 transition-colors",
                     hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40")
@@ -493,7 +494,7 @@ export default function AllRequestsPage() {
                     </td>
                   </tr>
                 )}
-                </tbody>
+                </>
               )
               })}
 
