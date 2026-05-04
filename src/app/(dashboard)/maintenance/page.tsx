@@ -345,7 +345,7 @@ export default function MaintenancePage() {
                             <p className="font-semibold text-gray-700">Status</p>
                             <p className="text-gray-600">{STATUS_LABELS[req.status] || req.status}</p>
                           </div>
-                          {(req.payload as Record<string, unknown>).description && (
+                          {!!(req.payload as Record<string, unknown>).description && (
                             <div className="col-span-2">
                               <p className="font-semibold text-gray-700">Description</p>
                               <p className="text-gray-600">{String((req.payload as Record<string, unknown>).description)}</p>

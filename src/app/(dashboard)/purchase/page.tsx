@@ -350,7 +350,7 @@ export default function PurchasePage() {
                             <p className="font-semibold text-gray-700">Requester</p>
                             <p className="text-gray-600">{req.requesterName}</p>
                           </div>
-                          {(req.payload as Record<string, unknown>).description && (
+                          {!!(req.payload as Record<string, unknown>).description && (
                             <div className="col-span-2">
                               <p className="font-semibold text-gray-700">Description</p>
                               <p className="text-gray-600">{String((req.payload as Record<string, unknown>).description)}</p>
