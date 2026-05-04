@@ -122,7 +122,8 @@ export default function ReceivingPage() {
   }, [])
 
   function handleStatusChange(id: string, newStatus: string) {
-    setShipments(prev => prev.map(s => s.id === id ? { ...s, status: newStatus as any } : s))
+    const today = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+    setShipments(prev => prev.map(s => s.id === id ? { ...s, status: newStatus as any, lastUpdate: today } : s))
     const statusMap: Record<string, string> = {
       "New": "new",
       "On Hold": "on_hold",

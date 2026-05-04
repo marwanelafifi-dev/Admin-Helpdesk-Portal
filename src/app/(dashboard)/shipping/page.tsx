@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
+import { updateStatus } from "@/services/engineService"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -84,6 +85,14 @@ export default function ShippingPage() {
 
   function handleStatusChange(id: string, newStatus: string) {
     setStatusOverrides(prev => ({ ...prev, [id]: newStatus }))
+    const statusMap: Record<string, string> = {
+      "New": "new",
+      "In Progress": "in_progress",
+      "In Customs": "in_customs",
+      "Delivered": "delivered",
+      "Cancelled": "cancelled",
+    }
+    updateStatus(id, statusMap[newStatus] as any, "USR-001")
   }
 
   // ── Resize ──────────────────────────────────────────────────────────────
