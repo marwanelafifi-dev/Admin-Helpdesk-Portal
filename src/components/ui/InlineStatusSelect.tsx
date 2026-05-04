@@ -24,6 +24,7 @@ export function InlineStatusSelect({
   disabled = false,
 }: InlineStatusSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [openUpward, setOpenUpward] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -34,10 +35,16 @@ export function InlineStatusSelect({
     }
 
     if (isOpen) {
+      // Check if dropdown would go off-screen and flip upward if needed
+      if (ref.current) {
+        const rect = ref.current.getBoundingClientRect()
+        const dropdownHeight = statuses.length * 40
+        setOpenUpward(rect.bottom + dropdownHeight > window.innerHeight - 16)
+      }
       document.addEventListener("mousedown", handleClickOutside)
       return () => document.removeEventListener("mousedown", handleClickOutside)
     }
-  }, [isOpen])
+  }, [isOpen, statuses.length])
 
   function handleSelect(status: string) {
     if (status !== currentStatus) {
@@ -68,7 +75,10 @@ export function InlineStatusSelect({
       </button>
 
       {isOpen && (
-        <div className="absolute top-full mt-1 left-0 bg-white border border-gray-200 rounded-md shadow-lg z-50 min-w-max">
+        <div className={cn(
+          "absolute left-0 bg-white border border-gray-200 rounded-md shadow-lg z-50 min-w-max",
+          openUpward ? "bottom-full mb-1" : "top-full mt-1"
+        )}>
           {statuses.map((status) => {
             const statusLabel = statusLabels[status] ?? status
             const statusColor = statusColors[status] ?? "bg-zinc-100 text-zinc-600"
