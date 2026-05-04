@@ -350,6 +350,19 @@ export default function PurchasePage() {
                             <p className="font-semibold text-gray-700">Requester</p>
                             <p className="text-gray-600">{req.requesterName}</p>
                           </div>
+                          {!!(req.payload as Record<string, unknown>).productUrl && (
+                            <div>
+                              <p className="font-semibold text-gray-700">Product URL</p>
+                              <a
+                                href={String((req.payload as Record<string, unknown>).productUrl)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline break-all text-sm"
+                              >
+                                {String((req.payload as Record<string, unknown>).productUrl)}
+                              </a>
+                            </div>
+                          )}
                           {!!(req.payload as Record<string, unknown>).description && (
                             <div className="col-span-2">
                               <p className="font-semibold text-gray-700">Description</p>
