@@ -12,9 +12,10 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { mockShipments, type MockShipment } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
-import { getRequestsByModule, initializeMockData } from "@/services/engineService"
+import { getRequestsByModule, initializeMockData, updateStatus } from "@/services/engineService"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
+import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -119,6 +120,19 @@ export default function ReceivingPage() {
 
     fetchShipments()
   }, [])
+
+  function handleStatusChange(id: string, newStatus: string) {
+    setShipments(prev => prev.map(s => s.id === id ? { ...s, status: newStatus as any } : s))
+    const statusMap: Record<string, string> = {
+      "New": "new",
+      "On Hold": "on_hold",
+      "In Progress": "in_progress",
+      "In Customs": "in_customs",
+      "Delivered": "delivered",
+      "Cancelled": "cancelled",
+    }
+    updateStatus(id, statusMap[newStatus] as any, "USR-001")
+  }
 
   const commentCounts = useCommentCounts(shipments.map(s => s.id))
   const { viewedComments } = useViewedComments()
@@ -370,13 +384,14 @@ export default function ReceivingPage() {
                     <span className="text-sm text-gray-700 font-medium truncate block">{shipment.requester}</span>
                   </td>
                   <td className="py-3 px-3">
-                    <span className={cn(
-                      "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap",
-                      STATUS_COLORS[shipment.status] ?? "bg-zinc-100 text-zinc-600"
-                    )}>
-                      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[shipment.status] ?? "bg-gray-400")} />
-                      {shipment.status}
-                    </span>
+                    <InlineStatusSelect
+                      currentStatus={shipment.status}
+                      statuses={STATUSES}
+                      statusColors={STATUS_COLORS}
+                      statusDot={STATUS_DOT}
+                      statusLabels={{ "New": "New", "In Progress": "In Progress", "In Customs": "In Customs", "Delivered": "Delivered", "Cancelled": "Cancelled" }}
+                      onStatusChange={(newStatus) => handleStatusChange(shipment.id, newStatus)}
+                    />
                   </td>
                   <td className="py-3 px-3">
                     <span className="text-sm text-gray-700 font-medium whitespace-nowrap">{shipment.expectedDelivery}</span>
