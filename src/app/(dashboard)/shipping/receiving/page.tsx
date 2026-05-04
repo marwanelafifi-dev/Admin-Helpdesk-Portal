@@ -16,6 +16,7 @@ import { getRequestsByModule, initializeMockData, updateStatus } from "@/service
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
+import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -133,6 +134,12 @@ export default function ReceivingPage() {
       "Cancelled": "cancelled",
     }
     updateStatus(id, statusMap[newStatus] as any, "USR-001")
+  }
+
+  function handleCancelRequest(id: string) {
+    if (confirm("Are you sure you want to cancel this request?")) {
+      handleStatusChange(id, "Cancelled")
+    }
   }
 
   const commentCounts = useCommentCounts(shipments.map(s => s.id))
@@ -401,19 +408,13 @@ export default function ReceivingPage() {
                     <span className="text-sm text-gray-700 font-medium whitespace-nowrap">{shipment.lastUpdate}</span>
                   </td>
                   <td className="py-3 px-2 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-600">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>View details</DropdownMenuItem>
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive focus:text-destructive">Cancel shipment</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <RequestActionsMenu
+                      requestId={shipment.id}
+                      showCancelOption={true}
+                      onViewDetails={(id) => window.open(`/requests/${id}?source=shipping`, '_blank')}
+                      onEdit={(id) => window.open(`/shipping/new?id=${id}`, '_blank')}
+                      onCancel={handleCancelRequest}
+                    />
                   </td>
                 </tr>
               )

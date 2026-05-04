@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
+import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -82,6 +83,12 @@ export default function EventPage() {
   function handleStatusChange(id: string, newStatus: string) {
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status: newStatus as RequestStatus, updatedAt: new Date().toISOString() } : r))
     updateStatus(id, newStatus as RequestStatus, "USR-001")
+  }
+
+  function handleCancelRequest(id: string) {
+    if (confirm("Are you sure you want to cancel this request?")) {
+      handleStatusChange(id, "cancelled")
+    }
   }
 
   const commentCounts = useCommentCounts(requests.map(r => r.id))
@@ -303,13 +310,21 @@ export default function EventPage() {
                   <td className="py-3 px-3">
                     <span className="text-sm font-medium text-gray-700">{formatDate(req.updatedAt)}</span>
                   </td>
+                  <td className="py-3 px-2 text-right">
+                    <RequestActionsMenu
+                      requestId={req.id}
+                      showCancelOption={false}
+                      onViewDetails={(id) => window.open(`/requests/${id}?source=event`, '_blank')}
+                      onEdit={(id) => window.open(`/event/new?id=${id}`, '_blank')}
+                    />
+                  </td>
                 </tr>
               )
               })}
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="py-16 text-center text-gray-400 text-sm">
+                  <td colSpan={9} className="py-16 text-center text-gray-400 text-sm">
                     No events match the current filters
                   </td>
                 </tr>

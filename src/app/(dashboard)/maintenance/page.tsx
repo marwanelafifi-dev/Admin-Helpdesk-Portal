@@ -12,6 +12,7 @@ import { requestsAPI } from "@/lib/apiClient"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
+import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -92,6 +93,12 @@ export default function MaintenancePage() {
       await requestsAPI.updateStatus(id, newStatus)
     } catch {
       updateStatus(id, newStatus as RequestStatus, "USR-001")
+    }
+  }
+
+  function handleCancelRequest(id: string) {
+    if (confirm("Are you sure you want to cancel this request?")) {
+      handleStatusChange(id, "cancelled")
     }
   }
 
@@ -314,13 +321,21 @@ export default function MaintenancePage() {
                   <td className="py-3 px-3">
                     <span className="text-sm font-medium text-gray-700">{formatDate(req.updatedAt)}</span>
                   </td>
+                  <td className="py-3 px-2 text-right">
+                    <RequestActionsMenu
+                      requestId={req.id}
+                      showCancelOption={false}
+                      onViewDetails={(id) => window.open(`/requests/${id}?source=maintenance`, '_blank')}
+                      onEdit={(id) => window.open(`/maintenance/new?id=${id}`, '_blank')}
+                    />
+                  </td>
                 </tr>
                 )
               })}
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-16 text-center text-gray-400 text-sm">
+                  <td colSpan={8} className="py-16 text-center text-gray-400 text-sm">
                     No tickets match the current filters
                   </td>
                 </tr>
