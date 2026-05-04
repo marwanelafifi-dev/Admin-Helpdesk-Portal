@@ -23,31 +23,32 @@ import { useExpandedRows } from "@/hooks/useExpandedRows"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STATUSES = ["New", "In Progress", "In Customs", "Delivered", "Cancelled"] as const
+const STATUSES = ["new", "in_customs", "delivered", "cancelled"] as const
 const CARRIERS = ["DHL", "FedEx", "UPS", "Aramex", "Other"] as const
 
+const STATUS_LABELS: Record<string, string> = {
+  new: "New", in_customs: "In Customs", delivered: "Delivered", cancelled: "Cancelled",
+}
+
 const STATUS_COLORS: Record<string, string> = {
-  "New":        "bg-sky-50 text-sky-700",
-  "In Progress": "bg-blue-50 text-blue-700",
-  "In Customs": "bg-amber-50 text-amber-700",
-  "Delivered":  "bg-green-50 text-green-700",
-  "Cancelled":  "bg-red-50 text-red-600",
+  new:        "bg-sky-50 text-sky-700",
+  in_customs: "bg-amber-50 text-amber-700",
+  delivered:  "bg-green-50 text-green-700",
+  cancelled:  "bg-red-50 text-red-600",
 }
 
 const STATUS_DOT: Record<string, string> = {
-  "New":        "bg-sky-500",
-  "In Progress": "bg-blue-500",
-  "In Customs": "bg-amber-500",
-  "Delivered":  "bg-green-500",
-  "Cancelled":  "bg-red-500",
+  new:        "bg-sky-500",
+  in_customs: "bg-amber-500",
+  delivered:  "bg-green-500",
+  cancelled:  "bg-red-500",
 }
 
 const STATUS_PILL_ACTIVE: Record<string, string> = {
-  "New":        "bg-sky-500 border-sky-500 text-white",
-  "In Progress": "bg-blue-600 border-blue-600 text-white",
-  "In Customs": "bg-amber-600 border-amber-600 text-white",
-  "Delivered":  "bg-green-600 border-green-600 text-white",
-  "Cancelled":  "bg-red-600 border-red-600 text-white",
+  new:        "bg-sky-500 border-sky-500 text-white",
+  in_customs: "bg-amber-600 border-amber-600 text-white",
+  delivered:  "bg-green-600 border-green-600 text-white",
+  cancelled:  "bg-red-600 border-red-600 text-white",
 }
 
 type SortKey = keyof Pick<MockShipment, "id" | "pickupDate" | "trackingNumber" | "poNumber" | "costCenter" | "carrier" | "requester" | "status" | "expectedDelivery" | "lastUpdate">
@@ -97,22 +98,15 @@ export default function ShippingPage() {
   function handleStatusChange(id: string, newStatus: string) {
     const shipment = shipments.find(s => s.id === id)
     setStatusOverrides(prev => ({ ...prev, [id]: newStatus }))
-    const statusMap: Record<string, string> = {
-      "New": "new",
-      "In Progress": "in_progress",
-      "In Customs": "in_customs",
-      "Delivered": "delivered",
-      "Cancelled": "cancelled",
-    }
-    updateStatus(id, statusMap[newStatus] as any, "USR-001")
+    updateStatus(id, newStatus as any, "USR-001")
     if (shipment) {
-      notifyStatusChange("USR-001", id, shipment.title || shipment.id, "shipping", newStatus.toLowerCase().replace(" ", "_"))
+      notifyStatusChange("USR-001", id, shipment.title || shipment.id, "shipping", newStatus)
     }
   }
 
   function handleCancelRequest(id: string) {
     if (confirm("Are you sure you want to cancel this request?")) {
-      handleStatusChange(id, "Cancelled")
+      handleStatusChange(id, "cancelled")
     }
   }
 
@@ -158,16 +152,14 @@ export default function ShippingPage() {
 
   const stats = useMemo(() => ({
     total:      shipments.length,
-    inProgress: shipments.filter((s) => s.status === "In Progress").length,
-    inCustoms:  shipments.filter((s) => s.status === "In Customs").length,
-    delivered:  shipments.filter((s) => s.status === "Delivered").length,
+    inCustoms:  shipments.filter((s) => s.status === "in_customs").length,
+    delivered:  shipments.filter((s) => s.status === "delivered").length,
   }), [shipments])
 
   const statCards = [
-    { key: "all",          label: "Total Shipments", value: stats.total,      icon: Package,      iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
-    { key: "In Progress",  label: "In Progress",     value: stats.inProgress, icon: Truck,        iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
-    { key: "In Customs",   label: "In Customs",      value: stats.inCustoms,  icon: Clock,        iconBg: "bg-amber-50",  iconColor: "text-amber-600",  activeBg: "bg-amber-600",  activeBorder: "border-amber-600" },
-    { key: "Delivered",    label: "Delivered",       value: stats.delivered,  icon: CheckCircle2, iconBg: "bg-green-50",  iconColor: "text-green-600",  activeBg: "bg-green-600",  activeBorder: "border-green-600" },
+    { key: "all",         label: "Total Shipments", value: stats.total,     icon: Package,      iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
+    { key: "in_customs",  label: "In Customs",      value: stats.inCustoms, icon: Clock,        iconBg: "bg-amber-50",  iconColor: "text-amber-600",  activeBg: "bg-amber-600",  activeBorder: "border-amber-600" },
+    { key: "delivered",   label: "Delivered",       value: stats.delivered, icon: CheckCircle2, iconBg: "bg-green-50",  iconColor: "text-green-600",  activeBg: "bg-green-600",  activeBorder: "border-green-600" },
   ] as const
 
   return (
@@ -241,7 +233,7 @@ export default function ShippingPage() {
                       statusFilter === s ? activeClass : "bg-white border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700"
                     )}
                   >
-                    {s === "all" ? "All Statuses" : s}
+                    {s === "all" ? "All Statuses" : STATUS_LABELS[s]}
                   </button>
                 )
               })}
@@ -364,7 +356,7 @@ export default function ShippingPage() {
                       statuses={STATUSES}
                       statusColors={STATUS_COLORS}
                       statusDot={STATUS_DOT}
-                      statusLabels={{ "New": "New", "In Progress": "In Progress", "In Customs": "In Customs", "Delivered": "Delivered", "Cancelled": "Cancelled" }}
+                      statusLabels={STATUS_LABELS}
                       onStatusChange={(newStatus) => handleStatusChange(shipment.id, newStatus)}
                       canUpdateStatus={canUpdateStatus}
                     />

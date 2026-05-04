@@ -13,6 +13,7 @@ export type RequestStatus =
   | "new"
   | "on_hold"
   | "in_customs"
+  | "in_transit"
   | "delivered"
   | "completed"
   | "cancelled"
@@ -850,14 +851,14 @@ export function initializeMockData(): void {
       id: "SHP-2026-0004",
       module: "shipping",
       title: "UPS shipment – client samples",
-      status: "In Progress",
+      status: "in_customs",
       requesterId: "USR-002",
       requesterName: "Sara Ali",
       requesterEmail: "sara.ali@si-ware.com",
       payload: { carrier: "UPS", trackingNumber: "1Z999AA101234567AB", description: "Client samples to Paris", expectedDeliveryDate: "2026-05-02" },
       statusHistory: [
-        { status: "New", changedBy: "USR-002", changedAt: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
-        { status: "In Progress", changedBy: "USR-002", changedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(), comment: "Picked up" },
+        { status: "new", changedBy: "USR-002", changedAt: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
+        { status: "in_customs", changedBy: "USR-002", changedAt: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(), comment: "Picked up" },
       ],
       commentHistory: [],
       createdAt: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString(),
@@ -918,15 +919,15 @@ export function initializeMockData(): void {
       id: "SHP-2026-0005",
       module: "shipping",
       title: "DHL – prototype delivery to client",
-      status: "Delivered",
+      status: "delivered",
       requesterId: "USR-007",
       requesterName: "Omar Farouk",
       requesterEmail: "omar.farouk@si-ware.com",
       payload: { carrier: "DHL", trackingNumber: "1Z999AA10123456799", description: "Prototype unit delivery", expectedDeliveryDate: "2026-04-20" },
       statusHistory: [
-        { status: "New", changedBy: "USR-007", changedAt: new Date(now.getTime() - 12 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
-        { status: "In Progress", changedBy: "USR-007", changedAt: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString(), comment: "Picked up" },
-        { status: "Delivered", changedBy: "USR-007", changedAt: new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000).toISOString(), comment: "Delivered to client" },
+        { status: "new", changedBy: "USR-007", changedAt: new Date(now.getTime() - 12 * 24 * 60 * 60 * 1000).toISOString(), comment: "Submitted" },
+        { status: "in_customs", changedBy: "USR-007", changedAt: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString(), comment: "Picked up" },
+        { status: "delivered", changedBy: "USR-007", changedAt: new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000).toISOString(), comment: "Delivered to client" },
       ],
       commentHistory: [],
       createdAt: new Date(now.getTime() - 12 * 24 * 60 * 60 * 1000).toISOString(),

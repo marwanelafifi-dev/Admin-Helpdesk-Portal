@@ -21,7 +21,7 @@ import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: "Draft", new: "New", on_hold: "In Progress", in_transit: "In Customs", "In Progress": "In Progress", "In Customs": "In Customs", "In Transit": "In Customs",
+  draft: "Draft", new: "New", on_hold: "In Progress", in_transit: "In Transit", in_customs: "In Customs", "In Progress": "In Progress", "In Customs": "In Customs", "In Transit": "In Transit",
   delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
 }
 
@@ -30,6 +30,7 @@ const STATUS_COLORS: Record<string, string> = {
   new:        "bg-sky-50 text-sky-700",
   on_hold:    "bg-amber-50 text-amber-700",
   in_transit: "bg-blue-50 text-blue-700",
+  in_customs: "bg-amber-50 text-amber-700",
   "In Progress": "bg-blue-50 text-blue-700",
   "In Customs": "bg-amber-50 text-amber-700",
   "In Transit": "bg-blue-50 text-blue-700",
@@ -40,7 +41,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 const STATUS_DOT: Record<string, string> = {
   draft: "bg-zinc-400", new: "bg-sky-500", on_hold: "bg-amber-500",
-  in_transit: "bg-blue-500", "In Progress": "bg-blue-500", "In Customs": "bg-amber-500", "In Transit": "bg-blue-500",
+  in_transit: "bg-blue-500", in_customs: "bg-amber-500", "In Progress": "bg-blue-500", "In Customs": "bg-amber-500", "In Transit": "bg-blue-500",
   delivered: "bg-green-500",
   completed: "bg-emerald-500", cancelled: "bg-red-500",
 }
@@ -68,6 +69,32 @@ const MODULE_STATUSES: Record<string, readonly string[]> = {
   event: ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"],
   travel: ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"],
   hr: ["new", "on_hold", "completed"],
+}
+
+// Module-specific status labels (overrides generic STATUS_LABELS)
+const MODULE_STATUS_LABELS: Record<string, Record<string, string>> = {
+  shipping: {
+    new: "New", in_customs: "In Customs", delivered: "Delivered", cancelled: "Cancelled",
+  },
+  purchase: {
+    new: "New", on_hold: "In Progress", in_customs: "Awaiting Approval", delivered: "Delivered", cancelled: "Cancelled",
+  },
+  maintenance: {
+    new: "New", on_hold: "In Progress", completed: "Completed", cancelled: "Cancelled",
+  },
+  event: {
+    new: "New", on_hold: "In Progress", in_transit: "In Transit", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
+  },
+  travel: {
+    new: "New", on_hold: "In Progress", in_transit: "In Transit", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
+  },
+  hr: {
+    new: "New", on_hold: "In Progress", completed: "Completed",
+  },
+}
+
+function getStatusLabel(status: string, module: string): string {
+  return MODULE_STATUS_LABELS[module]?.[status] ?? STATUS_LABELS[status] ?? status
 }
 
 function formatModule(m: string) { return m.charAt(0).toUpperCase() + m.slice(1) }
@@ -369,9 +396,8 @@ export default function AllRequestsPage() {
                 const hasUnreadComments = (commentCounts[req.id] ?? 0) > (viewedComments[req.id] ?? 0)
                 const moduleStatuses = MODULE_STATUSES[req.module] || []
                 return (
-                <>
+                <tbody key={req.id}>
                 <tr
-                  key={req.id}
                   className={cn(
                     "border-b border-gray-100 hover:bg-blue-50/30 transition-colors",
                     hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40")
@@ -412,7 +438,7 @@ export default function AllRequestsPage() {
                       statuses={moduleStatuses}
                       statusColors={STATUS_COLORS}
                       statusDot={STATUS_DOT}
-                      statusLabels={STATUS_LABELS}
+                      statusLabels={MODULE_STATUS_LABELS[req.module] || STATUS_LABELS}
                       onStatusChange={(newStatus) => handleStatusChange(req.id, newStatus)}
                       canUpdateStatus={canUpdateStatus}
                     />
@@ -467,7 +493,7 @@ export default function AllRequestsPage() {
                     </td>
                   </tr>
                 )}
-                </>
+                </tbody>
               )
               })}
 
