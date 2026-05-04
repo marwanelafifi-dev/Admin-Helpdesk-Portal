@@ -14,6 +14,7 @@ import { mockShipments, type MockShipment } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
+import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -68,9 +69,22 @@ export default function ShippingPage() {
   const [sortKey, setSortKey]         = useState<SortKey>("id")
   const [sortDir, setSortDir]         = useState<"asc" | "desc">("asc")
   const [colWidths, setColWidths]     = useState<number[]>(() => COLS.map((c) => c.defaultW))
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, string>>({})
 
-  const commentCounts = useCommentCounts(mockShipments.map(s => s.id))
+  const shipments = useMemo(() =>
+    mockShipments.map(s => ({
+      ...s,
+      status: (statusOverrides[s.id] ?? s.status) as string
+    })),
+    [statusOverrides]
+  )
+
+  const commentCounts = useCommentCounts(shipments.map(s => s.id))
   const { viewedComments } = useViewedComments()
+
+  function handleStatusChange(id: string, newStatus: string) {
+    setStatusOverrides(prev => ({ ...prev, [id]: newStatus }))
+  }
 
   // ── Resize ──────────────────────────────────────────────────────────────
   function onResizeMouseDown(e: React.MouseEvent, idx: number) {
@@ -97,7 +111,7 @@ export default function ShippingPage() {
   }
 
   const filtered = useMemo(() => {
-    let result = mockShipments.filter((s) => {
+    let result = shipments.filter((s) => {
       const q = search.toLowerCase()
       const matchSearch = s.id.toLowerCase().includes(q) || s.trackingNumber.toLowerCase().includes(q) || s.destination.toLowerCase().includes(q) || s.requester.toLowerCase().includes(q)
       const matchStatus  = statusFilter === "all" || s.status === statusFilter
@@ -108,14 +122,14 @@ export default function ShippingPage() {
       const av = a[sortKey] ?? "", bv = b[sortKey] ?? ""
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
-  }, [search, statusFilter, carrierFilter, sortKey, sortDir])
+  }, [shipments, search, statusFilter, carrierFilter, sortKey, sortDir])
 
   const stats = useMemo(() => ({
-    total:      mockShipments.length,
-    inProgress: mockShipments.filter((s) => s.status === "In Progress").length,
-    inCustoms:  mockShipments.filter((s) => s.status === "In Customs").length,
-    delivered:  mockShipments.filter((s) => s.status === "Delivered").length,
-  }), [mockShipments])
+    total:      shipments.length,
+    inProgress: shipments.filter((s) => s.status === "In Progress").length,
+    inCustoms:  shipments.filter((s) => s.status === "In Customs").length,
+    delivered:  shipments.filter((s) => s.status === "Delivered").length,
+  }), [shipments])
 
   const statCards = [
     { key: "all",          label: "Total Shipments", value: stats.total,      icon: Package,      iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
@@ -309,13 +323,14 @@ export default function ShippingPage() {
                     <span className="text-sm text-gray-700 font-medium truncate block">{shipment.requester}</span>
                   </td>
                   <td className="py-3 px-3">
-                    <span className={cn(
-                      "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap",
-                      STATUS_COLORS[shipment.status] ?? "bg-zinc-100 text-zinc-600"
-                    )}>
-                      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[shipment.status] ?? "bg-gray-400")} />
-                      {shipment.status}
-                    </span>
+                    <InlineStatusSelect
+                      currentStatus={shipment.status}
+                      statuses={STATUSES}
+                      statusColors={STATUS_COLORS}
+                      statusDot={STATUS_DOT}
+                      statusLabels={{ "New": "New", "In Progress": "In Progress", "In Customs": "In Customs", "Delivered": "Delivered", "Cancelled": "Cancelled" }}
+                      onStatusChange={(newStatus) => handleStatusChange(shipment.id, newStatus)}
+                    />
                   </td>
                   <td className="py-3 px-3">
                     <span className="text-sm text-gray-700 font-medium whitespace-nowrap">{shipment.expectedDelivery}</span>

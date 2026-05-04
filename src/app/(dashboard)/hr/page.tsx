@@ -9,14 +9,17 @@ import { Button } from "@/components/ui/button"
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
+import { getRequests, initializeMockData, updateStatus, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import type { HRPayload } from "@/modules/hr/hr.schema"
 import { cn } from "@/lib/utils"
 import { requestsAPI } from "@/lib/apiClient"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
+import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
+
+const HR_STATUSES = ["new", "on_hold", "completed"] as const
 
 const STATUS_LABELS: Record<string, string> = {
   new: "New", on_hold: "In Progress", completed: "Completed",
@@ -86,6 +89,15 @@ export default function HRPage() {
 
     fetchRequests()
   }, [])
+
+  async function handleStatusChange(id: string, newStatus: string) {
+    setRequests(prev => prev.map(r => r.id === id ? { ...r, status: newStatus as RequestStatus, updatedAt: new Date().toISOString() } : r))
+    try {
+      await requestsAPI.updateStatus(id, newStatus)
+    } catch {
+      updateStatus(id, newStatus as RequestStatus, "USR-001")
+    }
+  }
 
   // ── Resize ────────────────────────────────────────────────────────────────
   function onResizeMouseDown(e: React.MouseEvent, idx: number) {
@@ -381,13 +393,14 @@ export default function HRPage() {
                       </span>
                     </td>
                     <td className="py-3 px-3">
-                      <span className={cn(
-                        "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap",
-                        STATUS_COLORS[req.status] ?? "bg-zinc-100 text-zinc-600"
-                      )}>
-                        <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[req.status] ?? "bg-gray-400")} />
-                        {STATUS_LABELS[req.status] ?? req.status}
-                      </span>
+                      <InlineStatusSelect
+                        currentStatus={req.status}
+                        statuses={HR_STATUSES}
+                        statusColors={STATUS_COLORS}
+                        statusDot={STATUS_DOT}
+                        statusLabels={STATUS_LABELS}
+                        onStatusChange={(newStatus) => handleStatusChange(req.id, newStatus)}
+                      />
                     </td>
                     <td className="py-3 px-3">
                       <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{formatDate(req.updatedAt)}</span>

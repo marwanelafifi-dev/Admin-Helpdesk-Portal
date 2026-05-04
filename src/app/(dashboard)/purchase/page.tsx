@@ -6,11 +6,12 @@ import { Search, Plus, ShoppingCart, Clock, CheckCircle2, ChevronUp, ChevronDown
 import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
+import { getRequests, initializeMockData, updateStatus, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { cn } from "@/lib/utils"
 import { requestsAPI } from "@/lib/apiClient"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
+import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -40,7 +41,7 @@ const STATUS_PILL_ACTIVE: Record<string, string> = {
 
 const STATUSES = ["new", "in_customs", "on_hold", "delivered", "cancelled"] as const
 
-type SortKey = "id" | "title" | "supplier" | "estimatedPrice" | "requesterName" | "createdAt" | "updatedAt"
+type SortKey = "id" | "title" | "supplier" | "estimatedPrice" | "requesterName" | "createdAt" | "status" | "updatedAt"
 
 const COLS: { key: SortKey; label: string; defaultW: number }[] = [
   { key: "id",             label: "Request ID",      defaultW: 130 },
@@ -49,6 +50,7 @@ const COLS: { key: SortKey; label: string; defaultW: number }[] = [
   { key: "requesterName",  label: "Requester Name",  defaultW: 160 },
   { key: "supplier",       label: "Supplier",        defaultW: 140 },
   { key: "estimatedPrice", label: "Estimated Price", defaultW: 140 },
+  { key: "status",         label: "Status",          defaultW: 130 },
   { key: "updatedAt",      label: "Last Update Date",defaultW: 140 },
 ]
 
@@ -83,6 +85,15 @@ export default function PurchasePage() {
 
     fetchRequests()
   }, [])
+
+  async function handleStatusChange(id: string, newStatus: string) {
+    setRequests(prev => prev.map(r => r.id === id ? { ...r, status: newStatus as RequestStatus, updatedAt: new Date().toISOString() } : r))
+    try {
+      await requestsAPI.updateStatus(id, newStatus)
+    } catch {
+      updateStatus(id, newStatus as RequestStatus, "USR-001")
+    }
+  }
 
   const commentCounts = useCommentCounts(requests.map(r => r.id))
   const { viewedComments } = useViewedComments()
@@ -296,6 +307,16 @@ export default function PurchasePage() {
                     </span>
                   </td>
                   <td className="py-3 px-3">
+                    <InlineStatusSelect
+                      currentStatus={req.status}
+                      statuses={STATUSES}
+                      statusColors={STATUS_COLORS}
+                      statusDot={STATUS_DOT}
+                      statusLabels={STATUS_LABELS}
+                      onStatusChange={(newStatus) => handleStatusChange(req.id, newStatus)}
+                    />
+                  </td>
+                  <td className="py-3 px-3">
                     <span className="text-sm font-medium text-gray-700">{formatDate(req.updatedAt)}</span>
                   </td>
                 </tr>
@@ -304,7 +325,7 @@ export default function PurchasePage() {
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-16 text-center text-gray-400 text-sm">
+                  <td colSpan={8} className="py-16 text-center text-gray-400 text-sm">
                     No orders match the current filters
                   </td>
                 </tr>
