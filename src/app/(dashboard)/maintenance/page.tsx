@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { getRequests, initializeMockData, updateStatus, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { cn } from "@/lib/utils"
-import { requestsAPI } from "@/lib/apiClient"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { useExpandedRows } from "@/hooks/useExpandedRows"
@@ -75,27 +74,13 @@ export default function MaintenancePage() {
   const { expandedRows, toggleRow, isExpanded } = useExpandedRows()
 
   useEffect(() => {
-    const fetchRequests = async () => {
-      try {
-        const data = await requestsAPI.listByModule("maintenance")
-        setRequests(data.data || [])
-      } catch (error) {
-        console.error("Failed to fetch maintenance requests:", error)
-        initializeMockData()
-        setRequests(getRequests().filter((r) => r.module === "maintenance"))
-      }
-    }
-
-    fetchRequests()
+    initializeMockData()
+    setRequests(getRequests().filter((r) => r.module === "maintenance"))
   }, [])
 
-  async function handleStatusChange(id: string, newStatus: string) {
+  function handleStatusChange(id: string, newStatus: string) {
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status: newStatus as RequestStatus, updatedAt: new Date().toISOString() } : r))
-    try {
-      await requestsAPI.updateStatus(id, newStatus)
-    } catch {
-      updateStatus(id, newStatus as RequestStatus, "USR-001")
-    }
+    updateStatus(id, newStatus as RequestStatus, "USR-001")
   }
 
   function handleCancelRequest(id: string) {
@@ -208,48 +193,49 @@ export default function MaintenancePage() {
 
       {/* Table Card */}
       <Card>
-        <CardHeader className="pb-4">
-          <div className="flex flex-wrap gap-3">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by ID or title…"
-                className="pl-9"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+        <div className="-mx-6 px-6 -mb-6">
+          <CardHeader className="pb-4">
+            <div className="flex flex-wrap gap-3">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by ID or title…"
+                  className="pl-9"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-wrap gap-1.5 items-center">
+                {(["all", ...STATUSES] as const).map((s) => {
+                  const activeClass = s === "all" ? "bg-slate-900 border-slate-900 text-white" : STATUS_PILL_ACTIVE[s]
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => setStatusFilter(s)}
+                      className={cn(
+                        "h-8 px-3 rounded-md text-xs font-medium border transition-all",
+                        statusFilter === s ? activeClass : "bg-white border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700"
+                      )}
+                    >
+                      {s === "all" ? "All Statuses" : STATUS_LABELS[s]}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
-            <div className="flex flex-wrap gap-1.5 items-center">
-              {(["all", ...STATUSES] as const).map((s) => {
-                const activeClass = s === "all" ? "bg-slate-900 border-slate-900 text-white" : STATUS_PILL_ACTIVE[s]
-                return (
-                  <button
-                    key={s}
-                    onClick={() => setStatusFilter(s)}
-                    className={cn(
-                      "h-8 px-3 rounded-md text-xs font-medium border transition-all",
-                      statusFilter === s ? activeClass : "bg-white border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700"
-                    )}
-                  >
-                    {s === "all" ? "All Statuses" : STATUS_LABELS[s]}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-          <p className="text-sm text-muted-foreground font-normal mt-1">
-            Showing {filtered.length} ticket{filtered.length !== 1 ? "s" : ""}
-          </p>
-        </CardHeader>
+            <p className="text-sm text-muted-foreground font-normal mt-1">
+              Showing {filtered.length} ticket{filtered.length !== 1 ? "s" : ""}
+            </p>
+          </CardHeader>
 
-        {/* Table */}
-        <div className="overflow-x-auto -mx-6 px-6">
-          <table className="w-full text-sm" style={{ tableLayout: "fixed", minWidth: colWidths.reduce((a, b) => a + b, 0) }}>
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse" style={{ tableLayout: "fixed", minWidth: colWidths.reduce((a, b) => a + b, 0) }}>
             <colgroup>
               {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
             </colgroup>
             <thead>
-              <tr className="bg-slate-800 border-b border-slate-700 hover:bg-slate-800">
+              <tr className="bg-slate-800 border-b border-slate-700">
                 {COLS.map((col, idx) => (
                   <th
                     key={col.key}
@@ -397,6 +383,7 @@ export default function MaintenancePage() {
               Showing {filtered.length} of {requests.length} tickets
             </div>
           )}
+          </div>
         </div>
       </Card>
     </div>

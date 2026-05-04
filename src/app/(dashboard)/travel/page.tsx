@@ -239,13 +239,14 @@ export default function TravelPage() {
           </p>
         </CardHeader>
 
-        <div className="overflow-x-auto -mx-6 px-6">
-          <table className="w-full text-sm" style={{ tableLayout: "fixed", minWidth: colWidths.reduce((a, b) => a + b, 0) }}>
+        <div className="-mx-6 px-6 -mb-6">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse" style={{ tableLayout: "fixed", minWidth: colWidths.reduce((a, b) => a + b, 0) }}>
             <colgroup>
               {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
             </colgroup>
             <thead>
-              <tr className="bg-slate-800 border-b border-slate-700 hover:bg-slate-800">
+              <tr className="bg-slate-800 border-b border-slate-700">
                 {COLS.map((col, idx) => (
                   <th
                     key={col.key}
@@ -383,7 +384,8 @@ export default function TravelPage() {
               Showing {filtered.length} of {requests.length} trips
             </div>
           )}
-        </div>
+            </div>
+          </div>
       </Card>
     </div>
   )

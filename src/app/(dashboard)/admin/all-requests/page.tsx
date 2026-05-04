@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/table"
 import { getRequests, initializeMockData, updateStatus, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { cn } from "@/lib/utils"
-import { requestsAPI } from "@/lib/apiClient"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { useExpandedRows } from "@/hooks/useExpandedRows"
@@ -143,24 +142,10 @@ export default function AllRequestsPage() {
   useEffect(() => {
     const fetchRequests = async () => {
       try {
-        const [shipping, hr, maintenance, purchase] = await Promise.all([
-          requestsAPI.listByModule("shipping"),
-          requestsAPI.listByModule("hr"),
-          requestsAPI.listByModule("maintenance"),
-          requestsAPI.listByModule("purchase"),
-        ])
-
-        const allRequests = [
-          ...shipping.data,
-          ...hr.data,
-          ...maintenance.data,
-          ...purchase.data,
-        ]
-        setRequests(allRequests as EngineRequest[])
-      } catch (error) {
-        console.error("Failed to fetch requests:", error)
         initializeMockData()
         setRequests(getRequests())
+      } catch (error) {
+        console.error("Failed to fetch requests:", error)
       }
     }
 
@@ -213,15 +198,11 @@ export default function AllRequestsPage() {
     { key: "travel",      label: "Travel" },
   ]
 
-  const handleStatusChange = async (id: string, newStatus: string) => {
+  const handleStatusChange = (id: string, newStatus: string) => {
     setRequests(prev => prev.map(r =>
       r.id === id ? { ...r, status: newStatus as RequestStatus, updatedAt: new Date().toISOString() } : r
     ))
-    try {
-      await requestsAPI.updateStatus(id, newStatus)
-    } catch {
-      updateStatus(id, newStatus as RequestStatus, "USR-001")
-    }
+    updateStatus(id, newStatus as RequestStatus, "USR-001")
   }
 
   return (

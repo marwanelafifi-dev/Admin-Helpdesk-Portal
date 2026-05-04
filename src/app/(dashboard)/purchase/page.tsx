@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { getRequests, initializeMockData, updateStatus, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { cn } from "@/lib/utils"
-import { requestsAPI } from "@/lib/apiClient"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { useExpandedRows } from "@/hooks/useExpandedRows"
@@ -74,27 +73,13 @@ export default function PurchasePage() {
   const resizeStartW = useRef(0)
 
   useEffect(() => {
-    const fetchRequests = async () => {
-      try {
-        const data = await requestsAPI.listByModule("purchase")
-        setRequests(data.data || [])
-      } catch (error) {
-        console.error("Failed to fetch purchase requests:", error)
-        initializeMockData()
-        setRequests(getRequests().filter((r) => r.module === "purchase"))
-      }
-    }
-
-    fetchRequests()
+    initializeMockData()
+    setRequests(getRequests().filter((r) => r.module === "purchase"))
   }, [])
 
-  async function handleStatusChange(id: string, newStatus: string) {
+  function handleStatusChange(id: string, newStatus: string) {
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status: newStatus as RequestStatus, updatedAt: new Date().toISOString() } : r))
-    try {
-      await requestsAPI.updateStatus(id, newStatus)
-    } catch {
-      updateStatus(id, newStatus as RequestStatus, "USR-001")
-    }
+    updateStatus(id, newStatus as RequestStatus, "USR-001")
   }
 
   function handleCancelRequest(id: string) {
@@ -253,13 +238,14 @@ export default function PurchasePage() {
           </p>
         </CardHeader>
 
-        <div className="overflow-x-auto -mx-6 px-6">
-          <table className="w-full text-sm" style={{ tableLayout: "fixed", minWidth: colWidths.reduce((a, b) => a + b, 0) }}>
+        <div className="-mx-6 px-6 -mb-6">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse" style={{ tableLayout: "fixed", minWidth: colWidths.reduce((a, b) => a + b, 0) }}>
             <colgroup>
               {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
             </colgroup>
             <thead>
-              <tr className="bg-slate-800 border-b border-slate-700 hover:bg-slate-800">
+              <tr className="bg-slate-800 border-b border-slate-700">
                 {COLS.map((col, idx) => (
                   <th
                     key={col.key}
@@ -395,7 +381,8 @@ export default function PurchasePage() {
               Showing {filtered.length} of {requests.length} orders
             </div>
           )}
-        </div>
+            </div>
+          </div>
       </Card>
     </div>
   )

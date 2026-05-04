@@ -79,27 +79,13 @@ export default function HRPage() {
   const { expandedRows, toggleRow, isExpanded } = useExpandedRows()
 
   useEffect(() => {
-    const fetchRequests = async () => {
-      try {
-        const data = await requestsAPI.listByModule("hr")
-        setRequests(data.data || [])
-      } catch (error) {
-        console.error("Failed to fetch HR requests:", error)
-        initializeMockData()
-        setRequests(getRequests().filter((r) => r.module === "hr"))
-      }
-    }
-
-    fetchRequests()
+    initializeMockData()
+    setRequests(getRequests().filter((r) => r.module === "hr"))
   }, [])
 
-  async function handleStatusChange(id: string, newStatus: string) {
+  function handleStatusChange(id: string, newStatus: string) {
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status: newStatus as RequestStatus, updatedAt: new Date().toISOString() } : r))
-    try {
-      await requestsAPI.updateStatus(id, newStatus)
-    } catch {
-      updateStatus(id, newStatus as RequestStatus, "USR-001")
-    }
+    updateStatus(id, newStatus as RequestStatus, "USR-001")
   }
 
   function handleCancelRequest(id: string) {
@@ -231,8 +217,6 @@ export default function HRPage() {
               onClick={() => {
                 if (key === "onboarding" || key === "offboarding") {
                   setActiveTab((p) => p === key ? "all" : key)
-                } else if (key === "completed") {
-                  setStatusFilter((p) => p === "completed" ? "all" : "completed")
                 } else {
                   setActiveTab("all"); setStatusFilter("all")
                 }
@@ -316,13 +300,14 @@ export default function HRPage() {
         </CardHeader>
 
         {/* Table */}
-        <div className="overflow-x-auto -mx-6 px-6">
-          <table className="w-full text-sm" style={{ tableLayout: "fixed", minWidth: colWidths.reduce((a, b) => a + b, 0) }}>
+        <div className="-mx-6 px-6 -mb-6">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse" style={{ tableLayout: "fixed", minWidth: colWidths.reduce((a, b) => a + b, 0) }}>
             <colgroup>
               {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
             </colgroup>
             <thead>
-              <tr className="bg-slate-800 border-b border-slate-700">
+              <tr className="bg-slate-800 border-b border-slate-700 h-full">
                 {COLS.map((col, idx) => (
                   <th
                     key={col.key}
@@ -492,7 +477,8 @@ export default function HRPage() {
               Showing {filtered.length} of {hrRequests.length} requests
             </div>
           )}
-        </div>
+            </div>
+          </div>
       </Card>
     </div>
   )
