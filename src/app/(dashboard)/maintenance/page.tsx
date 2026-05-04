@@ -233,6 +233,7 @@ export default function MaintenancePage() {
             <table className="w-full text-sm border-collapse" style={{ tableLayout: "fixed", minWidth: colWidths.reduce((a, b) => a + b, 0) }}>
             <colgroup>
               {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
+              <col style={{ width: "auto" }} />
             </colgroup>
             <thead className="bg-slate-800">
               <tr className="border-b border-slate-700">
@@ -254,6 +255,7 @@ export default function MaintenancePage() {
                     </span>
                   </th>
                 ))}
+                <th className="py-3" />
               </tr>
             </thead>
             <tbody>
@@ -319,6 +321,7 @@ export default function MaintenancePage() {
                       onEdit={(id) => window.open(`/maintenance/new?id=${id}`, '_blank')}
                     />
                   </td>
+                  <td />
                 </tr>
                 {isExpanded(req.id) && (
                   <tr className="bg-blue-50">

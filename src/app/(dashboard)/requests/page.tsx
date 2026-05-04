@@ -292,6 +292,7 @@ export default function RequestsPage() {
           <table className="w-full text-sm" style={{ tableLayout: "fixed", minWidth: colWidths.reduce((a, b) => a + b, 0) }}>
             <colgroup>
               {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
+              <col style={{ width: "auto" }} />
             </colgroup>
             <thead className="bg-slate-800">
               <tr className="border-b border-slate-700">
@@ -313,6 +314,7 @@ export default function RequestsPage() {
                     </span>
                   </th>
                 ))}
+                <th className="py-3" />
               </tr>
             </thead>
             <tbody>
@@ -362,6 +364,7 @@ export default function RequestsPage() {
                   <td className="py-3 px-3">
                     <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{formatDate(req.updatedAt)}</span>
                   </td>
+                  <td />
                 </tr>
                 )
               })}

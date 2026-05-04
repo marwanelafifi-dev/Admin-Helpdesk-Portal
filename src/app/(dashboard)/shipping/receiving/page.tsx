@@ -321,6 +321,7 @@ export default function ReceivingPage() {
             <colgroup>
               {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
               <col style={{ width: 56 }} />
+              <col style={{ width: "auto" }} />
             </colgroup>
             <thead className="bg-slate-800">
               <tr className="border-b border-slate-700">
@@ -346,6 +347,7 @@ export default function ReceivingPage() {
                   </th>
                 ))}
                 <th className="py-3 text-xs font-semibold text-slate-300 tracking-wide text-left" style={{ paddingLeft: 12 }} />
+                <th className="py-3" />
               </tr>
             </thead>
             <tbody>
@@ -420,6 +422,7 @@ export default function ReceivingPage() {
                       onCancel={handleCancelRequest}
                     />
                   </td>
+                  <td />
                 </tr>
                 {isExpanded(shipment.id) && (
                   <tr className="bg-blue-50">
