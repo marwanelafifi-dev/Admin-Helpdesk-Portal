@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, useCallback } from "react"
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
 import { Search, Layers, TrendingUp, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
@@ -396,9 +396,8 @@ export default function AllRequestsPage() {
                 const hasUnreadComments = (commentCounts[req.id] ?? 0) > (viewedComments[req.id] ?? 0)
                 const moduleStatuses = MODULE_STATUSES[req.module] || []
                 return (
-                <>
+                <React.Fragment key={req.id}>
                 <tr
-                  key={req.id}
                   className={cn(
                     "border-b border-gray-100 hover:bg-blue-50/30 transition-colors",
                     hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40")
@@ -494,7 +493,7 @@ export default function AllRequestsPage() {
                     </td>
                   </tr>
                 )}
-                </>
+                </React.Fragment>
               )
               })}
 
