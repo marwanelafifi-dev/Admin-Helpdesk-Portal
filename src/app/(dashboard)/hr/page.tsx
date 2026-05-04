@@ -509,7 +509,7 @@ export default function HRPage() {
                       </td>
                     </tr>
                   )}
-                  </>
+                  </React.Fragment>
                 )
               })}
 
