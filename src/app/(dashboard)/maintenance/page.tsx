@@ -274,6 +274,7 @@ export default function MaintenancePage() {
               {filtered.map((req, i) => {
                 const hasUnreadComments = (commentCounts[req.id] ?? 0) > (viewedComments[req.id] ?? 0)
                 return (
+                <>
                 <tr key={req.id} className={cn("border-b border-gray-100 hover:bg-blue-50/30 transition-colors", hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40"))}>
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
                     <div className="flex items-center gap-2">
@@ -370,6 +371,7 @@ export default function MaintenancePage() {
                     </td>
                   </tr>
                 )}
+                </>
                 )
               })}
 

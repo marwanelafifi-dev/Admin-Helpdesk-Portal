@@ -352,6 +352,7 @@ export default function ReceivingPage() {
               {filtered.map((shipment, i) => {
                 const hasUnreadComments = (commentCounts[shipment.id] ?? 0) > (viewedComments[shipment.id] ?? 0)
                 return (
+                <>
                 <tr
                   key={shipment.id}
                   className={cn(
@@ -454,6 +455,7 @@ export default function ReceivingPage() {
                     </td>
                   </tr>
                 )}
+                </>
               )
               })}
 

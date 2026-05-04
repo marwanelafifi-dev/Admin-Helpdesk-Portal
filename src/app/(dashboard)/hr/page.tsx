@@ -354,6 +354,7 @@ export default function HRPage() {
                 const date = p.hrType === "onboarding" ? p.startDate : p.lastWorkingDay
                 const hasUnreadComments = (commentCounts[req.id] ?? 0) > (viewedComments[req.id] ?? 0)
                 return (
+                  <>
                   <tr
                     key={req.id}
                     className={cn(
@@ -472,6 +473,7 @@ export default function HRPage() {
                       </td>
                     </tr>
                   )}
+                  </>
                 )
               })}
 

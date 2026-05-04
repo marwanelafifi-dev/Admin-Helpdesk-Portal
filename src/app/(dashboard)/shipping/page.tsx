@@ -297,6 +297,7 @@ export default function ShippingPage() {
               {filtered.map((shipment, i) => {
                 const hasUnreadComments = (commentCounts[shipment.id] ?? 0) > (viewedComments[shipment.id] ?? 0)
                 return (
+                <>
                 <tr
                   key={shipment.id}
                   className={cn(
@@ -401,7 +402,8 @@ export default function ShippingPage() {
                     </td>
                   </tr>
                 )}
-                )
+                </>
+              )
               })}
 
               {filtered.length === 0 && (
