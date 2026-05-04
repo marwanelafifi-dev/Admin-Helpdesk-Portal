@@ -175,7 +175,7 @@ export default function PurchasePage() {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
         {statCards.map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }) => {
           const isActive = statusFilter === key || (key === "all" && statusFilter === "all")
           return (
@@ -183,16 +183,16 @@ export default function PurchasePage() {
               key={key}
               onClick={() => setStatusFilter(key === "all" ? "all" : (p) => p === key ? "all" : key)}
               className={cn(
-                "text-left rounded-lg border-2 p-3 flex flex-col items-start gap-2 transition-all hover:shadow-sm",
+                "text-left rounded-xl border-2 p-5 flex items-center gap-4 transition-all hover:shadow-md",
                 isActive ? `${activeBg} ${activeBorder} text-white shadow-sm` : "bg-white border-gray-100 hover:border-gray-200"
               )}
             >
-              <div className={cn("h-8 w-8 rounded flex items-center justify-center flex-shrink-0 transition-all", isActive ? "bg-white/20" : iconBg)}>
-                <Icon className={cn("h-4 w-4 transition-all", isActive ? "text-white" : iconColor)} />
+              <div className={cn("h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all", isActive ? "bg-white/20" : iconBg)}>
+                <Icon className={cn("h-6 w-6 transition-all", isActive ? "text-white" : iconColor)} />
               </div>
-              <div className="w-full">
-                <p className={cn("text-[10px] font-medium uppercase tracking-tight leading-tight", isActive ? "text-white/75" : "text-muted-foreground")}>{label}</p>
-                <p className={cn("text-xl font-bold mt-0.5", isActive ? "text-white" : "")}>{value}</p>
+              <div>
+                <p className={cn("text-sm font-medium", isActive ? "text-white/80" : "text-muted-foreground")}>{label}</p>
+                <p className={cn("text-2xl font-bold", isActive ? "text-white" : "")}>{value}</p>
               </div>
             </button>
           )
