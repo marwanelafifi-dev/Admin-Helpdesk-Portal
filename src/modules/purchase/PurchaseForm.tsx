@@ -10,7 +10,7 @@ import {
   PURCHASE_PLATFORMS,
   PurchasePayloadSchema,
 } from "./purchase.schema"
-import { requestsAPI } from "@/lib/apiClient"
+import { submitRequest } from "@/services/engineService"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -66,10 +66,11 @@ export function PurchaseForm({ onCancel }: { onCancel?: () => void }) {
 
   const onSubmit = async (data: PurchaseForm) => {
     try {
-      await requestsAPI.create("purchase", {
+      submitRequest("purchase", data, {
         title: data.requestTitle,
-        payload: data,
         requesterId: "USR-001",
+        requesterName: "Current User",
+        requesterEmail: "user@si-ware.com",
       })
       router.push("/purchase")
       router.refresh()

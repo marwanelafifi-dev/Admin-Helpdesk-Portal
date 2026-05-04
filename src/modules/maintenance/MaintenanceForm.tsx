@@ -10,7 +10,7 @@ import {
   FLOOR_NUMBERS,
   MaintenancePayloadSchema,
 } from "./maintenance.schema"
-import { requestsAPI } from "@/lib/apiClient"
+import { submitRequest } from "@/services/engineService"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -64,10 +64,11 @@ export function MaintenanceForm({ onCancel }: { onCancel?: () => void }) {
 
   const onSubmit = async (data: MaintenanceForm) => {
     try {
-      await requestsAPI.create("maintenance", {
+      submitRequest("maintenance", data, {
         title: data.requestTitle,
-        payload: data,
         requesterId: "USR-001",
+        requesterName: "Current User",
+        requesterEmail: "user@si-ware.com",
       })
       router.push("/maintenance")
       router.refresh()

@@ -13,7 +13,7 @@ import {
   OnboardingPayloadSchema,
   OffboardingPayloadSchema,
 } from "./hr.schema"
-import { requestsAPI } from "@/lib/apiClient"
+import { submitRequest } from "@/services/engineService"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -70,10 +70,11 @@ function OnboardingFormFields({ onCancel }: { onCancel: () => void }) {
 
   const onSubmit = async (data: OnboardingForm) => {
     try {
-      await requestsAPI.create("hr", {
+      submitRequest("hr", data, {
         title: data.requestTitle,
-        payload: data,
         requesterId: "USR-001",
+        requesterName: "Current User",
+        requesterEmail: "user@si-ware.com",
       })
       router.push("/hr")
       router.refresh()
@@ -321,10 +322,11 @@ function OffboardingFormFields({ onCancel }: { onCancel: () => void }) {
 
   const onSubmit = async (data: OffboardingForm) => {
     try {
-      await requestsAPI.create("hr", {
+      submitRequest("hr", data, {
         title: data.requestTitle,
-        payload: data,
         requesterId: "USR-001",
+        requesterName: "Current User",
+        requesterEmail: "user@si-ware.com",
       })
       router.push("/hr")
       router.refresh()

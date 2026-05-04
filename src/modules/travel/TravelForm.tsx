@@ -10,7 +10,7 @@ import {
   TRAVEL_CLASS,
   TravelPayloadSchema,
 } from "./travel.schema"
-import { requestsAPI } from "@/lib/apiClient"
+import { submitRequest } from "@/services/engineService"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -64,10 +64,11 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
 
   const onSubmit = async (data: TravelForm) => {
     try {
-      await requestsAPI.create("travel", {
+      submitRequest("travel", data, {
         title: data.requestTitle,
-        payload: data,
         requesterId: "USR-001",
+        requesterName: "Current User",
+        requesterEmail: "user@si-ware.com",
       })
       router.push("/travel")
       router.refresh()

@@ -9,7 +9,7 @@ import {
   EVENT_TYPES,
   EventPayloadSchema,
 } from "./event.schema"
-import { requestsAPI } from "@/lib/apiClient"
+import { submitRequest } from "@/services/engineService"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -63,10 +63,11 @@ export function EventForm({ onCancel }: { onCancel?: () => void }) {
 
   const onSubmit = async (data: EventForm) => {
     try {
-      await requestsAPI.create("event", {
+      submitRequest("event", data, {
         title: data.requestTitle,
-        payload: data,
         requesterId: "USR-001",
+        requesterName: "Current User",
+        requesterEmail: "user@si-ware.com",
       })
       router.push("/event")
       router.refresh()
