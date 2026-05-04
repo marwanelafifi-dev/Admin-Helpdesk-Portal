@@ -244,8 +244,8 @@ export default function PurchasePage() {
             <colgroup>
               {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
             </colgroup>
-            <thead>
-              <tr className="bg-slate-800 border-b border-slate-700">
+            <thead className="bg-slate-800">
+              <tr className="border-b border-slate-700">
                 {COLS.map((col, idx) => (
                   <th
                     key={col.key}

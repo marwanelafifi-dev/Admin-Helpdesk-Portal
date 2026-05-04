@@ -268,8 +268,8 @@ export default function ShippingPage() {
               {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
               <col style={{ width: 56 }} />
             </colgroup>
-            <thead>
-              <tr className="bg-slate-800 border-b border-slate-700">
+            <thead className="bg-slate-800">
+              <tr className="border-b border-slate-700">
                 {COLS.map((col, idx) => (
                   <th
                     key={col.key}
