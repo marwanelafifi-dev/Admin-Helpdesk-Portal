@@ -265,6 +265,41 @@ export default function AllRequestsPage() {
   return (
     <div className="space-y-6">
 
+      {/* Team Tasks Quick View - Top Widget */}
+      {tasks.length > 0 && (
+        <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50 shadow-md">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-purple-900">
+                <CheckSquare className="h-5 w-5" />
+                Active Team Tasks ({tasks.filter(t => t.status !== "completed" && t.status !== "cancelled").length})
+              </span>
+              <Link href="/tasks">
+                <Button size="sm" variant="outline" className="text-xs">
+                  Manage All <ArrowRight className="h-3 w-3 ml-1" />
+                </Button>
+              </Link>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              {tasks.slice(0, 3).map((task) => (
+                <div key={task.id} className="bg-white rounded-lg p-3 border border-gray-200 hover:border-purple-300 transition-colors">
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <h4 className="text-sm font-medium text-gray-900 line-clamp-2">{task.title}</h4>
+                    <Badge className={cn("text-xs border-0 flex-shrink-0", TASK_STATUS_COLORS[task.status].bg, TASK_STATUS_COLORS[task.status].text)}>
+                      {TASK_STATUS_LABELS[task.status]}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-gray-600 mb-2">{task.assignedTo}</p>
+                  <p className="text-xs text-gray-500">{task.id}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Header */}
       <div className={cn("flex items-center justify-between", animationClasses.headerFadeIn)}>
         <div>
