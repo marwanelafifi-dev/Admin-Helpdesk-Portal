@@ -90,6 +90,7 @@ const MODULE_COLORS: Record<string, { bg: string; text: string; border: string }
 export default function FeedbackReportsPage() {
   const [search, setSearch] = useState("")
   const [filterRating, setFilterRating] = useState<number | null>(null)
+  const [dateRange, setDateRange] = useState<"7d" | "30d" | "90d" | "all">("30d")
   const [allFeedback, setAllFeedback] = useState<Feedback[]>(MOCK_FEEDBACK)
 
   useEffect(() => {
@@ -114,14 +115,25 @@ export default function FeedbackReportsPage() {
 
   // Filter feedback
   const filtered = useMemo(() => {
+    const now = new Date()
+    const getDateThreshold = () => {
+      if (dateRange === "7d") return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      if (dateRange === "30d") return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+      if (dateRange === "90d") return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+      return new Date(0)
+    }
+    const threshold = getDateThreshold()
+
     return allFeedback.filter((f) => {
+      const feedbackDate = new Date(f.submittedAt)
       const matchSearch = f.requestTitle.toLowerCase().includes(search.toLowerCase()) ||
         f.requesterName.toLowerCase().includes(search.toLowerCase()) ||
         f.requestId.toLowerCase().includes(search.toLowerCase())
       const matchRating = filterRating === null || f.rating === filterRating
-      return matchSearch && matchRating
+      const matchDate = feedbackDate >= threshold
+      return matchSearch && matchRating && matchDate
     })
-  }, [search, filterRating])
+  }, [search, filterRating, dateRange])
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -309,7 +321,7 @@ export default function FeedbackReportsPage() {
             </div>
           </div>
 
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 space-y-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
@@ -319,19 +331,46 @@ export default function FeedbackReportsPage() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <div className="flex gap-2 flex-wrap">
-              <span className="text-xs font-semibold text-gray-600 self-center">Filter by rating:</span>
-              {[5, 4, 3, 2, 1].map((rating) => (
-                <Button
-                  key={rating}
-                  variant={filterRating === rating ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setFilterRating(filterRating === rating ? null : rating)}
-                  className="text-xs h-8"
-                >
-                  {rating}★
-                </Button>
-              ))}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs font-semibold text-gray-600 mb-2">Date Range:</p>
+                <div className="flex gap-2">
+                  {[
+                    { value: "7d" as const, label: "Last 7 Days" },
+                    { value: "30d" as const, label: "Last 30 Days" },
+                    { value: "90d" as const, label: "Last 90 Days" },
+                    { value: "all" as const, label: "All Time" },
+                  ].map((option) => (
+                    <Button
+                      key={option.value}
+                      variant={dateRange === option.value ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setDateRange(option.value)}
+                      className="text-xs h-8"
+                    >
+                      {option.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-gray-600 mb-2">Filter by Rating:</p>
+                <div className="flex gap-2">
+                  {[5, 4, 3, 2, 1].map((rating) => (
+                    <Button
+                      key={rating}
+                      variant={filterRating === rating ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setFilterRating(filterRating === rating ? null : rating)}
+                      className="text-xs h-8"
+                    >
+                      {rating}★
+                    </Button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </CardHeader>
