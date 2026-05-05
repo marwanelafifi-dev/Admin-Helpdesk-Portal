@@ -18,18 +18,16 @@ const STATUS_COLORS: Record<string, string> = {
   new: "bg-sky-50 text-sky-700", on_hold: "bg-amber-50 text-amber-700",
   in_transit: "bg-amber-50 text-amber-700", delivered: "bg-green-50 text-green-700",
   completed: "bg-emerald-50 text-emerald-700", cancelled: "bg-red-50 text-red-600",
-  draft: "bg-zinc-100 text-zinc-700",
 }
 
 const STATUS_DOT: Record<string, string> = {
   new: "bg-sky-500", on_hold: "bg-amber-500", in_transit: "bg-amber-500",
   delivered: "bg-green-500", completed: "bg-emerald-500", cancelled: "bg-red-500",
-  draft: "bg-zinc-400",
 }
 
 const STATUS_LABELS: Record<string, string> = {
   new: "New", on_hold: "In Progress", in_transit: "In Customs",
-  delivered: "Delivered", completed: "Completed", cancelled: "Cancelled", draft: "Draft",
+  delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
 }
 
 const MODULE_COLORS: Record<string, { bar: string; pie: string }> = {

@@ -196,7 +196,6 @@ export default function ShippingPage() {
               onClick={() => setStatusFilter(key === "all" ? "all" : (p) => p === key ? "all" : key)}
               className={cn(
                 "text-left rounded-xl border-2 p-5 flex items-center gap-4 transition-all hover:shadow-md",
-                ,
                 isActive ? `${activeBg} ${activeBorder} text-white shadow-sm` : "bg-white border-gray-100 hover:border-gray-200"
               )}
             >
@@ -316,7 +315,6 @@ export default function ShippingPage() {
                 <tr
                   className={cn(
                     "border-b border-gray-100 hover:bg-blue-50/30 transition-colors",
-                    ,
                     hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40")
                   )}
                 >

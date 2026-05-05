@@ -15,13 +15,13 @@ import { useViewedComments } from "@/hooks/useViewedComments"
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: "Draft", new: "New", on_hold: "In Progress", in_transit: "In Customs",
+  new: "New", on_hold: "In Progress", in_transit: "In Customs",
   delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
   "New": "New", "In Progress": "In Progress", "In Customs": "In Customs", "In Transit": "In Customs",
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-zinc-100 text-zinc-600", new: "bg-sky-50 text-sky-700",
+  new: "bg-sky-50 text-sky-700",
   on_hold: "bg-amber-50 text-amber-700", in_transit: "bg-blue-50 text-blue-700",
   delivered: "bg-green-50 text-green-700", completed: "bg-emerald-50 text-emerald-700",
   cancelled: "bg-red-50 text-red-600",
@@ -29,14 +29,13 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 const STATUS_DOT: Record<string, string> = {
-  draft: "bg-zinc-400", new: "bg-sky-500", on_hold: "bg-amber-500",
+  new: "bg-sky-500", on_hold: "bg-amber-500",
   in_transit: "bg-blue-500", delivered: "bg-green-500",
   completed: "bg-emerald-500", cancelled: "bg-red-500",
   "New": "bg-sky-500", "In Progress": "bg-blue-500", "In Customs": "bg-amber-500", "In Transit": "bg-blue-500",
 }
 
 const STATUS_PILL_ACTIVE: Record<string, string> = {
-  draft: "bg-zinc-500 border-zinc-500 text-white",
   new: "bg-sky-500 border-sky-500 text-white",
   on_hold: "bg-amber-500 border-amber-500 text-white",
   in_transit: "bg-blue-600 border-blue-600 text-white",
@@ -67,12 +66,11 @@ const MODULE_PILL_ACTIVE: Record<string, string> = {
   hr: "bg-teal-600 border-teal-600 text-white",
 }
 
-const STATUSES = ["draft", "new", "on_hold", "in_transit", "delivered", "completed", "cancelled"] as const
+const STATUSES = ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"] as const
 const MODULES  = ["shipping", "maintenance", "purchase", "event", "travel", "hr"] as const
 
 const STAT_CARDS = [
   { key: "total",      label: "Total",      accentBg: "bg-slate-800",   accentBorder: "border-slate-800" },
-  { key: "draft",      label: "Draft",      accentBg: "bg-zinc-500",    accentBorder: "border-zinc-500" },
   { key: "new",        label: "New",        accentBg: "bg-sky-500",     accentBorder: "border-sky-500" },
   { key: "on_hold",    label: "In Progress", accentBg: "bg-amber-500",   accentBorder: "border-amber-500" },
   { key: "in_transit", label: "In Customs",  accentBg: "bg-blue-600",    accentBorder: "border-blue-600" },
@@ -173,7 +171,6 @@ export default function RequestsPage() {
 
   const counts = useMemo(() => ({
     total:      userRequests.length,
-    draft:      userRequests.filter((r) => r.status === "draft").length,
     new:        userRequests.filter((r) => r.status === "new").length,
     on_hold:    userRequests.filter((r) => r.status === "on_hold").length,
     in_transit: userRequests.filter((r) => r.status === "in_customs").length,

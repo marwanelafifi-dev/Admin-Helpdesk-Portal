@@ -25,12 +25,11 @@ import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: "Draft", new: "New", on_hold: "In Progress", in_progress: "In Progress", in_transit: "In Transit", in_customs: "In Customs", "In Progress": "In Progress", "In Customs": "In Customs", "In Transit": "In Transit",
+  new: "New", on_hold: "In Progress", in_progress: "In Progress", in_transit: "In Transit", in_customs: "In Customs", "In Progress": "In Progress", "In Customs": "In Customs", "In Transit": "In Transit",
   delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  draft:      "bg-zinc-100 text-zinc-600",
   new:        "bg-sky-50 text-sky-700",
   on_hold:    "bg-amber-50 text-amber-700",
   in_progress: "bg-blue-50 text-blue-700",
@@ -45,7 +44,7 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 const STATUS_DOT: Record<string, string> = {
-  draft: "bg-zinc-400", new: "bg-sky-500", on_hold: "bg-amber-500",
+  new: "bg-sky-500", on_hold: "bg-amber-500",
   in_progress: "bg-blue-500", in_transit: "bg-blue-500", in_customs: "bg-amber-500", "In Progress": "bg-blue-500", "In Customs": "bg-amber-500", "In Transit": "bg-blue-500",
   delivered: "bg-green-500",
   completed: "bg-emerald-500", cancelled: "bg-red-500",
@@ -64,7 +63,7 @@ const MODULE_DOT: Record<string, string> = {
 }
 
 const MODULES  = ["shipping", "maintenance", "purchase", "event", "travel", "hr"] as const
-const STATUSES = ["draft", "new", "on_hold", "in_transit", "delivered", "completed", "cancelled"] as const
+const STATUSES = ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"] as const
 
 // Module-specific statuses
 const MODULE_STATUSES: Record<string, readonly string[]> = {
@@ -381,7 +380,6 @@ export default function AllRequestsPage() {
               {(["all", "active", ...STATUSES] as const).map((s) => {
                 const activeClass = s === "all" ? "bg-slate-900 border-slate-900 text-white"
                   : s === "active" ? "bg-indigo-600 border-indigo-600 text-white" : {
-                  draft:      "bg-zinc-500 border-zinc-500 text-white",
                   new:        "bg-sky-500 border-sky-500 text-white",
                   on_hold:    "bg-amber-500 border-amber-500 text-white",
                   in_transit: "bg-blue-600 border-blue-600 text-white",

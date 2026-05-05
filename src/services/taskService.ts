@@ -52,7 +52,7 @@ export function getTasks(): Task[] {
   return tasks ? JSON.parse(tasks) : []
 }
 
-export function createTask(task: Omit<Task, "id" | "createdAt" | "updatedAt" | "comments" | "attachments" | "activity">): Task {
+export function createTask(task: Omit<Task, "id" | "createdAt" | "updatedAt" | "comments" | "activity"> & { attachments?: TaskAttachment[] }): Task {
   const id = `TSK-${Date.now()}`
   const now = new Date().toISOString()
 
@@ -62,7 +62,7 @@ export function createTask(task: Omit<Task, "id" | "createdAt" | "updatedAt" | "
     createdAt: now,
     updatedAt: now,
     comments: [],
-    attachments: [],
+    attachments: task.attachments || [],
     activity: [
       {
         id: `ACT-${Date.now()}`,

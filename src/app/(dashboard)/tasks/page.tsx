@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { getTasks, createTask, updateTaskStatus, type Task, type TaskStatus, ADMIN_TEAM_ROLES } from "@/services/taskService"
+import { getTasks, createTask, updateTaskStatus, addTaskComment, type Task, type TaskStatus, type TaskAttachment, ADMIN_TEAM_ROLES } from "@/services/taskService"
 
 const STATUS_COLORS: Record<TaskStatus, { bg: string; text: string; border: string }> = {
   todo: { bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200" },
@@ -52,6 +52,9 @@ export default function TasksPage() {
     description: "",
     assignedTo: "",
   })
+  const [commentText, setCommentText] = useState<Record<string, string>>({})
+  const [taskAttachments, setTaskAttachments] = useState<TaskAttachment[]>([])
+  const [commentAttachments, setCommentAttachments] = useState<Record<string, TaskAttachment[]>>({})
 
   useEffect(() => {
     setTasks(getTasks() as ExtendedTask[])
@@ -84,6 +87,32 @@ export default function TasksPage() {
       completed: tasks.filter((t) => t.status === "completed").length,
     }
   }, [tasks])
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, isComment?: boolean, taskId?: string) => {
+    const files = e.target.files
+    if (!files) return
+
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const att = {
+          id: `ATT-${Date.now()}-${Math.random()}`,
+          name: file.name,
+          url: event.target?.result as string,
+          uploadedAt: new Date().toISOString(),
+        }
+        if (isComment && taskId) {
+          setCommentAttachments({
+            ...commentAttachments,
+            [taskId]: [...(commentAttachments[taskId] || []), att],
+          })
+        } else {
+          setTaskAttachments([...taskAttachments, att])
+        }
+      }
+      reader.readAsDataURL(file)
+    })
+  }
 
   const handleCreateTask = () => {
     setRoleError(null)
@@ -119,9 +148,11 @@ export default function TasksPage() {
       status: "todo",
       assignedTo: newTaskData.assignedTo,
       assignedBy: session?.user?.name || "Current User",
+      attachments: taskAttachments,
     })
     setTasks([...tasks, task as ExtendedTask])
     setNewTaskData({ title: "", description: "", assignedTo: "" })
+    setTaskAttachments([])
     setShowNewTaskForm(false)
     setRoleError(null)
   }
@@ -135,6 +166,22 @@ export default function TasksPage() {
 
   const toggleExpand = (taskId: string) => {
     setExpandedTaskId(expandedTaskId === taskId ? null : taskId)
+  }
+
+  const handleAddComment = (taskId: string) => {
+    if (!commentText[taskId]?.trim()) return
+
+    const updatedTask = addTaskComment(
+      taskId,
+      session?.user?.name || "Current User",
+      commentText[taskId],
+      commentAttachments[taskId]
+    )
+    if (updatedTask) {
+      setTasks(tasks.map((t) => (t.id === taskId ? updatedTask as ExtendedTask : t)))
+      setCommentText({ ...commentText, [taskId]: "" })
+      setCommentAttachments({ ...commentAttachments, [taskId]: [] })
+    }
   }
 
   return (
@@ -199,6 +246,45 @@ export default function TasksPage() {
                 rows={4}
               />
             </div>
+
+            {/* Attachments Section */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Attachments (Optional)</label>
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  type="file"
+                  id="task-file-input"
+                  multiple
+                  onChange={(e) => handleFileUpload(e, false)}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => document.getElementById("task-file-input")?.click()}
+                  className="px-3 py-2 text-sm font-medium rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                >
+                  <Paperclip className="h-4 w-4" />
+                  Add File
+                </button>
+              </div>
+              {taskAttachments.length > 0 && (
+                <div className="space-y-2">
+                  {taskAttachments.map((att) => (
+                    <div key={att.id} className="flex items-center justify-between bg-gray-50 p-2 rounded text-sm">
+                      <a href={att.url} className="text-blue-600 hover:underline flex items-center gap-1">
+                        <Paperclip className="h-3 w-3" /> {att.name}
+                      </a>
+                      <button
+                        onClick={() => setTaskAttachments(taskAttachments.filter((a) => a.id !== att.id))}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Assign To (Admin/Manager only)
@@ -416,6 +502,72 @@ export default function TasksPage() {
                           ) : (
                             <p className="text-sm text-gray-500">No comments yet</p>
                           )}
+                          {/* Comment Input Form */}
+                          <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
+                            <textarea
+                              placeholder="Add a comment..."
+                              value={commentText[task.id] || ""}
+                              onChange={(e) =>
+                                setCommentText({ ...commentText, [task.id]: e.target.value })
+                              }
+                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              rows={3}
+                            />
+
+                            {/* Comment Attachments */}
+                            <div>
+                              <button
+                                onClick={() => {
+                                  const fileInput = document.getElementById(`comment-file-input-${task.id}`) as HTMLInputElement
+                                  fileInput?.click()
+                                }}
+                                className="px-2 py-1 text-xs font-medium rounded border border-gray-300 text-gray-700 hover:bg-gray-50 flex items-center gap-1"
+                              >
+                                <Paperclip className="h-3 w-3" />
+                                Add Attachment
+                              </button>
+                              <input
+                                id={`comment-file-input-${task.id}`}
+                                type="file"
+                                multiple
+                                onChange={(e) => handleFileUpload(e, true, task.id)}
+                                className="hidden"
+                              />
+                              {commentAttachments[task.id]?.length > 0 && (
+                                <div className="mt-2 space-y-1">
+                                  {commentAttachments[task.id].map((att) => (
+                                    <div
+                                      key={att.id}
+                                      className="flex items-center justify-between text-xs bg-gray-50 p-1.5 rounded"
+                                    >
+                                      <a href={att.url} className="text-blue-600 hover:underline flex items-center gap-1">
+                                        <Paperclip className="h-3 w-3" /> {att.name}
+                                      </a>
+                                      <button
+                                        onClick={() =>
+                                          setCommentAttachments({
+                                            ...commentAttachments,
+                                            [task.id]: commentAttachments[task.id].filter((a) => a.id !== att.id),
+                                          })
+                                        }
+                                        className="text-red-600 hover:text-red-700"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            <button
+                              onClick={() => handleAddComment(task.id)}
+                              disabled={!commentText[task.id]?.trim()}
+                              className="px-3 py-1.5 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                            >
+                              Add Comment
+                            </button>
+                          </div>
                         </div>
 
                         {/* Activity Tab */}
