@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
@@ -23,6 +23,7 @@ import {
   PanelLeftOpen,
   BarChart3,
   CheckSquare,
+  AlertCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { canAccessPath } from "@/lib/access"
@@ -41,9 +42,9 @@ const navItems: NavItem[] = [
     icon: Users,
     children: [
       { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-      { title: "All Requests", href: "/admin/all-requests", icon: ClipboardList },
-      { title: "Team Tasks", href: "/tasks", icon: CheckSquare },
       { title: "Feedback & Reports", href: "/feedback-reports", icon: BarChart3 },
+      { title: "Team Tasks", href: "/tasks", icon: CheckSquare },
+      { title: "All Requests", href: "/admin/all-requests", icon: ClipboardList },
     ],
   },
   { title: "My Requests", href: "/requests", icon: FileText },
@@ -84,11 +85,42 @@ export function Sidebar() {
     pathname.startsWith("/admin") && pathname !== "/admin/all-requests"
   )
   const [shippingExpanded, setShippingExpanded] = useState(pathname.startsWith("/shipping"))
+  const [hasNewRequests, setHasNewRequests] = useState(false)
+  const [hasNewTasks, setHasNewTasks] = useState(false)
+
   const permissions = session?.user?.permissions ?? []
   const role = session?.user?.role
 
   const searchParams = useSearchParams()
   const source = searchParams.get("source")
+
+  // Check for new requests and tasks
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const requestsData = localStorage.getItem("admin_requests")
+      const tasksData = localStorage.getItem("admin_tasks")
+
+      if (requestsData) {
+        try {
+          const requests = JSON.parse(requestsData)
+          const newRequests = requests.filter((r: any) => r.status === "new")
+          setHasNewRequests(newRequests.length > 0)
+        } catch (e) {
+          setHasNewRequests(false)
+        }
+      }
+
+      if (tasksData) {
+        try {
+          const tasks = JSON.parse(tasksData)
+          const newTasks = tasks.filter((t: any) => t.status === "todo")
+          setHasNewTasks(newTasks.length > 0)
+        } catch (e) {
+          setHasNewTasks(false)
+        }
+      }
+    }
+  }, [pathname])
 
   const canSee = (href: string) => status === "authenticated" && canAccessPath(href, permissions, role)
 
@@ -218,12 +250,22 @@ export function Sidebar() {
                   <div className="ml-3 mt-0.5 space-y-0.5 border-l border-slate-700 pl-3">
                     {item.children.map((child) => {
                       let childActive = false
+                      let showAlert = false
+
                       if (isAdministration) {
-                        // For Administration Team, check if we're on any of these pages
                         childActive = pathname === child.href
+                        // Show alert for Team Tasks if new tasks exist
+                        if (child.title === "Team Tasks" && hasNewTasks) {
+                          showAlert = true
+                        }
+                        // Show alert for All Requests if new requests exist
+                        if (child.title === "All Requests" && hasNewRequests) {
+                          showAlert = true
+                        }
                       } else {
                         childActive = pathname === child.href
                       }
+
                       return (
                         <Link
                           key={child.title}
@@ -236,7 +278,13 @@ export function Sidebar() {
                           )}
                         >
                           <child.icon className="h-4 w-4 flex-shrink-0" />
-                          <span>{child.title}</span>
+                          <span className="flex-1">{child.title}</span>
+                          {showAlert && (
+                            <AlertCircle className={cn(
+                              "h-4 w-4 flex-shrink-0 animate-pulse",
+                              childActive ? "text-white" : "text-red-500"
+                            )} />
+                          )}
                         </Link>
                       )
                     })}
