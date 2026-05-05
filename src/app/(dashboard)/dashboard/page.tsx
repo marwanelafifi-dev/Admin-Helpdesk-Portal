@@ -626,15 +626,15 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Recent Feedback Comments */}
+      {/* Recent Employee Feedback */}
       <div>
-        <h2 className="text-lg font-semibold mb-4 text-gray-900">Recent Customer Feedback</h2>
+        <h2 className="text-lg font-semibold mb-4 text-gray-900">Employee Request Feedback</h2>
         <Card className="border border-gray-100 shadow-sm">
           <CardHeader className="pb-4 border-b border-gray-100">
             <CardTitle className="flex items-center gap-2 text-gray-900">
-              <MessageSquare className="h-5 w-5 text-purple-600" /> Customer Comments
+              <MessageSquare className="h-5 w-5 text-purple-600" /> Service Quality Ratings
             </CardTitle>
-            <p className="text-xs text-muted-foreground mt-1">{feedbackComments.length} recent feedback responses</p>
+            <p className="text-xs text-muted-foreground mt-1">{feedbackComments.length} recent satisfaction responses</p>
           </CardHeader>
           <CardContent className="pt-4">
             {feedbackComments.length > 0 ? (
@@ -648,7 +648,7 @@ export default function DashboardPage() {
                           <span className="text-xs text-gray-500">•</span>
                           <p className="text-xs text-gray-600 font-medium">{comment.requestTitle}</p>
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">By {comment.requesterName}</p>
+                        <p className="text-xs text-gray-500 mt-1">From {comment.requesterName}</p>
                       </div>
                       <div className="flex gap-0.5 flex-shrink-0">
                         {Array.from({ length: 5 }).map((_, i) => (
@@ -670,8 +670,8 @@ export default function DashboardPage() {
             ) : (
               <div className="py-12 text-center text-muted-foreground">
                 <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-sm font-medium text-gray-600">No feedback yet</p>
-                <p className="text-xs text-gray-500 mt-1">Customer feedback will appear here after requests are completed and surveyed</p>
+                <p className="text-sm font-medium text-gray-600">No feedback responses yet</p>
+                <p className="text-xs text-gray-500 mt-1">Employee satisfaction ratings will appear here after completing request surveys</p>
               </div>
             )}
           </CardContent>

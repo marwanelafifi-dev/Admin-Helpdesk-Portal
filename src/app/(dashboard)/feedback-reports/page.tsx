@@ -190,7 +190,7 @@ export default function FeedbackReportsPage() {
       {/* Page Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Feedback & Reports</h1>
-        <p className="text-gray-600 mt-2">Customer satisfaction metrics and performance analytics across all modules</p>
+        <p className="text-gray-600 mt-2">Employee satisfaction metrics and service quality analytics across all departments</p>
       </div>
 
       {/* Summary Stats Grid */}
@@ -316,8 +316,8 @@ export default function FeedbackReportsPage() {
               <MessageSquare className="h-5 w-5 text-purple-700" />
             </div>
             <div>
-              <CardTitle className="text-lg font-semibold text-gray-900">Customer Feedback</CardTitle>
-              <p className="text-xs text-gray-600 mt-1">Detailed responses and comments from survey submissions</p>
+              <CardTitle className="text-lg font-semibold text-gray-900">Employee Feedback</CardTitle>
+              <p className="text-xs text-gray-600 mt-1">Detailed satisfaction responses and improvement suggestions from employees</p>
             </div>
           </div>
 
@@ -379,8 +379,8 @@ export default function FeedbackReportsPage() {
           {filtered.length === 0 ? (
             <div className="text-center py-12">
               <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500 font-medium">No feedback matching your filters</p>
-              <p className="text-gray-400 text-sm mt-1">Try adjusting your search criteria</p>
+              <p className="text-gray-500 font-medium">No feedback responses found</p>
+              <p className="text-gray-400 text-sm mt-1">Try adjusting your search criteria or date range</p>
             </div>
           ) : (
             <div className="space-y-4">
