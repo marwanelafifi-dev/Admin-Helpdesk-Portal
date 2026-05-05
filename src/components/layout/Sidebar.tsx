@@ -35,10 +35,17 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { title: "Feedback & Reports", href: "/feedback-reports", icon: BarChart3 },
-  { title: "Team Tasks", href: "/tasks", icon: CheckSquare },
-  { title: "All Requests", href: "/admin/all-requests", icon: ClipboardList },
+  {
+    title: "Administration Team",
+    href: "/dashboard",
+    icon: Users,
+    children: [
+      { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { title: "All Requests", href: "/admin/all-requests", icon: ClipboardList },
+      { title: "Team Tasks", href: "/tasks", icon: CheckSquare },
+      { title: "Feedback & Reports", href: "/feedback-reports", icon: BarChart3 },
+    ],
+  },
   { title: "My Requests", href: "/requests", icon: FileText },
   { title: "HR", href: "/hr", icon: UserCog },
   {
@@ -70,6 +77,9 @@ export function Sidebar() {
   const pathname = usePathname()
   const { data: session, status } = useSession()
   const [collapsed, setCollapsed] = useState(false)
+  const [administrationExpanded, setAdministrationExpanded] = useState(
+    pathname.startsWith("/admin/all-requests") || pathname.startsWith("/tasks") || pathname.startsWith("/feedback-reports")
+  )
   const [adminExpanded, setAdminExpanded] = useState(
     pathname.startsWith("/admin") && pathname !== "/admin/all-requests"
   )
@@ -125,6 +135,11 @@ export function Sidebar() {
       return pathname === "/requests"
     }
 
+    // Administration Team parent (don't highlight as active, only children)
+    if (href === "/admin/all-requests" && (pathname.startsWith("/tasks") || pathname.startsWith("/feedback-reports"))) {
+      return false
+    }
+
     return pathname.startsWith(href)
   }
 
@@ -154,17 +169,30 @@ export function Sidebar() {
           if (item.children) {
             const isAdmin = item.title === "Admin"
             const isShipping = item.title === "Shipping"
-            const expanded = isAdmin ? adminExpanded : shippingExpanded
-            const setExpanded = isAdmin ? setAdminExpanded : setShippingExpanded
+            const isAdministration = item.title === "Administration Team"
 
-            const active = isAdmin
-              ? pathname.startsWith("/admin") && pathname !== "/admin/all-requests"
-              : pathname.startsWith("/shipping") && pathname !== "/shipping"
+            let expanded = false
+            let setExpandedFn: (val: boolean) => void = () => {}
+            let active = false
+
+            if (isAdmin) {
+              expanded = adminExpanded
+              setExpandedFn = (val) => setAdminExpanded(val)
+              active = pathname.startsWith("/admin") && pathname !== "/admin/all-requests"
+            } else if (isShipping) {
+              expanded = shippingExpanded
+              setExpandedFn = (val) => setShippingExpanded(val)
+              active = pathname.startsWith("/shipping") && pathname !== "/shipping"
+            } else if (isAdministration) {
+              expanded = administrationExpanded
+              setExpandedFn = (val) => setAdministrationExpanded(val)
+              active = pathname.startsWith("/admin/all-requests") || pathname.startsWith("/tasks") || pathname.startsWith("/feedback-reports") || pathname === "/dashboard"
+            }
 
             return (
               <div key={item.title}>
                 <button
-                  onClick={() => !collapsed && setExpanded(!expanded)}
+                  onClick={() => !collapsed && setExpandedFn(!expanded)}
                   title={collapsed ? item.title : undefined}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
@@ -189,7 +217,13 @@ export function Sidebar() {
                 {!collapsed && expanded && (
                   <div className="ml-3 mt-0.5 space-y-0.5 border-l border-slate-700 pl-3">
                     {item.children.map((child) => {
-                      const childActive = pathname === child.href
+                      let childActive = false
+                      if (isAdministration) {
+                        // For Administration Team, check if we're on any of these pages
+                        childActive = pathname === child.href
+                      } else {
+                        childActive = pathname === child.href
+                      }
                       return (
                         <Link
                           key={child.title}
