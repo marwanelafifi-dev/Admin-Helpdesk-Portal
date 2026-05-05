@@ -1,5 +1,8 @@
 export type TaskStatus = "todo" | "in_progress" | "in_review" | "completed" | "cancelled"
 
+// Administration team roles only
+export const ADMIN_TEAM_ROLES = ["admin", "manager"]
+
 export interface TaskAttachment {
   id: string
   name: string

@@ -1,13 +1,14 @@
 "use client"
 
-import React, { useState, useMemo } from "react"
-import { Plus, Search, CheckCircle2, Clock, AlertCircle, Trash2, MessageSquare, Paperclip } from "lucide-react"
+import React, { useState, useMemo, useEffect } from "react"
+import { Plus, Search, CheckCircle2, Clock, AlertCircle, Trash2, MessageSquare, Paperclip, AlertTriangle } from "lucide-react"
+import { useSession } from "next-auth/react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { getTasks, createTask, updateTaskStatus, type Task, type TaskStatus } from "@/services/taskService"
+import { getTasks, createTask, updateTaskStatus, type Task, type TaskStatus, ADMIN_TEAM_ROLES } from "@/services/taskService"
 
 const STATUS_COLORS: Record<TaskStatus, { bg: string; text: string; border: string }> = {
   todo: { bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200" },
@@ -38,19 +39,30 @@ interface ExtendedTask extends Task {
 }
 
 export default function TasksPage() {
+  const { data: session } = useSession()
   const [tasks, setTasks] = useState<ExtendedTask[]>([])
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("all")
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null)
   const [showNewTaskForm, setShowNewTaskForm] = useState(false)
+  const [adminTeamMembers, setAdminTeamMembers] = useState<{ name: string; role: string }[]>([])
+  const [roleError, setRoleError] = useState<string | null>(null)
   const [newTaskData, setNewTaskData] = useState({
     title: "",
     description: "",
     assignedTo: "",
   })
 
-  React.useEffect(() => {
+  useEffect(() => {
     setTasks(getTasks() as ExtendedTask[])
+    // Mock admin team members - in real app, fetch from backend
+    setAdminTeamMembers([
+      { name: "Ahmed Hassan", role: "admin" },
+      { name: "Marwan Elafifi", role: "manager" },
+      { name: "Sarah Smith", role: "admin" },
+      { name: "John Wilson", role: "manager" },
+      { name: "Maria Garcia", role: "admin" },
+    ])
   }, [])
 
   const filtered = useMemo(() => {
@@ -74,18 +86,44 @@ export default function TasksPage() {
   }, [tasks])
 
   const handleCreateTask = () => {
-    if (newTaskData.title.trim() && newTaskData.assignedTo.trim()) {
-      const task = createTask({
-        title: newTaskData.title,
-        description: newTaskData.description,
-        status: "todo",
-        assignedTo: newTaskData.assignedTo,
-        assignedBy: "Current User",
-      })
-      setTasks([...tasks, task as ExtendedTask])
-      setNewTaskData({ title: "", description: "", assignedTo: "" })
-      setShowNewTaskForm(false)
+    setRoleError(null)
+
+    if (!newTaskData.title.trim()) {
+      setRoleError("Task title is required")
+      return
     }
+
+    if (!newTaskData.assignedTo.trim()) {
+      setRoleError("Team member selection is required")
+      return
+    }
+
+    // Validate that assigned member is in admin team
+    const assignedMember = adminTeamMembers.find(
+      (member) => member.name.toLowerCase() === newTaskData.assignedTo.toLowerCase()
+    )
+
+    if (!assignedMember) {
+      setRoleError(`"${newTaskData.assignedTo}" is not found in the administration team`)
+      return
+    }
+
+    if (!ADMIN_TEAM_ROLES.includes(assignedMember.role)) {
+      setRoleError(`"${newTaskData.assignedTo}" has role "${assignedMember.role}" but only Admin/Manager roles are allowed for team tasks`)
+      return
+    }
+
+    const task = createTask({
+      title: newTaskData.title,
+      description: newTaskData.description,
+      status: "todo",
+      assignedTo: newTaskData.assignedTo,
+      assignedBy: session?.user?.name || "Current User",
+    })
+    setTasks([...tasks, task as ExtendedTask])
+    setNewTaskData({ title: "", description: "", assignedTo: "" })
+    setShowNewTaskForm(false)
+    setRoleError(null)
   }
 
   const handleStatusChange = (taskId: string, newStatus: TaskStatus) => {
@@ -125,12 +163,26 @@ export default function TasksPage() {
             <CardTitle className="text-blue-900">Create New Task</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Role Error Message */}
+            {roleError && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-red-900 text-sm">Validation Error</p>
+                  <p className="text-red-700 text-sm mt-1">{roleError}</p>
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Task Title</label>
               <Input
                 placeholder="Enter task title..."
                 value={newTaskData.title}
-                onChange={(e) => setNewTaskData({ ...newTaskData, title: e.target.value })}
+                onChange={(e) => {
+                  setNewTaskData({ ...newTaskData, title: e.target.value })
+                  setRoleError(null)
+                }}
                 className="border-gray-300"
               />
             </div>
@@ -139,25 +191,43 @@ export default function TasksPage() {
               <textarea
                 placeholder="Enter task description..."
                 value={newTaskData.description}
-                onChange={(e) => setNewTaskData({ ...newTaskData, description: e.target.value })}
+                onChange={(e) => {
+                  setNewTaskData({ ...newTaskData, description: e.target.value })
+                  setRoleError(null)
+                }}
                 className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 rows={4}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Assign To</label>
-              <Input
-                placeholder="Team member name..."
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Assign To (Admin/Manager only)
+              </label>
+              <select
                 value={newTaskData.assignedTo}
-                onChange={(e) => setNewTaskData({ ...newTaskData, assignedTo: e.target.value })}
-                className="border-gray-300"
-              />
+                onChange={(e) => {
+                  setNewTaskData({ ...newTaskData, assignedTo: e.target.value })
+                  setRoleError(null)
+                }}
+                className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                <option value="">Select a team member...</option>
+                {adminTeamMembers.map((member) => (
+                  <option key={member.name} value={member.name}>
+                    {member.name} ({member.role})
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-2">Only administration team members (Admin/Manager roles) can be assigned</p>
             </div>
             <div className="flex gap-2">
               <Button onClick={handleCreateTask} className="bg-blue-600 hover:bg-blue-700 text-white">
                 Create Task
               </Button>
-              <Button onClick={() => setShowNewTaskForm(false)} variant="outline">
+              <Button onClick={() => {
+                setShowNewTaskForm(false)
+                setRoleError(null)
+              }} variant="outline">
                 Cancel
               </Button>
             </div>
