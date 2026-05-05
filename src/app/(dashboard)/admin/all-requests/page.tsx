@@ -3,14 +3,17 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
-import { Search, Layers, TrendingUp, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Search, Layers, TrendingUp, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle, CheckSquare, ArrowRight } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import { getRequests, initializeMockData, updateStatus, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { notifyStatusChange } from "@/services/notificationService"
+import { getTasks, updateTaskStatus, type Task, type TaskStatus } from "@/services/taskService"
 import { cn } from "@/lib/utils"
 import { animationClasses } from "@/lib/animations"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
@@ -110,9 +113,26 @@ type ModuleTab = "all" | typeof MODULES[number]
 type SortKey = "id" | "title" | "requesterName" | "createdAt" | "module" | "status" | "updatedAt"
 type SortDir = "asc" | "desc"
 
+const TASK_STATUS_COLORS: Record<TaskStatus, { bg: string; text: string }> = {
+  todo: { bg: "bg-slate-50", text: "text-slate-700" },
+  in_progress: { bg: "bg-blue-50", text: "text-blue-700" },
+  in_review: { bg: "bg-amber-50", text: "text-amber-700" },
+  completed: { bg: "bg-emerald-50", text: "text-emerald-700" },
+  cancelled: { bg: "bg-red-50", text: "text-red-700" },
+}
+
+const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
+  todo: "To Do",
+  in_progress: "In Progress",
+  in_review: "In Review",
+  completed: "Completed",
+  cancelled: "Cancelled",
+}
+
 export default function AllRequestsPage() {
   const { data: session } = useSession()
   const [requests, setRequests]         = useState<EngineRequest[]>([])
+  const [tasks, setTasks]               = useState<Task[]>([])
   const [search, setSearch]             = useState("")
   const [activeTab, setActiveTab]       = useState<ModuleTab>("all")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -170,6 +190,7 @@ export default function AllRequestsPage() {
       try {
         initializeMockData()
         setRequests(getRequests())
+        setTasks(getTasks())
       } catch (error) {
         console.error("Failed to fetch requests:", error)
       }
@@ -519,6 +540,100 @@ export default function AllRequestsPage() {
             </div>
           </div>
       </Card>
+
+      {/* Team Tasks Section */}
+      <div className="mt-8">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <CheckSquare className="h-5 w-5 text-purple-600" />
+              Team Tasks Overview
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">Active tasks for the administration team</p>
+          </div>
+          <Link href="/tasks">
+            <Button variant="outline" size="sm" className="flex items-center gap-2">
+              Manage Tasks
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
+
+        {tasks.length > 0 ? (
+          <div className="grid grid-cols-1 gap-3">
+            {tasks.slice(0, 5).map((task) => (
+              <Card key={task.id} className={cn("border shadow-sm hover:shadow-md transition-all", TASK_STATUS_COLORS[task.status].bg)}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-gray-900">{task.title}</h3>
+                        <Badge className={cn("text-xs border-0", TASK_STATUS_COLORS[task.status].bg, TASK_STATUS_COLORS[task.status].text)}>
+                          {TASK_STATUS_LABELS[task.status]}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+                      <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                        <span>{task.id}</span>
+                        <span>•</span>
+                        <span>Assigned to: {task.assignedTo}</span>
+                        {task.comments.length > 0 && (
+                          <>
+                            <span>•</span>
+                            <span>{task.comments.length} comments</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <select
+                      value={task.status}
+                      onChange={(e) => {
+                        const updatedTask = updateTaskStatus(task.id, e.target.value as TaskStatus, "Current User")
+                        if (updatedTask) {
+                          setTasks(tasks.map((t) => (t.id === task.id ? updatedTask : t)))
+                        }
+                      }}
+                      className={cn(
+                        "text-xs font-medium px-3 py-1 rounded-lg border-0 cursor-pointer focus:outline-none flex-shrink-0",
+                        TASK_STATUS_COLORS[task.status].bg,
+                        TASK_STATUS_COLORS[task.status].text
+                      )}
+                    >
+                      <option value="todo">{TASK_STATUS_LABELS.todo}</option>
+                      <option value="in_progress">{TASK_STATUS_LABELS.in_progress}</option>
+                      <option value="in_review">{TASK_STATUS_LABELS.in_review}</option>
+                      <option value="completed">{TASK_STATUS_LABELS.completed}</option>
+                      <option value="cancelled">{TASK_STATUS_LABELS.cancelled}</option>
+                    </select>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {tasks.length > 5 && (
+              <div className="text-center py-3">
+                <Link href="/tasks">
+                  <Button variant="ghost" size="sm">
+                    View All {tasks.length} Tasks <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </div>
+        ) : (
+          <Card className="border-0 bg-gray-50 shadow-sm">
+            <CardContent className="p-8 text-center">
+              <CheckSquare className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 font-medium">No team tasks yet</p>
+              <p className="text-gray-400 text-sm mt-1">Create tasks to organize work across the administration team</p>
+              <Link href="/tasks" className="mt-4 inline-block">
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                  Create First Task
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   )
 }
