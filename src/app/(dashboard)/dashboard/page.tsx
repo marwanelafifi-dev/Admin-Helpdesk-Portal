@@ -627,48 +627,56 @@ export default function DashboardPage() {
       </div>
 
       {/* Recent Feedback Comments */}
-      {feedbackComments.length > 0 && (
-        <div>
-          <h2 className="text-lg font-semibold mb-4 text-gray-900">Recent Customer Feedback</h2>
-          <Card className="border border-gray-100 shadow-sm">
-            <CardHeader className="pb-4 border-b border-gray-100">
-              <CardTitle className="flex items-center gap-2 text-gray-900">
-                <MessageSquare className="h-5 w-5 text-purple-600" /> Customer Comments
-              </CardTitle>
-              <p className="text-xs text-muted-foreground mt-1">{feedbackComments.length} recent feedback responses</p>
-            </CardHeader>
-            <CardContent className="space-y-0 max-h-96 overflow-y-auto pt-4">
-              {feedbackComments.map((comment, idx) => (
-                <div key={`${comment.requestId}-${comment.completedAt}`} className={cn("p-4 hover:bg-gray-50 transition-colors duration-150 rounded-lg", idx !== feedbackComments.length - 1 && "border-b border-gray-100")}>
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-gray-900">{comment.requestId}</p>
-                        <span className="text-xs text-gray-500">•</span>
-                        <p className="text-xs text-gray-600 font-medium">{comment.requestTitle}</p>
+      <div>
+        <h2 className="text-lg font-semibold mb-4 text-gray-900">Recent Customer Feedback</h2>
+        <Card className="border border-gray-100 shadow-sm">
+          <CardHeader className="pb-4 border-b border-gray-100">
+            <CardTitle className="flex items-center gap-2 text-gray-900">
+              <MessageSquare className="h-5 w-5 text-purple-600" /> Customer Comments
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">{feedbackComments.length} recent feedback responses</p>
+          </CardHeader>
+          <CardContent className="pt-4">
+            {feedbackComments.length > 0 ? (
+              <div className="space-y-0 max-h-96 overflow-y-auto">
+                {feedbackComments.map((comment, idx) => (
+                  <div key={`${comment.requestId}-${comment.completedAt}`} className={cn("p-4 hover:bg-gray-50 transition-colors duration-150 rounded-lg", idx !== feedbackComments.length - 1 && "border-b border-gray-100")}>
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-gray-900">{comment.requestId}</p>
+                          <span className="text-xs text-gray-500">•</span>
+                          <p className="text-xs text-gray-600 font-medium">{comment.requestTitle}</p>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">By {comment.requesterName}</p>
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">By {comment.requesterName}</p>
+                      <div className="flex gap-0.5 flex-shrink-0">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star
+                            key={i}
+                            className={cn(
+                              "h-3.5 w-3.5",
+                              i < (comment.rating || 0) ? "fill-amber-400 text-amber-400" : "text-gray-200"
+                            )}
+                          />
+                        ))}
+                      </div>
                     </div>
-                    <div className="flex gap-0.5 flex-shrink-0">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Star
-                          key={i}
-                          className={cn(
-                            "h-3.5 w-3.5",
-                            i < (comment.rating || 0) ? "fill-amber-400 text-amber-400" : "text-gray-200"
-                          )}
-                        />
-                      ))}
-                    </div>
+                    <p className="text-sm text-gray-700 bg-blue-50 rounded px-3 py-2 border-l-2 border-blue-300 italic">"{comment.comment}"</p>
+                    <p className="text-xs text-gray-400 mt-2">{timeAgo(comment.completedAt || comment.createdAt)}</p>
                   </div>
-                  <p className="text-sm text-gray-700 bg-blue-50 rounded px-3 py-2 border-l-2 border-blue-300 italic">"{comment.comment}"</p>
-                  <p className="text-xs text-gray-400 mt-2">{timeAgo(comment.completedAt || comment.createdAt)}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-      )}
+                ))}
+              </div>
+            ) : (
+              <div className="py-12 text-center text-muted-foreground">
+                <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-sm font-medium text-gray-600">No feedback yet</p>
+                <p className="text-xs text-gray-500 mt-1">Customer feedback will appear here after requests are completed and surveyed</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
