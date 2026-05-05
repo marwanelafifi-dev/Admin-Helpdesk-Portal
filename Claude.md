@@ -9,23 +9,24 @@ This document tracks the phased development of the Admin Request Platform, movin
 - [x] Global Dashboard & UI/UX Layout.
 - [x] Authentication & RBAC System (Super Admin, Admin, Manager, Requester, Viewer).
 
-## Phase 2: Core Module Implementation (Current) — UI Complete, Forms Pending
+## Phase 2: Core Module Implementation (Completed)
 - [x] **Dashboard — Professional Analytics Redesign:**
   - [x] Primary KPIs: Total Requests, Active Requests, Completed, Avg Resolution Days — all with trend indicators.
   - [x] Secondary KPIs: Pending Approvals, Overdue Items (7+ days), Cancellation Rate.
-  - [x] Status breakdown bar chart (Draft/New/On Hold/In Transit/Delivered/Completed/Cancelled).
+  - [x] Status breakdown bar chart (New/On Hold/In Transit/Delivered/Completed/Cancelled).
   - [x] Module distribution pie chart (all 6 modules with color-coded segments).
   - [x] Recent activity stream (10 most recent with timestamps, status badges).
   - [x] Smart alerts panel: overdue count, pending approvals warning, cancellation rate flag, or "All Clear".
   - [x] Trend indicators (up/down arrows) with comparison labels on all KPI cards.
+  - [x] Recent Employee Feedback section showing latest feedback comments with ratings.
 - [x] **Shipping Module:** Full CRUD, tracking, and status updates.
-  - [x] Shipping-specific statuses: Draft → New → On Hold → In Transit → Delivered → Completed → Cancelled.
+  - [x] Shipping-specific statuses: New → In Progress → In Customs → Delivered → Cancelled.
   - [x] Carrier filter pills (DHL, FedEx, UPS, Aramex, Other).
   - [x] Stat cards: Total Shipments, On Hold, In Transit, Delivered — clickable, sync with filter.
   - [x] Sortable + resizable dark slate table header. Zebra rows, dot indicators, footer count.
 - [x] **My Requests Page (Unified View):**
   - [x] Shows all requests across all modules scoped to the logged-in user (USR-001).
-  - [x] 8 clickable stat cards (Total, Draft, New, On Hold, In Transit, Delivered, Completed, Cancelled) — highlight in status color when active.
+  - [x] 7 clickable stat cards (Total, New, On Hold, In Transit, Delivered, Completed, Cancelled) — highlight in status color when active.
   - [x] Status and Module quick-filter pill rows with per-color active states.
   - [x] Sortable + resizable dark slate table (native `<table>` + `<colgroup>`).
   - [x] Columns: Request ID, Request Title, Submission Date, Module, Status, Last Update Date — all sortable and resizable.
@@ -36,10 +37,11 @@ This document tracks the phased development of the Admin Request Platform, movin
   - [x] Title: "All Requests"; sidebar item positioned directly after Dashboard.
   - [x] Sidebar active highlight scoped to exact path `/admin/all-requests` (does not bleed into Admin parent item).
   - [x] Overview stat cards: Total Requests, New, On Hold, Completed — clickable.
-  - [x] Quick-filter pills for Module (All, Shipping, Maintenance, Purchase, Event, Travel, HR) and Status (All + 7 statuses + Active special filter).
+  - [x] Quick-filter pills for Module (All, Shipping, Maintenance, Purchase, Event, Travel, HR) and Status (All + 6 statuses + Active special filter).
   - [x] Active pill highlights in the matching color per module/status.
   - [x] Sortable + resizable dark slate table. Columns: Request ID, Request Title, Submission Date, Requester Name, Module, Status, Last Update Date.
   - [x] Search by ID, title, or requester name.
+  - [x] Team Tasks overview section showing top 5 active tasks with inline status management.
 - [x] **HR Module:**
   - [x] Zod schema for Onboarding and Offboarding payloads (`hr.schema.ts`).
   - [x] HR page with All / Onboarding / Offboarding tabs, stat cards, and filtered table.
@@ -83,7 +85,59 @@ This document tracks the phased development of the Admin Request Platform, movin
   - [ ] Define Zod Schema + build booking/approval workflow form.
 - [x] **engineService mock data** — bumped to `v7`. Total seeded records: 8 SHP, 5 MNT, 4 PRC, 4 EVT, 5 TRV, 8 HR (including team records).
 
-## Phase 2b: Comment System & Indicators (Completed)
+## Phase 2b: Employee Feedback & Satisfaction Surveys (Completed)
+- [x] **Automated Feedback Survey System:**
+  - [x] Feedback survey triggered automatically 1 hour after request completion.
+  - [x] Survey stored via feedbackService with localStorage persistence.
+  - [x] Survey types: FeedbackSurvey (id, requestId, requesterEmail, requesterName, requestTitle, module, status: pending/sent/completed).
+  - [x] Email notification with survey link (simulated via console.log for now).
+- [x] **Public Survey Form:**
+  - [x] Public page at `/feedback-survey?id={surveyId}` — no authentication required.
+  - [x] Star rating selector (1-5 stars) with visual feedback.
+  - [x] Optional comment textarea for detailed feedback.
+  - [x] Form validation ensures rating selected before submission.
+  - [x] Success message + auto-redirect to dashboard after 3 seconds.
+- [x] **Feedback & Reports Dashboard:**
+  - [x] Professional page at `/feedback-reports` showing all collected feedback.
+  - [x] Summary stats: Total Feedback, Average Rating, Satisfaction Rate, Response Coverage.
+  - [x] Module Performance Report with average ratings by department.
+  - [x] Employee Feedback list with search and filter capabilities.
+  - [x] Date range filtering: Last 7 Days, Last 30 Days, Last 90 Days, All Time.
+  - [x] Rating filter buttons (5★, 4★, 3★, 2★, 1★).
+  - [x] Recent Employee Feedback section added to main dashboard (up to 5 latest).
+  - [x] Comment count display with ratings and timestamps.
+
+## Phase 2c: Team Tasks & Administration Collaboration (Completed)
+- [x] **Team Tasks Management Page:**
+  - [x] Dedicated page at `/tasks` for admin team task management.
+  - [x] Role-based access: only Admin/Manager roles can create and assign tasks.
+  - [x] Task statuses: todo, in_progress, in_review, completed, cancelled.
+  - [x] Create form with title, description, team member dropdown (admin/manager only), optional attachments.
+  - [x] Task statistics dashboard (Total, To Do, In Progress, In Review, Completed).
+  - [x] Search and status filter capabilities.
+  - [x] Expandable task detail view showing:
+    - [x] Comments section with author, timestamp, optional attachments.
+    - [x] Activity tab showing all task history (creation, status changes, comments, attachments).
+    - [x] Attachments section showing all task files.
+    - [x] Inline status dropdown for quick status updates.
+- [x] **Task Comments with Attachments:**
+  - [x] Comment input form in expanded task view.
+  - [x] File attachment support for comments with add/remove UI.
+  - [x] Attachment preview with download links.
+  - [x] Files stored as data URLs for localStorage persistence.
+- [x] **Task Creation Attachments:**
+  - [x] Optional file attachment support during task creation.
+  - [x] Attachment preview and removal UI in form.
+  - [x] Multiple file upload support.
+- [x] **Team Tasks Integration:**
+  - [x] Team Tasks overview section on All Requests page.
+  - [x] Top 5 active tasks displayed in card format.
+  - [x] Each task card shows: title, description, status badge, assigned member.
+  - [x] Inline status dropdown for quick updates from All Requests view.
+  - [x] "Manage Tasks" button linking to full tasks page.
+  - [x] Sidebar navigation item "Team Tasks" positioned after Feedback & Reports.
+
+## Phase 2d: UX Enhancements (Completed)
 - [x] **Comment Activity Tab:** Shows comment history in request detail view with author, timestamp, and content.
   - [x] Comment creation with optional text attachments (data URLs).
   - [x] Comment editing and deletion.
@@ -95,7 +149,15 @@ This document tracks the phased development of the Admin Request Platform, movin
   - [x] Auto-mark comments as viewed when request detail page loads.
   - [x] Implemented on: My Requests, Shipping, Shipping Receiving, HR, Maintenance, Purchase, Event, Travel, Admin All Requests pages.
 
-## Phase 2c: UX Enhancements (Completed)
+## Phase 2e: Status System Updates (Completed)
+- [x] **Removed Draft Status:**
+  - [x] Removed "Draft" from all status displays across Dashboard, My Requests, All Requests pages.
+  - [x] Updated status constants (STATUS_LABELS, STATUS_COLORS, STATUS_DOT) to exclude draft.
+  - [x] Removed draft from STATUSES arrays and stat card displays.
+  - [x] Unified status model now: New, On Hold, In Progress, Delivered, Completed, Cancelled.
+  - [x] Module-specific statuses maintained: Shipping (new/in_progress/in_customs/delivered/cancelled), HR (new/on_hold/completed), etc.
+
+## Phase 2f: Request List & Interaction Enhancements (Completed)
 - [x] **Inline Status Editing:** Change request status directly from the list row without navigating to detail view.
   - [x] `InlineStatusSelect` component — clickable badge opens a dropdown of allowed statuses per module.
   - [x] Module-aware status lists: Shipping (new/in_customs/delivered/cancelled), HR (new/on_hold/completed), Maintenance (new/on_hold/completed/cancelled), Purchase (new/in_customs/on_hold/delivered/cancelled), Event/Travel (new/on_hold/in_transit/delivered/completed/cancelled).
@@ -129,14 +191,36 @@ This document tracks the phased development of the Admin Request Platform, movin
   - [x] Purchase stat cards forced to single row (`grid-cols-5`).
 - [x] **Google Fonts Removed:** Replaced `next/font/google` Inter with system font stack to avoid certificate errors in restricted network environments.
 
-## Phase 3: Advanced Functionality (Upcoming)
+## Phase 3: Codebase Architecture Improvement (In Progress)
+- [ ] **Code Architecture Enhancement** — Using improve-codebase-architecture skill to restructure for scalability and maintainability.
+  - [ ] Modularize service layer (separate concerns: engineService, feedbackService, taskService).
+  - [ ] Create consistent patterns for CRUD operations across all modules.
+  - [ ] Establish clear separation between business logic, UI components, and data services.
+  - [ ] Extract reusable hooks and utilities to reduce component duplication.
+  - [ ] Standardize error handling and validation across all services.
+  - [ ] Create comprehensive TypeScript interfaces and types documentation.
+  - [ ] Establish project structure best practices for scalability.
+
+## Phase 4: Docker Containerization (Upcoming)
+- [ ] **Single Container Deployment:**
+  - [ ] Create Dockerfile for Next.js frontend + NestJS backend + PostgreSQL database.
+  - [ ] Docker Compose configuration for simplified single-container orchestration.
+  - [ ] Environment variable configuration for development, staging, production.
+  - [ ] Database initialization scripts and migrations in container.
+  - [ ] Volume mounting for persistent database storage.
+  - [ ] Health checks and logging configuration.
+  - [ ] Documentation for quick container startup and management.
+
+## Phase 5: Advanced Functionality (Upcoming)
 - [ ] **Audit Trail Enhancement:** Add granular history logs to the dashboard.
+- [ ] **Email Notifications:** Implement actual email sending for feedback surveys (currently simulated).
 - [ ] **Notifications System:** Automated email/in-app notifications for pending approvals.
 
-## Phase 4: Optimization & Scaling
+## Phase 6: Optimization & Scaling
 - [ ] Add Redis caching for frequently accessed dashboard data.
 - [ ] Implement file upload storage service for AWB/Invoices/Receipts.
 - [ ] Performance audit on polymorphic JSONB queries.
+- [ ] Load testing and optimization for high-volume request processing.
 
 ---
 
@@ -167,15 +251,19 @@ Status column preserves color styling with dot indicators; other columns use neu
 ## Unified Status Model (All Modules)
 | Status | Color | Meaning |
 |--------|-------|---------|
-| Draft | Zinc | Saved but not submitted |
 | New | Sky | Submitted, awaiting action |
 | On Hold | Amber | Blocked / awaiting external input |
 | In Progress | Blue | Actively being processed |
 | Delivered | Green | Item/service delivered |
 | Completed | Emerald | Fully resolved and closed |
 | Cancelled | Red | Cancelled by user or admin |
-| Awaiting Approval | Amber | Awaiting approval (Purchase module specific) |
-| In Customs | Amber | In customs/transit (Shipping module specific) |
+
+**Module-Specific Status Variations:**
+- **Shipping:** new, in_progress, in_customs, delivered, cancelled
+- **HR:** new, on_hold, completed
+- **Maintenance:** new, on_hold, completed, cancelled
+- **Purchase:** new, in_customs, on_hold, delivered, cancelled (with "awaiting_approval" as on_hold variant)
+- **Event/Travel:** new, on_hold, in_transit, delivered, completed, cancelled
 
 ## Statistics & Metrics Tracked on Dashboard
 - **Total Requests:** Count across all modules and statuses.
@@ -189,28 +277,53 @@ Status column preserves color styling with dot indicators; other columns use neu
 - **Module Breakdown:** Count per module (Shipping, Maintenance, Purchase, Event, Travel, HR).
 - **Status Distribution:** Count per status across all modules.
 
-## Key Files
+## Key Files & Services
+
+### Core Services
 | File | Purpose | Key Features |
 |------|---------|--------------|
-| `src/app/(dashboard)/dashboard/page.tsx` | Professional analytics dashboard | KPIs, charts, alerts, trend indicators |
-| `src/services/engineService.ts` | Core request engine, localStorage | Mock data seed (v7), polymorphic JSONB payload handling |
-| `src/app/(dashboard)/requests/page.tsx` | My Requests unified view | Request ID, Title, Submission Date, Module, Status, Last Update Date |
-| `src/app/(dashboard)/admin/all-requests/page.tsx` | All Requests admin view | Request ID, Title, Submission Date, Requester, Module, Status, Last Update Date |
-| `src/app/(dashboard)/shipping/page.tsx` | Shipping module page | Pickup Date, Tracking Number, PO Number, Cost Center, Carrier, Requester, Status, Delivery Date, Last Update |
-| `src/app/(dashboard)/hr/page.tsx` | HR module page (list + tabs) | Request ID, Employee ID, Employee Name, Department, Sector, Type, Status, Last Update Date |
-| `src/app/(dashboard)/hr/new/page.tsx` | New HR request form page | Onboarding/Offboarding form with query param support |
-| `src/app/(dashboard)/maintenance/page.tsx` | Maintenance module page | Request ID, Request Title, Submission Date, Requester Name, Priority, Status, Last Update Date |
-| `src/app/(dashboard)/purchase/page.tsx` | Purchase module page | Request ID, Request Title, Submission Date, Requester Name, Supplier, Estimated Price, Last Update Date |
-| `src/app/(dashboard)/event/page.tsx` | Event module page | Request ID, Request Title, Submission Date, Requester Name, Event Date, Attendees, Status, Last Update Date |
-| `src/app/(dashboard)/travel/page.tsx` | Travel module page | Request ID, Request Title, Submission Date, Requester Name, Destination, Travel Date, Status, Last Update Date |
-| `src/modules/hr/hr.schema.ts` | Zod schemas for Onboarding & Offboarding | Validated payload structures with required fields |
-| `src/modules/hr/HRForm.tsx` | HR create form | Onboarding / Offboarding toggle, checkbox items, Zod validation |
-| `src/components/layout/Sidebar.tsx` | Navigation sidebar | Module navigation with active state highlighting |
-| `src/lib/mock-data.ts` | Static mock data | Legacy shipments, users, roles |
-| `src/modules/shipping/ShippingForm.tsx` | Shipping request form | Full form with carrier selection and validation |
+| `src/services/engineService.ts` | Core request engine | Mock data seed (v7), polymorphic JSONB payload, CRUD operations |
+| `src/services/feedbackService.ts` | Employee feedback surveys | FeedbackSurvey lifecycle, auto-send with 1-hour delay, rating collection |
+| `src/services/taskService.ts` | Team task management | Task CRUD, comment threading, attachments, activity logging |
+
+### Dashboard & Analytics
+| File | Purpose | Key Features |
+|------|---------|--------------|
+| `src/app/(dashboard)/dashboard/page.tsx` | Main analytics dashboard | KPIs, charts, alerts, trend indicators, feedback section |
+| `src/app/(dashboard)/feedback-reports/page.tsx` | Feedback analytics | Summary stats, module performance, date/rating filters |
+
+### Request List Pages
+| File | Purpose | Key Features |
+|------|---------|--------------|
+| `src/app/(dashboard)/requests/page.tsx` | My Requests unified view | User-scoped requests, status/module filters, sortable table |
+| `src/app/(dashboard)/admin/all-requests/page.tsx` | All Requests admin view | All team requests, search, filters, team tasks integration |
+
+### Module Pages
+| File | Purpose | Key Features |
+|------|---------|--------------|
+| `src/app/(dashboard)/shipping/page.tsx` | Shipping module | Status: new/in_progress/in_customs/delivered/cancelled |
+| `src/app/(dashboard)/shipping/receiving/page.tsx` | Shipping Receiving submodule | Receiving-specific workflow |
+| `src/app/(dashboard)/hr/page.tsx` | HR module (list + tabs) | Onboarding/Offboarding tabs, status: new/on_hold/completed |
+| `src/app/(dashboard)/hr/new/page.tsx` | HR form page | Form with type query param support |
+| `src/app/(dashboard)/maintenance/page.tsx` | Maintenance module | Priority filtering, status: new/on_hold/completed/cancelled |
+| `src/app/(dashboard)/purchase/page.tsx` | Purchase module | Supplier/price display, status: new/in_customs/on_hold/delivered/cancelled |
+| `src/app/(dashboard)/event/page.tsx` | Event module | Event date/attendees display, full status lifecycle |
+| `src/app/(dashboard)/travel/page.tsx` | Travel module | Destination/date display, full status lifecycle |
+
+### Admin Tools
+| File | Purpose | Key Features |
+|------|---------|--------------|
+| `src/app/(dashboard)/tasks/page.tsx` | Team Tasks management | Admin/Manager-only, comment attachments, activity tracking |
+
+### Components & Utilities
+| File | Purpose | Key Features |
+|------|---------|--------------|
+| `src/components/layout/Sidebar.tsx` | Navigation sidebar | Module nav, active state highlighting, collapsible groups |
 | `src/components/ui/InlineStatusSelect.tsx` | Inline status dropdown | Module-aware status list, optimistic update, chevron indicator |
-| `src/components/ui/RequestActionsMenu.tsx` | Three-dot row action menu | View Details (inline expand) + Edit (form link) |
-| `src/hooks/useExpandedRows.ts` | Row expansion state hook | `toggleRow()`, `isExpanded()` keyed by request ID |
+| `src/components/ui/RequestActionsMenu.tsx` | Three-dot row action menu | View Details (expand), Edit (form link) |
+| `src/hooks/useExpandedRows.ts` | Row expansion state hook | `toggleRow()`, `isExpanded()` per request ID |
+| `src/modules/hr/HRForm.tsx` | HR create form | Toggle-based type selection, checkbox items, validation |
+| `src/modules/shipping/ShippingForm.tsx` | Shipping form | Carrier selection, full field validation |
 
 ---
 ### Development Loop (Repeat for each module)
