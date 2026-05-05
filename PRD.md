@@ -1,18 +1,26 @@
-# PRD: Admin Request Platform
+# PRD: Admin Request Platform v2.0
+
+**Last Updated:** May 5, 2026  
+**Status:** Phase 2 Complete, Phase 3 In Progress  
+**Target Deployment:** Docker Single-Container (Phase 4)
 
 ## Product Overview
 
-The Admin Request Platform is an enterprise-grade request management system designed to streamline administrative workflows across six operational modules: Shipping, HR, Maintenance, Purchase, Event, and Travel.
+The Admin Request Platform is an enterprise-grade internal employee request management system designed to streamline administrative workflows across six operational modules: Shipping, HR, Maintenance, Purchase, Event, and Travel. Features integrated feedback collection, team task collaboration, and real-time analytics.
 
 ## Vision & Goals
 
-**Primary Goal:** Centralize all administrative requests into a single, intuitive platform with module-specific workflows while maintaining consistent UI/UX patterns.
+**Primary Goal:** Provide a unified, intuitive platform for internal employee requests with module-specific workflows, feedback collection, and team collaboration tools while maintaining enterprise-grade security and scalability.
 
 **Success Metrics:**
-- Reduce average request resolution time by 30%
-- Achieve 95%+ request completion rate within target SLA
-- Support 100+ concurrent users
-- Provide real-time visibility into all pending requests
+- ✅ 100% request visibility across all modules
+- ✅ Real-time collaboration with comments and attachments
+- ✅ Employee feedback response rate > 70%
+- ✅ Team task management with role-based access
+- ⏳ Reduce average request resolution time by 30%
+- ⏳ Achieve 99% uptime SLA
+- ⏳ Support 100+ concurrent users
+- ⏳ Page load times < 2 seconds
 
 ---
 
