@@ -153,7 +153,6 @@ export default function MaintenancePage() {
   }), [requests])
 
   const statCards = [
-    { key: "all",       label: "Total Tickets", value: counts.total,      icon: Wrench,       iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
     { key: "new",       label: "New",           value: counts.new,        icon: Clock,        iconBg: "bg-sky-50",    iconColor: "text-sky-600",    activeBg: "bg-sky-500",    activeBorder: "border-sky-500" },
     { key: "on_hold",   label: "In Progress",   value: counts.inProgress, icon: Wrench,       iconBg: "bg-amber-50",  iconColor: "text-amber-600",  activeBg: "bg-amber-500",  activeBorder: "border-amber-500" },
     { key: "completed", label: "Completed",     value: counts.completed,  icon: CheckCircle2, iconBg: "bg-emerald-50",iconColor: "text-emerald-600",activeBg: "bg-emerald-600",activeBorder: "border-emerald-600" },
@@ -177,8 +176,8 @@ export default function MaintenancePage() {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {statCards.map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }) => {
+      <div className="grid grid-cols-3 gap-4">
+        {statCards.map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }, index) => {
           const isActive = statusFilter === key || (key === "all" && statusFilter === "all")
           return (
             <button
@@ -186,7 +185,8 @@ export default function MaintenancePage() {
               onClick={() => setStatusFilter(key === "all" ? "all" : (p) => p === key ? "all" : key)}
               className={cn(
                 "text-left rounded-xl border-2 p-5 flex items-center gap-4 transition-all hover:shadow-md",
-                isActive ? `${activeBg} ${activeBorder} text-white shadow-sm` : "bg-white border-gray-100 hover:border-gray-200"
+                isActive ? `${activeBg} ${activeBorder} text-white shadow-sm` : "bg-white border-gray-100 hover:border-gray-200",
+                
               )}
             >
               <div className={cn("h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all", isActive ? "bg-white/20" : iconBg)}>
@@ -203,7 +203,7 @@ export default function MaintenancePage() {
 
       {/* Table Card */}
       <Card>
-        <div className="-mx-6 px-6 -mb-6">
+        <div className="-mx-6 px-6 -mb-6 overflow-visible">
           <CardHeader className="pb-4">
             <div className="flex flex-wrap gap-3">
               <div className="relative flex-1 min-w-[200px]">
@@ -403,3 +403,4 @@ export default function MaintenancePage() {
     </div>
   )
 }
+

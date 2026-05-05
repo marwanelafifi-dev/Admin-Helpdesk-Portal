@@ -188,6 +188,28 @@ export default function DashboardPage() {
     const onTimeRate = filteredRequests.length > 0 ? Math.round((successfulRequests / filteredRequests.length) * 100) : 0
     const cancellationRate = filteredRequests.length > 0 ? Math.round((cancelled / filteredRequests.length) * 100) : 0
 
+    // First Response Time (average hours from creation to first status change)
+    let firstResponseHours = 0
+    const requestsWithActivity = filteredRequests.filter((r) => r.createdAt !== r.updatedAt)
+    if (requestsWithActivity.length > 0) {
+      firstResponseHours = Math.round(
+        requestsWithActivity.reduce((sum, r) => sum + (new Date(r.updatedAt).getTime() - new Date(r.createdAt).getTime()), 0) /
+          requestsWithActivity.length /
+          (1000 * 60 * 60)
+      )
+    }
+
+    // Closure Time (average days from creation to completion)
+    let closureTimeDays = 0
+    const completedRequests = filteredRequests.filter((r) => ["completed", "delivered"].includes(r.status))
+    if (completedRequests.length > 0) {
+      closureTimeDays = Math.round(
+        completedRequests.reduce((sum, r) => sum + (new Date(r.updatedAt).getTime() - new Date(r.createdAt).getTime()), 0) /
+          completedRequests.length /
+          (1000 * 60 * 60 * 24)
+      )
+    }
+
     return {
       total: filteredRequests.length,
       active: activeCount,
@@ -200,6 +222,8 @@ export default function DashboardPage() {
       successfulRequests,
       statusBreakdown,
       moduleBreakdown,
+      firstResponseHours,
+      closureTimeDays,
     }
   }, [filteredRequests])
 
@@ -232,9 +256,6 @@ export default function DashboardPage() {
       .slice(0, 10)
   }, [filteredRequests])
 
-  const pendingApprovals = useMemo(() => {
-    return filteredRequests.filter((r) => r.status === "new" || r.status === "on_hold")
-  }, [filteredRequests])
 
   const overdueItems = useMemo(() => {
     const now = new Date()
@@ -345,69 +366,92 @@ export default function DashboardPage() {
       <div>
         <h2 className="text-lg font-semibold mb-4 text-gray-900">Key Performance Indicators</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <KPICard
-          title="Total Requests"
-          value={stats.total}
-          icon={FileText}
-          iconColor="text-blue-600"
-          iconBg="bg-blue-50"
-          trend={{ value: stats.onTimeRate, label: "completion rate", isPositive: stats.onTimeRate >= 80 }}
-        />
-        <KPICard
-          title="Active Requests"
-          value={stats.active}
-          icon={Activity}
-          iconColor="text-orange-600"
-          iconBg="bg-orange-50"
-          trend={{ value: stats.total > 0 ? Math.round((stats.active / stats.total) * 100) : 0, label: "of total", isPositive: false }}
-        />
-        <KPICard
-          title="Successful Requests"
-          value={stats.successfulRequests}
-          icon={CheckCircle2}
-          iconColor="text-emerald-600"
-          iconBg="bg-emerald-50"
-          trend={{ value: stats.onTimeRate, label: "success rate", isPositive: true }}
-        />
-        <KPICard
-          title="Avg Resolution Time"
-          value={`${stats.avgResolution}d`}
-          icon={Clock}
-          iconColor="text-teal-600"
-          iconBg="bg-teal-50"
-          trend={{ value: stats.avgResolution > 0 ? Math.max(0, 30 - stats.avgResolution) : 0, label: "days faster", isPositive: true }}
-        />
+          <div>
+            <KPICard
+              title="Total Requests"
+              value={stats.total}
+              icon={FileText}
+              iconColor="text-blue-600"
+              iconBg="bg-blue-50"
+              trend={{ value: stats.onTimeRate, label: "completion rate", isPositive: stats.onTimeRate >= 80 }}
+            />
+          </div>
+          <div>
+            <KPICard
+              title="Active Requests"
+              value={stats.active}
+              icon={Activity}
+              iconColor="text-orange-600"
+              iconBg="bg-orange-50"
+              trend={{ value: stats.total > 0 ? Math.round((stats.active / stats.total) * 100) : 0, label: "of total", isPositive: false }}
+            />
+          </div>
+          <div>
+            <KPICard
+              title="Successful Requests"
+              value={stats.successfulRequests}
+              icon={CheckCircle2}
+              iconColor="text-emerald-600"
+              iconBg="bg-emerald-50"
+              trend={{ value: stats.onTimeRate, label: "success rate", isPositive: true }}
+            />
+          </div>
+          <div>
+            <KPICard
+              title="Avg Resolution Time"
+              value={`${stats.avgResolution}d`}
+              icon={Clock}
+              iconColor="text-teal-600"
+              iconBg="bg-teal-50"
+              trend={{ value: stats.avgResolution > 0 ? Math.max(0, 30 - stats.avgResolution) : 0, label: "days faster", isPositive: true }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Recommended KPIs */}
+      <div>
+        <h2 className="text-lg font-semibold mb-4 text-gray-900">Performance Metrics</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <KPICard
+            title="First Response Time"
+            value={`${stats.firstResponseHours}h`}
+            icon={Truck}
+            iconColor="text-blue-600"
+            iconBg="bg-blue-50"
+            trend={{ value: Math.max(0, 24 - stats.firstResponseHours), label: "within target", isPositive: stats.firstResponseHours <= 24 }}
+          />
+          <KPICard
+            title="Closure Time"
+            value={`${stats.closureTimeDays}d`}
+            icon={Clock}
+            iconColor="text-purple-600"
+            iconBg="bg-purple-50"
+            trend={{ value: Math.max(0, 14 - stats.closureTimeDays), label: "below avg", isPositive: stats.closureTimeDays <= 14 }}
+          />
         </div>
       </div>
 
       {/* Secondary KPIs */}
       <div>
         <h2 className="text-lg font-semibold mb-4 text-gray-900">Request Status Overview</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <KPICard
-          title="Pending Approvals"
-          value={pendingApprovals.length}
-          icon={Clock}
-          iconColor="text-amber-600"
-          iconBg="bg-amber-50"
-          trend={{ value: pendingApprovals.length > 0 ? Math.round((pendingApprovals.filter((r) => r.status === "new").length / pendingApprovals.length) * 100) : 0, label: "new requests", isPositive: false }}
-        />
-        <KPICard
-          title="Overdue Items"
-          value={overdueItems.length}
-          icon={AlertCircle}
-          iconColor="text-red-600"
-          iconBg="bg-red-50"
-          trend={{ value: overdueItems.length > 0 ? Math.round((overdueItems.length / stats.active) * 100 || 0) : 0, label: "of active", isPositive: overdueItems.length === 0 }}
-        />
-        <KPICard
-          title="Cancellation Rate"
-          value={`${stats.cancellationRate}%`}
-          icon={TrendingDown}
-          iconColor="text-red-600"
-          iconBg="bg-red-50"
-          trend={{ value: Math.max(0, 10 - stats.cancellationRate), label: "below target", isPositive: true }}
-        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <KPICard
+            title="Overdue Items"
+            value={overdueItems.length}
+            icon={AlertCircle}
+            iconColor="text-red-600"
+            iconBg="bg-red-50"
+            trend={{ value: overdueItems.length > 0 ? Math.round((overdueItems.length / stats.active) * 100 || 0) : 0, label: "of active", isPositive: overdueItems.length === 0 }}
+          />
+          <KPICard
+            title="Cancellation Rate"
+            value={`${stats.cancellationRate}%`}
+            icon={TrendingDown}
+            iconColor="text-red-600"
+            iconBg="bg-red-50"
+            trend={{ value: Math.max(0, 10 - stats.cancellationRate), label: "below target", isPositive: true }}
+          />
       </div>
 
       {/* Charts Section */}
@@ -544,17 +588,6 @@ export default function DashboardPage() {
                 </div>
               </div>
             )}
-            {pendingApprovals.length > 5 && (
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg hover:border-amber-300 transition-colors duration-200 animate-in fade-in-50">
-                <div className="flex items-start gap-3">
-                  <span className="h-2 w-2 bg-amber-500 rounded-full mt-1.5 flex-shrink-0"></span>
-                  <div className="flex-1">
-                    <p className="font-semibold text-amber-900 text-sm">{pendingApprovals.length} Pending Approvals</p>
-                    <p className="text-xs text-amber-700 mt-1">Action required on requests awaiting review</p>
-                  </div>
-                </div>
-              </div>
-            )}
             {stats.cancellationRate > 10 && (
               <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg hover:border-orange-300 transition-colors duration-200 animate-in fade-in-50">
                 <div className="flex items-start gap-3">
@@ -566,7 +599,7 @@ export default function DashboardPage() {
                 </div>
               </div>
             )}
-            {overdueItems.length === 0 && pendingApprovals.length <= 5 && stats.cancellationRate <= 10 && (
+            {overdueItems.length === 0 && stats.cancellationRate <= 10 && (
               <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg hover:border-emerald-300 transition-colors duration-200">
                 <div className="flex items-start gap-3">
                   <span className="h-2 w-2 bg-emerald-500 rounded-full mt-1.5 flex-shrink-0 animate-pulse"></span>

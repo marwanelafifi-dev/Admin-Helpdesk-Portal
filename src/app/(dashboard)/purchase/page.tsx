@@ -189,7 +189,7 @@ export default function PurchasePage() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-5 gap-4">
-        {statCards.map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }) => {
+        {statCards.map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }, index) => {
           const isActive = statusFilter === key || (key === "all" && statusFilter === "all")
           return (
             <button
@@ -197,7 +197,8 @@ export default function PurchasePage() {
               onClick={() => setStatusFilter(key === "all" ? "all" : (p) => p === key ? "all" : key)}
               className={cn(
                 "text-left rounded-xl border-2 p-5 flex items-center gap-4 transition-all hover:shadow-md",
-                isActive ? `${activeBg} ${activeBorder} text-white shadow-sm` : "bg-white border-gray-100 hover:border-gray-200"
+                isActive ? `${activeBg} ${activeBorder} text-white shadow-sm` : "bg-white border-gray-100 hover:border-gray-200",
+                
               )}
             >
               <div className={cn("h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all", isActive ? "bg-white/20" : iconBg)}>
@@ -248,7 +249,7 @@ export default function PurchasePage() {
           </p>
         </CardHeader>
 
-        <div className="-mx-6 px-6 -mb-6">
+        <div className="-mx-6 px-6 -mb-6 overflow-visible">
           <div className="overflow-x-auto overflow-y-visible">
             <table ref={tableRef} className="w-full text-sm border-collapse" style={{ tableLayout: colWidths.some(w => w !== null) ? "fixed" : "auto" }}>
             <colgroup>
@@ -413,3 +414,4 @@ export default function PurchasePage() {
     </div>
   )
 }
+

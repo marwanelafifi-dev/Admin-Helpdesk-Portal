@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardHeader } from "@/components/ui/card"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
 import { cn } from "@/lib/utils"
+import { animationClasses } from "@/lib/animations"
 import { requestsAPI } from "@/lib/apiClient"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
@@ -185,7 +186,7 @@ export default function RequestsPage() {
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className={cn("flex items-center justify-between", animationClasses.headerFadeIn)}>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">My Requests</h1>
           <p className="text-muted-foreground text-sm mt-0.5">View all your requests across all modules</p>
@@ -194,7 +195,7 @@ export default function RequestsPage() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-4 lg:grid-cols-8 gap-3">
-        {STAT_CARDS.map(({ key, label, accentBg, accentBorder }) => {
+        {STAT_CARDS.map(({ key, label, accentBg, accentBorder }, index) => {
           const count = counts[key as keyof typeof counts]
           const isActive = key === "total"
             ? statusFilter === "all" && moduleFilter === "all"
@@ -210,7 +211,8 @@ export default function RequestsPage() {
                 "text-left rounded-xl border-2 px-4 py-3 transition-all hover:shadow-md",
                 isActive
                   ? `${accentBg} ${accentBorder} text-white shadow-sm`
-                  : "bg-white border-gray-100 hover:border-gray-200"
+                  : "bg-white border-gray-100 hover:border-gray-200",
+                
               )}
             >
               <p className={cn("text-[10px] font-semibold uppercase tracking-widest mb-1", isActive ? "text-white/70" : "text-gray-400")}>{label}</p>
@@ -285,8 +287,9 @@ export default function RequestsPage() {
         </CardHeader>
 
         {/* Table */}
-        <div className="overflow-x-auto overflow-y-visible">
-          <table ref={tableRef} className="w-full text-sm" style={{ tableLayout: colWidths.some(w => w !== null) ? "fixed" : "auto" }}>
+        <div className="-mx-6 px-6 -mb-6 overflow-visible">
+          <div className="overflow-x-auto overflow-y-visible">
+            <table ref={tableRef} className="w-full text-sm border-collapse" style={{ tableLayout: colWidths.some(w => w !== null) ? "fixed" : "auto" }}>
             <colgroup>
               {colWidths.map((w, i) => <col key={i} style={w !== null ? { width: w } : undefined} />)}
               <col />
@@ -320,7 +323,8 @@ export default function RequestsPage() {
                 return (
                 <tr key={req.id} className={cn(
                   "border-b border-gray-100 hover:bg-blue-50/30 transition-colors",
-                  hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40")
+                  hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40"),
+                  
                 )}>
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
                     <div className="flex items-center gap-2">
@@ -374,12 +378,13 @@ export default function RequestsPage() {
             </tbody>
           </table>
 
-          {filtered.length > 0 && (
-            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-[11px] text-gray-400 text-right">
-              Showing {filtered.length} of {counts.total} requests
+            {filtered.length > 0 && (
+              <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-[11px] text-gray-400 text-right">
+                Showing {filtered.length} of {counts.total} requests
+              </div>
+            )}
             </div>
-          )}
-        </div>
+          </div>
       </Card>
     </div>
   )

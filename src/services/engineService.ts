@@ -252,6 +252,15 @@ export function updateStatus(
     // Email simulation is best-effort in local dev.
   })
 
+  // Trigger feedback survey creation when request reaches completed or delivered
+  if ((status === "completed" || status === "delivered") && (previousStatus !== "completed" && previousStatus !== "delivered")) {
+    void import("./feedbackService").then(({ createFeedbackSurvey }) => {
+      createFeedbackSurvey(updated)
+    }).catch(() => {
+      // Feedback service is best-effort in local dev.
+    })
+  }
+
   return updated
 }
 

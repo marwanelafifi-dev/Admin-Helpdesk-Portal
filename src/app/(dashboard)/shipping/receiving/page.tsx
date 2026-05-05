@@ -20,18 +20,20 @@ import { useViewedComments } from "@/hooks/useViewedComments"
 import { useExpandedRows } from "@/hooks/useExpandedRows"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
+import { animationClasses } from "@/lib/animations"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STATUSES = ["new", "in_customs", "delivered", "cancelled"] as const
+const STATUSES = ["new", "in_progress", "in_customs", "delivered", "cancelled"] as const
 const CARRIERS = ["DHL", "FedEx", "UPS", "Aramex", "Other"] as const
 
 const STATUS_LABELS: Record<string, string> = {
-  new: "New", in_customs: "In Customs", delivered: "Delivered", cancelled: "Cancelled",
+  new: "New", in_progress: "In Progress", in_customs: "In Customs", delivered: "Delivered", cancelled: "Cancelled",
 }
 
 const STATUS_COLORS: Record<string, string> = {
   new:        "bg-sky-50 text-sky-700",
+  in_progress: "bg-blue-50 text-blue-700",
   in_customs: "bg-amber-50 text-amber-700",
   delivered:  "bg-green-50 text-green-700",
   cancelled:  "bg-red-50 text-red-600",
@@ -39,6 +41,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 const STATUS_DOT: Record<string, string> = {
   new:        "bg-sky-500",
+  in_progress: "bg-blue-500",
   in_customs: "bg-amber-500",
   delivered:  "bg-green-500",
   cancelled:  "bg-red-500",
@@ -46,6 +49,7 @@ const STATUS_DOT: Record<string, string> = {
 
 const STATUS_PILL_ACTIVE: Record<string, string> = {
   new:        "bg-sky-500 border-sky-500 text-white",
+  in_progress: "bg-blue-600 border-blue-600 text-white",
   in_customs: "bg-amber-600 border-amber-600 text-white",
   delivered:  "bg-green-600 border-green-600 text-white",
   cancelled:  "bg-red-600 border-red-600 text-white",
@@ -187,27 +191,31 @@ export default function ReceivingPage() {
   }, [search, statusFilter, carrierFilter, sortKey, sortDir, shipments])
 
   const stats = useMemo(() => ({
-    total:     shipments.length,
-    inCustoms: shipments.filter((s) => s.status === "in_customs").length,
-    delivered: shipments.filter((s) => s.status === "delivered").length,
+    total:       shipments.length,
+    new:         shipments.filter((s) => s.status === "new").length,
+    inProgress:  shipments.filter((s) => s.status === "in_progress").length,
+    inCustoms:   shipments.filter((s) => s.status === "in_customs").length,
+    delivered:   shipments.filter((s) => s.status === "delivered").length,
   }), [shipments])
 
   const statCards = [
-    { key: "all",        label: "Total Shipments", value: stats.total,     icon: Package,      iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
-    { key: "in_customs", label: "In Customs",      value: stats.inCustoms, icon: Clock,        iconBg: "bg-amber-50",  iconColor: "text-amber-600",  activeBg: "bg-amber-600",  activeBorder: "border-amber-600" },
-    { key: "delivered",  label: "Delivered",       value: stats.delivered, icon: CheckCircle2, iconBg: "bg-green-50",  iconColor: "text-green-600",  activeBg: "bg-green-600",  activeBorder: "border-green-600" },
+    { key: "all",         label: "Total Shipments", value: stats.total,       icon: Package,      iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
+    { key: "new",         label: "New",             value: stats.new,         icon: Package,      iconBg: "bg-sky-50",    iconColor: "text-sky-600",    activeBg: "bg-sky-600",    activeBorder: "border-sky-600" },
+    { key: "in_progress", label: "In Progress",     value: stats.inProgress,  icon: Truck,        iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
+    { key: "in_customs",  label: "In Customs",      value: stats.inCustoms,   icon: Clock,        iconBg: "bg-amber-50",  iconColor: "text-amber-600",  activeBg: "bg-amber-600",  activeBorder: "border-amber-600" },
+    { key: "delivered",   label: "Delivered",       value: stats.delivered,   icon: CheckCircle2, iconBg: "bg-green-50",  iconColor: "text-green-600",  activeBg: "bg-green-600",  activeBorder: "border-green-600" },
   ] as const
 
   return (
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className={cn("flex items-center justify-between", animationClasses.headerFadeIn)}>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Receiving</h1>
           <p className="text-muted-foreground text-sm mt-0.5">Track incoming shipments and deliveries</p>
         </div>
-        <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white">
+        <Button asChild className={cn("bg-blue-600 hover:bg-blue-700 text-white", animationClasses.buttonHoverScale)}>
           <Link href="/shipping/receiving/new">
             <Plus className="h-4 w-4 mr-2" />
             Add Receiving Request
@@ -216,20 +224,20 @@ export default function ReceivingPage() {
       </div>
 
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+        <div className={cn("p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm", animationClasses.cardFadeIn)}>
           {error} — Showing cached data below
         </div>
       )}
 
       {loading && (
-        <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg text-center text-gray-600">
+        <div className={cn("p-4 bg-gray-50 border border-gray-200 rounded-lg text-center text-gray-600", animationClasses.cardFadeIn)}>
           Loading shipments...
         </div>
       )}
 
       {/* Stat Cards — clickable */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {statCards.map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }) => {
+      <div className="grid grid-cols-5 gap-4">
+        {statCards.map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }, index) => {
           const isActive = statusFilter === key || (key === "all" && statusFilter === "all")
           return (
             <button
@@ -315,11 +323,11 @@ export default function ReceivingPage() {
         </CardHeader>
 
         {/* Table */}
-        <div className="overflow-x-auto overflow-y-visible">
-          <table ref={tableRef} className="w-full text-sm" style={{ tableLayout: colWidths.some(w => w !== null) ? "fixed" : "auto" }}>
+        <div className="-mx-6 px-6 -mb-6 overflow-visible">
+          <div className="overflow-x-auto overflow-y-visible">
+            <table ref={tableRef} className="w-full text-sm border-collapse" style={{ tableLayout: colWidths.some(w => w !== null) ? "fixed" : "auto" }}>
             <colgroup>
               {colWidths.map((w, i) => <col key={i} style={w !== null ? { width: w } : undefined} />)}
-              <col style={{ width: 56 }} />
               <col />
             </colgroup>
             <thead className="bg-slate-800">
@@ -345,7 +353,6 @@ export default function ReceivingPage() {
                     </span>
                   </th>
                 ))}
-                <th className="py-3 text-xs font-semibold text-slate-300 tracking-wide text-left" style={{ paddingLeft: 12 }} />
                 <th className="bg-slate-800" />
               </tr>
             </thead>
@@ -476,6 +483,7 @@ export default function ReceivingPage() {
               Showing {filtered.length} of {shipments.length} shipments
             </div>
           )}
+          </div>
         </div>
       </Card>
     </div>

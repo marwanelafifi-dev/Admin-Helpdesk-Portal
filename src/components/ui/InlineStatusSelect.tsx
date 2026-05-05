@@ -26,9 +26,7 @@ export function InlineStatusSelect({
   canUpdateStatus = true,
 }: InlineStatusSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [openUpward, setOpenUpward] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -38,16 +36,6 @@ export function InlineStatusSelect({
     }
 
     if (isOpen) {
-      // Check if dropdown would go off-screen and flip upward if needed
-      if (ref.current && dropdownRef.current) {
-        const rect = ref.current.getBoundingClientRect()
-        const dropdownHeight = dropdownRef.current.offsetHeight
-        const spaceBelow = window.innerHeight - rect.bottom
-        const spaceAbove = rect.top
-
-        // Flip upward if not enough space below and more space above
-        setOpenUpward(spaceBelow < dropdownHeight && spaceAbove > spaceBelow)
-      }
       document.addEventListener("mousedown", handleClickOutside)
       return () => document.removeEventListener("mousedown", handleClickOutside)
     }
@@ -67,10 +55,14 @@ export function InlineStatusSelect({
   return (
     <div ref={ref} className="relative inline-block">
       <button
-        onClick={() => canUpdateStatus && !disabled && setIsOpen(!isOpen)}
+        onClick={() => {
+          if (canUpdateStatus && !disabled) {
+            setIsOpen(!isOpen)
+          }
+        }}
         disabled={disabled || !canUpdateStatus}
         className={cn(
-          "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap",
+          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-semibold whitespace-nowrap",
           "transition-all",
           canUpdateStatus && !disabled && "hover:ring-2 hover:ring-offset-1 cursor-pointer",
           !canUpdateStatus && "cursor-not-allowed",
@@ -80,7 +72,7 @@ export function InlineStatusSelect({
         <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", dot)} />
         <span>{label}</span>
         {canUpdateStatus && !disabled ? (
-          <ChevronDown className={cn("h-3 w-3 transition-transform", isOpen && "rotate-180")} />
+          <ChevronDown className={cn("h-3 w-3 transition-transform duration-200", isOpen && "rotate-180")} />
         ) : (
           <Lock className="h-3 w-3 text-gray-400" />
         )}
@@ -88,15 +80,12 @@ export function InlineStatusSelect({
 
       {isOpen && (
         <div
-          ref={dropdownRef}
-          className={cn(
-            "absolute left-0 bg-white border border-gray-200 rounded-md shadow-lg z-50 min-w-max max-h-72 overflow-y-auto",
-            openUpward ? "bottom-full mb-1" : "top-full mt-1"
-          )}
+          className="absolute left-0 top-full mt-2 bg-white border-2 border-gray-300 rounded-lg shadow-2xl overflow-y-auto max-h-64 z-50"
+          style={{ minWidth: '200px' }}
+          onClick={(e) => e.stopPropagation()}
         >
           {statuses.map((status) => {
             const statusLabel = statusLabels[status] ?? status
-            const statusColor = statusColors[status] ?? "bg-zinc-100 text-zinc-600"
             const isActive = status === currentStatus
 
             return (
@@ -104,14 +93,13 @@ export function InlineStatusSelect({
                 key={status}
                 onClick={() => handleSelect(status)}
                 className={cn(
-                  "w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-gray-100",
-                  "border-b last:border-b-0 transition-colors",
-                  isActive && "bg-blue-50"
+                  "w-full text-left px-4 py-3 text-sm flex items-center gap-3 transition-colors border-b last:border-b-0",
+                  isActive ? "bg-blue-100 hover:bg-blue-150" : "hover:bg-gray-100"
                 )}
               >
-                <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", statusDot[status] ?? "bg-gray-400")} />
-                <span className="flex-1">{statusLabel}</span>
-                {isActive && <span className="text-blue-600 font-semibold">✓</span>}
+                <span className={cn("h-2 w-2 rounded-full shrink-0", statusDot[status] ?? "bg-gray-400")} />
+                <span className="text-gray-900 font-medium">{statusLabel}</span>
+                {isActive && <span className="text-blue-600 font-bold ml-auto">✓</span>}
               </button>
             )
           })}

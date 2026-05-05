@@ -100,23 +100,6 @@ export default function NotificationsPage() {
             </label>
           </div>
 
-          <div className="border-b pb-6 last:border-b-0">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <Checkbox
-                checked={preferences.pendingApprovals}
-                onCheckedChange={() => handleToggle('pendingApprovals')}
-                disabled={preferences.role === "Requester" || preferences.role === "Viewer"}
-              />
-              <div>
-                <p className="font-medium text-gray-900">Pending Approvals</p>
-                <p className="text-sm text-gray-600">
-                  {preferences.role === "Requester" || preferences.role === "Viewer"
-                    ? "Not available for your role"
-                    : "Get notified of requests awaiting your approval"}
-                </p>
-              </div>
-            </label>
-          </div>
 
           <div className="border-b pb-6 last:border-b-0">
             <label className="flex items-center gap-3 cursor-pointer">

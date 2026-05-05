@@ -21,6 +21,7 @@ import {
   ChevronRight,
   PanelLeftClose,
   PanelLeftOpen,
+  BarChart3,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { canAccessPath } from "@/lib/access"
@@ -36,6 +37,7 @@ const navItems: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "All Requests", href: "/admin/all-requests", icon: ClipboardList },
   { title: "My Requests", href: "/requests", icon: FileText },
+  { title: "Feedback & Reports", href: "/feedback-reports", icon: BarChart3 },
   { title: "HR", href: "/hr", icon: UserCog },
   {
     title: "Shipping",

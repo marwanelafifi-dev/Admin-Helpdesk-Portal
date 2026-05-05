@@ -319,7 +319,7 @@ export default function HRPage() {
         </CardHeader>
 
         {/* Table */}
-        <div className="-mx-6 px-6 -mb-6">
+        <div className="-mx-6 px-6 -mb-6 overflow-visible">
           <div className="overflow-x-auto overflow-y-visible">
             <table ref={tableRef} className="w-full text-sm border-collapse" style={{ tableLayout: colWidths.some(w => w !== null) ? "fixed" : "auto" }}>
             <colgroup>
@@ -534,3 +534,4 @@ export default function HRPage() {
     </div>
   )
 }
+

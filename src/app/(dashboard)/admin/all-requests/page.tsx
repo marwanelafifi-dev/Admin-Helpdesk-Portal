@@ -12,6 +12,7 @@ import {
 import { getRequests, initializeMockData, updateStatus, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { notifyStatusChange } from "@/services/notificationService"
 import { cn } from "@/lib/utils"
+import { animationClasses } from "@/lib/animations"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { useExpandedRows } from "@/hooks/useExpandedRows"
@@ -21,7 +22,7 @@ import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: "Draft", new: "New", on_hold: "In Progress", in_transit: "In Transit", in_customs: "In Customs", "In Progress": "In Progress", "In Customs": "In Customs", "In Transit": "In Transit",
+  draft: "Draft", new: "New", on_hold: "In Progress", in_progress: "In Progress", in_transit: "In Transit", in_customs: "In Customs", "In Progress": "In Progress", "In Customs": "In Customs", "In Transit": "In Transit",
   delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
 }
 
@@ -29,6 +30,7 @@ const STATUS_COLORS: Record<string, string> = {
   draft:      "bg-zinc-100 text-zinc-600",
   new:        "bg-sky-50 text-sky-700",
   on_hold:    "bg-amber-50 text-amber-700",
+  in_progress: "bg-blue-50 text-blue-700",
   in_transit: "bg-blue-50 text-blue-700",
   in_customs: "bg-amber-50 text-amber-700",
   "In Progress": "bg-blue-50 text-blue-700",
@@ -41,7 +43,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 const STATUS_DOT: Record<string, string> = {
   draft: "bg-zinc-400", new: "bg-sky-500", on_hold: "bg-amber-500",
-  in_transit: "bg-blue-500", in_customs: "bg-amber-500", "In Progress": "bg-blue-500", "In Customs": "bg-amber-500", "In Transit": "bg-blue-500",
+  in_progress: "bg-blue-500", in_transit: "bg-blue-500", in_customs: "bg-amber-500", "In Progress": "bg-blue-500", "In Customs": "bg-amber-500", "In Transit": "bg-blue-500",
   delivered: "bg-green-500",
   completed: "bg-emerald-500", cancelled: "bg-red-500",
 }
@@ -63,7 +65,7 @@ const STATUSES = ["draft", "new", "on_hold", "in_transit", "delivered", "complet
 
 // Module-specific statuses
 const MODULE_STATUSES: Record<string, readonly string[]> = {
-  shipping: ["new", "in_customs", "delivered", "cancelled"],
+  shipping: ["new", "in_progress", "in_customs", "delivered", "cancelled"],
   maintenance: ["new", "on_hold", "completed", "cancelled"],
   purchase: ["new", "in_customs", "on_hold", "delivered", "cancelled"],
   event: ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"],
@@ -74,7 +76,7 @@ const MODULE_STATUSES: Record<string, readonly string[]> = {
 // Module-specific status labels (overrides generic STATUS_LABELS)
 const MODULE_STATUS_LABELS: Record<string, Record<string, string>> = {
   shipping: {
-    new: "New", in_customs: "In Customs", delivered: "Delivered", cancelled: "Cancelled",
+    new: "New", in_progress: "In Progress", in_customs: "In Customs", delivered: "Delivered", cancelled: "Cancelled",
   },
   purchase: {
     new: "New", on_hold: "In Progress", in_customs: "Awaiting Approval", delivered: "Delivered", cancelled: "Cancelled",
@@ -243,7 +245,7 @@ export default function AllRequestsPage() {
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className={cn("flex items-center justify-between", animationClasses.headerFadeIn)}>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">All Requests</h1>
           <p className="text-muted-foreground text-sm mt-0.5">
@@ -253,13 +255,12 @@ export default function AllRequestsPage() {
       </div>
 
       {/* Stat Cards — clickable, synced with status filter */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         {([
-          { key: "all",       label: "Total Requests", value: stats.total,     icon: Layers,       iconBg: "bg-slate-100",   iconColor: "text-slate-600",   activeBg: "bg-slate-800",   activeBorder: "border-slate-800" },
           { key: "new",       label: "New",            value: stats.new,       icon: TrendingUp,   iconBg: "bg-sky-50",      iconColor: "text-sky-600",     activeBg: "bg-sky-500",     activeBorder: "border-sky-500" },
-          { key: "on_hold",   label: "In Progress",     value: stats.onHold,    icon: Clock,        iconBg: "bg-amber-50",    iconColor: "text-amber-600",   activeBg: "bg-amber-500",   activeBorder: "border-amber-500" },
+          { key: "on_hold",   label: "In Progress",    value: stats.onHold,    icon: Clock,        iconBg: "bg-amber-50",    iconColor: "text-amber-600",   activeBg: "bg-amber-500",   activeBorder: "border-amber-500" },
           { key: "completed", label: "Completed",      value: stats.completed, icon: CheckCircle2, iconBg: "bg-emerald-50",  iconColor: "text-emerald-600", activeBg: "bg-emerald-600", activeBorder: "border-emerald-600" },
-        ] as const).map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }) => {
+        ] as const).map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }, index) => {
           const isActive = statusFilter === key || (key === "all" && statusFilter === "all")
           return (
             <button
@@ -267,7 +268,8 @@ export default function AllRequestsPage() {
               onClick={() => setStatusFilter(key === "all" ? "all" : (p) => p === key ? "all" : key)}
               className={cn(
                 "text-left rounded-xl border-2 p-5 flex items-center gap-4 transition-all hover:shadow-md",
-                isActive ? `${activeBg} ${activeBorder} text-white shadow-sm` : "bg-white border-gray-100 hover:border-gray-200"
+                isActive ? `${activeBg} ${activeBorder} text-white shadow-sm` : "bg-white border-gray-100 hover:border-gray-200",
+                
               )}
             >
               <div className={cn("h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all", isActive ? "bg-white/20" : iconBg)}>
@@ -356,8 +358,9 @@ export default function AllRequestsPage() {
           </p>
         </CardHeader>
 
-        <div className="overflow-x-auto overflow-y-visible">
-          <table ref={tableRef} className="w-full text-sm" style={{ tableLayout: colWidths.some(w => w !== null) ? "fixed" : "auto" }}>
+        <div className="-mx-6 px-6 -mb-6 overflow-visible">
+          <div className="overflow-x-auto overflow-y-visible">
+            <table ref={tableRef} className="w-full text-sm border-collapse" style={{ tableLayout: colWidths.some(w => w !== null) ? "fixed" : "auto" }}>
             <colgroup>
               {colWidths.map((w, i) => <col key={i} style={w !== null ? { width: w } : undefined} />)}
               <col />
@@ -400,7 +403,8 @@ export default function AllRequestsPage() {
                 <tr
                   className={cn(
                     "border-b border-gray-100 hover:bg-blue-50/30 transition-colors",
-                    hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40")
+                    hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40"),
+                    
                   )}
                 >
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
@@ -507,12 +511,13 @@ export default function AllRequestsPage() {
             </tbody>
           </table>
 
-          {filtered.length > 0 && (
-            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-[11px] text-gray-400 text-right">
-              Showing {filtered.length} of {requests.length} requests
+            {filtered.length > 0 && (
+              <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-[11px] text-gray-400 text-right">
+                Showing {filtered.length} of {requests.length} requests
+              </div>
+            )}
             </div>
-          )}
-        </div>
+          </div>
       </Card>
     </div>
   )
