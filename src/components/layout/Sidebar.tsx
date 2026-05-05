@@ -22,6 +22,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   BarChart3,
+  CheckSquare,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { canAccessPath } from "@/lib/access"
@@ -36,6 +37,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Feedback & Reports", href: "/feedback-reports", icon: BarChart3 },
+  { title: "Team Tasks", href: "/tasks", icon: CheckSquare },
   { title: "All Requests", href: "/admin/all-requests", icon: ClipboardList },
   { title: "My Requests", href: "/requests", icon: FileText },
   { title: "HR", href: "/hr", icon: UserCog },
