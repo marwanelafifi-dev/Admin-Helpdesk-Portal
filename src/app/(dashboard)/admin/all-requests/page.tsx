@@ -318,15 +318,15 @@ export default function AllRequestsPage() {
       {/* Stat Cards — clickable, synced with status filter */}
       <div className="grid grid-cols-3 gap-4">
         {([
-          { key: "new",       label: "New",            value: stats.new,       icon: TrendingUp,   iconBg: "bg-sky-50",      iconColor: "text-sky-600",     activeBg: "bg-sky-500",     activeBorder: "border-sky-500" },
-          { key: "on_hold",   label: "In Progress",    value: stats.onHold,    icon: Clock,        iconBg: "bg-amber-50",    iconColor: "text-amber-600",   activeBg: "bg-amber-500",   activeBorder: "border-amber-500" },
-          { key: "completed", label: "Completed",      value: stats.completed, icon: CheckCircle2, iconBg: "bg-emerald-50",  iconColor: "text-emerald-600", activeBg: "bg-emerald-600", activeBorder: "border-emerald-600" },
+          { key: "new" as const,       label: "New",            value: stats.new,       icon: TrendingUp,   iconBg: "bg-sky-50",      iconColor: "text-sky-600",     activeBg: "bg-sky-500",     activeBorder: "border-sky-500" },
+          { key: "on_hold" as const,   label: "In Progress",    value: stats.onHold,    icon: Clock,        iconBg: "bg-amber-50",    iconColor: "text-amber-600",   activeBg: "bg-amber-500",   activeBorder: "border-amber-500" },
+          { key: "completed" as const, label: "Completed",      value: stats.completed, icon: CheckCircle2, iconBg: "bg-emerald-50",  iconColor: "text-emerald-600", activeBg: "bg-emerald-600", activeBorder: "border-emerald-600" },
         ] as const).map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }, index) => {
-          const isActive = statusFilter === key || (key === "all" && statusFilter === "all")
+          const isActive = statusFilter === key
           return (
             <button
               key={key}
-              onClick={() => setStatusFilter(key === "all" ? "all" : (p) => p === key ? "all" : key)}
+              onClick={() => setStatusFilter((p) => p === key ? "all" : key)}
               className={cn(
                 "text-left rounded-xl border-2 p-5 flex items-center gap-4 transition-all hover:shadow-md",
                 isActive ? `${activeBg} ${activeBorder} text-white shadow-sm` : "bg-white border-gray-100 hover:border-gray-200",

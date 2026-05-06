@@ -50,11 +50,8 @@ if (!authSecret) {
   throw new Error("Missing required auth secret. Set AUTH_SECRET or NEXTAUTH_SECRET.")
 }
 
-if (!googleClientId || !googleClientSecret) {
-  throw new Error(
-    "Missing required Google OAuth credentials. Set AUTH_GOOGLE_ID and AUTH_GOOGLE_SECRET, or GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET."
-  )
-}
+// Google OAuth is now optional - only used if credentials are provided
+const hasGoogleOAuth = !!(googleClientId && googleClientSecret)
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
@@ -68,11 +65,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   ...(disableTlsCertCheck && { fetch: customFetch }),
   providers: [
-    Google({
-      clientId: googleClientId,
-      clientSecret: googleClientSecret,
-      allowDangerousEmailAccountLinking: true,
-    }),
+    ...(hasGoogleOAuth ? [
+      Google({
+        clientId: googleClientId!,
+        clientSecret: googleClientSecret!,
+        allowDangerousEmailAccountLinking: true,
+      }),
+    ] : []),
     Credentials({
       name: "Email and password",
       credentials: {

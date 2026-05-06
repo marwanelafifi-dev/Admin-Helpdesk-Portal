@@ -1,6 +1,6 @@
 node_modules
 npm-debug.log
-.next
+# Don't ignore .next or .next-dev - they're needed in Docker build
 .git
 .gitignore
 README.md
@@ -21,7 +21,6 @@ coverage
 .vercel
 .env.example
 scripts/dev-server.cjs
-.next-dev
 .git-hooks
 ARCHITECTURE_*.md
 DEPENDENCY_GRAPH.md

@@ -22,7 +22,12 @@ function LoginForm() {
   const handleGoogleSignIn = async () => {
     setError("")
     setLoadingProvider("google")
-    await signIn("google", { callbackUrl })
+    try {
+      await signIn("google", { callbackUrl })
+    } catch (err) {
+      setLoadingProvider(null)
+      setError("Google OAuth is not configured. Please use email and password.")
+    }
   }
 
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
@@ -173,7 +178,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-100">Loading...</div>}>
       <LoginForm />
     </Suspense>
   )
