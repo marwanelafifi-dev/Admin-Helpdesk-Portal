@@ -1,38 +1,41 @@
-# Dockerfile - Minimal production image
-# Requires: npm install && npm run build (done on host)
-
+# Production image using pre-built app
 FROM node:20-alpine
 
 WORKDIR /app
 
-# Install wget for health checks
-RUN apk add --no-cache wget
+# Install wget for health checks and netcat for db connectivity check
+RUN apk add --no-cache wget netcat-openbsd
 
-# Copy minimal required files
-COPY package.json ./
+# Copy package files
+COPY package*.json ./
 
-# Only install production dependencies from existing lock file
-RUN npm install --only=production --legacy-peer-deps
+# Disable strict SSL for npm install (corporate network issues)
+RUN npm config set strict-ssl false && \
+    npm ci --legacy-peer-deps && \
+    npm config set strict-ssl true
 
-# Copy pre-built application
-# Note: .next-dev is built locally and available in build context
-ADD .next-dev/ ./.next-dev/
-COPY public/ ./public/
+# Copy prisma schema and generate client for Linux
 COPY prisma/ ./prisma/
+RUN NODE_TLS_REJECT_UNAUTHORIZED=0 npx prisma generate
 
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nextjs -u 1001
-RUN chown -R nextjs:nodejs /app
+# Copy pre-built app and public assets
+COPY .next-dev/ ./.next/
+COPY public/ ./public/
+
+# Ensure cache directory exists with correct permissions
+RUN mkdir -p .next/cache/images && \
+    addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001 && \
+    chown -R nextjs:nodejs /app
 
 USER nextjs
 
-# Expose port
 EXPOSE 3003
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
   CMD wget -q -O /dev/null http://localhost:3003 || exit 1
 
-# Start the application
-CMD ["npm", "start"]
+COPY --chown=nextjs:nodejs docker-entrypoint.sh /app/
+RUN chmod +x /app/docker-entrypoint.sh
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

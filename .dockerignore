@@ -20,7 +20,6 @@ coverage
 .cache
 .vercel
 .env.example
-scripts/dev-server.cjs
 .git-hooks
 ARCHITECTURE_*.md
 DEPENDENCY_GRAPH.md
