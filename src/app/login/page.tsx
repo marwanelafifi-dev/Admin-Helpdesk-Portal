@@ -4,15 +4,19 @@ import { Suspense, useState } from "react"
 import Image from "next/image"
 import { signIn } from "next-auth/react"
 import { useSearchParams } from "next/navigation"
+
+export const dynamic = "force-dynamic"
 import { Eye, EyeOff, Lock, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
-function LoginForm() {
-  const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/landing"
+interface LoginFormProps {
+  callbackUrl: string
+}
+
+function LoginFormContent({ callbackUrl }: LoginFormProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -176,10 +180,16 @@ function LoginForm() {
   )
 }
 
+function LoginFormWrapper() {
+  const searchParams = useSearchParams()
+  const callbackUrl = searchParams.get("callbackUrl") ?? "/landing"
+  return <LoginFormContent callbackUrl={callbackUrl} />
+}
+
 export default function LoginPage() {
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-100">Loading...</div>}>
-      <LoginForm />
+      <LoginFormWrapper />
     </Suspense>
   )
 }
