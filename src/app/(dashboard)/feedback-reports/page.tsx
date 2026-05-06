@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge"
 import { getRequests, initializeMockData } from "@/services/engineService"
 import { getFeedbackResponses, type FeedbackSurvey } from "@/services/feedbackService"
 import { cn } from "@/lib/utils"
+import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
+import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 
 interface Feedback {
   requestId: string
@@ -92,6 +94,7 @@ export default function FeedbackReportsPage() {
   const [filterRating, setFilterRating] = useState<number | null>(null)
   const [dateRange, setDateRange] = useState<"7d" | "30d" | "90d" | "all">("30d")
   const [allFeedback, setAllFeedback] = useState<Feedback[]>(MOCK_FEEDBACK)
+  const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
   useEffect(() => {
     const responses = getFeedbackResponses()
@@ -189,8 +192,15 @@ export default function FeedbackReportsPage() {
     <div className="space-y-8">
       {/* Page Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Feedback & Reports</h1>
-        <p className="text-gray-600 mt-2">Employee satisfaction metrics and service quality analytics across all departments</p>
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold text-gray-900">Feedback & Reports</h1>
+            <p className="text-gray-600 mt-2">Employee satisfaction metrics and service quality analytics across all departments</p>
+          </div>
+          {(newRequestsCount > 0 || newTasksCount > 0) && (
+            <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
+          )}
+        </div>
       </div>
 
       {/* Summary Stats Grid */}

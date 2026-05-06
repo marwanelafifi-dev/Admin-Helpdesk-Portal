@@ -21,6 +21,8 @@ import { useExpandedRows } from "@/hooks/useExpandedRows"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 import { animationClasses } from "@/lib/animations"
+import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
+import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -89,6 +91,8 @@ export default function ReceivingPage() {
   const canEditRequest = ((session?.user?.permissions as string[])?.includes("edit_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canCancelRequest = ((session?.user?.permissions as string[])?.includes("cancel_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const [error, setError] = useState<string | null>(null)
+
+  const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
   useEffect(() => {
     const fetchShipments = () => {
@@ -211,11 +215,14 @@ export default function ReceivingPage() {
 
       {/* Header */}
       <div className={cn("flex items-center justify-between", animationClasses.headerFadeIn)}>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold tracking-tight">Receiving</h1>
           <p className="text-muted-foreground text-sm mt-0.5">Track incoming shipments and deliveries</p>
         </div>
-        <Button asChild className={cn("bg-blue-600 hover:bg-blue-700 text-white", animationClasses.buttonHoverScale)}>
+        {(newRequestsCount > 0 || newTasksCount > 0) && (
+          <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
+        )}
+        <Button asChild className={cn("bg-blue-600 hover:bg-blue-700 text-white ml-4", animationClasses.buttonHoverScale)}>
           <Link href="/shipping/receiving/new">
             <Plus className="h-4 w-4 mr-2" />
             Add Receiving Request

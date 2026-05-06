@@ -12,6 +12,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
 import { getFeedbackResponses } from "@/services/feedbackService"
+import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
+import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { cn } from "@/lib/utils"
 
 const STATUS_COLORS: Record<string, string> = {
@@ -104,6 +106,7 @@ export default function DashboardPage() {
   })
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false)
   const [feedbackComments, setFeedbackComments] = useState<any[]>([])
+  const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
   useEffect(() => {
     initializeMockData()
@@ -281,12 +284,15 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="border-b pb-6">
         <div className="flex items-start justify-between mb-4">
-          <div>
+          <div className="flex-1">
             <h1 className="text-4xl font-bold tracking-tight">Dashboard</h1>
             <p className="text-muted-foreground text-sm mt-1">
               Real-time overview of all requests, performance metrics, and key insights
             </p>
           </div>
+          {(newRequestsCount > 0 || newTasksCount > 0) && (
+            <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
+          )}
         </div>
 
         {/* Time Range Filter */}

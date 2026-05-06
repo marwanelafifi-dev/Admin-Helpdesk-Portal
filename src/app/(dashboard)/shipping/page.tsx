@@ -20,6 +20,8 @@ import { updateStatus } from "@/services/engineService"
 import { notifyStatusChange } from "@/services/notificationService"
 import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 import { useExpandedRows } from "@/hooks/useExpandedRows"
+import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
+import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -97,6 +99,7 @@ export default function ShippingPage() {
   const commentCounts = useCommentCounts(shipments.map(s => s.id))
   const { viewedComments } = useViewedComments()
   const { expandedRows, toggleRow, isExpanded } = useExpandedRows()
+  const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
   function handleStatusChange(id: string, newStatus: string) {
     const shipment = shipments.find(s => s.id === id)
@@ -174,11 +177,14 @@ export default function ShippingPage() {
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold tracking-tight">Shipping</h1>
           <p className="text-muted-foreground text-sm mt-0.5">Track and manage all shipment requests</p>
         </div>
-        <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white">
+        {(newRequestsCount > 0 || newTasksCount > 0) && (
+          <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
+        )}
+        <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white ml-4">
           <Link href="/shipping/new">
             <Plus className="h-4 w-4 mr-2" />
             Add Shipping Request

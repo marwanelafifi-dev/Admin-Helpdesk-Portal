@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
+import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { cn } from "@/lib/utils"
 import { getTasks, createTask, updateTaskStatus, addTaskComment, type Task, type TaskStatus, type TaskAttachment, ADMIN_TEAM_ROLES } from "@/services/taskService"
 
@@ -55,6 +57,7 @@ export default function TasksPage() {
   const [commentText, setCommentText] = useState<Record<string, string>>({})
   const [taskAttachments, setTaskAttachments] = useState<TaskAttachment[]>([])
   const [commentAttachments, setCommentAttachments] = useState<Record<string, TaskAttachment[]>>({})
+  const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
   useEffect(() => {
     setTasks(getTasks() as ExtendedTask[])
@@ -189,13 +192,16 @@ export default function TasksPage() {
       {/* Header */}
       <div>
         <div className="flex items-start justify-between mb-4">
-          <div>
+          <div className="flex-1">
             <h1 className="text-3xl font-bold text-gray-900">Team Tasks</h1>
             <p className="text-gray-600 mt-2">Manage and track tasks across the administration team</p>
           </div>
+          {(newRequestsCount > 0 || newTasksCount > 0) && (
+            <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
+          )}
           <Button
             onClick={() => setShowNewTaskForm(!showNewTaskForm)}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+            className="bg-blue-600 hover:bg-blue-700 text-white ml-4"
           >
             <Plus className="h-4 w-4 mr-2" />
             New Task

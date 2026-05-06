@@ -11,6 +11,8 @@ import { animationClasses } from "@/lib/animations"
 import { requestsAPI } from "@/lib/apiClient"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
+import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
+import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -111,6 +113,7 @@ export default function RequestsPage() {
 
   const commentCounts = useCommentCounts(requests.map(r => r.id))
   const { viewedComments } = useViewedComments()
+  const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -184,10 +187,13 @@ export default function RequestsPage() {
 
       {/* Header */}
       <div className={cn("flex items-center justify-between", animationClasses.headerFadeIn)}>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold tracking-tight">My Requests</h1>
           <p className="text-muted-foreground text-sm mt-0.5">View all your requests across all modules</p>
         </div>
+        {(newRequestsCount > 0 || newTasksCount > 0) && (
+          <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
+        )}
       </div>
 
       {/* Stat Cards */}

@@ -20,6 +20,8 @@ import { useViewedComments } from "@/hooks/useViewedComments"
 import { useExpandedRows } from "@/hooks/useExpandedRows"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
+import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
+import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -86,6 +88,7 @@ export default function HRPage() {
   const commentCounts = useCommentCounts(requests.map(r => r.id))
   const { viewedComments } = useViewedComments()
   const { expandedRows, toggleRow, isExpanded } = useExpandedRows()
+  const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
   useEffect(() => {
     initializeMockData()
@@ -189,12 +192,15 @@ export default function HRPage() {
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold tracking-tight">HR Requests</h1>
           <p className="text-muted-foreground text-sm mt-0.5">
             Manage onboarding and offboarding requests for the administration team
           </p>
         </div>
+        {(newRequestsCount > 0 || newTasksCount > 0) && (
+          <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button className="bg-blue-600 hover:bg-blue-700 text-white">

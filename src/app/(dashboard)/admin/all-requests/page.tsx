@@ -14,6 +14,8 @@ import {
 import { getRequests, initializeMockData, updateStatus, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { notifyStatusChange } from "@/services/notificationService"
 import { getTasks, updateTaskStatus, type Task, type TaskStatus } from "@/services/taskService"
+import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
+import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { cn } from "@/lib/utils"
 import { animationClasses } from "@/lib/animations"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
@@ -138,6 +140,7 @@ export default function AllRequestsPage() {
   const [sortKey, setSortKey]           = useState<SortKey>("updatedAt")
   const [sortDir, setSortDir]           = useState<SortDir>("desc")
   const { isExpanded, toggleRow } = useExpandedRows()
+  const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
   const canUpdateStatus = ((session?.user?.permissions as string[])?.includes("update_status") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canEditRequest = ((session?.user?.permissions as string[])?.includes("edit_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
@@ -301,12 +304,15 @@ export default function AllRequestsPage() {
 
       {/* Header */}
       <div className={cn("flex items-center justify-between", animationClasses.headerFadeIn)}>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold tracking-tight">All Requests</h1>
           <p className="text-muted-foreground text-sm mt-0.5">
             All requests submitted by administration team members
           </p>
         </div>
+        {(newRequestsCount > 0 || newTasksCount > 0) && (
+          <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
+        )}
       </div>
 
       {/* Stat Cards — clickable, synced with status filter */}
