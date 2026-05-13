@@ -27,7 +27,7 @@ function LoginFormContent({ callbackUrl }: LoginFormProps) {
     setError("")
     setLoadingProvider("google")
     try {
-      await signIn("google", { callbackUrl })
+      await signIn("google", { callbackUrl, redirect: true })
     } catch (err) {
       setLoadingProvider(null)
       setError("Google OAuth is not configured. Please use email and password.")

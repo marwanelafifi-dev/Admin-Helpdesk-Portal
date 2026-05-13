@@ -6,6 +6,8 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   super_admin: ["*"],
   admin: [
     "page:dashboard",
+    "page:feedback-reports",
+    "page:tasks",
     "page:all-requests",
     "page:my-requests",
     "page:request-detail",
@@ -24,12 +26,15 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "page:admin-users",
     "page:admin-settings",
     "manage_users",
+    "manage_tasks",
     "update_status",
     "cancel_request",
     "edit_request",
   ],
   manager: [
     "page:dashboard",
+    "page:feedback-reports",
+    "page:tasks",
     "page:all-requests",
     "page:my-requests",
     "page:request-detail",
@@ -45,6 +50,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "page:purchase-new",
     "page:event",
     "page:travel",
+    "manage_tasks",
     "update_status",
     "cancel_request",
     "edit_request",
@@ -81,17 +87,21 @@ function toLabel(value: string) {
 }
 
 export async function getAssignableRoles(): Promise<UserRoleOption[]> {
-  const roles = await prisma.role.findMany({
-    orderBy: { createdAt: "desc" },
-    select: { name: true, description: true },
-  })
+  try {
+    const roles = await prisma.role.findMany({
+      orderBy: { createdAt: "desc" },
+      select: { name: true, description: true },
+    })
 
-  if (roles.length > 0) {
-    return roles.map((role) => ({
-      value: role.name,
-      label: role.name,
-      description: role.description ?? null,
-    }))
+    if (roles.length > 0) {
+      return roles.map((role) => ({
+        value: role.name,
+        label: role.name,
+        description: role.description ?? null,
+      }))
+    }
+  } catch {
+    // DB unavailable — fall through to defaults
   }
 
   return DEFAULT_USER_ROLES.map((role) => ({
@@ -106,24 +116,14 @@ export function isAllowedRole(role: string, roles: UserRoleOption[]) {
 }
 
 export async function getPermissionsForRole(role?: string): Promise<string[]> {
-  if (!role) {
-    return []
-  }
+  if (!role) return []
 
-  const roleRecord = await prisma.role.findFirst({
-    where: {
-      name: {
-        equals: role,
-        mode: "insensitive",
-      },
-    },
-    select: {
-      permissions: true,
-    },
-  })
-
-  if (roleRecord) {
-    return roleRecord.permissions
+  try {
+    const { findRoleByName } = await import("@/lib/rolesStore")
+    const stored = findRoleByName(role)
+    if (stored) return stored.permissions
+  } catch {
+    // fall through to defaults
   }
 
   return DEFAULT_ROLE_PERMISSIONS[role.toLowerCase()] ?? []

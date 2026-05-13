@@ -57,6 +57,8 @@ const AVAILABLE_PERMISSIONS = [
 
 const PAGES = [
   { id: "dashboard", label: "Dashboard", path: "/dashboard" },
+  { id: "feedback-reports", label: "Feedback & Reports", path: "/feedback-reports" },
+  { id: "tasks", label: "Team Tasks", path: "/tasks" },
   { id: "all-requests", label: "All Requests", path: "/admin/all-requests" },
   { id: "my-requests", label: "My Requests", path: "/requests" },
   { id: "request-detail", label: "Request Detail", path: "/requests/[id]" },

@@ -1,5 +1,7 @@
 export type RoutePermission =
   | "page:dashboard"
+  | "page:feedback-reports"
+  | "page:tasks"
   | "page:all-requests"
   | "page:my-requests"
   | "page:request-detail"
@@ -20,6 +22,7 @@ export type RoutePermission =
   | "page:admin-settings"
   | "manage_users"
   | "manage_roles"
+  | "manage_tasks"
   | "settings"
   | "update_status"
   | "cancel_request"
@@ -48,6 +51,8 @@ export function permissionForPath(pathname: string): RoutePermission | null {
   const path = normalizePathname(pathname)
 
   if (path === "/dashboard") return "page:dashboard"
+  if (path === "/feedback-reports") return "page:feedback-reports"
+  if (path === "/tasks") return "page:tasks"
   if (path === "/admin/all-requests") return "page:all-requests"
   if (path === "/requests") return "page:my-requests"
   if (path.startsWith("/requests/")) return "page:request-detail"
@@ -116,6 +121,8 @@ export function canAccessPath(pathname: string, permissions: string[] = [], role
 
 const defaultRouteOrder = [
   "/dashboard",
+  "/feedback-reports",
+  "/tasks",
   "/admin/all-requests",
   "/requests",
   "/shipping",

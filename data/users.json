@@ -1,0 +1,24 @@
+[
+  {
+    "email": "marwaanelafifi@gmail.com",
+    "name": "Full Access",
+    "role": "super_admin",
+    "image": null,
+    "active": true,
+    "provider": "credentials",
+    "id": "USR-1778660236228",
+    "createdAt": "2026-05-13T08:17:16.228Z",
+    "passwordHash": "$2b$12$PLEUgeDNvMy9R20Ab2wXKu53UASCWLwkXg2ZqkRflrpYgmZMLvZCi"
+  },
+  {
+    "email": "wanmohamed7@gmail.com",
+    "name": "Marwan Elafifi",
+    "role": "requester",
+    "image": null,
+    "active": true,
+    "provider": "credentials",
+    "passwordHash": "$2b$12$ooaTG1Y.xLYjmDrDMVMlweCzMGmUi5S7FfefQw2IJWf6W9abO.Xva",
+    "id": "USR-1778661738037",
+    "createdAt": "2026-05-13T08:42:18.037Z"
+  }
+]

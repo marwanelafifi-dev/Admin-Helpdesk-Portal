@@ -3,13 +3,13 @@ import bcrypt from "bcryptjs"
 import { z } from "zod"
 import { auth } from "@/auth"
 import { canManageUsers } from "@/lib/access"
-import { getAssignableRoles, isAllowedRole } from "@/lib/userRoles"
-import { prisma } from "@/lib/prisma"
+import { readUsers, createUser, findUserByEmail } from "@/lib/userStore"
+import { sendWelcomeEmail } from "@/lib/emailService"
 
 const createUserSchema = z.object({
   name: z.string().trim().min(1, "Name is required"),
   email: z.string().trim().email("Valid email is required"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  password: z.string().min(8, "Password must be at least 8 characters").optional(),
   role: z.string().trim().min(1),
   department: z.string().trim().optional(),
 })
@@ -21,41 +21,18 @@ export async function GET() {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  const users = await prisma.user.findMany({
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      department: true,
-      active: true,
-      createdAt: true,
-      image: true,
-      passwordHash: true,
-      accounts: {
-        select: {
-          provider: true,
-        },
-        take: 1,
-      },
-    },
-  })
-
-  // Map accounts to provider field
-  const mappedUsers = users.map((user) => ({
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    department: user.department,
-    active: user.active,
-    createdAt: user.createdAt,
-    image: user.image,
-    provider: user.accounts[0]?.provider || (user.passwordHash ? "local" : undefined),
+  const users = readUsers().map((u) => ({
+    id: u.id,
+    email: u.email,
+    name: u.name,
+    role: u.role,
+    active: u.active,
+    createdAt: u.createdAt,
+    image: u.image,
+    provider: u.provider,
   }))
 
-  return NextResponse.json({ users: mappedUsers })
+  return NextResponse.json({ users })
 }
 
 export async function POST(request: Request) {
@@ -76,47 +53,41 @@ export async function POST(request: Request) {
       )
     }
 
-    const assignableRoles = await getAssignableRoles()
-
-    if (!isAllowedRole(parsed.data.role, assignableRoles)) {
-      return NextResponse.json(
-        { error: "Selected role is not available", issues: { role: ["Choose a valid role"] } },
-        { status: 400 }
-      )
-    }
-
     const email = parsed.data.email.toLowerCase()
-    const existingUser = await prisma.user.findUnique({ where: { email } })
-
-    if (existingUser) {
+    if (findUserByEmail(email)) {
       return NextResponse.json({ error: "A user with this email already exists" }, { status: 409 })
     }
 
-    const passwordHash = await bcrypt.hash(parsed.data.password, 12)
-    const user = await prisma.user.create({
-      data: {
-        email,
-        name: parsed.data.name,
-        passwordHash,
-        role: parsed.data.role,
-        department: parsed.data.department || null,
-        active: true,
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        department: true,
-        active: true,
-        createdAt: true,
-        image: true,
-      },
+    const passwordHash = parsed.data.password
+      ? await bcrypt.hash(parsed.data.password, 12)
+      : undefined
+
+    const user = createUser({
+      email,
+      name: parsed.data.name,
+      role: "requester",
+      image: null,
+      active: true,
+      provider: "credentials",
+      ...(passwordHash && { passwordHash }),
     })
+
+    // Send welcome email with credentials
+    const loginUrl = `${process.env.NEXTAUTH_URL || "http://localhost:3003"}/login`
+    try {
+      await sendWelcomeEmail({
+        to: email,
+        name: parsed.data.name,
+        password: parsed.data.password!,
+        loginUrl,
+      })
+    } catch (emailErr) {
+      console.error("Failed to send welcome email:", emailErr)
+      // Don't fail user creation if email fails
+    }
 
     return NextResponse.json({ user }, { status: 201 })
   } catch (error) {
-    console.error("User creation error:", error)
     return NextResponse.json(
       { error: "Failed to create user", details: error instanceof Error ? error.message : String(error) },
       { status: 500 }

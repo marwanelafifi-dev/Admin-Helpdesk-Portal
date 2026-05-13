@@ -585,39 +585,22 @@ export default function AdminUsersPage() {
                 />
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="new-user-password">Password</Label>
-                  <Input
-                    id="new-user-password"
-                    type="password"
-                    minLength={8}
-                    value={form.password}
-                    onChange={(e) =>
-                      setForm((current) => ({ ...current, password: e.target.value }))
-                    }
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Role</Label>
-                  <Select
-                    value={form.role}
-                    onValueChange={(role) => setForm((current) => ({ ...current, role }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roles.map((role) => (
-                        <SelectItem key={role.value} value={role.value}>
-                          {role.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-user-password">Password</Label>
+                <Input
+                  id="new-user-password"
+                  type="password"
+                  minLength={8}
+                  value={form.password}
+                  onChange={(e) =>
+                    setForm((current) => ({ ...current, password: e.target.value }))
+                  }
+                  required
+                />
               </div>
+              <p className="text-xs text-muted-foreground">
+                New users are assigned the <strong>Requester</strong> role by default. You can change their role after creation.
+              </p>
 
               {createError && <p className="text-sm text-destructive">{createError}</p>}
 
