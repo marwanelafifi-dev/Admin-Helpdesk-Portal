@@ -218,9 +218,32 @@ This document tracks the phased development of the Admin Request Platform, movin
   - [x] Docker Compose configuration — app on port 3003, db on port 5432.
   - [x] Environment variable configuration via `.env.local`.
   - [x] Health checks configured. App served at `http://localhost:3003`.
+  - [x] Dockerfile fixed: entrypoint COPY before USER switch, chown scoped to .next/data only, netcat installed for DB readiness check.
 
-## Phase 5: Advanced Functionality (In Progress)
-- [ ] **Email Notifications:** SMTP blocked by corporate firewall (deep packet inspection). Options explored: Gmail (si-ware Workspace relay blocked), personal Gmail (same block). Pending: Brevo/SendGrid HTTP API or IT firewall rule for port 587.
+## Phase 5: Production v1.1 — CC Recipients, Permissions & Email (Completed — 15 May 2026)
+- [x] **CC Recipients Panel:**
+  - [x] CC panel visible on Comments tab for all authenticated users (any role).
+  - [x] New `manage_cc` permission added to all roles in `data/roles.json`.
+  - [x] `manage_cc` toggleable per-role from Admin → Roles UI.
+  - [x] CC panel always renders; add/remove gated on `manage_cc` permission + `sessionStatus === "authenticated"`.
+- [x] **Role & User Data Fixes:**
+  - [x] `data/users.json`: Full Access user role corrected from `super_admin` → `Full Access`; Requester user corrected from `requester` → `Requester`.
+  - [x] `fallbackRoles` and `ROLE_COLORS` in admin users page updated to match real role names.
+  - [x] Admin users page Change Role submenu now shows only real roles from `roles.json`.
+- [x] **Middleware Hardening:**
+  - [x] Added missing page permissions: `page:admin-roles`, `page:admin-audit`, `page:admin-database`, `page:admin-notifications`.
+  - [x] `isSuperAdmin` check now matches both `"super_admin"` and `"Full Access"` role names.
+- [x] **Email Config Persistence:**
+  - [x] `src/lib/emailConfig.ts` — reads/writes `data/email-config.json`.
+  - [x] `/api/notifications/config` GET+POST endpoint — saves config server-side.
+  - [x] `emailService.ts` reads saved UI config first, falls back to `.env.local`.
+  - [x] Admin → Notifications page: loads config from server on mount, saves to server on "Save Configuration".
+  - [x] Email config survives container restarts (persisted to `data/email-config.json`).
+- [x] **API Path Fix:**
+  - [x] `src/lib/apiClient.ts`: all comments endpoints now use `API_BASE` constant instead of hardcoded `/api`.
+
+## Phase 6: Advanced Functionality (Pending)
+- [ ] **Email Notifications:** SMTP ports 465/587 may be blocked by corporate firewall. Use Admin → Notifications to configure Gmail App Password or switch to SendGrid/Brevo (HTTP API, not blocked).
 - [ ] **Audit Trail Enhancement:** Currently reads from localStorage. Future: persist to PostgreSQL for cross-session history.
 - [ ] **Database Backup:** Currently localStorage-only. Future: server-side PostgreSQL dump endpoint.
 
