@@ -61,14 +61,20 @@ export default function TasksPage() {
 
   useEffect(() => {
     setTasks(getTasks() as ExtendedTask[])
-    // Mock admin team members - in real app, fetch from backend
-    setAdminTeamMembers([
-      { name: "Ahmed Hassan", role: "admin" },
-      { name: "Marwan Elafifi", role: "manager" },
-      { name: "Sarah Smith", role: "admin" },
-      { name: "John Wilson", role: "manager" },
-      { name: "Maria Garcia", role: "admin" },
-    ])
+    // Fetch real assignable users (those with page:tasks permission)
+    fetch("/api/users/assignable")
+      .then((r) => r.json())
+      .then(({ data }) => {
+        if (Array.isArray(data)) {
+          setAdminTeamMembers(
+            data.map((u: { name: string; role: string }) => ({
+              name: u.name,
+              role: u.role.toLowerCase().replace(/\s+/g, "_"),
+            }))
+          )
+        }
+      })
+      .catch(() => {})
   }, [])
 
   const filtered = useMemo(() => {
