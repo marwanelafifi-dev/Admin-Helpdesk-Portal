@@ -151,11 +151,6 @@ export default function TasksPage() {
       return
     }
 
-    if (!ADMIN_TEAM_ROLES.includes(assignedMember.role)) {
-      setRoleError(`"${newTaskData.assignedTo}" has role "${assignedMember.role}" but only Admin/Manager roles are allowed for team tasks`)
-      return
-    }
-
     const task = createTask({
       title: newTaskData.title,
       description: newTaskData.description,
@@ -321,7 +316,7 @@ export default function TasksPage() {
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-gray-500 mt-2">Only administration team members (Admin/Manager roles) can be assigned</p>
+              <p className="text-xs text-gray-500 mt-2">Only Administration Team members can be assigned</p>
             </div>
             <div className="flex gap-2">
               <Button onClick={handleCreateTask} className="bg-blue-600 hover:bg-blue-700 text-white">
