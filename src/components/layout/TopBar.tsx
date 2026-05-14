@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import Image from "next/image"
 import { signOut, useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import { Bell, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -39,6 +40,7 @@ function roleLabel(role?: string) {
 
 export function TopBar() {
   const { data: session } = useSession()
+  const router = useRouter()
   const user = session?.user
   const userId = user?.id
   const { notifications, unreadCount } = useNotifications(userId)
@@ -50,6 +52,11 @@ export function TopBar() {
       .filter((notification) => !notification.read)
       .forEach((notification) => markNotificationAsRead(notification.id))
   }, [isOpen, notifications, userId])
+
+  function handleNotificationClick(actionUrl?: string) {
+    setIsOpen(false)
+    if (actionUrl) router.push(actionUrl)
+  }
 
   return (
     <header className="h-16 border-b bg-white flex items-center justify-between px-6 flex-shrink-0">
@@ -95,15 +102,19 @@ export function TopBar() {
               notifications.slice(0, 6).map((notification) => (
                 <DropdownMenuItem
                   key={notification.id}
-                  className="flex flex-col items-start gap-0.5 cursor-pointer"
+                  className="flex flex-col items-start gap-0.5 cursor-pointer hover:bg-blue-50"
+                  onClick={() => handleNotificationClick(notification.actionUrl)}
                 >
-                  <span className="text-sm font-medium">{notification.title}</span>
+                  <span className="text-sm font-medium leading-snug">{notification.title}</span>
                   <span className="text-xs text-muted-foreground">{notification.description}</span>
                 </DropdownMenuItem>
               ))
             )}
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-center text-sm text-blue-600 cursor-pointer justify-center">
+            <DropdownMenuItem
+              className="text-center text-sm text-blue-600 cursor-pointer justify-center font-medium hover:bg-blue-50 hover:text-blue-700"
+              onClick={() => { setIsOpen(false); router.push("/notifications") }}
+            >
               View all notifications
             </DropdownMenuItem>
           </DropdownMenuContent>
