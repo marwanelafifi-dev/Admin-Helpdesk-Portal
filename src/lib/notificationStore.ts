@@ -180,20 +180,27 @@ async function notifyByEmail(params: {
 
   const actionUserEmail = params.actionUserEmail?.toLowerCase()
 
-  // Only use real admin users from API — ignore mock user IDs entirely
+  // Administration Team users + adminhelpdesk get ALL notifications
   const realAdmins = await fetchAdminUsers()
   const realAdminEmails = realAdmins.map((u) => u.email)
 
-  // Recipients: real admins + request owner + helpdesk
+  // Request owner gets notified only when someone else acted on their request
+  const ownerEmail =
+    params.requestOwnerEmail &&
+    params.requestOwnerEmail.toLowerCase() !== actionUserEmail
+      ? params.requestOwnerEmail
+      : undefined
+
+  // Recipients: Administration Team + helpdesk + request owner (if not the actor)
   const allEmails = Array.from(new Set([
     ...realAdminEmails,
-    params.requestOwnerEmail,
+    ownerEmail,
     ADMIN_HELPDESK_EMAIL,
   ].filter((e): e is string => Boolean(e))))
 
   // Remove the person who triggered the action (don't self-notify)
   const uniqueRecipients = allEmails.filter(
-    (e) => e.toLowerCase() !== actionUserEmail
+    (e) => !actionUserEmail || e.toLowerCase() !== actionUserEmail
   )
 
   if (uniqueRecipients.length === 0) return
