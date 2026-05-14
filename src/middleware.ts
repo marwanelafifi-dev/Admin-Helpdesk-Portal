@@ -22,7 +22,11 @@ const pagePermissions: Record<string, string> = {
   "/event": "page:event",
   "/travel": "page:travel",
   "/admin/users": "page:admin-users",
+  "/admin/roles": "page:admin-roles",
   "/admin/settings": "page:admin-settings",
+  "/admin/audit-trail": "page:admin-audit",
+  "/admin/database": "page:admin-database",
+  "/admin/notifications": "page:admin-notifications",
 }
 
 export async function middleware(request: NextRequest) {
@@ -54,7 +58,7 @@ export async function middleware(request: NextRequest) {
     const userPermissions = (token.permissions as string[]) || []
     const role = token.role as string | undefined
 
-    const isSuperAdmin = role === "super_admin"
+    const isSuperAdmin = role === "super_admin" || role === "Full Access"
     const hasWildcard = userPermissions.includes("*")
     const hasPermission = userPermissions.includes(requiredPermission)
 

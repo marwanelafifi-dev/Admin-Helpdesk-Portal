@@ -1,24 +1,22 @@
-# Production image that builds the app from source
+# Production image — builds Next.js app from source
 FROM node:20-alpine
 
 WORKDIR /app
 
-# Install wget for health checks
-RUN apk add --no-cache wget || true
+# Install health-check and DB-readiness tools
+RUN apk add --no-cache wget netcat-openbsd || apk add --no-cache wget
 
-# Copy package files
+# Copy package files and install dependencies
 COPY package*.json ./
-
-# Disable strict SSL for npm install (corporate network issues)
 RUN npm config set strict-ssl false && \
     npm ci --legacy-peer-deps && \
     npm config set strict-ssl true
 
-# Copy prisma schema and generate client for Linux
+# Generate Prisma client for Linux
 COPY prisma/ ./prisma/
 RUN NODE_TLS_REJECT_UNAUTHORIZED=0 npx prisma generate
 
-# Copy source and build the production Next.js app inside Docker.
+# Copy all source and build
 COPY . .
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
@@ -28,11 +26,16 @@ ENV NODE_ENV=production \
     DATABASE_URL=postgresql://admin:admin_password_123@db:5432/admin_request_platform
 RUN npm run build
 
-# Create user and set permissions only on .next output
+# Create non-root user and set permissions on output dirs only
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001 && \
-    mkdir -p .next/cache/images && \
+    mkdir -p .next/cache/images data && \
     chown -R nextjs:nodejs .next data
+
+# Copy entrypoint BEFORE switching to non-root user
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh && \
+    chown nextjs:nodejs /app/docker-entrypoint.sh
 
 USER nextjs
 
@@ -40,8 +43,5 @@ EXPOSE 3003
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD wget -q -O /dev/null http://localhost:3003 || exit 1
-
-COPY --chown=nextjs:nodejs docker-entrypoint.sh /app/
-RUN chmod +x /app/docker-entrypoint.sh
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

@@ -47,7 +47,7 @@ export const commentsAPI = {
     if (limit) params.append('limit', limit.toString())
     if (offset) params.append('offset', offset.toString())
     try {
-      const url = `/api/requests/comments?${params.toString()}`
+      const url = `${API_BASE}/requests/comments?${params.toString()}`
       const response = await fetch(url)
       if (!response.ok) {
         console.error(`API Error fetching comments for ${requestId}: ${response.status}`, response.statusText)
@@ -63,7 +63,7 @@ export const commentsAPI = {
   // Batch fetch comment counts for multiple request IDs in a single call
   batchGetCounts: async (requestIds: string[]) => {
     try {
-      const response = await fetch('/api/requests/comments/batch', {
+      const response = await fetch(`${API_BASE}/requests/comments/batch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ requestIds }),
@@ -90,7 +90,7 @@ export const commentsAPI = {
       files.forEach((file) => formData.append('files', file))
     }
 
-    const response = await fetch('/api/requests/comments', {
+    const response = await fetch(`${API_BASE}/requests/comments`, {
       method: 'POST',
       body: formData,
       // DO NOT set Content-Type header - browser will set it with boundary
@@ -107,7 +107,7 @@ export const commentsAPI = {
   },
 
   delete: (commentId: string) =>
-    fetch(`/api/requests/comments/${commentId}`, {
+    fetch(`${API_BASE}/requests/comments/${commentId}`, {
       method: 'DELETE',
     }).then(r => {
       if (!r.ok) throw new Error(`API Error: ${r.status}`)
@@ -115,7 +115,7 @@ export const commentsAPI = {
     }),
 
   update: (commentId: string, content: string) =>
-    fetch(`/api/requests/comments/${commentId}`, {
+    fetch(`${API_BASE}/requests/comments/${commentId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content }),
