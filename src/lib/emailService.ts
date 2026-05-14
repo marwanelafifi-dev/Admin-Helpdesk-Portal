@@ -1,4 +1,15 @@
 import nodemailer from "nodemailer"
+import fs from "fs"
+import path from "path"
+
+function getLogoBase64(): string {
+  try {
+    const logoPath = path.join(process.cwd(), "public", "siware-logo.png")
+    return `data:image/png;base64,${fs.readFileSync(logoPath).toString("base64")}`
+  } catch {
+    return ""
+  }
+}
 
 function createTransporter() {
   return nodemailer.createTransport({
@@ -307,10 +318,11 @@ export async function sendFeedbackSurveyEmail(params: {
 
       <!-- Header -->
       <tr>
-        <td style="background:linear-gradient(135deg,#1e293b 0%,#334155 100%);padding:32px 40px;text-align:center;">
-          <div style="font-size:13px;color:#94a3b8;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Si-Ware Admin Portal</div>
-          <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;">Your Request is ${params.module === "completed" ? "Completed" : "Delivered"} ✓</h1>
-          <p style="margin:10px 0 0;color:#cbd5e1;font-size:14px;">We'd love to hear how we did</p>
+        <td style="background:linear-gradient(135deg,#1e293b 0%,#334155 100%);padding:30px 40px 28px;text-align:center;">
+          ${getLogoBase64() ? `<img src="${getLogoBase64()}" alt="Si-Ware Systems" style="height:48px;width:auto;margin-bottom:16px;display:block;margin-left:auto;margin-right:auto;" />` : `<div style="font-size:13px;color:#94a3b8;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Si-Ware Admin Portal</div>`}
+          <div style="width:100%;height:1px;background:rgba(255,255,255,0.1);margin-bottom:18px;"></div>
+          <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;">Your Request is Completed ✓</h1>
+          <p style="margin:8px 0 0;color:#cbd5e1;font-size:14px;">We'd love to hear how we did</p>
         </td>
       </tr>
 
@@ -374,13 +386,19 @@ export async function sendFeedbackSurveyEmail(params: {
         </td>
       </tr>
 
-      <!-- Comment note -->
+      <!-- Comment Section -->
       <tr>
         <td style="padding:20px 40px 0;">
-          <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:14px 18px;">
-            <p style="margin:0;font-size:13px;color:#1d4ed8;">
-              <strong>💬 Want to add comments?</strong> Click the button above to open the full survey where you can add detailed feedback.
-            </p>
+          <div style="border:1px solid #e2e8f0;border-radius:8px;padding:20px;background:#f8fafc;">
+            <p style="margin:0 0 10px;font-size:14px;font-weight:600;color:#1e293b;">💬 Add your comments (optional)</p>
+            <div style="background:#ffffff;border:1px solid #d1d5db;border-radius:6px;padding:12px;min-height:72px;">
+              <p style="margin:0;font-size:13px;color:#9ca3af;font-style:italic;">Click "Submit My Feedback" above to open the full survey and add detailed comments.</p>
+            </div>
+            <div style="margin-top:12px;text-align:right;">
+              <a href="${surveyUrl}" style="display:inline-block;background:#1e293b;color:#ffffff;font-size:13px;font-weight:600;text-decoration:none;padding:9px 22px;border-radius:6px;">
+                Open Full Survey →
+              </a>
+            </div>
           </div>
         </td>
       </tr>
