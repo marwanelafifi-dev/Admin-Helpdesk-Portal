@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
-import { ArrowLeft, Calendar, User, FileText, Clock, CheckCircle2, AlertCircle, ChevronDown } from "lucide-react"
+import { ArrowLeft, Calendar, User, FileText, Clock, CheckCircle2, AlertCircle, ChevronDown, Star, Send } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -152,6 +152,10 @@ export default function RequestDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>("details")
+  const [surveyRating, setSurveyRating] = useState(0)
+  const [surveyHover, setSurveyHover] = useState(0)
+  const [surveyComment, setSurveyComment] = useState("")
+  const [surveySubmitted, setSurveySubmitted] = useState(false)
 
   const fetchComments = async (requestId: string) => {
     try {
@@ -806,6 +810,94 @@ export default function RequestDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Feedback Survey — shown when request is completed or delivered */}
+      {(request.status === "completed" || request.status === "delivered") && (
+        <Card className="border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-white shadow-sm">
+          <CardHeader className="pb-3 border-b border-emerald-100">
+            <div className="flex items-center gap-3">
+              <div className="bg-emerald-100 rounded-lg p-2">
+                <Star className="h-5 w-5 text-emerald-700" />
+              </div>
+              <div>
+                <CardTitle className="text-base font-semibold text-gray-900">Service Feedback</CardTitle>
+                <p className="text-xs text-gray-500 mt-0.5">How satisfied are you with this {request.module} request?</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            {surveySubmitted ? (
+              <div className="flex flex-col items-center py-6 text-center">
+                <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center mb-3">
+                  <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+                </div>
+                <p className="font-semibold text-gray-900">Thank you for your feedback!</p>
+                <p className="text-sm text-gray-500 mt-1">Your response has been recorded.</p>
+                <div className="flex gap-1 mt-3">
+                  {[1,2,3,4,5].map((s) => (
+                    <Star key={s} className={cn("h-5 w-5", s <= surveyRating ? "fill-yellow-400 text-yellow-400" : "text-gray-200")} />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {/* Star rating */}
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-3">Rate your experience</p>
+                  <div className="flex gap-2">
+                    {[1,2,3,4,5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setSurveyRating(star)}
+                        onMouseEnter={() => setSurveyHover(star)}
+                        onMouseLeave={() => setSurveyHover(0)}
+                        className="p-1.5 rounded-lg transition-all hover:scale-110"
+                      >
+                        <Star className={cn(
+                          "h-8 w-8 transition-colors",
+                          (surveyHover || surveyRating) >= star
+                            ? "fill-yellow-400 text-yellow-400"
+                            : "text-gray-300 hover:text-yellow-300"
+                        )} />
+                      </button>
+                    ))}
+                    {surveyRating > 0 && (
+                      <span className="ml-2 self-center text-sm text-gray-600 font-medium">
+                        {["Poor","Fair","Good","Very Good","Excellent"][surveyRating - 1]}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Comment */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">Additional comments (optional)</label>
+                  <textarea
+                    value={surveyComment}
+                    onChange={(e) => setSurveyComment(e.target.value)}
+                    placeholder="Tell us what we can improve..."
+                    rows={3}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent"
+                  />
+                </div>
+
+                <Button
+                  disabled={!surveyRating}
+                  onClick={() => {
+                    if (!surveyRating) return
+                    setSurveySubmitted(true)
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+                >
+                  <Send className="h-4 w-4" />
+                  Submit Feedback
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
