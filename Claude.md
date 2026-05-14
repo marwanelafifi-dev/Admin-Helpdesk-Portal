@@ -49,7 +49,7 @@ This document tracks the phased development of the Admin Request Platform, movin
   - [x] Statuses: New, On Hold, Completed.
   - [x] Onboarding items: Medical Insurance for New Hire, Access Card, Seating Assignment.
   - [x] Offboarding items: Desk/Office, Farewell, Close Medical for Leaver, Collect Access Card. Offboarding displayed in red.
-  - [x] 6 mock records (3 onboarding, 3 offboarding) + 2 team records seeded via `initializeMockData`.
+  - [x] All mock records removed for production v1. Forms create real records via `submitRequest()`.
   - [x] Added to sidebar with `UserCog` icon; teal color in My Requests module filter.
   - [x] `HRForm.tsx` — create form with Onboarding/Offboarding toggle, checkbox items, Zod validation.
   - [x] `/hr/new` page — accepts `?type=onboarding|offboarding` query param to pre-select form type.
@@ -61,29 +61,29 @@ This document tracks the phased development of the Admin Request Platform, movin
   - [x] 4 clickable stat cards: Total Tickets, New, In Progress, Completed.
   - [x] Status filter pills + search. Sortable + resizable dark slate table.
   - [x] Columns: Request ID, Request Title, Submission Date, Requester Name, Priority (color-coded High/Medium/Low), Status, Last Update Date.
-  - [x] 5 mock records across all statuses. "Coming soon" message preserved below table.
+  - [x] Mock records removed. "Coming soon" banner removed. Live with real data.
   - [ ] Define Zod Schema for ticket fields.
   - [ ] Build full create form + NestJS CRUD endpoints.
-- [x] **Purchase Module page** — formal redesign + real mock data:
+- [x] **Purchase Module page** — formal redesign:
   - [x] 4 clickable stat cards: Total Orders, New, Pending Approval, Completed.
   - [x] Status filter pills + search. Sortable + resizable dark slate table.
   - [x] Columns: Request ID, Request Title, Submission Date, Requester Name, Supplier, Estimated Price, Last Update Date.
-  - [x] 4 mock records across statuses. "Coming soon" message preserved.
+  - [x] Mock records removed. Live with real data.
   - [ ] Define Zod Schema for PO/Budget fields.
   - [ ] Build full create form + NestJS logic + budget calculation.
-- [x] **Event Module page** — formal redesign + real mock data:
+- [x] **Event Module page** — formal redesign:
   - [x] 4 clickable stat cards: Total Events, Upcoming, Pending, Completed.
   - [x] Status filter pills + search. Sortable + resizable dark slate table.
   - [x] Columns: Request ID, Request Title, Submission Date, Requester Name, Event Date, Attendees, Status, Last Update Date.
-  - [x] 4 mock records (New, On Hold, In Transit, Completed). "Coming soon" message preserved.
+  - [x] Mock records removed. Live with real data.
   - [ ] Define Zod Schema + build create form + calendar integration.
-- [x] **Travel Module page** — formal redesign + real mock data:
+- [x] **Travel Module page** — formal redesign:
   - [x] 4 clickable stat cards: Total Trips, Upcoming, On Hold, Completed.
   - [x] Status filter pills + search. Sortable + resizable dark slate table.
   - [x] Columns: Request ID, Request Title, Submission Date, Requester Name, Destination, Travel Date, Status, Last Update Date.
-  - [x] 5 mock records across statuses. "Coming soon" message preserved.
+  - [x] Mock records removed. Live with real data.
   - [ ] Define Zod Schema + build booking/approval workflow form.
-- [x] **engineService mock data** — bumped to `v7`. Total seeded records: 8 SHP, 5 MNT, 4 PRC, 4 EVT, 5 TRV, 8 HR (including team records).
+- [x] **engineService mock data** — removed for production v1. `initializeMockData()` now wipes stale dev data on first boot. `ProductionDataWipe` component clears all localStorage keys on first browser load.
 
 ## Phase 2b: Employee Feedback & Satisfaction Surveys (Completed)
 - [x] **Automated Feedback Survey System:**
@@ -110,9 +110,10 @@ This document tracks the phased development of the Admin Request Platform, movin
 ## Phase 2c: Team Tasks & Administration Collaboration (Completed)
 - [x] **Team Tasks Management Page:**
   - [x] Dedicated page at `/tasks` for admin team task management.
-  - [x] Role-based access: only Admin/Manager roles can create and assign tasks.
+  - [x] Role-based access: only "Administration Team" role members appear in assignee dropdown.
+  - [x] Assignee dropdown fetches real users from `/api/users/assignable` (filters by `page:tasks` permission).
   - [x] Task statuses: todo, in_progress, in_review, completed, cancelled.
-  - [x] Create form with title, description, team member dropdown (admin/manager only), optional attachments.
+  - [x] Create form with title, description, team member dropdown, optional attachments.
   - [x] Task statistics dashboard (Total, To Do, In Progress, In Review, Completed).
   - [x] Search and status filter capabilities.
   - [x] Expandable task detail view showing:
@@ -130,11 +131,9 @@ This document tracks the phased development of the Admin Request Platform, movin
   - [x] Attachment preview and removal UI in form.
   - [x] Multiple file upload support.
 - [x] **Team Tasks Integration:**
-  - [x] Team Tasks overview section on All Requests page.
-  - [x] Top 5 active tasks displayed in card format.
-  - [x] Each task card shows: title, description, status badge, assigned member.
-  - [x] Inline status dropdown for quick updates from All Requests view.
-  - [x] "Manage Tasks" button linking to full tasks page.
+  - [x] Active Team Tasks section on All Requests page (top, shown once — duplicate "Team Tasks Overview" removed).
+  - [x] Top 5 active tasks displayed in card format with inline status dropdown.
+  - [x] "Manage All" button linking to full tasks page.
   - [x] Sidebar navigation item "Team Tasks" positioned after Feedback & Reports.
 
 ## Phase 2d: UX Enhancements (Completed)
@@ -191,30 +190,39 @@ This document tracks the phased development of the Admin Request Platform, movin
   - [x] Purchase stat cards forced to single row (`grid-cols-5`).
 - [x] **Google Fonts Removed:** Replaced `next/font/google` Inter with system font stack to avoid certificate errors in restricted network environments.
 
-## Phase 3: Codebase Architecture Improvement (In Progress)
-- [ ] **Code Architecture Enhancement** — Using improve-codebase-architecture skill to restructure for scalability and maintainability.
-  - [ ] Modularize service layer (separate concerns: engineService, feedbackService, taskService).
-  - [ ] Create consistent patterns for CRUD operations across all modules.
-  - [ ] Establish clear separation between business logic, UI components, and data services.
-  - [ ] Extract reusable hooks and utilities to reduce component duplication.
-  - [ ] Standardize error handling and validation across all services.
-  - [ ] Create comprehensive TypeScript interfaces and types documentation.
-  - [ ] Establish project structure best practices for scalability.
+## Phase 3: Production v1.0 (Completed — 14 May 2026)
+- [x] **Mock Data Removal:** All hardcoded mock requests removed from `engineService.ts` and `mock-data.ts`. Only real users in `data/users.json` are kept.
+- [x] **Production Data Wipe:** `ProductionDataWipe` component clears all stale localStorage keys on first browser load (version key: `arp_prod_wipe_v1`).
+- [x] **Notifications System:**
+  - [x] Bell dropdown shows recent notifications with unread count badge.
+  - [x] Notification settings gear inside dropdown header → `/notifications/settings`.
+  - [x] "View all notifications" → `/notifications` (full log page with All/Unread filter, mark-all-read).
+  - [x] Clicking any notification navigates to the related request.
+- [x] **Admin Pages — Audit Trail:** Page at `/admin/audit-trail` showing all system events (request creation, status changes, comments, task activity). Filter by category + search.
+- [x] **Admin Pages — Database:** Page at `/admin/database` with:
+  - [x] **Backup** — one-click JSON download of all localStorage stores (requests, tasks, feedback, notifications, config).
+  - [x] **Restore** — upload backup JSON file to restore all data; warns before overwriting.
+- [x] **Role Permissions Updated:**
+  - [x] `Administration Team` role: added `page:feedback-reports`, `page:hr-new` permissions.
+  - [x] `Full Access` role: added `page:admin-audit`, `page:admin-database` permissions.
+  - [x] `ADMIN_TEAM_ROLES` in taskService updated to `["Administration Team", "Full Access"]`.
+- [x] **Task Assignee Dropdown:** Fetches real users from `/api/users/assignable` filtered by `page:tasks` permission. Shows only "Administration Team" members. Role validation check removed (dropdown already restricts).
+- [x] **Feedback & Reports:** Stats show `—` instead of `0` when no feedback data exists.
+- [x] **Maintenance Module:** "Coming soon" banner removed.
+- [x] **All Requests Page:** Duplicate "Team Tasks Overview" section removed — Active Team Tasks shown once at top.
+- [x] **Sidebar:** Added Audit Trail and Database entries under Admin group with correct icons.
 
-## Phase 4: Docker Containerization (Upcoming)
-- [ ] **Single Container Deployment:**
-  - [ ] Create Dockerfile for Next.js frontend + NestJS backend + PostgreSQL database.
-  - [ ] Docker Compose configuration for simplified single-container orchestration.
-  - [ ] Environment variable configuration for development, staging, production.
-  - [ ] Database initialization scripts and migrations in container.
-  - [ ] Volume mounting for persistent database storage.
-  - [ ] Health checks and logging configuration.
-  - [ ] Documentation for quick container startup and management.
+## Phase 4: Docker Containerization (Completed)
+- [x] **Single Container Deployment:**
+  - [x] Dockerfile for Next.js frontend + PostgreSQL database.
+  - [x] Docker Compose configuration — app on port 3003, db on port 5432.
+  - [x] Environment variable configuration via `.env.local`.
+  - [x] Health checks configured. App served at `http://localhost:3003`.
 
-## Phase 5: Advanced Functionality (Upcoming)
-- [ ] **Audit Trail Enhancement:** Add granular history logs to the dashboard.
-- [ ] **Email Notifications:** Implement actual email sending for feedback surveys (currently simulated).
-- [ ] **Notifications System:** Automated email/in-app notifications for pending approvals.
+## Phase 5: Advanced Functionality (In Progress)
+- [ ] **Email Notifications:** SMTP blocked by corporate firewall (deep packet inspection). Options explored: Gmail (si-ware Workspace relay blocked), personal Gmail (same block). Pending: Brevo/SendGrid HTTP API or IT firewall rule for port 587.
+- [ ] **Audit Trail Enhancement:** Currently reads from localStorage. Future: persist to PostgreSQL for cross-session history.
+- [ ] **Database Backup:** Currently localStorage-only. Future: server-side PostgreSQL dump endpoint.
 
 ## Phase 6: Optimization & Scaling
 - [ ] Add Redis caching for frequently accessed dashboard data.
@@ -313,7 +321,13 @@ Status column preserves color styling with dot indicators; other columns use neu
 ### Admin Tools
 | File | Purpose | Key Features |
 |------|---------|--------------|
-| `src/app/(dashboard)/tasks/page.tsx` | Team Tasks management | Admin/Manager-only, comment attachments, activity tracking |
+| `src/app/(dashboard)/tasks/page.tsx` | Team Tasks management | Administration Team role only, real assignee from API, comment attachments, activity tracking |
+| `src/app/(dashboard)/admin/audit-trail/page.tsx` | Audit Trail | Reads localStorage, shows all events by category with search/filter |
+| `src/app/(dashboard)/admin/database/page.tsx` | Database Backup/Restore | JSON export of all stores, file upload restore with overwrite warning |
+| `src/app/(dashboard)/notifications/page.tsx` | Notification log | All/Unread filter, mark-all-read, click to navigate to request |
+| `src/app/(dashboard)/notifications/settings/page.tsx` | Notification preferences | Per-user email/in-app toggle settings |
+| `src/app/api/users/assignable/route.ts` | Assignable users API | Returns users whose role has `page:tasks` permission |
+| `src/components/layout/ProductionDataWipe.tsx` | Production data wipe | Clears stale localStorage on first boot (key: `arp_prod_wipe_v1`) |
 
 ### Components & Utilities
 | File | Purpose | Key Features |
