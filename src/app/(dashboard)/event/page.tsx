@@ -6,7 +6,7 @@ import { Search, Plus, CalendarDays, Clock, CheckCircle2, ChevronUp, ChevronDown
 import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { getRequests, initializeMockData, updateStatus, type EngineRequest, type RequestStatus } from "@/services/engineService"
+import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { cn } from "@/lib/utils"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
@@ -111,6 +111,7 @@ export default function EventPage() {
         previousStatus: oldStatus,
         newStatus,
         updateType: "status",
+        ccEmails: getAllCcEmails(getRequestById(id) ?? { adminCc: [], payload: {} } as any),
       })
     }
   }

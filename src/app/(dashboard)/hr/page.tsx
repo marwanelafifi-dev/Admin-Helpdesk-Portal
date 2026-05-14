@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { getRequests, initializeMockData, updateStatus, type EngineRequest, type RequestStatus } from "@/services/engineService"
+import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import type { HRPayload } from "@/modules/hr/hr.schema"
 import { cn } from "@/lib/utils"
@@ -116,6 +116,7 @@ export default function HRPage() {
         previousStatus: oldStatus,
         newStatus,
         updateType: "status",
+        ccEmails: getAllCcEmails(getRequestById(id) ?? { adminCc: [], payload: {} } as any),
       })
     }
   }

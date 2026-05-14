@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select"
 import { AlertCircle, Plane, Upload, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { CcEmailsField } from "@/components/ui/CcEmailsField"
 
 const BRAND = "#ec4899" // pink-500
 
@@ -59,7 +60,7 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<TravelForm>({
     resolver: zodResolver(TravelPayloadSchema),
-    defaultValues: { attachments: [] },
+    defaultValues: { attachments: [], ccEmails: [] },
   })
 
   const handleCancel = onCancel ?? (() => router.push("/travel"))
@@ -271,6 +272,20 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
           <SectionHeader icon={Plane} title="Additional Notes" subtitle="Any extra information" />
           <CardContent>
             <Textarea placeholder="Optional notes..." rows={3} {...register("notes")} />
+          </CardContent>
+        </Card>
+
+        {/* CC Notifications */}
+        <Card>
+          <SectionHeader icon={Plane} title="CC Notifications" subtitle="Additional recipients for email updates on this request" />
+          <CardContent>
+            <Controller
+              control={control}
+              name="ccEmails"
+              render={({ field }) => (
+                <CcEmailsField value={field.value ?? []} onChange={field.onChange} />
+              )}
+            />
           </CardContent>
         </Card>
 

@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
-import { getRequests, initializeMockData, updateStatus, type EngineRequest, type RequestStatus } from "@/services/engineService"
+import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { getTasks, updateTaskStatus, type Task, type TaskStatus } from "@/services/taskService"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
@@ -269,6 +269,7 @@ export default function AllRequestsPage() {
         previousStatus: oldStatus,
         newStatus,
         updateType: "status",
+        ccEmails: getAllCcEmails(getRequestById(id) ?? { adminCc: [], payload: {} } as any),
       })
     }
   }

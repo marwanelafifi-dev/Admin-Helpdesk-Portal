@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select"
 import { AlertCircle, ShoppingCart, Upload, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { CcEmailsField } from "@/components/ui/CcEmailsField"
 
 const BRAND = "#22c55e" // green-500
 
@@ -59,7 +60,7 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const { register, control, handleSubmit, watch, formState: { errors, isSubmitting }, reset } = useForm<PurchaseForm>({
     resolver: zodResolver(PurchasePayloadSchema),
-    defaultValues: { attachments: [] },
+    defaultValues: { attachments: [], ccEmails: [] },
   })
 
   useEffect(() => {
@@ -289,6 +290,20 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
           <SectionHeader icon={ShoppingCart} title="Additional Notes" subtitle="Any extra information" />
           <CardContent>
             <Textarea placeholder="Optional notes..." rows={3} {...register("notes")} />
+          </CardContent>
+        </Card>
+
+        {/* CC Notifications */}
+        <Card>
+          <SectionHeader icon={ShoppingCart} title="CC Notifications" subtitle="Additional recipients for email updates on this request" />
+          <CardContent>
+            <Controller
+              control={control}
+              name="ccEmails"
+              render={({ field }) => (
+                <CcEmailsField value={field.value ?? []} onChange={field.onChange} />
+              )}
+            />
           </CardContent>
         </Card>
 

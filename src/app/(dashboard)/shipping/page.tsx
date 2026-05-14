@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
-import { updateStatus } from "@/services/engineService"
+import { updateStatus, getRequestById, getAllCcEmails } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 import { useExpandedRows } from "@/hooks/useExpandedRows"
@@ -109,6 +109,8 @@ export default function ShippingPage() {
     setStatusOverrides(prev => ({ ...prev, [id]: newStatus }))
     updateStatus(id, newStatus as any, currentUserId)
     if (shipment) {
+      const engineReq = getRequestById(id)
+      const ccEmails = engineReq ? getAllCcEmails(engineReq) : []
       createRequestUpdateNotifications({
         requestId: id,
         requestTitle: shipment.title || shipment.id,
@@ -122,6 +124,7 @@ export default function ShippingPage() {
         previousStatus: oldStatus,
         newStatus,
         updateType: "status",
+        ccEmails,
       })
     }
   }

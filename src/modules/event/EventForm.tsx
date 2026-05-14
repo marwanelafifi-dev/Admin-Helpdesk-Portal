@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select"
 import { AlertCircle, Calendar, Upload, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { CcEmailsField } from "@/components/ui/CcEmailsField"
 
 const BRAND = "#ea580c" // orange-600
 
@@ -58,7 +59,7 @@ export function EventForm({ onCancel, editingRequest, isEditing }: { onCancel?: 
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const { register, control, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<EventForm>({
     resolver: zodResolver(EventPayloadSchema),
-    defaultValues: { attachments: [] },
+    defaultValues: { attachments: [], ccEmails: [] },
   })
 
   useEffect(() => {
@@ -268,6 +269,20 @@ export function EventForm({ onCancel, editingRequest, isEditing }: { onCancel?: 
           <SectionHeader icon={Calendar} title="Additional Notes" subtitle="Any extra information" />
           <CardContent>
             <Textarea placeholder="Optional notes..." rows={3} {...register("notes")} />
+          </CardContent>
+        </Card>
+
+        {/* CC Notifications */}
+        <Card>
+          <SectionHeader icon={Calendar} title="CC Notifications" subtitle="Additional recipients for email updates on this request" />
+          <CardContent>
+            <Controller
+              control={control}
+              name="ccEmails"
+              render={({ field }) => (
+                <CcEmailsField value={field.value ?? []} onChange={field.onChange} />
+              )}
+            />
           </CardContent>
         </Card>
 

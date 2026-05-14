@@ -24,6 +24,7 @@ export const TravelPayloadSchema = z.object({
   approver: z.string().min(1, "Manager approval required"),
   attachments: z.array(z.string()).optional(),
   notes: z.string().max(500).optional(),
+  ccEmails: z.array(z.string().email()).default([]),
 })
 
 export type TravelPayload = z.infer<typeof TravelPayloadSchema>

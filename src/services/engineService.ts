@@ -52,6 +52,8 @@ export interface EngineRequest<T = Record<string, unknown>> {
   payload: T
   statusHistory: StatusChange[]
   commentHistory: CommentActivity[]
+  /** Admin-added CC recipients (editable from request detail page) */
+  adminCc: string[]
   createdAt: string
   updatedAt: string
 }
@@ -142,6 +144,7 @@ export function submitRequest<T extends Record<string, unknown>>(
       },
     ],
     commentHistory: [],
+    adminCc: [],
     createdAt: now,
     updatedAt: now,
   }
@@ -208,6 +211,7 @@ export function saveDraft<T extends Record<string, unknown>>(
       },
     ],
     commentHistory: [],
+    adminCc: [],
     createdAt: now,
     updatedAt: now,
   }
@@ -293,6 +297,38 @@ export function recordCommentActivity(
   writeAll(requests)
 
   return updated
+}
+
+/**
+ * updateAdminCc
+ * Replaces the admin-managed CC list on a request.
+ */
+export function updateAdminCc(id: string, adminCc: string[]): EngineRequest | null {
+  const requests = readAll()
+  const index = requests.findIndex((r) => r.id === id)
+  if (index === -1) return null
+
+  const updated = {
+    ...requests[index],
+    adminCc,
+    updatedAt: new Date().toISOString(),
+  }
+
+  requests[index] = updated
+  writeAll(requests)
+  return updated
+}
+
+/**
+ * getAllCcEmails
+ * Returns the merged CC list: payload.ccEmails (from form) + adminCc.
+ */
+export function getAllCcEmails(request: EngineRequest): string[] {
+  const payloadCc = Array.isArray((request.payload as any)?.ccEmails)
+    ? ((request.payload as any).ccEmails as string[])
+    : []
+  const adminCc = Array.isArray(request.adminCc) ? request.adminCc : []
+  return Array.from(new Set([...payloadCc, ...adminCc].filter(Boolean)))
 }
 
 /** Returns every request in the store. */

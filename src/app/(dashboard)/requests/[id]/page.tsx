@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { commentsAPI } from "@/lib/apiClient"
-import { getRequests, updateStatus, initializeMockData, recordCommentActivity, type EngineRequest } from "@/services/engineService"
+import { getRequests, updateStatus, updateAdminCc, getAllCcEmails, initializeMockData, recordCommentActivity, type EngineRequest } from "@/services/engineService"
 import { cn } from "@/lib/utils"
 import { hasPermission } from "@/lib/access"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
@@ -72,6 +72,8 @@ interface RequestDetail {
   requesterId: string
   createdAt: string
   updatedAt: string
+  ccEmails: string[]
+  adminCc: string[]
   requester?: {
     id: string
     name: string
@@ -184,6 +186,7 @@ export default function RequestDetailPage() {
   const canChangeStatus = session?.user?.permissions && hasPermission(session.user.permissions, "update_status")
   const canViewActivity = session?.user?.permissions && hasPermission(session.user.permissions, "activity")
   const canEditRequest = session?.user?.permissions && hasPermission(session.user.permissions, "edit_request")
+  const canManageCc = session?.user?.permissions && hasPermission(session.user.permissions, "manage_users")
   const currentUserId = session?.user?.id || "USR-001"
 
   useEffect(() => {
@@ -231,6 +234,7 @@ export default function RequestDetailPage() {
         previousStatus: oldStatus,
         newStatus,
         updateType: "status",
+        ccEmails: [...(request.ccEmails || []), ...(request.adminCc || [])],
       })
 
       // Update local state with new status and activity
@@ -327,6 +331,8 @@ export default function RequestDetailPage() {
           status: engineRequest.status,
           payload: engineRequest.payload || {},
           requesterId: engineRequest.requesterId,
+          ccEmails: Array.isArray((engineRequest.payload as any)?.ccEmails) ? (engineRequest.payload as any).ccEmails : [],
+          adminCc: Array.isArray(engineRequest.adminCc) ? engineRequest.adminCc : [],
           requester: {
             id: engineRequest.requesterId,
             name: engineRequest.requesterName,
@@ -657,6 +663,13 @@ export default function RequestDetailPage() {
             <CommentsTab
               requestId={request.id}
               comments={request.comments || []}
+              ccEmails={request.ccEmails || []}
+              adminCc={request.adminCc || []}
+              canEditCc={!!canManageCc}
+              onAdminCcChange={(emails) => {
+                updateAdminCc(request.id, emails)
+                setRequest((prev) => prev ? { ...prev, adminCc: emails } : prev)
+              }}
               onAddComment={async (content, attachments) => {
                 try {
                   console.log("Adding comment to request", request.id, { content, attachmentsCount: attachments.length })
@@ -673,7 +686,7 @@ export default function RequestDetailPage() {
                   // Record comment activity in history
                   recordCommentActivity(request.id, request.requester?.id || "USR-001")
 
-                  // Create notifications for the new comment
+                  // Create notifications for the new comment (with CC)
                   createRequestUpdateNotifications({
                     requestId: request.id,
                     requestTitle: request.title,
@@ -685,6 +698,7 @@ export default function RequestDetailPage() {
                     actionUserEmail: session?.user?.email || undefined,
                     preview: content,
                     updateType: "comment",
+                    ccEmails: [...(request.ccEmails || []), ...(request.adminCc || [])],
                   })
 
                   // Add optimistic update - add comment immediately to state

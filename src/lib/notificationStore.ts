@@ -18,32 +18,56 @@ const STORAGE_KEY = "arp_notifications"
 const ADMIN_HELPDESK_EMAIL = "adminhelpdesk@si-ware.com"
 const subscribers = new Set<(notifications: StoredNotification[]) => void>()
 
-function readAllNotifications(): StoredNotification[] {
-  if (typeof window === "undefined") {
-    return []
-  }
+// BroadcastChannel for cross-tab sync (Phase D)
+let broadcastChannel: BroadcastChannel | null = null
 
+function getBroadcastChannel(): BroadcastChannel | null {
+  if (typeof window === "undefined") return null
+  if (!broadcastChannel) {
+    try {
+      broadcastChannel = new BroadcastChannel("arp_notifications")
+      broadcastChannel.onmessage = (event) => {
+        if (event.data?.type === "notifications_updated") {
+          const notifications = readAllNotificationsRaw()
+          subscribers.forEach((cb) => cb(notifications))
+        }
+      }
+    } catch {
+      // BroadcastChannel not supported
+    }
+  }
+  return broadcastChannel
+}
+
+function readAllNotificationsRaw(): StoredNotification[] {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
     return raw ? (JSON.parse(raw) as StoredNotification[]) : []
-  } catch (error) {
-    console.warn("Failed to read notifications from localStorage", error)
+  } catch {
     return []
   }
 }
 
+function readAllNotifications(): StoredNotification[] {
+  if (typeof window === "undefined") return []
+  return readAllNotificationsRaw()
+}
+
 function writeAllNotifications(notifications: StoredNotification[]) {
-  if (typeof window === "undefined") {
-    return
-  }
+  if (typeof window === "undefined") return
 
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(notifications))
   subscribers.forEach((callback) => callback(notifications))
+
+  // Broadcast to other tabs
+  getBroadcastChannel()?.postMessage({ type: "notifications_updated" })
 }
 
 export function subscribeNotifications(
   callback: (notifications: StoredNotification[]) => void
 ) {
+  // Ensure BroadcastChannel is wired up when the first subscriber registers
+  getBroadcastChannel()
   subscribers.add(callback)
   return () => {
     subscribers.delete(callback)
@@ -52,13 +76,12 @@ export function subscribeNotifications(
 
 export function getNotificationsForUser(userId: string) {
   return readAllNotifications()
-    .filter((notification) => notification.userId === userId)
+    .filter((n) => n.userId === userId)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 }
 
 export function getUnreadNotificationCount(userId: string) {
-  return getNotificationsForUser(userId).filter((notification) => !notification.read)
-    .length
+  return getNotificationsForUser(userId).filter((n) => !n.read).length
 }
 
 export function markNotificationAsRead(notificationId: string) {
@@ -66,9 +89,16 @@ export function markNotificationAsRead(notificationId: string) {
   const updated = notifications.map((item) =>
     item.id === notificationId ? { ...item, read: true } : item
   )
-
   writeAllNotifications(updated)
   return updated.find((item) => item.id === notificationId) ?? null
+}
+
+export function markAllNotificationsAsRead(userId: string) {
+  const notifications = readAllNotifications()
+  const updated = notifications.map((item) =>
+    item.userId === userId ? { ...item, read: true } : item
+  )
+  writeAllNotifications(updated)
 }
 
 export function addNotification(params: {
@@ -98,26 +128,23 @@ export function addNotification(params: {
 
 function getAdminUserIds() {
   return mockUsers
-    .filter((user) =>
-      ["Admin", "Super Admin"].includes(user.role)
-    )
-    .map((user) => user.id)
+    .filter((u) => ["Admin", "Super Admin"].includes(u.role))
+    .map((u) => u.id)
 }
 
 function getHrTeamUserIds() {
   return mockUsers
-    .filter((user) =>
-      ["Admin", "Super Admin", "Manager"].includes(user.role)
-    )
-    .map((user) => user.id)
+    .filter((u) => ["Admin", "Super Admin", "Manager"].includes(u.role))
+    .map((u) => u.id)
 }
 
 function getUserEmail(userId: string) {
-  return mockUsers.find((user) => user.id === userId)?.email
+  return mockUsers.find((u) => u.id === userId)?.email
 }
 
 function notifyByEmail(params: {
   recipientIds: string[]
+  ccEmails?: string[]
   requestOwnerEmail?: string
   actionUserEmail?: string
   updateType: RequestUpdateType
@@ -138,46 +165,46 @@ function notifyByEmail(params: {
   const requestOwnerEmail = params.requestOwnerEmail?.trim()
   const actionUserEmail = params.actionUserEmail?.toLowerCase()
 
-  const recipients = Array.from(new Set(emails))
-    .filter((email) => {
-      const normalizedEmail = email.toLowerCase()
-      return normalizedEmail === requestOwnerEmail?.toLowerCase() || normalizedEmail !== actionUserEmail
-    })
+  const recipients = Array.from(new Set(emails)).filter((email) => {
+    const e = email.toLowerCase()
+    return e === requestOwnerEmail?.toLowerCase() || e !== actionUserEmail
+  })
 
   const requiredRecipients = [requestOwnerEmail, ADMIN_HELPDESK_EMAIL].filter(
     (email): email is string => Boolean(email)
   )
 
-  requiredRecipients.forEach((requiredEmail) => {
-    if (!recipients.some((email) => email.toLowerCase() === requiredEmail.toLowerCase())) {
-      recipients.push(requiredEmail)
+  requiredRecipients.forEach((req) => {
+    if (!recipients.some((e) => e.toLowerCase() === req.toLowerCase())) {
+      recipients.push(req)
     }
   })
 
   const uniqueRecipients = Array.from(
-    new Map(recipients.map((email) => [email.toLowerCase(), email])).values()
+    new Map(recipients.map((e) => [e.toLowerCase(), e])).values()
   )
 
   if (uniqueRecipients.length === 0) return
 
+  // CC emails: remove the action user, deduplicate
+  const ccEmails = (params.ccEmails ?? [])
+    .filter((e): e is string => Boolean(e))
+    .filter((e) => e.toLowerCase() !== actionUserEmail)
+    .filter((e) => !uniqueRecipients.some((r) => r.toLowerCase() === e.toLowerCase()))
+
   console.info("[notifications] Sending request update email", {
     requestId: params.requestId,
     updateType: params.updateType,
-    recipients: uniqueRecipients,
+    to: uniqueRecipients,
+    cc: ccEmails,
   })
-
-  if (!requestOwnerEmail) {
-    console.warn("[notifications] Request update has no requester email", {
-      requestId: params.requestId,
-      updateType: params.updateType,
-    })
-  }
 
   void fetch("/api/notifications/email", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       to: uniqueRecipients,
+      cc: ccEmails.length > 0 ? ccEmails : undefined,
       updateType: params.updateType,
       requestId: params.requestId,
       requestTitle: params.requestTitle,
@@ -190,7 +217,6 @@ function notifyByEmail(params: {
   })
     .then(async (response) => {
       if (response.ok) return
-
       const errorText = await response.text()
       console.error("Failed to send request update email", {
         status: response.status,
@@ -215,6 +241,7 @@ export function createRequestUpdateNotifications(params: {
   previousStatus?: string
   newStatus?: string
   updateType: RequestUpdateType
+  ccEmails?: string[]
 }) {
   const {
     requestId,
@@ -226,19 +253,17 @@ export function createRequestUpdateNotifications(params: {
     previousStatus,
     newStatus,
     updateType,
+    ccEmails,
   } = params
 
   const recipients = new Set<string>()
 
-  // Admin team sees all request updates
   getAdminUserIds().forEach((id) => recipients.add(id))
 
-  // Request owner sees updates to their own requests
   if (requestOwnerId && requestOwnerId !== actionUserId) {
     recipients.add(requestOwnerId)
   }
 
-  // HR team sees HR module updates
   if (module.toLowerCase() === "hr") {
     getHrTeamUserIds().forEach((id) => recipients.add(id))
   }
@@ -280,6 +305,7 @@ export function createRequestUpdateNotifications(params: {
 
   notifyByEmail({
     recipientIds,
+    ccEmails,
     requestOwnerEmail: params.requestOwnerEmail,
     actionUserEmail: params.actionUserEmail,
     updateType,

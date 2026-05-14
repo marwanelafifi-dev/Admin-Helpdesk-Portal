@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select"
 import { AlertCircle, UserPlus, UserMinus, User, Building2, Calendar, ClipboardList, Upload, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { CcEmailsField } from "@/components/ui/CcEmailsField"
 
 const BRAND = "#0F766E" // teal-700
 
@@ -67,7 +68,7 @@ function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCance
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const { register, control, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<OnboardingForm>({
     resolver: zodResolver(OnboardingPayloadSchema),
-    defaultValues: { hrType: "onboarding", items: [], attachments: [] },
+    defaultValues: { hrType: "onboarding", items: [], attachments: [], ccEmails: [] },
   })
 
   useEffect(() => {
@@ -334,6 +335,20 @@ function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCance
         </CardContent>
       </Card>
 
+      {/* CC Notifications */}
+      <Card>
+        <SectionHeader icon={Building2} title="CC Notifications" subtitle="Additional recipients for email updates on this request" />
+        <CardContent>
+          <Controller
+            control={control}
+            name="ccEmails"
+            render={({ field }) => (
+              <CcEmailsField value={field.value ?? []} onChange={field.onChange} />
+            )}
+          />
+        </CardContent>
+      </Card>
+
       <div className="sticky bottom-0 bg-white border-t py-4 px-1 flex items-center justify-between gap-3">
         <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
         <Button type="submit" disabled={isSubmitting} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px]">
@@ -352,7 +367,7 @@ function OffboardingFormFields({ onCancel, editingRequest, isEditing }: { onCanc
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const { register, control, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<OffboardingForm>({
     resolver: zodResolver(OffboardingPayloadSchema),
-    defaultValues: { hrType: "offboarding", items: [], attachments: [] },
+    defaultValues: { hrType: "offboarding", items: [], attachments: [], ccEmails: [] },
   })
 
   useEffect(() => {
@@ -580,6 +595,20 @@ function OffboardingFormFields({ onCancel, editingRequest, isEditing }: { onCanc
         <SectionHeader icon={Building2} title="Additional Notes" subtitle="Any extra information for this request" />
         <CardContent>
           <Textarea placeholder="Optional notes..." rows={3} {...register("notes")} />
+        </CardContent>
+      </Card>
+
+      {/* CC Notifications */}
+      <Card>
+        <SectionHeader icon={Building2} title="CC Notifications" subtitle="Additional recipients for email updates on this request" />
+        <CardContent>
+          <Controller
+            control={control}
+            name="ccEmails"
+            render={({ field }) => (
+              <CcEmailsField value={field.value ?? []} onChange={field.onChange} />
+            )}
+          />
         </CardContent>
       </Card>
 

@@ -24,6 +24,7 @@ export const PurchasePayloadSchema = z.object({
   businessJustification: z.string().min(1, "Business justification is required"),
   attachments: z.array(z.string()).optional(),
   notes: z.string().max(500).optional(),
+  ccEmails: z.array(z.string().email()).default([]),
 }).refine(
   (data) => data.platform !== "Other" || data.supplier,
   {

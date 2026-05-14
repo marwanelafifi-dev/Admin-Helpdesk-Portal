@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { mockShipments, mockUsers, type MockShipment } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
-import { getRequestsByModule, initializeMockData, updateStatus } from "@/services/engineService"
+import { getRequestsByModule, initializeMockData, updateStatus, getRequestById, getAllCcEmails } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
@@ -155,6 +155,7 @@ export default function ReceivingPage() {
         previousStatus: oldStatus,
         newStatus,
         updateType: "status",
+        ccEmails: getAllCcEmails(getRequestById(id) ?? { adminCc: [], payload: {} } as any),
       })
     }
   }

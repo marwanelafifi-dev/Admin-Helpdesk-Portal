@@ -22,6 +22,7 @@ export const MaintenancePayloadSchema = z.object({
   roomArea: z.string().min(1, "Room/Area is required"),
   attachments: z.array(z.string()).optional(),
   notes: z.string().max(500).optional(),
+  ccEmails: z.array(z.string().email()).default([]),
 })
 
 export type MaintenancePayload = z.infer<typeof MaintenancePayloadSchema>

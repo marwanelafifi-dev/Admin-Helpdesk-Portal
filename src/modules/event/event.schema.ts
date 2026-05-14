@@ -20,6 +20,7 @@ export const EventPayloadSchema = z.object({
   organizer: z.string().min(1, "Organizer name is required"),
   attachments: z.array(z.string()).optional(),
   notes: z.string().max(500).optional(),
+  ccEmails: z.array(z.string().email()).default([]),
 })
 
 export type EventPayload = z.infer<typeof EventPayloadSchema>

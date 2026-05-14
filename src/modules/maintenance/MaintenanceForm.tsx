@@ -22,6 +22,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import { AlertCircle, Wrench, Upload, X } from "lucide-react"
+import { CcEmailsField } from "@/components/ui/CcEmailsField"
 import { cn } from "@/lib/utils"
 
 const BRAND = "#A78BFA" // purple-400
@@ -60,7 +61,7 @@ export function MaintenanceForm({ onCancel, editingRequest, isEditing }: { onCan
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const { register, control, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<MaintenanceForm>({
     resolver: zodResolver(MaintenancePayloadSchema),
-    defaultValues: { attachments: [] },
+    defaultValues: { attachments: [], ccEmails: [] },
   })
 
   useEffect(() => {
@@ -268,6 +269,20 @@ export function MaintenanceForm({ onCancel, editingRequest, isEditing }: { onCan
           <SectionHeader icon={Wrench} title="Additional Notes" subtitle="Any extra information" />
           <CardContent>
             <Textarea placeholder="Optional notes..." rows={3} {...register("notes")} />
+          </CardContent>
+        </Card>
+
+        {/* CC Notifications */}
+        <Card>
+          <SectionHeader icon={Wrench} title="CC Notifications" subtitle="Additional recipients for email updates on this request" />
+          <CardContent>
+            <Controller
+              control={control}
+              name="ccEmails"
+              render={({ field }) => (
+                <CcEmailsField value={field.value ?? []} onChange={field.onChange} />
+              )}
+            />
           </CardContent>
         </Card>
 

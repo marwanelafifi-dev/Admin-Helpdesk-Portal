@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { CommentForm } from "./CommentForm"
+import { CcPanel } from "./CcPanel"
 
 export interface Comment {
   id: string
@@ -29,6 +30,11 @@ interface CommentsTabProps {
   onDeleteComment?: (commentId: string) => Promise<void>
   currentUserId?: string
   isLoading?: boolean
+  // CC props
+  ccEmails?: string[]
+  adminCc?: string[]
+  onAdminCcChange?: (emails: string[]) => void
+  canEditCc?: boolean
 }
 
 function formatDate(iso: string) {
@@ -49,6 +55,10 @@ export function CommentsTab({
   onDeleteComment,
   currentUserId,
   isLoading = false,
+  ccEmails = [],
+  adminCc = [],
+  onAdminCcChange,
+  canEditCc = false,
 }: CommentsTabProps) {
   const [isMounted, setIsMounted] = useState(false)
 
@@ -60,6 +70,16 @@ export function CommentsTab({
 
   return (
     <div className="space-y-6">
+      {/* CC Panel — shown to everyone if there are CCs, editable for admins */}
+      {(ccEmails.length > 0 || adminCc.length > 0 || canEditCc) && (
+        <CcPanel
+          ccEmails={ccEmails}
+          adminCc={adminCc}
+          onAdminCcChange={onAdminCcChange ?? (() => {})}
+          canEdit={canEditCc}
+        />
+      )}
+
       {/* Add Comment Form */}
       <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
         <p className="text-sm font-medium text-gray-700 mb-3">Add Comment</p>
@@ -90,8 +110,6 @@ export function CommentsTab({
                     {isMounted && <p className="text-xs text-gray-500">{formatDate(comment.createdAt)}</p>}
                   </div>
                 </div>
-
-                {/* No action menu - comments cannot be deleted */}
               </div>
 
               {/* Content */}
