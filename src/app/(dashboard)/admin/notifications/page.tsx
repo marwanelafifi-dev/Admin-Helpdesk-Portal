@@ -216,7 +216,20 @@ export default function NotificationConfigPage() {
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
 
-  useEffect(() => { setConfig(loadConfig()) }, [])
+  useEffect(() => {
+    // Load from server first, fall back to localStorage
+    fetch("/api/notifications/config", { credentials: "include" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.config) {
+          setConfig(data.config)
+          saveConfig(data.config)
+        } else {
+          setConfig(loadConfig())
+        }
+      })
+      .catch(() => setConfig(loadConfig()))
+  }, [])
 
   const selectedMethod = METHODS.find((m) => m.id === config.method)!
 
@@ -226,8 +239,15 @@ export default function NotificationConfigPage() {
     setTestResult(null)
   }
 
-  function handleSave() {
+  async function handleSave() {
     saveConfig(config)
+    // Also persist to server so it survives container restarts
+    await fetch("/api/notifications/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ config }),
+    }).catch(() => {})
     setSaved(true)
     setTimeout(() => setSaved(false), 3000)
   }

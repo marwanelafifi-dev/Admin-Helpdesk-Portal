@@ -3,8 +3,8 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install wget for health checks and netcat for db connectivity check
-RUN apk add --no-cache wget netcat-openbsd
+# Install wget for health checks
+RUN apk add --no-cache wget || true
 
 # Copy package files
 COPY package*.json ./
@@ -28,17 +28,17 @@ ENV NODE_ENV=production \
     DATABASE_URL=postgresql://admin:admin_password_123@db:5432/admin_request_platform
 RUN npm run build
 
-# Ensure cache directory exists with correct permissions
-RUN mkdir -p .next/cache/images && \
-    addgroup -g 1001 -S nodejs && \
+# Create user and set permissions only on .next output
+RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001 && \
-    chown -R nextjs:nodejs /app
+    mkdir -p .next/cache/images && \
+    chown -R nextjs:nodejs .next data
 
 USER nextjs
 
 EXPOSE 3003
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD wget -q -O /dev/null http://localhost:3003 || exit 1
 
 COPY --chown=nextjs:nodejs docker-entrypoint.sh /app/

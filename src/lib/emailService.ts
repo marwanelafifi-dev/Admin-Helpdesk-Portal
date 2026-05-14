@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer"
 import fs from "fs"
 import path from "path"
+import { readEmailConfig } from "./emailConfig"
 
 function getLogoBase64(): string {
   try {
@@ -12,26 +13,37 @@ function getLogoBase64(): string {
 }
 
 function createTransporter() {
+  // Prefer saved UI config over .env.local
+  const saved = readEmailConfig()
+  if (saved?.method && saved?.values) {
+    const v = saved.values
+    if (saved.method === "gmail_app_password") {
+      return nodemailer.createTransport({
+        host: "smtp.gmail.com", port: 465, secure: true,
+        auth: { user: v.smtp_user, pass: v.smtp_password },
+        tls: { rejectUnauthorized: false },
+        connectionTimeout: 15000, greetingTimeout: 15000, socketTimeout: 15000,
+      })
+    }
+    if (saved.method === "smtp_relay") {
+      return nodemailer.createTransport({
+        host: "smtp-relay.gmail.com", port: 587, secure: false,
+        auth: { user: v.smtp_user, pass: v.smtp_password },
+        tls: { rejectUnauthorized: false },
+        connectionTimeout: 15000, greetingTimeout: 15000, socketTimeout: 15000,
+      })
+    }
+  }
+  // Fall back to .env.local
+  const port = parseInt(process.env.SMTP_PORT || "587")
+  const secure = process.env.SMTP_SECURE === "true" || port === 465
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || "mail.si-ware.com",
-    port: parseInt(process.env.SMTP_PORT || "587"),
-    secure: process.env.SMTP_SECURE === "true",
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASSWORD,
-    },
-    tls: {
-      rejectUnauthorized: false,
-      minVersion: "TLSv1.2",
-    },
-    connectionTimeout: 10000,
-    socketTimeout: 10000,
-    pool: {
-      maxConnections: 5,
-      maxMessages: 100,
-      rateDelta: 1000,
-      rateLimit: 5,
-    },
+    port,
+    secure,
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
+    tls: { rejectUnauthorized: false },
+    connectionTimeout: 15000, greetingTimeout: 15000, socketTimeout: 15000,
   })
 }
 
