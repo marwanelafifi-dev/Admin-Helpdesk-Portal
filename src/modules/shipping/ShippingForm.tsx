@@ -15,6 +15,7 @@ import {
 import { shippingFormDefaults } from "./shipping.mock"
 import { mockUsers } from "@/lib/mock-data"
 import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
+import { createNewRequestNotifications } from "@/lib/notificationStore"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -242,6 +243,7 @@ export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel
           requesterName: session?.user?.name || session?.user?.email || "Current User",
           requesterEmail: session?.user?.email || "user@si-ware.com",
         })
+        createNewRequestNotifications({ requestId: created.id, requestTitle: created.title, module: "shipping", requesterId: created.requesterId, requesterName: created.requesterName, requesterEmail: created.requesterEmail })
         router.push(`/requests/${created.id}`)
       }
       router.refresh()

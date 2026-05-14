@@ -126,15 +126,35 @@ export function addNotification(params: {
   return notification
 }
 
+// Cache of real admin users fetched from /api/users/admin-team
+let _adminUserCache: { id: string; name: string; email: string; role: string }[] | null = null
+let _adminUserCacheTime = 0
+const CACHE_TTL = 60_000 // 1 minute
+
+async function fetchAdminUsers() {
+  const now = Date.now()
+  if (_adminUserCache && now - _adminUserCacheTime < CACHE_TTL) return _adminUserCache
+  try {
+    const res = await fetch("/api/users/admin-team")
+    const { data } = await res.json()
+    _adminUserCache = Array.isArray(data) ? data : []
+    _adminUserCacheTime = now
+    return _adminUserCache
+  } catch {
+    return _adminUserCache ?? []
+  }
+}
+
 function getAdminUserIds() {
+  // Fallback to mock for sync contexts; real IDs loaded async in notifyByEmail
   return mockUsers
-    .filter((u) => ["Admin", "Super Admin"].includes(u.role))
+    .filter((u) => ["Admin", "Super Admin", "Full Access", "Administration Team"].includes(u.role))
     .map((u) => u.id)
 }
 
 function getHrTeamUserIds() {
   return mockUsers
-    .filter((u) => ["Admin", "Super Admin", "Manager"].includes(u.role))
+    .filter((u) => ["Admin", "Super Admin", "Manager", "Full Access", "Administration Team"].includes(u.role))
     .map((u) => u.id)
 }
 
@@ -142,7 +162,7 @@ function getUserEmail(userId: string) {
   return mockUsers.find((u) => u.id === userId)?.email
 }
 
-function notifyByEmail(params: {
+async function notifyByEmail(params: {
   recipientIds: string[]
   ccEmails?: string[]
   requestOwnerEmail?: string
@@ -158,35 +178,31 @@ function notifyByEmail(params: {
 }) {
   if (typeof window === "undefined") return
 
-  const emails = params.recipientIds
-    .map(getUserEmail)
-    .filter((email): email is string => Boolean(email))
-
-  const requestOwnerEmail = params.requestOwnerEmail?.trim()
   const actionUserEmail = params.actionUserEmail?.toLowerCase()
 
-  const recipients = Array.from(new Set(emails)).filter((email) => {
-    const e = email.toLowerCase()
-    return e === requestOwnerEmail?.toLowerCase() || e !== actionUserEmail
-  })
+  // Collect emails: mock user IDs + real admin users from API
+  const mockEmails = params.recipientIds
+    .map(getUserEmail)
+    .filter((e): e is string => Boolean(e))
 
-  const requiredRecipients = [requestOwnerEmail, ADMIN_HELPDESK_EMAIL].filter(
-    (email): email is string => Boolean(email)
-  )
+  const realAdmins = await fetchAdminUsers()
+  const realAdminEmails = realAdmins.map((u) => u.email)
 
-  requiredRecipients.forEach((req) => {
-    if (!recipients.some((e) => e.toLowerCase() === req.toLowerCase())) {
-      recipients.push(req)
-    }
-  })
+  // Always notify admin helpdesk + request owner + all real admins
+  const allEmails = Array.from(new Set([
+    ...mockEmails,
+    ...realAdminEmails,
+    params.requestOwnerEmail,
+    ADMIN_HELPDESK_EMAIL,
+  ].filter((e): e is string => Boolean(e))))
 
-  const uniqueRecipients = Array.from(
-    new Map(recipients.map((e) => [e.toLowerCase(), e])).values()
+  // Remove the person who triggered the action (don't self-notify)
+  const uniqueRecipients = allEmails.filter(
+    (e) => e.toLowerCase() !== actionUserEmail
   )
 
   if (uniqueRecipients.length === 0) return
 
-  // CC emails: remove the action user, deduplicate
   const ccEmails = (params.ccEmails ?? [])
     .filter((e): e is string => Boolean(e))
     .filter((e) => e.toLowerCase() !== actionUserEmail)
@@ -196,7 +212,6 @@ function notifyByEmail(params: {
     requestId: params.requestId,
     updateType: params.updateType,
     to: uniqueRecipients,
-    cc: ccEmails,
   })
 
   void fetch("/api/notifications/email", {
@@ -214,18 +229,9 @@ function notifyByEmail(params: {
       previousStatus: params.previousStatus,
       newStatus: params.newStatus,
     }),
+  }).catch((error) => {
+    console.error("Failed to send request update email", error)
   })
-    .then(async (response) => {
-      if (response.ok) return
-      const errorText = await response.text()
-      console.error("Failed to send request update email", {
-        status: response.status,
-        error: errorText,
-      })
-    })
-    .catch((error) => {
-      console.error("Failed to send request update email", error)
-    })
 }
 
 export function createRequestUpdateNotifications(params: {
@@ -292,6 +298,7 @@ export function createRequestUpdateNotifications(params: {
 
   const recipientIds = Array.from(recipients)
 
+  // In-app: notify mock-based users by ID
   recipientIds.forEach((userId) => {
     addNotification({
       userId,
@@ -303,7 +310,23 @@ export function createRequestUpdateNotifications(params: {
     })
   })
 
-  notifyByEmail({
+  // In-app: also notify real admin users (from data/users.json) by their actual IDs
+  void fetchAdminUsers().then((admins) => {
+    admins.forEach((admin) => {
+      if (admin.id !== actionUserId) {
+        addNotification({
+          userId: admin.id,
+          type: updateType,
+          title,
+          description,
+          requestId,
+          actionUrl: `/requests/${requestId}`,
+        })
+      }
+    })
+  })
+
+  void notifyByEmail({
     recipientIds,
     ccEmails,
     requestOwnerEmail: params.requestOwnerEmail,
@@ -319,4 +342,76 @@ export function createRequestUpdateNotifications(params: {
   })
 
   return recipientIds
+}
+
+/**
+ * Notify administration team when a brand-new request is submitted.
+ * Called from all module form submit handlers.
+ */
+export function createNewRequestNotifications(params: {
+  requestId: string
+  requestTitle: string
+  module: string
+  requesterId: string
+  requesterName: string
+  requesterEmail: string
+}) {
+  if (typeof window === "undefined") return
+
+  const title = `New ${params.module} request: ${params.requestTitle}`
+  const description = `Submitted by ${params.requesterName}`
+
+  // In-app: notify mock admin IDs
+  getAdminUserIds().forEach((userId) => {
+    if (userId !== params.requesterId) {
+      addNotification({
+        userId,
+        type: "request_updated",
+        title,
+        description,
+        requestId: params.requestId,
+        actionUrl: `/requests/${params.requestId}`,
+      })
+    }
+  })
+
+  // In-app: notify real admin users
+  void fetchAdminUsers().then((admins) => {
+    admins.forEach((admin) => {
+      if (admin.id !== params.requesterId) {
+        addNotification({
+          userId: admin.id,
+          type: "request_updated",
+          title,
+          description,
+          requestId: params.requestId,
+          actionUrl: `/requests/${params.requestId}`,
+        })
+      }
+    })
+  })
+
+  // Email: notify all real admins + helpdesk
+  void fetchAdminUsers().then((admins) => {
+    const adminEmails = admins
+      .map((u) => u.email)
+      .filter((e) => e.toLowerCase() !== params.requesterEmail.toLowerCase())
+
+    const recipients = Array.from(new Set([...adminEmails, ADMIN_HELPDESK_EMAIL]))
+    if (recipients.length === 0) return
+
+    void fetch("/api/notifications/email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        to: recipients,
+        updateType: "request_updated",
+        requestId: params.requestId,
+        requestTitle: params.requestTitle,
+        module: params.module,
+        actorName: params.requesterName,
+        preview: `New ${params.module} request submitted by ${params.requesterName}`,
+      }),
+    }).catch(() => {})
+  })
 }

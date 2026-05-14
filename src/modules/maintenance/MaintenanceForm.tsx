@@ -13,6 +13,7 @@ import {
   MaintenancePayloadSchema,
 } from "./maintenance.schema"
 import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
+import { createNewRequestNotifications } from "@/lib/notificationStore"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -95,11 +96,19 @@ export function MaintenanceForm({ onCancel, editingRequest, isEditing }: { onCan
         })
       } else {
         // Create new request
-        submitRequest("maintenance", data, {
+        const newReq = submitRequest("maintenance", data, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",
           requesterEmail: session?.user?.email || "user@si-ware.com",
+        })
+        createNewRequestNotifications({
+          requestId: newReq.id,
+          requestTitle: newReq.title,
+          module: "maintenance",
+          requesterId: newReq.requesterId,
+          requesterName: newReq.requesterName,
+          requesterEmail: newReq.requesterEmail,
         })
       }
       router.push("/maintenance")

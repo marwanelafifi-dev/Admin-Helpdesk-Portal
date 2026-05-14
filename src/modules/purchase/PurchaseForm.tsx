@@ -12,6 +12,7 @@ import {
   PurchasePayloadSchema,
 } from "./purchase.schema"
 import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
+import { createNewRequestNotifications } from "@/lib/notificationStore"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -99,12 +100,13 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
         })
       } else {
         // Create new request
-        submitRequest("purchase", data, {
+        const newReq = submitRequest("purchase", data, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",
           requesterEmail: session?.user?.email || "user@si-ware.com",
         })
+        createNewRequestNotifications({ requestId: newReq.id, requestTitle: newReq.title, module: "purchase", requesterId: newReq.requesterId, requesterName: newReq.requesterName, requesterEmail: newReq.requesterEmail })
       }
       router.push("/purchase")
       router.refresh()

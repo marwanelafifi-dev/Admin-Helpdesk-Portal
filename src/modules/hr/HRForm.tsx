@@ -15,6 +15,7 @@ import {
   OffboardingPayloadSchema,
 } from "./hr.schema"
 import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
+import { createNewRequestNotifications } from "@/lib/notificationStore"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -104,12 +105,13 @@ function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCance
           requesterEmail: editingRequest.requesterEmail,
         })
       } else {
-        submitRequest("hr", data, {
+        const newReq = submitRequest("hr", data, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",
           requesterEmail: session?.user?.email || "user@si-ware.com",
         })
+        createNewRequestNotifications({ requestId: newReq.id, requestTitle: newReq.title, module: "hr", requesterId: newReq.requesterId, requesterName: newReq.requesterName, requesterEmail: newReq.requesterEmail })
       }
       router.push("/hr")
       router.refresh()
@@ -400,12 +402,13 @@ function OffboardingFormFields({ onCancel, editingRequest, isEditing }: { onCanc
           requesterEmail: editingRequest.requesterEmail,
         })
       } else {
-        submitRequest("hr", data, {
+        const newReq = submitRequest("hr", data, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",
           requesterEmail: session?.user?.email || "user@si-ware.com",
         })
+        createNewRequestNotifications({ requestId: newReq.id, requestTitle: newReq.title, module: "hr", requesterId: newReq.requesterId, requesterName: newReq.requesterName, requesterEmail: newReq.requesterEmail })
       }
       router.push("/hr")
       router.refresh()
