@@ -215,7 +215,7 @@ export default function FeedbackReportsPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-gray-900">{stats.totalFeedback}</div>
+            <div className="text-3xl font-bold text-gray-900">{stats.totalFeedback || "—"}</div>
             <p className="text-xs text-gray-600 mt-2">responses collected</p>
           </CardContent>
         </Card>
@@ -230,8 +230,8 @@ export default function FeedbackReportsPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-gray-900">{stats.avgRating}</div>
-            <div className="mt-3">{renderStars(Math.round(stats.avgRating), "sm")}</div>
+            <div className="text-3xl font-bold text-gray-900">{stats.avgRating || "—"}</div>
+            <div className="mt-3">{stats.avgRating ? renderStars(Math.round(stats.avgRating), "sm") : null}</div>
           </CardContent>
         </Card>
 
@@ -245,7 +245,7 @@ export default function FeedbackReportsPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-emerald-700">{stats.satisfactionRate}%</div>
+            <div className="text-3xl font-bold text-emerald-700">{stats.satisfactionRate ? `${stats.satisfactionRate}%` : "—"}</div>
             <p className="text-xs text-gray-600 mt-2">4-5 star ratings</p>
           </CardContent>
         </Card>
@@ -261,7 +261,7 @@ export default function FeedbackReportsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-blue-700">
-              {allFeedback.length > 0 ? Math.round((allFeedback.length / 20) * 100) : 0}%
+              {allFeedback.length > 0 ? `${Math.round((allFeedback.length / 20) * 100)}%` : "—"}
             </div>
             <p className="text-xs text-gray-600 mt-2">of recent requests</p>
           </CardContent>

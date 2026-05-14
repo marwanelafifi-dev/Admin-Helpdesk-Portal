@@ -406,13 +406,6 @@ export default function MaintenancePage() {
             </tbody>
           </table>
 
-          {/* Coming soon message */}
-          <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground border-t border-gray-100">
-            <Wrench className="h-10 w-10 mb-3 text-slate-300" />
-            <p className="font-medium text-sm">Maintenance module coming soon</p>
-            <p className="text-xs mt-1">Ticket assignment, resolution tracking, and full CRUD will appear here</p>
-          </div>
-
           {filtered.length > 0 && (
             <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-[11px] text-gray-400 text-right">
               Showing {filtered.length} of {requests.length} tickets
