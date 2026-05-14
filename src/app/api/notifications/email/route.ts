@@ -27,8 +27,18 @@ export async function POST(req: NextRequest) {
 
     const recipients = Array.isArray(body.to) ? body.to.filter(Boolean) : []
     if (recipients.length === 0) {
+      console.warn("[email] No recipients provided for notification", {
+        requestId: body.requestId,
+        updateType: body.updateType,
+      })
       return NextResponse.json({ data: { sent: false, reason: "No recipients" } })
     }
+
+    console.info("[email] Sending request update notification", {
+      requestId: body.requestId,
+      updateType: body.updateType,
+      recipientCount: recipients.length,
+    })
 
     await sendRequestUpdateEmail({
       to: recipients,
@@ -43,11 +53,23 @@ export async function POST(req: NextRequest) {
       newStatus: body.newStatus,
     })
 
+    console.info("[email] Successfully sent request update notification", {
+      requestId: body.requestId,
+      updateType: body.updateType,
+    })
+
     return NextResponse.json({ data: { sent: true } })
   } catch (error) {
-    console.error("POST /api/notifications/email error:", error)
+    const errorMessage = error instanceof Error ? error.message : "Unknown error"
+    console.error("[email] Failed to send notification:", errorMessage, {
+      error: error instanceof Error ? error.stack : error,
+    })
+
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to send notification email" },
+      {
+        error: errorMessage,
+        message: "Failed to send notification email. Check server logs for details.",
+      },
       { status: 500 }
     )
   }

@@ -11,6 +11,15 @@ function createTransporter() {
     },
     tls: {
       rejectUnauthorized: false,
+      minVersion: "TLSv1.2",
+    },
+    connectionTimeout: 10000,
+    socketTimeout: 10000,
+    pool: {
+      maxConnections: 5,
+      maxMessages: 100,
+      rateDelta: 1000,
+      rateLimit: 5,
     },
   })
 }
@@ -62,6 +71,29 @@ function getReplyToAddress(requestId: string) {
 
 export function getRequestEmailSubject(requestTitle: string, requestId: string) {
   return `${requestTitle} - ${requestId}`
+}
+
+async function sendMailWithRetry(transporter: any, mailOptions: any, maxRetries = 2) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await transporter.sendMail(mailOptions)
+    } catch (error) {
+      const err = error as Error
+      console.error(`Email send attempt ${attempt} failed:`, err.message)
+
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000))
+        continue
+      }
+
+      console.error(`Email delivery failed after ${maxRetries} attempts:`, {
+        to: mailOptions.to,
+        subject: mailOptions.subject,
+        error: err.message,
+      })
+      throw error
+    }
+  }
 }
 
 export async function sendWelcomeEmail(params: {
@@ -138,7 +170,7 @@ export async function sendWelcomeEmail(params: {
 </html>
 `
 
-  await transporter.sendMail({
+  await sendMailWithRetry(transporter, {
     from: process.env.SMTP_FROM || "Si-Ware IT Helpdesk <ithelpdesk@si-ware.com>",
     to: params.to,
     subject: "Si-Ware Systems Admin Portal — Your Account Credentials",
@@ -219,7 +251,7 @@ export async function sendRequestUpdateEmail(params: {
 </html>
 `
 
-  await transporter.sendMail({
+  await sendMailWithRetry(transporter, {
     from: process.env.SMTP_FROM || "Si-Ware IT Helpdesk <ithelpdesk@si-ware.com>",
     to: recipients,
     cc: params.cc?.filter(Boolean),
