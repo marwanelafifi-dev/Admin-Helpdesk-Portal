@@ -1,158 +1,152 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Bell, Save, AlertCircle } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useMemo } from "react"
+import { Bell, Settings, CheckCheck, Trash2, ExternalLink } from "lucide-react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import {
-  getPreferences,
-  updatePreferences,
-  type NotificationPreferences,
-} from "@/services/notificationService"
+import { useNotifications } from "@/hooks/useNotifications"
+import { markNotificationAsRead, markAllNotificationsAsRead, type StoredNotification } from "@/lib/notificationStore"
 
-const ROLE_DESCRIPTIONS: Record<string, string> = {
-  "Super Admin": "Full access to all notifications",
-  Admin: "Module-specific and team notifications",
-  Manager: "Team requests and approvals",
-  Requester: "Own requests and status updates",
-  Viewer: "Read-only access and updates",
+const TYPE_COLORS: Record<string, string> = {
+  status:           "bg-amber-100 text-amber-700",
+  comment:          "bg-purple-100 text-purple-700",
+  request_updated:  "bg-blue-100 text-blue-700",
+  default:          "bg-slate-100 text-slate-600",
+}
+
+function fmt(iso: string) {
+  try {
+    return new Date(iso).toLocaleString("en-GB", {
+      day: "2-digit", month: "short", year: "numeric",
+      hour: "2-digit", minute: "2-digit",
+    })
+  } catch { return iso }
 }
 
 export default function NotificationsPage() {
-  const [preferences, setPreferences] = useState<NotificationPreferences | null>(null)
-  const [saved, setSaved] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const { data: session } = useSession()
+  const userId = session?.user?.id
+  const router = useRouter()
+  const { notifications } = useNotifications(userId)
+  const [filter, setFilter] = useState<"all" | "unread">("all")
 
-  const userId = "USR-001"
-  const userRole = "Requester"
+  const filtered = useMemo(() =>
+    filter === "unread"
+      ? notifications.filter((n) => !n.read)
+      : notifications,
+    [notifications, filter]
+  )
 
-  useEffect(() => {
-    setLoading(true)
-    const prefs = getPreferences(userId)
-    setPreferences(prefs)
-    setLoading(false)
-  }, [])
+  const unreadCount = notifications.filter((n) => !n.read).length
 
-  const handleToggle = (key: keyof Omit<NotificationPreferences, 'userId' | 'role'>) => {
-    if (!preferences) return
-    const updated = { ...preferences, [key]: !preferences[key] }
-    setPreferences(updated)
-    setSaved(false)
+  function handleClick(n: StoredNotification) {
+    markNotificationAsRead(n.id)
+    if (n.actionUrl) router.push(n.actionUrl)
   }
 
-  const handleSave = () => {
-    if (preferences) {
-      updatePreferences(preferences)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
-    }
-  }
-
-  if (loading || !preferences) {
-    return <div className="text-center py-10 text-gray-500">Loading notification preferences...</div>
+  function handleMarkAll() {
+    if (userId) markAllNotificationsAsRead(userId)
   }
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Notification Settings</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            Manage how and when you receive notifications
+          <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount > 1 ? "s" : ""}` : "All caught up"}
           </p>
         </div>
-        <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
-          <Bell className="h-6 w-6 text-blue-600" />
+        <div className="flex items-center gap-2">
+          {unreadCount > 0 && (
+            <Button variant="outline" size="sm" onClick={handleMarkAll} className="gap-2 text-sm">
+              <CheckCheck className="h-4 w-4" />
+              Mark all read
+            </Button>
+          )}
+          <Link href="/notifications/settings">
+            <Button variant="outline" size="sm" className="gap-2 text-sm">
+              <Settings className="h-4 w-4" />
+              Settings
+            </Button>
+          </Link>
         </div>
       </div>
 
-      <Card className="border-l-4 border-l-blue-600 bg-blue-50">
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-3">
-            <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0" />
-            <div>
-              <p className="font-medium text-blue-900">Your Role: {preferences.role}</p>
-              <p className="text-sm text-blue-700">{ROLE_DESCRIPTIONS[preferences.role] || "Standard user"}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5" />
-            Notification Types
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="border-b pb-6 last:border-b-0">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <Checkbox
-                checked={preferences.statusChanges}
-                onCheckedChange={() => handleToggle('statusChanges')}
-              />
-              <div>
-                <p className="font-medium text-gray-900">Status Changes</p>
-                <p className="text-sm text-gray-600">Get notified when request status changes</p>
-              </div>
-            </label>
-          </div>
-
-
-          <div className="border-b pb-6 last:border-b-0">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <Checkbox
-                checked={preferences.comments}
-                onCheckedChange={() => handleToggle('comments')}
-              />
-              <div>
-                <p className="font-medium text-gray-900">Comments & Activity</p>
-                <p className="text-sm text-gray-600">Get notified when someone comments on your requests</p>
-              </div>
-            </label>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Delivery Method</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="h-6 w-6 rounded bg-green-100 flex items-center justify-center">
-              <span className="text-sm font-semibold text-green-600">✓</span>
-            </div>
-            <div>
-              <p className="font-medium text-gray-900">In-App Notifications</p>
-              <p className="text-sm text-gray-600">Enabled — You'll see notifications in the app</p>
-            </div>
-          </div>
-
-          <div className="border-t pt-4 mt-4">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <Checkbox
-                checked={preferences.emailNotifications}
-                onCheckedChange={() => handleToggle('emailNotifications')}
-              />
-              <div>
-                <p className="font-medium text-gray-900">Email Notifications</p>
-                <p className="text-sm text-gray-600">Send notifications to your registered email</p>
-              </div>
-            </label>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="flex items-center gap-3">
-        <Button onClick={handleSave} className="gap-2">
-          <Save className="h-4 w-4" />
-          Save Preferences
-        </Button>
-        {saved && <p className="text-sm text-green-600 font-medium">✓ Saved successfully</p>}
+      {/* Filter pills */}
+      <div className="flex gap-2">
+        {(["all", "unread"] as const).map((f) => (
+          <button key={f} onClick={() => setFilter(f)}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors capitalize
+              ${filter === f ? "bg-slate-800 text-white border-slate-800" : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"}`}>
+            {f === "unread" ? `Unread (${unreadCount})` : "All"}
+          </button>
+        ))}
       </div>
+
+      {/* List */}
+      <Card className="border shadow-sm">
+        <CardContent className="p-0">
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+              <Bell className="h-12 w-12 mb-3 text-gray-200" />
+              <p className="text-sm font-medium">
+                {filter === "unread" ? "No unread notifications" : "No notifications yet"}
+              </p>
+              <p className="text-xs mt-1 text-gray-400">
+                Notifications appear here when requests are updated or commented on
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {filtered.map((n) => {
+                const colorClass = TYPE_COLORS[n.type] ?? TYPE_COLORS.default
+                return (
+                  <div
+                    key={n.id}
+                    onClick={() => handleClick(n)}
+                    className={`flex items-start gap-4 px-5 py-4 cursor-pointer hover:bg-gray-50 transition-colors
+                      ${!n.read ? "bg-blue-50/50 hover:bg-blue-50" : ""}`}
+                  >
+                    {/* Unread dot */}
+                    <div className="mt-1.5 shrink-0">
+                      {!n.read
+                        ? <span className="block h-2 w-2 rounded-full bg-blue-500" />
+                        : <span className="block h-2 w-2 rounded-full bg-transparent" />}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-semibold ${!n.read ? "text-gray-900" : "text-gray-700"}`}>
+                        {n.title}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.description}</p>
+                    </div>
+
+                    <div className="shrink-0 text-right flex flex-col items-end gap-1">
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${colorClass}`}>
+                        {n.type.replace(/_/g, " ")}
+                      </span>
+                      <p className="text-[11px] text-gray-400 whitespace-nowrap">{fmt(n.createdAt)}</p>
+                      {n.actionUrl && (
+                        <ExternalLink className="h-3 w-3 text-gray-300 mt-0.5" />
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {filtered.length > 0 && (
+            <div className="px-5 py-3 border-t bg-gray-50 text-[11px] text-gray-400 text-right">
+              {filtered.length} notification{filtered.length !== 1 ? "s" : ""}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

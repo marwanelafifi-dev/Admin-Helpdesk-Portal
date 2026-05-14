@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react"
 import Image from "next/image"
 import { signOut, useSession } from "next-auth/react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Bell, LogOut } from "lucide-react"
+import { Bell, LogOut, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -79,6 +80,13 @@ export function TopBar() {
 
       {/* Right: actions */}
       <div className="flex items-center gap-2">
+        {/* Notification Settings Icon */}
+        <Link href="/notifications/settings">
+          <Button variant="ghost" size="icon" title="Notification settings" className="relative">
+            <Settings className="h-4 w-4 text-slate-500" />
+          </Button>
+        </Link>
+
         {/* Notification Bell */}
         <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
           <DropdownMenuTrigger asChild>
