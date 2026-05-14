@@ -129,9 +129,9 @@ export function submitRequest<T extends Record<string, unknown>>(
     module,
     title:          meta.title,
     status:         "new",
-    requesterId:    meta.requesterId    ?? "USR-CURRENT",
-    requesterName:  meta.requesterName  ?? "Current User",
-    requesterEmail: meta.requesterEmail ?? "user@si-ware.com",
+    requesterId:    meta.requesterId    ?? "USR-UNKNOWN",
+    requesterName:  meta.requesterName  ?? "Unknown User",
+    requesterEmail: meta.requesterEmail ?? "",
     payload,
     statusHistory: [
       {
@@ -196,9 +196,9 @@ export function saveDraft<T extends Record<string, unknown>>(
     module,
     title:          meta.title || "(Untitled draft)",
     status:         "draft",
-    requesterId:    meta.requesterId    ?? "USR-CURRENT",
-    requesterName:  meta.requesterName  ?? "Current User",
-    requesterEmail: meta.requesterEmail ?? "user@si-ware.com",
+    requesterId:    meta.requesterId    ?? "USR-UNKNOWN",
+    requesterName:  meta.requesterName  ?? "Unknown User",
+    requesterEmail: meta.requesterEmail ?? "",
     payload,
     statusHistory: [
       {

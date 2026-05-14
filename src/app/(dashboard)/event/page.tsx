@@ -7,7 +7,7 @@ import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { getRequests, initializeMockData, updateStatus, type EngineRequest, type RequestStatus } from "@/services/engineService"
-import { notifyStatusChange } from "@/services/notificationService"
+import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { cn } from "@/lib/utils"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
@@ -92,12 +92,26 @@ export default function EventPage() {
 
   function handleStatusChange(id: string, newStatus: string) {
     const request = requests.find(r => r.id === id)
+    const currentUserId = session?.user?.id || "USR-001"
+    const oldStatus = request?.status
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status: newStatus as RequestStatus, updatedAt: new Date().toISOString() } : r))
-    updateStatus(id, newStatus as RequestStatus, "USR-001")
+    updateStatus(id, newStatus as RequestStatus, currentUserId)
 
-    // Notify relevant users about status change
     if (request) {
-      notifyStatusChange("USR-001", id, request.title, "event", newStatus)
+      createRequestUpdateNotifications({
+        requestId: id,
+        requestTitle: request.title,
+        module: "event",
+        requestOwnerId: request.requesterId,
+        requestOwnerEmail: request.requesterEmail,
+        actionUserId: currentUserId,
+        actionUserName: session?.user?.name || "User",
+        actionUserEmail: session?.user?.email || undefined,
+        preview: `Status changed from ${oldStatus} to ${newStatus}`,
+        previousStatus: oldStatus,
+        newStatus,
+        updateType: "status",
+      })
     }
   }
 

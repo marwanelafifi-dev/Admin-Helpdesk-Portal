@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -54,6 +55,7 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
 
 export function TravelForm({ onCancel }: { onCancel?: () => void }) {
   const router = useRouter()
+  const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<TravelForm>({
     resolver: zodResolver(TravelPayloadSchema),
@@ -66,9 +68,9 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
     try {
       submitRequest("travel", data, {
         title: data.requestTitle,
-        requesterId: "USR-001",
-        requesterName: "Current User",
-        requesterEmail: "user@si-ware.com",
+        requesterId: session?.user?.id || "USR-001",
+        requesterName: session?.user?.name || session?.user?.email || "Current User",
+        requesterEmail: session?.user?.email || "user@si-ware.com",
       })
       router.push("/travel")
       router.refresh()

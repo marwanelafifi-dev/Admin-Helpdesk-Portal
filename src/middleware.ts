@@ -27,6 +27,10 @@ const pagePermissions: Record<string, string> = {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  if (pathname.startsWith("/api/email/")) {
+    return NextResponse.next()
+  }
+
   const isPublicRoute = publicRoutes.includes(pathname)
   const token = await getToken({
     req: request,

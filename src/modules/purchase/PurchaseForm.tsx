@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -54,6 +55,7 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
 
 export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel?: () => void; editingRequest?: EngineRequest | null; isEditing?: boolean }) {
   const router = useRouter()
+  const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const { register, control, handleSubmit, watch, formState: { errors, isSubmitting }, reset } = useForm<PurchaseForm>({
     resolver: zodResolver(PurchasePayloadSchema),
@@ -98,9 +100,9 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
         // Create new request
         submitRequest("purchase", data, {
           title: data.requestTitle,
-          requesterId: "USR-001",
-          requesterName: "Current User",
-          requesterEmail: "user@si-ware.com",
+          requesterId: session?.user?.id || "USR-001",
+          requesterName: session?.user?.name || session?.user?.email || "Current User",
+          requesterEmail: session?.user?.email || "user@si-ware.com",
         })
       }
       router.push("/purchase")

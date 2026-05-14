@@ -15,6 +15,55 @@ function createTransporter() {
   })
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;")
+}
+
+function getBaseUrl() {
+  return process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003"
+}
+
+function getMailDomain() {
+  const fromEmail = process.env.SMTP_USER || "adminhelpdesk@si-ware.com"
+  return fromEmail.split("@")[1] || "si-ware.com"
+}
+
+function getRequestThreadHeaders(requestId: string) {
+  const normalizedRequestId = requestId.toLowerCase().replace(/[^a-z0-9-]/g, "-")
+  const domain = getMailDomain()
+  const rootMessageId = `<admin-helpdesk-request-${normalizedRequestId}@${domain}>`
+  const messageId = `<admin-helpdesk-request-${normalizedRequestId}-${Date.now()}@${domain}>`
+
+  return {
+    messageId,
+    inReplyTo: rootMessageId,
+    references: rootMessageId,
+  }
+}
+
+function getReplyToAddress(requestId: string) {
+  const replyToBase =
+    process.env.EMAIL_REPLY_TO ||
+    process.env.SMTP_REPLY_TO ||
+    process.env.SMTP_USER ||
+    "adminhelpdesk@si-ware.com"
+
+  if (!replyToBase.includes("@")) return undefined
+
+  const [localPart, domain] = replyToBase.split("@")
+  const normalizedRequestId = requestId.toLowerCase().replace(/[^a-z0-9-]/g, "-")
+  return `${localPart}+request-${normalizedRequestId}@${domain}`
+}
+
+export function getRequestEmailSubject(requestTitle: string, requestId: string) {
+  return `${requestTitle} - ${requestId}`
+}
+
 export async function sendWelcomeEmail(params: {
   to: string
   name: string
@@ -93,6 +142,96 @@ export async function sendWelcomeEmail(params: {
     from: process.env.SMTP_FROM || "Si-Ware IT Helpdesk <ithelpdesk@si-ware.com>",
     to: params.to,
     subject: "Si-Ware Systems Admin Portal — Your Account Credentials",
+    html,
+  })
+}
+
+export async function sendRequestUpdateEmail(params: {
+  to: string[]
+  cc?: string[]
+  updateType: "status" | "comment" | "request_updated"
+  requestId: string
+  requestTitle: string
+  module: string
+  actorName?: string
+  preview?: string
+  previousStatus?: string
+  newStatus?: string
+}) {
+  const recipients = Array.from(new Set(params.to.filter(Boolean)))
+  if (recipients.length === 0) return
+
+  const transporter = createTransporter()
+  const actionUrl = `${getBaseUrl()}/requests/${encodeURIComponent(params.requestId)}`
+  const actor = params.actorName || "A team member"
+  const moduleLabel = params.module.charAt(0).toUpperCase() + params.module.slice(1)
+  const threadHeaders = getRequestThreadHeaders(params.requestId)
+  const replyTo = getReplyToAddress(params.requestId)
+
+  const subject = getRequestEmailSubject(params.requestTitle, params.requestId)
+
+  const headline =
+    params.updateType === "status"
+      ? "Request status updated"
+      : params.updateType === "comment"
+      ? "New comment added"
+      : "Request updated"
+
+  const detail =
+    params.updateType === "status"
+      ? `Status changed${params.previousStatus ? ` from ${params.previousStatus}` : ""}${params.newStatus ? ` to ${params.newStatus}` : ""}.`
+      : params.preview || "A new update was added to the request."
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 0; }
+    .container { max-width: 640px; margin: 32px auto; background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; }
+    .header { background: #0f172a; padding: 24px 32px; }
+    .header h1 { color: #ffffff; margin: 0; font-size: 20px; }
+    .body { padding: 28px 32px; color: #374151; font-size: 14px; line-height: 1.6; }
+    .meta { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0; }
+    .meta div { margin: 6px 0; }
+    .label { color: #64748b; font-weight: 600; display: inline-block; min-width: 96px; }
+    .btn { display: inline-block; background: #2563eb; color: #ffffff !important; text-decoration: none; padding: 11px 18px; border-radius: 6px; font-weight: 600; }
+    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 32px; color: #94a3b8; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header"><h1>${escapeHtml(headline)}</h1></div>
+    <div class="body">
+      <p><strong>${escapeHtml(actor)}</strong> updated a request in the Admin Helpdesk Portal.</p>
+      <div class="meta">
+        <div><span class="label">Request</span>${escapeHtml(params.requestTitle)}</div>
+        <div><span class="label">Request ID</span>${escapeHtml(params.requestId)}</div>
+        <div><span class="label">Module</span>${escapeHtml(moduleLabel)}</div>
+        <div><span class="label">Update</span>${escapeHtml(detail)}</div>
+      </div>
+      <a href="${actionUrl}" class="btn">Open request</a>
+    </div>
+    <div class="footer">This is an automated notification from Si-Ware Systems Admin Helpdesk Portal.</div>
+  </div>
+</body>
+</html>
+`
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM || "Si-Ware IT Helpdesk <ithelpdesk@si-ware.com>",
+    to: recipients,
+    cc: params.cc?.filter(Boolean),
+    replyTo,
+    subject,
+    messageId: threadHeaders.messageId,
+    inReplyTo: threadHeaders.inReplyTo,
+    references: threadHeaders.references,
+    headers: {
+      "X-ARP-Request-ID": params.requestId,
+      "X-ARP-Update-Type": params.updateType,
+    },
     html,
   })
 }

@@ -1,4 +1,4 @@
-# Production image using pre-built app
+# Production image that builds the app from source
 FROM node:20-alpine
 
 WORKDIR /app
@@ -18,9 +18,15 @@ RUN npm config set strict-ssl false && \
 COPY prisma/ ./prisma/
 RUN NODE_TLS_REJECT_UNAUTHORIZED=0 npx prisma generate
 
-# Copy pre-built app and public assets
-COPY .next-dev/ ./.next/
-COPY public/ ./public/
+# Copy source and build the production Next.js app inside Docker.
+COPY . .
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    NODE_TLS_REJECT_UNAUTHORIZED=0 \
+    NEXTAUTH_URL=http://localhost:3003 \
+    NEXTAUTH_SECRET=docker-build-secret \
+    DATABASE_URL=postgresql://admin:admin_password_123@db:5432/admin_request_platform
+RUN npm run build
 
 # Ensure cache directory exists with correct permissions
 RUN mkdir -p .next/cache/images && \

@@ -223,8 +223,13 @@ export default function RequestDetailPage() {
         requestTitle: request.title,
         module: request.module,
         requestOwnerId: request.requester?.id || "USR-001",
+        requestOwnerEmail: request.requester?.email,
         actionUserId: currentUserId,
+        actionUserName: session?.user?.name || "User",
+        actionUserEmail: session?.user?.email || undefined,
         preview: `Status changed from ${oldStatus} to ${newStatus}`,
+        previousStatus: oldStatus,
+        newStatus,
         updateType: "status",
       })
 
@@ -674,7 +679,10 @@ export default function RequestDetailPage() {
                     requestTitle: request.title,
                     module: request.module,
                     requestOwnerId: request.requester?.id || "USR-001",
+                    requestOwnerEmail: request.requester?.email,
                     actionUserId: currentUserId,
+                    actionUserName: session?.user?.name || "User",
+                    actionUserEmail: session?.user?.email || undefined,
                     preview: content,
                     updateType: "comment",
                   })

@@ -11,7 +11,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { getRequests, initializeMockData, updateStatus, type EngineRequest, type RequestStatus } from "@/services/engineService"
-import { notifyStatusChange } from "@/services/notificationService"
+import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import type { HRPayload } from "@/modules/hr/hr.schema"
 import { cn } from "@/lib/utils"
 import { requestsAPI } from "@/lib/apiClient"
@@ -97,12 +97,26 @@ export default function HRPage() {
 
   function handleStatusChange(id: string, newStatus: string) {
     const request = requests.find(r => r.id === id)
+    const currentUserId = session?.user?.id || "USR-001"
+    const oldStatus = request?.status
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status: newStatus as RequestStatus, updatedAt: new Date().toISOString() } : r))
-    updateStatus(id, newStatus as RequestStatus, "USR-001")
+    updateStatus(id, newStatus as RequestStatus, currentUserId)
 
-    // Notify relevant users about status change
     if (request) {
-      notifyStatusChange("USR-001", id, request.title, "hr", newStatus)
+      createRequestUpdateNotifications({
+        requestId: id,
+        requestTitle: request.title,
+        module: "hr",
+        requestOwnerId: request.requesterId,
+        requestOwnerEmail: request.requesterEmail,
+        actionUserId: currentUserId,
+        actionUserName: session?.user?.name || "User",
+        actionUserEmail: session?.user?.email || undefined,
+        preview: `Status changed from ${oldStatus} to ${newStatus}`,
+        previousStatus: oldStatus,
+        newStatus,
+        updateType: "status",
+      })
     }
   }
 

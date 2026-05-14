@@ -12,7 +12,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import { getRequests, initializeMockData, updateStatus, type EngineRequest, type RequestStatus } from "@/services/engineService"
-import { notifyStatusChange } from "@/services/notificationService"
+import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { getTasks, updateTaskStatus, type Task, type TaskStatus } from "@/services/taskService"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
@@ -249,12 +249,27 @@ export default function AllRequestsPage() {
 
   const handleStatusChange = (id: string, newStatus: string) => {
     const request = requests.find(r => r.id === id)
+    const currentUserId = session?.user?.id || "USR-001"
+    const oldStatus = request?.status
     setRequests(prev => prev.map(r =>
       r.id === id ? { ...r, status: newStatus as RequestStatus, updatedAt: new Date().toISOString() } : r
     ))
-    updateStatus(id, newStatus as RequestStatus, "USR-001")
+    updateStatus(id, newStatus as RequestStatus, currentUserId)
     if (request) {
-      notifyStatusChange("USR-001", id, request.title, request.module, newStatus)
+      createRequestUpdateNotifications({
+        requestId: id,
+        requestTitle: request.title,
+        module: request.module,
+        requestOwnerId: request.requesterId,
+        requestOwnerEmail: request.requesterEmail,
+        actionUserId: currentUserId,
+        actionUserName: session?.user?.name || "User",
+        actionUserEmail: session?.user?.email || undefined,
+        preview: `Status changed from ${oldStatus} to ${newStatus}`,
+        previousStatus: oldStatus,
+        newStatus,
+        updateType: "status",
+      })
     }
   }
 

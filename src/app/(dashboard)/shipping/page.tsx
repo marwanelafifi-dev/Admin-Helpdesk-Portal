@@ -11,13 +11,13 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { mockShipments, type MockShipment } from "@/lib/mock-data"
+import { mockShipments, mockUsers, type MockShipment } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { updateStatus } from "@/services/engineService"
-import { notifyStatusChange } from "@/services/notificationService"
+import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 import { useExpandedRows } from "@/hooks/useExpandedRows"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
@@ -103,10 +103,26 @@ export default function ShippingPage() {
 
   function handleStatusChange(id: string, newStatus: string) {
     const shipment = shipments.find(s => s.id === id)
+    const owner = mockUsers.find(user => user.name === shipment?.requester)
+    const currentUserId = session?.user?.id || "USR-001"
+    const oldStatus = shipment?.status
     setStatusOverrides(prev => ({ ...prev, [id]: newStatus }))
-    updateStatus(id, newStatus as any, "USR-001")
+    updateStatus(id, newStatus as any, currentUserId)
     if (shipment) {
-      notifyStatusChange("USR-001", id, shipment.title || shipment.id, "shipping", newStatus)
+      createRequestUpdateNotifications({
+        requestId: id,
+        requestTitle: shipment.title || shipment.id,
+        module: "shipping",
+        requestOwnerId: owner?.id || "USR-001",
+        requestOwnerEmail: owner?.email,
+        actionUserId: currentUserId,
+        actionUserName: session?.user?.name || "User",
+        actionUserEmail: session?.user?.email || undefined,
+        preview: `Status changed from ${oldStatus} to ${newStatus}`,
+        previousStatus: oldStatus,
+        newStatus,
+        updateType: "status",
+      })
     }
   }
 

@@ -2,6 +2,7 @@
 
 import { useCallback, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
@@ -171,6 +172,7 @@ function FileUploadZone({
 
 export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel?: () => void; editingRequest?: EngineRequest | null; isEditing?: boolean }) {
   const router = useRouter()
+  const { data: session } = useSession()
   const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([])
   const [ccEmailInput, setCcEmailInput] = useState("")
 
@@ -236,9 +238,9 @@ export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel
       } else {
         const created = submitRequest("shipping", payload, {
           title: data.title,
-          requesterId: "USR-001",
-          requesterName: "Marwan Elafifi",
-          requesterEmail: "marwan.elafifi@si-ware.com",
+          requesterId: session?.user?.id || "USR-001",
+          requesterName: session?.user?.name || session?.user?.email || "Current User",
+          requesterEmail: session?.user?.email || "user@si-ware.com",
         })
         router.push(`/requests/${created.id}`)
       }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -62,6 +63,7 @@ type OffboardingForm = z.infer<typeof OffboardingPayloadSchema>
 
 function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCancel: () => void; editingRequest?: EngineRequest | null; isEditing?: boolean }) {
   const router = useRouter()
+  const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const { register, control, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<OnboardingForm>({
     resolver: zodResolver(OnboardingPayloadSchema),
@@ -103,9 +105,9 @@ function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCance
       } else {
         submitRequest("hr", data, {
           title: data.requestTitle,
-          requesterId: "USR-001",
-          requesterName: "Current User",
-          requesterEmail: "user@si-ware.com",
+          requesterId: session?.user?.id || "USR-001",
+          requesterName: session?.user?.name || session?.user?.email || "Current User",
+          requesterEmail: session?.user?.email || "user@si-ware.com",
         })
       }
       router.push("/hr")
@@ -346,6 +348,7 @@ function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCance
 
 function OffboardingFormFields({ onCancel, editingRequest, isEditing }: { onCancel: () => void; editingRequest?: EngineRequest | null; isEditing?: boolean }) {
   const router = useRouter()
+  const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const { register, control, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<OffboardingForm>({
     resolver: zodResolver(OffboardingPayloadSchema),
@@ -384,9 +387,9 @@ function OffboardingFormFields({ onCancel, editingRequest, isEditing }: { onCanc
       } else {
         submitRequest("hr", data, {
           title: data.requestTitle,
-          requesterId: "USR-001",
-          requesterName: "Current User",
-          requesterEmail: "user@si-ware.com",
+          requesterId: session?.user?.id || "USR-001",
+          requesterName: session?.user?.name || session?.user?.email || "Current User",
+          requesterEmail: session?.user?.email || "user@si-ware.com",
         })
       }
       router.push("/hr")

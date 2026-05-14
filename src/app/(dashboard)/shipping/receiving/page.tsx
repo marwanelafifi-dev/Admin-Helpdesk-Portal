@@ -11,10 +11,10 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { mockShipments, type MockShipment } from "@/lib/mock-data"
+import { mockShipments, mockUsers, type MockShipment } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
 import { getRequestsByModule, initializeMockData, updateStatus } from "@/services/engineService"
-import { notifyStatusChange } from "@/services/notificationService"
+import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { useExpandedRows } from "@/hooks/useExpandedRows"
@@ -135,11 +135,27 @@ export default function ReceivingPage() {
 
   function handleStatusChange(id: string, newStatus: string) {
     const shipment = shipments.find(s => s.id === id)
+    const owner = mockUsers.find(user => user.name === shipment?.requester)
+    const currentUserId = session?.user?.id || "USR-001"
+    const oldStatus = shipment?.status
     const today = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
     setShipments(prev => prev.map(s => s.id === id ? { ...s, status: newStatus as any, lastUpdate: today } : s))
-    updateStatus(id, newStatus as any, "USR-001")
+    updateStatus(id, newStatus as any, currentUserId)
     if (shipment) {
-      notifyStatusChange("USR-001", id, shipment.title || shipment.id, "shipping", newStatus)
+      createRequestUpdateNotifications({
+        requestId: id,
+        requestTitle: shipment.title || shipment.id,
+        module: "shipping",
+        requestOwnerId: owner?.id || "USR-001",
+        requestOwnerEmail: owner?.email,
+        actionUserId: currentUserId,
+        actionUserName: session?.user?.name || "User",
+        actionUserEmail: session?.user?.email || undefined,
+        preview: `Status changed from ${oldStatus} to ${newStatus}`,
+        previousStatus: oldStatus,
+        newStatus,
+        updateType: "status",
+      })
     }
   }
 

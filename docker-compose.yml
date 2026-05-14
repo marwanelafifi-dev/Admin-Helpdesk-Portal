@@ -30,6 +30,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: admin-request-platform-app
+    env_file:
+      - .env.local
     depends_on:
       db:
         condition: service_healthy
@@ -49,6 +51,7 @@ services:
       NODE_ENV: ${NODE_ENV:-production}
       # Disable TLS cert check for corporate network
       NODE_TLS_REJECT_UNAUTHORIZED: "0"
+      DISABLE_TLS_CERT_CHECK: "true"
     ports:
       - "${APP_PORT:-3003}:3003"
     networks:

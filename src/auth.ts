@@ -1,11 +1,10 @@
-import NextAuth from "next-auth"
+import NextAuth, { customFetch as authCustomFetch } from "next-auth"
 import Google from "next-auth/providers/google"
 import Credentials from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
 import { getPermissionsForRole } from "@/lib/userRoles"
 import { upsertGoogleUser, findUserByEmail } from "@/lib/userStore"
 import { z } from "zod"
-import https from "https"
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -14,13 +13,8 @@ const credentialsSchema = z.object({
 
 const disableTlsCertCheck = process.env.DISABLE_TLS_CERT_CHECK === "true"
 
-const httpsAgent = disableTlsCertCheck
-  ? new https.Agent({ rejectUnauthorized: false })
-  : undefined
-
 const customFetch = disableTlsCertCheck
-  ? (url: RequestInfo | URL, init?: RequestInit) =>
-      fetch(url, { ...init, ...(httpsAgent && { agent: httpsAgent as any }) })
+  ? ((url: RequestInfo | URL, init?: RequestInit) => fetch(url, init))
   : fetch
 
 if (disableTlsCertCheck) {
@@ -61,7 +55,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: {
     signIn: "/login",
   },
-  ...(disableTlsCertCheck && { fetch: customFetch }),
   providers: [
     ...(hasGoogleOAuth
       ? [
@@ -75,6 +68,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 prompt: "select_account",
               },
             },
+            ...(disableTlsCertCheck && { [authCustomFetch]: customFetch }),
           }),
         ]
       : []),
