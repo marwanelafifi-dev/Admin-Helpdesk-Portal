@@ -66,11 +66,16 @@ export default function TasksPage() {
       .then((r) => r.json())
       .then(({ data }) => {
         if (Array.isArray(data)) {
+          // Only show Administration Team members (not Full Access/Super Admin)
           setAdminTeamMembers(
-            data.map((u: { name: string; role: string }) => ({
-              name: u.name,
-              role: u.role.toLowerCase().replace(/\s+/g, "_"),
-            }))
+            data
+              .filter((u: { name: string; role: string }) =>
+                u.role === "Administration Team"
+              )
+              .map((u: { name: string; role: string }) => ({
+                name: u.name,
+                role: u.role,
+              }))
           )
         }
       })
@@ -299,7 +304,7 @@ export default function TasksPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Assign To (Admin/Manager only)
+                Assign To
               </label>
               <select
                 value={newTaskData.assignedTo}
@@ -312,7 +317,7 @@ export default function TasksPage() {
                 <option value="">Select a team member...</option>
                 {adminTeamMembers.map((member) => (
                   <option key={member.name} value={member.name}>
-                    {member.name} ({member.role})
+                    {member.name}
                   </option>
                 ))}
               </select>
