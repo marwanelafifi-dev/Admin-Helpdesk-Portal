@@ -1,18 +1,12 @@
 import { NextResponse } from "next/server"
 import { readUsers } from "@/lib/userStore"
-import rolesJson from "@/../data/roles.json"
 
 export const runtime = "nodejs"
 
-// Returns all users whose role has manage_users or page:tasks (administration team + full access)
+// Returns only users with the "Administration Team" role
 export async function GET() {
   try {
-    const roles = rolesJson as Array<{ id: string; name: string; permissions: string[] }>
-    const adminRoleNames = new Set(
-      roles
-        .filter((r) => r.permissions.includes("manage_users") || r.permissions.includes("page:all-requests"))
-        .map((r) => r.name)
-    )
+    const adminRoleNames = new Set(["Administration Team"])
 
     const users = readUsers()
       .filter((u) => u.active && adminRoleNames.has(u.role))
