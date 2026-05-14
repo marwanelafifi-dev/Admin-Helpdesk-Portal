@@ -6,7 +6,7 @@ export const runtime = "nodejs"
 // Returns only users with the "Administration Team" role
 export async function GET() {
   try {
-    const adminRoleNames = new Set(["Administration Team"])
+    const adminRoleNames = new Set(["Administration Team", "Full Access"])
 
     const users = readUsers()
       .filter((u) => u.active && adminRoleNames.has(u.role))
