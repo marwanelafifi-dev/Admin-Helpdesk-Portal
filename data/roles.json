@@ -39,10 +39,11 @@
       "page:admin-roles",
       "page:admin-settings",
       "page:admin-audit",
-      "page:admin-database"
+      "page:admin-database",
+      "page:admin-notifications"
     ],
     "createdAt": "2026-05-13T07:43:15.697Z",
-    "updatedAt": "2026-05-14T13:00:00.000Z"
+    "updatedAt": "2026-05-14T15:30:00.000Z"
   },
   {
     "id": "role-admin",

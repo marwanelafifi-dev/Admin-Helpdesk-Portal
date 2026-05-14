@@ -22,6 +22,7 @@ export type RoutePermission =
   | "page:admin-settings"
   | "page:admin-audit"
   | "page:admin-database"
+  | "page:admin-notifications"
   | "manage_users"
   | "manage_roles"
   | "manage_tasks"
@@ -75,6 +76,7 @@ export function permissionForPath(pathname: string): RoutePermission | null {
   if (path === "/admin/settings") return "page:admin-settings"
   if (path === "/admin/audit-trail") return "page:admin-audit"
   if (path === "/admin/database") return "page:admin-database"
+  if (path === "/admin/notifications") return "page:admin-notifications"
 
   return null
 }
@@ -125,6 +127,10 @@ export function canAccessPath(pathname: string, permissions: string[] = [], role
   }
 
   if (permission === "page:admin-database") {
+    return isSuperAdmin(role) || hasPermission(permissions, "settings")
+  }
+
+  if (permission === "page:admin-notifications") {
     return isSuperAdmin(role) || hasPermission(permissions, "settings")
   }
 
