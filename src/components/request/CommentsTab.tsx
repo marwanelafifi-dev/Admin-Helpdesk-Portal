@@ -70,15 +70,12 @@ export function CommentsTab({
 
   return (
     <div className="space-y-6">
-      {/* CC Panel — shown to everyone if there are CCs, editable for admins */}
-      {(ccEmails.length > 0 || adminCc.length > 0 || canEditCc) && (
-        <CcPanel
-          ccEmails={ccEmails}
-          adminCc={adminCc}
-          onAdminCcChange={onAdminCcChange ?? (() => {})}
-          canEdit={canEditCc}
-        />
-      )}
+      <CcPanel
+        ccEmails={ccEmails}
+        adminCc={adminCc}
+        onAdminCcChange={onAdminCcChange ?? (() => {})}
+        canEdit={canEditCc}
+      />
 
       {/* Add Comment Form */}
       <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">

@@ -48,19 +48,17 @@ type RoleOption = {
 }
 
 const fallbackRoles: RoleOption[] = [
-  { value: "requester", label: "Requester" },
-  { value: "manager", label: "Manager" },
-  { value: "admin", label: "Admin" },
-  { value: "super_admin", label: "Super Admin" },
-  { value: "viewer", label: "Viewer" },
+  { value: "Full Access", label: "Full Access" },
+  { value: "Administration Team", label: "Administration Team" },
+  { value: "People Team", label: "People Team" },
+  { value: "Requester", label: "Requester" },
 ]
 
 const ROLE_COLORS: Record<string, string> = {
-  super_admin: "bg-purple-100 text-purple-800",
-  admin: "bg-blue-100 text-blue-800",
-  manager: "bg-indigo-100 text-indigo-800",
-  requester: "bg-gray-100 text-gray-700",
-  viewer: "bg-slate-100 text-slate-700",
+  "Full Access": "bg-purple-100 text-purple-800",
+  "Administration Team": "bg-blue-100 text-blue-800",
+  "People Team": "bg-indigo-100 text-indigo-800",
+  "Requester": "bg-gray-100 text-gray-700",
 }
 
 function roleLabel(role: string, roles: RoleOption[]) {
@@ -90,7 +88,7 @@ function getDefaultRoleValue(roles: RoleOption[]) {
     return requester.value
   }
 
-  const safeRole = roles.find((role) => !["super_admin", "admin"].includes(role.value.toLowerCase()))
+  const safeRole = roles.find((role) => !["Full Access", "Administration Team"].includes(role.value))
   return safeRole?.value ?? roles[0]?.value ?? "requester"
 }
 

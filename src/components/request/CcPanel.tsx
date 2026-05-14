@@ -49,7 +49,7 @@ export function CcPanel({ ccEmails, adminCc, onAdminCcChange, canEdit = false }:
     }
   }
 
-  if (allCc.length === 0 && !canEdit) return null
+  // Always render so users can add CC recipients
 
   return (
     <div className="border rounded-lg bg-gray-50 p-4 space-y-3">

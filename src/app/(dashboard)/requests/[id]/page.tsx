@@ -146,7 +146,7 @@ export default function RequestDetailPage() {
   const params = useParams()
   const router = useRouter()
   const id = params.id as string
-  const { data: session } = useSession()
+  const { data: session, status: sessionStatus } = useSession()
 
   const [request, setRequest] = useState<RequestDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -190,8 +190,9 @@ export default function RequestDetailPage() {
   const canChangeStatus = session?.user?.permissions && hasPermission(session.user.permissions, "update_status")
   const canViewActivity = session?.user?.permissions && hasPermission(session.user.permissions, "activity")
   const canEditRequest = session?.user?.permissions && hasPermission(session.user.permissions, "edit_request")
-  const canManageCc = session?.user?.permissions && hasPermission(session.user.permissions, "manage_users")
+  const canManageCc = session?.user?.permissions ? hasPermission(session.user.permissions, "manage_users") : false
   const currentUserId = session?.user?.id || "USR-001"
+  const currentUserEmail = session?.user?.email || ""
 
   useEffect(() => {
     if (!canViewActivity && activeTab === "activity") {
@@ -689,7 +690,7 @@ export default function RequestDetailPage() {
               comments={request.comments || []}
               ccEmails={request.ccEmails || []}
               adminCc={request.adminCc || []}
-              canEditCc={!!canManageCc}
+              canEditCc={sessionStatus === "authenticated" && hasPermission(session?.user?.permissions ?? [], "manage_cc")}
               onAdminCcChange={(emails) => {
                 updateAdminCc(request.id, emails)
                 setRequest((prev) => prev ? { ...prev, adminCc: emails } : prev)

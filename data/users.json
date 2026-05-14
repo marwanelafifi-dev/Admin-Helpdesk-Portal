@@ -2,7 +2,7 @@
   {
     "email": "marwaanelafifi@gmail.com",
     "name": "Full Access",
-    "role": "super_admin",
+    "role": "Full Access",
     "image": null,
     "active": true,
     "provider": "credentials",
