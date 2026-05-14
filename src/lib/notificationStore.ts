@@ -180,17 +180,12 @@ async function notifyByEmail(params: {
 
   const actionUserEmail = params.actionUserEmail?.toLowerCase()
 
-  // Collect emails: mock user IDs + real admin users from API
-  const mockEmails = params.recipientIds
-    .map(getUserEmail)
-    .filter((e): e is string => Boolean(e))
-
+  // Only use real admin users from API — ignore mock user IDs entirely
   const realAdmins = await fetchAdminUsers()
   const realAdminEmails = realAdmins.map((u) => u.email)
 
-  // Always notify admin helpdesk + request owner + all real admins
+  // Recipients: real admins + request owner + helpdesk
   const allEmails = Array.from(new Set([
-    ...mockEmails,
     ...realAdminEmails,
     params.requestOwnerEmail,
     ADMIN_HELPDESK_EMAIL,
