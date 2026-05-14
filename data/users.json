@@ -22,6 +22,17 @@
     "createdAt": "2026-05-13T08:42:18.037Z"
   },
   {
+    "id": "USR-1778750000001",
+    "email": "amr.mostafa@si-ware.com",
+    "name": "Amr Mostafa",
+    "role": "Administration Team",
+    "image": null,
+    "active": true,
+    "provider": "credentials",
+    "passwordHash": "$2b$12$QAFRZD/HNfMU4IlvhTHLLeGKbMkchJ2Lh5/B/x3HyFWKmBG3JEi5W",
+    "createdAt": "2026-05-14T14:00:00.000Z"
+  },
+  {
     "id": "USR-1778681205922",
     "email": "marwan.elafifi@si-ware.com",
     "name": "Marwan Elafifi",
