@@ -11,7 +11,6 @@ function createTransporter() {
     },
     tls: {
       rejectUnauthorized: false,
-      minVersion: "TLSv1.2",
     },
     connectionTimeout: 10000,
     socketTimeout: 10000,
