@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react"
 import Image from "next/image"
 import { signOut, useSession } from "next-auth/react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Bell, LogOut, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -80,13 +79,6 @@ export function TopBar() {
 
       {/* Right: actions */}
       <div className="flex items-center gap-2">
-        {/* Notification Settings Icon */}
-        <Link href="/notifications/settings">
-          <Button variant="ghost" size="icon" title="Notification settings" className="relative">
-            <Settings className="h-4 w-4 text-slate-500" />
-          </Button>
-        </Link>
-
         {/* Notification Bell */}
         <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
           <DropdownMenuTrigger asChild>
@@ -100,7 +92,17 @@ export function TopBar() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
-            <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+            <div className="flex items-center justify-between px-3 py-2">
+              <span className="text-sm font-semibold text-gray-900">Notifications</span>
+              <button
+                onClick={() => { setIsOpen(false); router.push("/notifications/settings") }}
+                className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                title="Notification settings"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                Settings
+              </button>
+            </div>
             <DropdownMenuSeparator />
             {notifications.length === 0 ? (
               <div className="px-4 py-6 text-center text-sm text-slate-500">
