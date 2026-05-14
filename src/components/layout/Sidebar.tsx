@@ -24,6 +24,7 @@ import {
   BarChart3,
   CheckSquare,
   AlertCircle,
+  Database,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { canAccessPath } from "@/lib/access"
@@ -70,6 +71,8 @@ const navItems: NavItem[] = [
       { title: "Users", href: "/admin/users", icon: Users },
       { title: "Roles", href: "/admin/roles", icon: Shield },
       { title: "Settings", href: "/admin/settings", icon: Settings },
+      { title: "Audit Trail", href: "/admin/audit-trail", icon: Shield },
+      { title: "Database", href: "/admin/database", icon: Database },
     ],
   },
 ]
