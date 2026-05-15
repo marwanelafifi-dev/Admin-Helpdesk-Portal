@@ -38,6 +38,8 @@ function roleLabel(role?: string) {
     : "User"
 }
 
+const SETTINGS_KEY = "arp_platform_settings"
+
 export function TopBar() {
   const { data: session } = useSession()
   const router = useRouter()
@@ -45,6 +47,22 @@ export function TopBar() {
   const userId = user?.id
   const { notifications, unreadCount } = useNotifications(userId)
   const [isOpen, setIsOpen] = useState(false)
+  const [headerShowLogo, setHeaderShowLogo] = useState(true)
+  const [headerLogoAlt, setHeaderLogoAlt] = useState("Si-Ware Systems")
+  const [logoSrc, setLogoSrc] = useState("/siware-logo.png")
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY)
+      if (raw) {
+        const s = JSON.parse(raw)
+        if (typeof s.headerShowLogo === "boolean") setHeaderShowLogo(s.headerShowLogo)
+        if (s.headerLogoAlt) setHeaderLogoAlt(s.headerLogoAlt)
+      }
+      const customLogo = localStorage.getItem("arp_logo_header")
+      if (customLogo) setLogoSrc(customLogo)
+    } catch {}
+  }, [])
 
   useEffect(() => {
     if (!isOpen || !userId) return
@@ -64,15 +82,17 @@ export function TopBar() {
       <div className="flex-1" />
 
       {/* Center: Logo */}
-      <div className="flex items-center justify-center px-4 relative h-12 w-64">
-        <Image
-          src="/siware-logo.png"
-          alt="Si-Ware Systems"
-          fill
-          className="object-contain"
-          priority
-        />
-      </div>
+      {headerShowLogo ? (
+        <div className="flex items-center justify-center px-4 relative h-12 w-64">
+          {logoSrc.startsWith("data:") ? (
+            <img src={logoSrc} alt={headerLogoAlt} className="h-full w-full object-contain" />
+          ) : (
+            <Image src={logoSrc} alt={headerLogoAlt} fill className="object-contain" priority />
+          )}
+        </div>
+      ) : (
+        <div className="flex-1" />
+      )}
 
       {/* Right: Empty space */}
       <div className="flex-1" />

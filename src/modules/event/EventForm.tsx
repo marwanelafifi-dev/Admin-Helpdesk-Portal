@@ -109,7 +109,7 @@ export function EventForm({ onCancel, editingRequest, isEditing }: { onCancel?: 
   }
 
   return (
-    <div className="space-y-5 max-w-3xl mx-auto pb-12">
+    <div className="space-y-5 max-w-3xl mx-auto">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {/* Request Title */}
         <Card>
@@ -286,7 +286,7 @@ export function EventForm({ onCancel, editingRequest, isEditing }: { onCancel?: 
           </CardContent>
         </Card>
 
-        <div className="sticky bottom-0 bg-white border-t py-4 px-1 flex items-center justify-between gap-3">
+        <div className="border-t bg-gray-50 py-4 px-1 flex items-center justify-between gap-3">
           <Button type="button" variant="ghost" onClick={handleCancel}>Cancel</Button>
           <Button type="submit" disabled={true} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px] opacity-50 cursor-not-allowed">
             Coming Soon

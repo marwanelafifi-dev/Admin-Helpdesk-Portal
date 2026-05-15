@@ -242,6 +242,14 @@ This document tracks the phased development of the Admin Request Platform, movin
 - [x] **API Path Fix:**
   - [x] `src/lib/apiClient.ts`: all comments endpoints now use `API_BASE` constant instead of hardcoded `/api`.
 
+## Phase 5b: UI & Settings Fixes (Completed — 15 May 2026)
+- [x] **Form Footer White Box Fix:** Removed `sticky bottom-0` and `pb-12` from all module form wrappers (Shipping, HR ×2, Maintenance, Purchase, Event, Travel). Cancel/Submit bar is now a static `border-t bg-gray-50` footer — no floating white box at scroll end.
+- [x] **Separate Logo Management:**
+  - [x] Two independent logo slots: Header logo (`arp_logo_header`) and Login page logo (`arp_logo_login`).
+  - [x] Each has its own upload block in Admin → Settings with clickable preview, Upload button, and Restore Default.
+  - [x] Header logo read by `TopBar.tsx`; login logo read by `login/page.tsx`.
+  - [x] Previously both shared one key `arp_custom_logo` — now fully independent.
+
 ## Phase 6: Advanced Functionality (Pending)
 - [ ] **Email Notifications:** SMTP ports 465/587 may be blocked by corporate firewall. Use Admin → Notifications to configure Gmail App Password or switch to SendGrid/Brevo (HTTP API, not blocked).
 - [ ] **Audit Trail Enhancement:** Currently reads from localStorage. Future: persist to PostgreSQL for cross-session history.

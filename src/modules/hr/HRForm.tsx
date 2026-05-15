@@ -351,7 +351,7 @@ function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCance
         </CardContent>
       </Card>
 
-      <div className="sticky bottom-0 bg-white border-t py-4 px-1 flex items-center justify-between gap-3">
+      <div className="border-t bg-gray-50 py-4 px-1 flex items-center justify-between gap-3">
         <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
         <Button type="submit" disabled={isSubmitting} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px]">
           {isSubmitting ? (isEditing ? "Updating..." : "Submitting...") : (isEditing ? "Update Request" : "Submit Onboarding Request")}
@@ -615,7 +615,7 @@ function OffboardingFormFields({ onCancel, editingRequest, isEditing }: { onCanc
         </CardContent>
       </Card>
 
-      <div className="sticky bottom-0 bg-white border-t py-4 px-1 flex items-center justify-between gap-3">
+      <div className="border-t bg-gray-50 py-4 px-1 flex items-center justify-between gap-3">
         <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
         <Button type="submit" disabled={isSubmitting} className="bg-red-600 text-white hover:opacity-90 min-w-[160px]">
           {isSubmitting ? (isEditing ? "Updating..." : "Submitting...") : (isEditing ? "Update Request" : "Submit Offboarding Request")}
@@ -633,7 +633,7 @@ export function HRForm({ defaultType = "onboarding", onCancel, editingRequest, i
   const handleCancel = onCancel ?? (() => router.push("/hr"))
 
   return (
-    <div className="space-y-5 max-w-3xl mx-auto pb-12">
+    <div className="space-y-5 max-w-3xl mx-auto">
       {/* Type Toggle - Disabled when editing */}
       {!isEditing && (
         <div className="flex gap-2">

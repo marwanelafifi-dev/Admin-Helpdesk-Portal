@@ -44,4 +44,4 @@ NODE_TLS_REJECT_UNAUTHORIZED=0 npx prisma db push --skip-generate 2>&1 | grep -v
 ) &
 
 echo "✓ Starting application..."
-exec npm start
+exec node_modules/.bin/next start -p 3003

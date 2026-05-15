@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useMemo, useEffect } from "react"
-import { Search, Star, BarChart3, TrendingUp, MessageSquare, ArrowUp, ArrowDown } from "lucide-react"
+import { Search, Star, BarChart3, TrendingUp, MessageSquare, ArrowUp, ArrowDown, Trash2, AlertTriangle } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -93,28 +93,32 @@ export default function FeedbackReportsPage() {
   const [search, setSearch] = useState("")
   const [filterRating, setFilterRating] = useState<number | null>(null)
   const [dateRange, setDateRange] = useState<"7d" | "30d" | "90d" | "all">("30d")
-  const [allFeedback, setAllFeedback] = useState<Feedback[]>(MOCK_FEEDBACK)
+  const [allFeedback, setAllFeedback] = useState<Feedback[]>([])
+  const [showClearConfirm, setShowClearConfirm] = useState(false)
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
   useEffect(() => {
     const responses = getFeedbackResponses()
-    if (responses.length > 0) {
-      const feedback: Feedback[] = responses
-        .filter((r) => r.rating && r.rating > 0)
-        .map((r) => ({
-          requestId: r.requestId,
-          requestTitle: r.requestTitle,
-          requesterName: r.requesterName,
-          module: r.module,
-          rating: r.rating || 0,
-          comment: r.comment || "",
-          submittedAt: r.completedAt || r.createdAt,
-        }))
-      if (feedback.length > 0) {
-        setAllFeedback(feedback)
-      }
-    }
+    const feedback: Feedback[] = responses
+      .filter((r) => r.rating && r.rating > 0)
+      .map((r) => ({
+        requestId: r.requestId,
+        requestTitle: r.requestTitle,
+        requesterName: r.requesterName,
+        module: r.module,
+        rating: r.rating || 0,
+        comment: r.comment || "",
+        submittedAt: r.completedAt || r.createdAt,
+      }))
+    setAllFeedback(feedback)
   }, [])
+
+  function handleClearFeedback() {
+    localStorage.removeItem("feedback_surveys")
+    localStorage.removeItem("feedback_responses")
+    setAllFeedback([])
+    setShowClearConfirm(false)
+  }
 
   // Filter feedback
   const filtered = useMemo(() => {
@@ -197,10 +201,37 @@ export default function FeedbackReportsPage() {
             <h1 className="text-3xl font-bold text-gray-900">Feedback & Reports</h1>
             <p className="text-gray-600 mt-2">Employee satisfaction metrics and service quality analytics across all departments</p>
           </div>
-          {(newRequestsCount > 0 || newTasksCount > 0) && (
-            <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
-          )}
+          <div className="flex items-center gap-3 ml-4">
+            {(newRequestsCount > 0 || newTasksCount > 0) && (
+              <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" />
+            )}
+            {allFeedback.length > 0 && !showClearConfirm && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowClearConfirm(true)}
+                className="border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400"
+              >
+                <Trash2 className="h-4 w-4 mr-1.5" />
+                Clear All Feedback
+              </Button>
+            )}
+          </div>
         </div>
+
+        {showClearConfirm && (
+          <div className="mt-4 flex items-center gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+            <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+            <p className="text-sm text-red-800 flex-1">This will permanently delete all <strong>{allFeedback.length} feedback responses</strong>. This cannot be undone.</p>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => setShowClearConfirm(false)} className="h-8">Cancel</Button>
+              <Button size="sm" onClick={handleClearFeedback} className="h-8 bg-red-600 hover:bg-red-700 text-white">
+                <Trash2 className="h-3.5 w-3.5 mr-1" />
+                Yes, Clear All
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Summary Stats Grid */}

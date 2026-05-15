@@ -29,7 +29,11 @@ if (!authSecret) {
   throw new Error("Missing required auth secret. Set AUTH_SECRET or NEXTAUTH_SECRET.")
 }
 
-const hasGoogleOAuth = !!(googleClientId && googleClientSecret)
+// Set ENABLE_GOOGLE_AUTH=false in .env.local to permanently disable Google login
+// when the corporate network blocks Google OAuth endpoints.
+const hasGoogleOAuth =
+  process.env.ENABLE_GOOGLE_AUTH !== "false" &&
+  !!(googleClientId && googleClientSecret)
 
 // Try DB lookup, fall back to file store
 async function lookupUser(email: string) {
@@ -54,6 +58,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   pages: {
     signIn: "/login",
+    error: "/login",
   },
   providers: [
     ...(hasGoogleOAuth
@@ -95,12 +100,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      // If NextAuth redirects to the error page, send back to login instead
+      if (url.includes("/api/auth/error")) return `${baseUrl}/login`
+      if (url.startsWith(baseUrl)) return url
+      if (url.startsWith("/")) return `${baseUrl}${url}`
+      return baseUrl
+    },
     async signIn({ user, account }) {
       if (!user.email) return false
 
       // For Google sign-in, only allow si-ware.com domain
       if (account?.provider === "google") {
-        if (!user.email.endsWith("@si-ware.com")) return false
+        if (!user.email.endsWith("@si-ware.com")) return "/login?error=OAuthSignin"
         return true
       }
 

@@ -1,11 +1,23 @@
 "use client"
 
 import { useState, useRef } from "react"
-import { Database, Download, Upload, CheckCircle2, AlertTriangle, Clock, Shield } from "lucide-react"
+import { Database, Download, Upload, CheckCircle2, AlertTriangle, Clock, Shield, Trash2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
 const LS_KEYS = [
+  "arp_requests",
+  "arp_notifications",
+  "arp_viewed_comments",
+  "feedback_surveys",
+  "feedback_responses",
+  "admin_tasks",
+  "arp_prod_wipe_v1",
+  "arp_mock_version",
+]
+
+// Keys to wipe when clearing all data (excludes user-related keys)
+const CLEAR_KEYS = [
   "arp_requests",
   "arp_notifications",
   "arp_viewed_comments",
@@ -66,7 +78,9 @@ type Status = { type: "success" | "error" | "idle"; message: string }
 export default function DatabasePage() {
   const [backupStatus, setBackupStatus] = useState<Status>({ type: "idle", message: "" })
   const [restoreStatus, setRestoreStatus] = useState<Status>({ type: "idle", message: "" })
+  const [clearStatus, setClearStatus] = useState<Status>({ type: "idle", message: "" })
   const [restoring, setRestoring] = useState(false)
+  const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [lastBackupTime, setLastBackupTime] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -118,6 +132,12 @@ export default function DatabasePage() {
       }
     }
     reader.readAsText(file)
+  }
+
+  function handleClearData() {
+    CLEAR_KEYS.forEach((key) => localStorage.removeItem(key))
+    setShowClearConfirm(false)
+    setClearStatus({ type: "success", message: `All data cleared successfully — ${CLEAR_KEYS.length} stores wiped. Users are preserved. Refresh the page to see the empty state.` })
   }
 
   return (
@@ -240,6 +260,75 @@ export default function DatabasePage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Clear All Data Card */}
+      <Card className="border border-red-200 shadow-sm">
+        <CardHeader className="border-b bg-red-50 rounded-t-lg">
+          <div className="flex items-center gap-3">
+            <div className="bg-red-100 rounded-lg p-2">
+              <Trash2 className="h-5 w-5 text-red-700" />
+            </div>
+            <div>
+              <CardTitle className="text-base font-semibold text-red-900">Clear All Data</CardTitle>
+              <p className="text-xs text-red-600 mt-0.5">Permanently delete all requests, tasks, feedback, and notifications — users are preserved</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-6 space-y-5">
+          <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg px-3 py-3">
+            <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-red-800">This will permanently delete all requests, notifications, comments, tasks, feedback surveys &amp; responses. <strong>User accounts are not affected.</strong> This action cannot be undone — download a backup first.</p>
+          </div>
+
+          <div className="space-y-1.5 text-sm text-gray-600">
+            {CLEAR_KEYS.filter(k => !k.includes("version") && !k.includes("wipe")).map((key) => (
+              <div key={key} className="flex items-center gap-2">
+                <Trash2 className="h-3.5 w-3.5 text-red-400 shrink-0" />
+                <span className="font-mono text-xs text-gray-500">{key}</span>
+              </div>
+            ))}
+          </div>
+
+          {!showClearConfirm ? (
+            <Button
+              onClick={() => { setClearStatus({ type: "idle", message: "" }); setShowClearConfirm(true) }}
+              className="w-full bg-red-600 hover:bg-red-700 text-white"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Clear All Data
+            </Button>
+          ) : (
+            <div className="space-y-3 border border-red-300 rounded-lg p-4 bg-red-50">
+              <p className="text-sm font-semibold text-red-900 text-center">Are you sure? This cannot be undone.</p>
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => setShowClearConfirm(false)}
+                  variant="outline"
+                  className="flex-1 border-gray-300"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleClearData}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Yes, Clear Everything
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {clearStatus.type !== "idle" && (
+            <div className={`flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm ${clearStatus.type === "success" ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
+              {clearStatus.type === "success"
+                ? <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+                : <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />}
+              <span>{clearStatus.message}</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

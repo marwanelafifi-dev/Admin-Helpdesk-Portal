@@ -79,10 +79,14 @@ const navItems: NavItem[] = [
   },
 ]
 
+const SETTINGS_KEY = "arp_platform_settings"
+
 export function Sidebar() {
   const pathname = usePathname()
   const { data: session, status } = useSession()
   const [collapsed, setCollapsed] = useState(false)
+  const [brandName, setBrandName] = useState("Admin Portal")
+  const [brandSubtitle, setBrandSubtitle] = useState("Si-Ware Systems")
   const [administrationExpanded, setAdministrationExpanded] = useState(
     pathname.startsWith("/admin/all-requests") || pathname.startsWith("/tasks") || pathname.startsWith("/feedback-reports")
   )
@@ -98,6 +102,17 @@ export function Sidebar() {
 
   const searchParams = useSearchParams()
   const source = searchParams.get("source")
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY)
+      if (raw) {
+        const s = JSON.parse(raw)
+        if (s.sidebarBrandName) setBrandName(s.sidebarBrandName)
+        if (s.sidebarBrandSubtitle) setBrandSubtitle(s.sidebarBrandSubtitle)
+      }
+    } catch {}
+  }, [])
 
   // Check for new requests and tasks
   useEffect(() => {
@@ -194,9 +209,9 @@ export function Sidebar() {
       )} suppressHydrationWarning>
         <div className={cn("overflow-hidden", collapsed && "hidden")}>
           <span className="font-bold text-sm tracking-tight whitespace-nowrap text-white">
-            Admin Portal
+            {brandName}
           </span>
-          <p className="text-xs text-slate-400 mt-0.5">Si-Ware Systems</p>
+          <p className="text-xs text-slate-400 mt-0.5">{brandSubtitle}</p>
         </div>
       </Link>
 
