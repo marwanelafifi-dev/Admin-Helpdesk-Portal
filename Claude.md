@@ -212,13 +212,27 @@ This document tracks the phased development of the Admin Request Platform, movin
 - [x] **All Requests Page:** Duplicate "Team Tasks Overview" section removed — Active Team Tasks shown once at top.
 - [x] **Sidebar:** Added Audit Trail and Database entries under Admin group with correct icons.
 
-## Phase 4: Docker Containerization (Completed)
-- [x] **Single Container Deployment:**
-  - [x] Dockerfile for Next.js frontend + PostgreSQL database.
-  - [x] Docker Compose configuration — app on port 3003, db on port 5432.
+## Phase 4: Docker Containerization (Completed — 15 May 2026)
+- [x] **Two-Container Deployment (admin-helpdesk):**
+  - [x] `admin-helpdesk-app` — Next.js app container on port 3003.
+  - [x] `admin-helpdesk-db` — PostgreSQL 16 database container on port 5432.
+  - [x] Isolated `helpdesk-net` bridge network (172.25.0.0/16) — app and db only, no external container access.
+  - [x] Docker Compose project name: `admin-helpdesk`. Services visible as a group in Docker Desktop.
   - [x] Environment variable configuration via `.env.local`.
-  - [x] Health checks configured. App served at `http://localhost:3003`.
-  - [x] Dockerfile fixed: entrypoint COPY before USER switch, chown scoped to .next/data only, netcat installed for DB readiness check.
+  - [x] Health checks on both containers. App served at `http://localhost:3003`.
+  - [x] `docker-entrypoint.sh` — waits for DB readiness via netcat, runs `prisma db push`, starts `next start`.
+- [x] **Docker Desktop Windows Fix:**
+  - [x] Disabled `UseContainerdSnapshotter` in Docker Desktop settings — was causing gRPC EOF errors during layer export.
+  - [x] Build strategy: run `npm run build` locally first (outputs to `.next-dev`), then COPY pre-built output into image — avoids long build steps inside Docker that trigger pipe timeouts.
+  - [x] Removed `.next-dev` from `.dockerignore` so pre-built output is included in build context.
+  - [x] Copied `next.config.ts` into container so `next start` picks up `distDir: ".next-dev"` at runtime.
+  - [x] Entrypoint uses `next start` directly (not `npm start`) to respect `next.config.ts` at runtime.
+- [x] **Cloudflare Tunnel (ready, not activated):**
+  - [x] `tunnel` service added to `docker-compose.yml` under `profiles: [tunnel]`.
+  - [x] Start with: `docker compose --profile tunnel up -d` after setting `CLOUDFLARE_TUNNEL_TOKEN` in `.env.local`.
+- [x] **Ubuntu Deployment Notes:**
+  - [x] On Linux, `UseContainerdSnapshotter` is not an issue — standard `docker compose up --build -d` works.
+  - [x] No pre-build step needed on Ubuntu; `npm run build` inside Docker completes without timeout.
 
 ## Phase 5: Production v1.1 — CC Recipients, Permissions & Email (Completed — 15 May 2026)
 - [x] **CC Recipients Panel:**
