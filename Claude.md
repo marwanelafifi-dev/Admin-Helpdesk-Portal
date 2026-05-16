@@ -125,9 +125,35 @@ This document tracks the phased development of the Admin Request Platform, movin
   - [ ] Define Zod Schema + build booking/approval workflow form.
 - [x] **engineService mock data** — bumped to `v7`. Total seeded records: 8 SHP, 5 MNT, 4 PRC, 4 EVT, 5 TRV, 8 HR (including team records).
 
+## Phase 2.5: Analytics & Advanced Insights (Implemented)
+- [x] **Comprehensive Analytics Page** (`/analytics`):
+  - [x] 4 Analytics APIs: Performance, Trends, Resources, Export.
+  - [x] Performance Metrics: Total Requests, Completion Rate, Avg Resolution Time, On-Time Rate.
+  - [x] Status & Module Distribution charts (Pie & Bar charts).
+  - [x] Daily & Monthly Trends (Line charts with 14-day / monthly views).
+  - [x] Resource Analysis: User Load, Role Distribution, Top Loaded Users.
+  - [x] Performance by Module: detailed metrics for each module.
+  - [x] Time period selector: 7, 30, 60, 90 days.
+  - [x] CSV Export button (JSON ready).
+  - [x] Sidebar integration with `BarChart3` icon.
+  - [x] Access control: super_admin, admin, manager only.
+  - [x] Configuration system: `analytics-config.ts` for feature toggles.
+- [x] **Analytics APIs** (Backend):
+  - [x] `GET /api/analytics/performance?days=30` — KPIs, status/module breakdown, per-module performance.
+  - [x] `GET /api/analytics/trends?days=90` — daily/monthly trends, module distribution over time.
+  - [x] `GET /api/analytics/resources?days=30` — user stats, role distribution, user load scores.
+  - [x] `GET /api/analytics/export?format=csv|json&days=30` — exportable data.
+- [x] **Utilities**:
+  - [x] `src/lib/analytics-api.ts` — client-side API wrappers and download helpers.
+  - [x] `src/lib/analytics-config.ts` — feature flags and configuration management.
+  - [x] `ANALYTICS_GUIDE.md` — comprehensive documentation with examples.
+
 ## Phase 3: Advanced Functionality (Upcoming)
+- [ ] **Predictions & Forecasting:** ML-based request volume predictions, bottleneck detection.
 - [ ] **Audit Trail Enhancement:** Add granular history logs to the dashboard.
 - [ ] **Notifications System:** Automated email/in-app notifications for pending approvals.
+- [ ] **Dashboard Enhancements:** Additional charts, drill-down capabilities, custom metric builders.
+- [ ] **Email Reporting:** Scheduled analytics reports sent via email.
 
 ## Phase 4: Optimization & Scaling
 - [ ] Add Redis caching for frequently accessed dashboard data.
@@ -187,6 +213,14 @@ Status column preserves color styling with dot indicators; other columns use neu
 | File | Purpose | Key Features |
 |------|---------|--------------|
 | `src/app/(dashboard)/dashboard/page.tsx` | Professional analytics dashboard | KPIs, charts, alerts, trend indicators |
+| `src/app/(dashboard)/analytics/page.tsx` | Comprehensive analytics page | Performance, Trends, Resources, Module Analysis, CSV Export |
+| `src/app/api/analytics/performance.ts` | Performance metrics API | Total requests, completion rate, resolution time, on-time rate, module breakdown |
+| `src/app/api/analytics/trends.ts` | Trends analysis API | Daily/Monthly trends, module trends, growth patterns |
+| `src/app/api/analytics/resources.ts` | Resource utilization API | User stats, role distribution, load scores, top loaded users |
+| `src/app/api/analytics/export.ts` | Analytics export API | CSV & JSON export with customizable date ranges |
+| `src/lib/analytics-api.ts` | Client-side analytics API wrapper | Fetch functions for all analytics endpoints, CSV/JSON download helpers |
+| `src/lib/analytics-config.ts` | Analytics feature configuration | Feature flags, refresh intervals, enabled/disabled toggles |
+| `ANALYTICS_GUIDE.md` | Analytics documentation | Complete API guide, usage examples, metrics definition |
 | `src/services/engineService.ts` | Core request engine, localStorage | Mock data seed (v7), polymorphic JSONB payload handling |
 | `src/app/(dashboard)/requests/page.tsx` | My Requests unified view | Request ID, Title, Submission Date, Module, Status, Last Update Date |
 | `src/app/(dashboard)/admin/all-requests/page.tsx` | All Requests admin view | Request ID, Title, Submission Date, Requester, Module, Status, Last Update Date |
@@ -199,7 +233,7 @@ Status column preserves color styling with dot indicators; other columns use neu
 | `src/app/(dashboard)/travel/page.tsx` | Travel module page | Request ID, Request Title, Submission Date, Requester Name, Destination, Travel Date, Status, Last Update Date |
 | `src/modules/hr/hr.schema.ts` | Zod schemas for Onboarding & Offboarding | Validated payload structures with required fields |
 | `src/modules/hr/HRForm.tsx` | HR create form | Onboarding / Offboarding toggle, checkbox items, Zod validation |
-| `src/components/layout/Sidebar.tsx` | Navigation sidebar | Module navigation with active state highlighting |
+| `src/components/layout/Sidebar.tsx` | Navigation sidebar | Module navigation with active state highlighting, Analytics link added |
 | `src/lib/mock-data.ts` | Static mock data | Legacy shipments, users, roles |
 | `src/modules/shipping/ShippingForm.tsx` | Shipping request form | Full form with carrier selection and validation |
 

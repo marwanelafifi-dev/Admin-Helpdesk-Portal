@@ -1,9 +1,9 @@
 # Production-oriented stack: Postgres + Next.js (standalone image).
 # Copy `.env.example` → `.env` and set secrets before `docker compose up`.
 #
-# Migrations: run once when the DB is up, from your machine or CI:
-#   DATABASE_URL="postgresql://USER:PASS@localhost:5432/DB?schema=public" npx prisma migrate deploy
-# (Expose db port 5432 locally as below, or use the internal hostname `db` from another container.)
+# NOTE: DATABASE_URL inside containers always uses hostname "db" (the Docker
+# service name). The DATABASE_URL in your local .env (with localhost:5432) is
+# only for running prisma commands directly from your machine.
 
 services:
   db:
@@ -24,23 +24,43 @@ services:
     networks:
       - arp-network
 
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+      args:
+        DATABASE_URL: postgresql://arp_user:arp_password@db:5432/arp?schema=public
+    command: sh -c "npx prisma migrate deploy && node scripts/seed-admin.mjs"
+    environment:
+      DATABASE_URL: postgresql://arp_user:arp_password@db:5432/arp?schema=public
+      NODE_TLS_REJECT_UNAUTHORIZED: "0"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - arp-network
+
   web:
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        DATABASE_URL: ${DATABASE_URL:-postgresql://arp_user:arp_password@db:5432/arp?schema=public}
+        DATABASE_URL: postgresql://arp_user:arp_password@db:5432/arp?schema=public
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       NODE_ENV: production
       HOSTNAME: 0.0.0.0
       PORT: 3003
-      DATABASE_URL: ${DATABASE_URL:-postgresql://arp_user:arp_password@db:5432/arp?schema=public}
+      DATABASE_URL: postgresql://arp_user:arp_password@db:5432/arp?schema=public
+      NODE_TLS_REJECT_UNAUTHORIZED: "0"
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3003}
-      # Required in real production; default only for local Docker bring-up.
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-dev-only-change-me-use-openssl-rand-base64-32}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_ALLOWED_DOMAIN: ${GOOGLE_ALLOWED_DOMAIN:-}
@@ -50,8 +70,15 @@ services:
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-}
       NOTIFICATION_EMAIL_ADMINS: ${NOTIFICATION_EMAIL_ADMINS:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
     ports:
       - "3003:3003"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - arp-network
 

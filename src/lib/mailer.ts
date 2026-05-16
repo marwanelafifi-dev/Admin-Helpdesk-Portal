@@ -220,9 +220,12 @@ export async function sendNewRequestNotification(req: EngineRequest, adminEmails
   }
 }
 
-export async function sendStatusChangeNotification(req: EngineRequest, newStatus: string, requesterEmail: string) {
-  if (!requesterEmail) return
-
+export async function sendStatusChangeNotification(
+  req: EngineRequest,
+  newStatus: string,
+  requesterEmail: string,
+  adminEmails: string[] = []
+) {
   const transport = getTransport()
   if (!transport) {
     console.warn("[mailer] SMTP not configured — skipping email notification")
@@ -230,18 +233,37 @@ export async function sendStatusChangeNotification(req: EngineRequest, newStatus
   }
 
   const from = process.env.SMTP_FROM ?? "ARP Notifications <noreply@si-ware.com>"
+  const subject = `[Update] - Request #${req.id} status changed to ${newStatus}`
 
-  try {
-    await transport.sendMail({
-      from,
-      to: requesterEmail,
-      subject: `[Update] - Your Request #${req.id} has been updated to ${newStatus}`,
-      html: statusChangeHtml(req, newStatus),
-    })
-    console.log(`[mailer] Status change notification sent for ${req.id} to ${requesterEmail}`)
-  } catch (err) {
-    // Never crash the request flow because of email failure
-    console.error("[mailer] Failed to send status change notification:", err)
+  // Send to requester
+  if (requesterEmail) {
+    try {
+      await transport.sendMail({
+        from,
+        to: requesterEmail,
+        subject,
+        html: statusChangeHtml(req, newStatus),
+      })
+      console.log(`[mailer] Status change sent to requester ${requesterEmail}`)
+    } catch (err) {
+      console.error("[mailer] Failed to send status change to requester:", err)
+    }
+  }
+
+  // Send to admins (exclude requester to avoid duplicate)
+  const adminTargets = adminEmails.filter((e) => e && e !== requesterEmail)
+  if (adminTargets.length > 0) {
+    try {
+      await transport.sendMail({
+        from,
+        to: adminTargets.join(", "),
+        subject,
+        html: statusChangeHtml(req, newStatus),
+      })
+      console.log(`[mailer] Status change sent to ${adminTargets.length} admin(s)`)
+    } catch (err) {
+      console.error("[mailer] Failed to send status change to admins:", err)
+    }
   }
 }
 

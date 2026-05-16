@@ -3,6 +3,7 @@ export type AppRole = "super_admin" | "admin" | "manager" | "employee" | "extern
 export const PERMISSIONS = {
   dashboard:      ["super_admin", "admin", "manager"],
   allRequests:    ["super_admin", "admin", "manager"],
+  analytics:      ["super_admin", "admin", "manager"],
   hrModule:       ["super_admin", "admin", "manager"],
   hrCreate:       ["super_admin", "manager"],
   adminPanel:     ["super_admin", "manager"],

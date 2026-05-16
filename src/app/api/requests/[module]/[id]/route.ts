@@ -8,6 +8,7 @@ import { authOptions } from "@/lib/auth"
 import { can, isRestricted } from "@/lib/permissions"
 import { isReservedRequestPathId } from "@/lib/request-path-guards"
 import { prisma } from "@/server/db"
+import { sendStatusChangeNotification, sendEmailAsync } from "@/lib/mailer"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -90,6 +91,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ modul
           {
             status: nextStatus,
             changedBy: body.changedBy ?? session.user.id,
+            changedByName: session.user.name ?? session.user.email ?? session.user.id,
             changedAt: nowIso,
             comment: body.comment,
           },
@@ -107,6 +109,27 @@ export async function PATCH(request: Request, context: { params: Promise<{ modul
       data: updateData,
       include: { requester: { select: { id: true, name: true, email: true } } },
     })
+
+    // Send email on status change
+    if (shouldRecord && nextStatus && updated.requester.email) {
+      const adminUsers = await prisma.user.findMany({
+        where: { role: 'admin' },
+        select: { email: true },
+      })
+      const adminEmails = adminUsers.map((u) => u.email).filter(Boolean) as string[]
+      const reqForEmail: any = {
+        id: updated.id, module: updated.module, title: updated.title,
+        status: updated.status, requesterId: updated.requesterId,
+        requesterName: updated.requester.name ?? 'Unknown User',
+        requesterEmail: updated.requester.email,
+        payload: updated.payload as Record<string, unknown>,
+        statusHistory: [], createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString(),
+      }
+      sendEmailAsync(async () => {
+        await sendStatusChangeNotification(reqForEmail, nextStatus, updated.requester.email!, adminEmails)
+      })
+    }
+
     return NextResponse.json({ ok: true, data: updated })
   } catch (error) {
     const message = error instanceof Error ? error.message : "Invalid patch"

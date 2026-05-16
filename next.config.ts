@@ -1,20 +1,35 @@
 import type { NextConfig } from "next"
 
-// If you need to bypass TLS verification for a corporate proxy in local dev,
-// set `ALLOW_INSECURE_TLS=1` in your environment (not committed).
 if (process.env.ALLOW_INSECURE_TLS === "1") {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"
 }
 
 const isProd = process.env.NODE_ENV === "production"
 
+const securityHeaders = [
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-XSS-Protection", value: "1; mode=block" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  ...(isProd
+    ? [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" }]
+    : []),
+]
+
 const nextConfig: NextConfig = {
-  // If you want to use standalone output for Docker, keep this.
-  // Next.js 15+ will warn you to run `node .next/standalone/server.js` if you use `next start`.
+  poweredByHeader: false,
   ...(isProd ? { output: "standalone" } : {}),
-  // Ignore linting and TypeScript errors for build
   eslint: { ignoreDuringBuilds: true },
-  typescript: { ignoreBuildErrors: true },
+
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: securityHeaders,
+      },
+    ]
+  },
 }
 
 export default nextConfig

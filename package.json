@@ -3,13 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "prepare": "husky",
     "clean:next": "node scripts/clean-next.cjs",
     "dev": "next dev -p 3003",
     "dev:custom": "node scripts/dev-server.cjs",
     "build": "next build",
     "start": "next start -p 3003",
     "start:standalone": "node .next/standalone/server.js",
-    "lint": "next lint"
+    "lint": "next lint",
+    "lint:staged": "node scripts/lint-staged.cjs",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit tests/integration",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -30,8 +36,10 @@
     "lucide-react": "^0.487.0",
     "next": "^15.1.0",
     "next-auth": "^4.24.14",
-    "nodemailer": "^7.0.13",
+    "next-themes": "^0.4.6",
+    "nodemailer": "^8.0.7",
     "pg": "^8.20.0",
+    "pino": "^10.3.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.74.0",
@@ -41,16 +49,20 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/node": "^20",
+    "@playwright/test": "^1.60.0",
+    "@types/node": "^22",
     "@types/nodemailer": "^8.0.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "autoprefixer": "^10",
     "eslint": "^9",
     "eslint-config-next": "^15.1.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.4",
     "postcss": "^8",
     "prisma": "^7.8.0",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.6"
   }
 }

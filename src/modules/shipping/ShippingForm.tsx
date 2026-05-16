@@ -61,6 +61,7 @@ import {
   Plus,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { ApproverCombobox } from "@/components/ui/approver-combobox"
 
 const BRAND = "#1565C0"
 
@@ -116,7 +117,10 @@ function hasRequiredDocs(files: StagedFile[]) {
 function mapApprovers(approvers: ShippingRequestForm["approvers"], allApprovers: Approver[]) {
   const toPerson = (id: string) => {
     const u = allApprovers.find((x) => x.id === id)
-    return u ? { userId: u.id, name: u.name || "", email: u.email || "" } : undefined
+    if (u) return { userId: u.id, name: u.name || "", email: u.email || "" }
+    // Manual email entry (not a DB user)
+    if (id?.includes("@")) return { userId: "", name: id, email: id }
+    return undefined
   }
   return {
     directManager: toPerson(approvers.directManager)!,
@@ -313,53 +317,36 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
               <div className="space-y-1.5">
                 <Label>Direct Manager <span className="text-red-500">*</span></Label>
                 <Controller name="approvers.directManager" control={control} render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className={cn(errors.approvers?.directManager && "border-red-400")}>
-                      <SelectValue placeholder="Select direct manager" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {approvers.map((user) => (
-                        <SelectItem key={user.id} value={user.id}>
-                          {user.name} ({user.email})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <ApproverCombobox
+                    value={field.value}
+                    onChange={field.onChange}
+                    approvers={approvers}
+                    placeholder="Search or type email..."
+                    hasError={!!errors.approvers?.directManager}
+                  />
                 )} />
                 <FieldError message={errors.approvers?.directManager?.message} />
               </div>
               <div className="space-y-1.5">
-                <Label>Technical Manager</Label>
+                <Label>Technical Manager <span className="text-xs text-muted-foreground">(optional)</span></Label>
                 <Controller name="approvers.techManager" control={control} render={({ field }) => (
-                  <Select value={field.value?.[0] || ""} onValueChange={(value) => field.onChange(value ? [value] : [])}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select technical manager (optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {approvers.map((user) => (
-                        <SelectItem key={user.id} value={user.id}>
-                          {user.name} ({user.email})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <ApproverCombobox
+                    value={field.value?.[0] || ""}
+                    onChange={(val) => field.onChange(val ? [val] : [])}
+                    approvers={approvers}
+                    placeholder="Search or type email..."
+                  />
                 )} />
               </div>
               <div className="space-y-1.5">
-                <Label>Project Manager</Label>
+                <Label>Project Manager <span className="text-xs text-muted-foreground">(optional)</span></Label>
                 <Controller name="approvers.pm" control={control} render={({ field }) => (
-                  <Select value={field.value?.[0] || ""} onValueChange={(value) => field.onChange(value ? [value] : [])}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select project manager (optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {approvers.map((user) => (
-                        <SelectItem key={user.id} value={user.id}>
-                          {user.name} ({user.email})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <ApproverCombobox
+                    value={field.value?.[0] || ""}
+                    onChange={(val) => field.onChange(val ? [val] : [])}
+                    approvers={approvers}
+                    placeholder="Search or type email..."
+                  />
                 )} />
               </div>
             </div>

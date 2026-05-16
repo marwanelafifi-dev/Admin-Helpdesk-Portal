@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardHeader } from "@/components/ui/card"
 import { fetchAllRequests, type EngineRequest } from "@/lib/requests-api"
 import { cn } from "@/lib/utils"
+import { ViewSelector, type ViewDefinition } from "@/components/ui/view-selector"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -93,6 +94,35 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
 }
 
+// ─── Predefined Views ─────────────────────────────────────────────────────────
+
+const MY_REQUESTS_VIEWS = [
+  {
+    label: "Status Views",
+    views: [
+      { id: "all",        label: "All My Requests",    filters: {} },
+      { id: "active",     label: "All Active Requests", filters: { status: "active" } },
+      { id: "new",        label: "New Requests",        filters: { status: "new" } },
+      { id: "on_hold",    label: "In Progress",         filters: { status: "on_hold" } },
+      { id: "in_transit", label: "In Customs",          filters: { status: "in_transit" } },
+      { id: "delivered",  label: "Delivered",           filters: { status: "delivered" } },
+      { id: "completed",  label: "Completed Requests",  filters: { status: "completed" } },
+      { id: "cancelled",  label: "Cancelled Requests",  filters: { status: "cancelled" } },
+    ],
+  },
+  {
+    label: "Module Views",
+    views: [
+      { id: "mod-shipping",    label: "Shipping Requests",     filters: { module: "shipping" } },
+      { id: "mod-hr",          label: "HR Requests",           filters: { module: "hr" } },
+      { id: "mod-maintenance", label: "Maintenance Requests",  filters: { module: "maintenance" } },
+      { id: "mod-purchase",    label: "Purchase Requests",     filters: { module: "purchase" } },
+      { id: "mod-event",       label: "Event Requests",        filters: { module: "event" } },
+      { id: "mod-travel",      label: "Travel Requests",       filters: { module: "travel" } },
+    ],
+  },
+]
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function RequestsPage() {
@@ -107,6 +137,14 @@ export default function RequestsPage() {
   const resizingCol  = useRef<number | null>(null)
   const resizeStartX = useRef(0)
   const resizeStartW = useRef(0)
+  const [activeViewId, setActiveViewId]   = useState("all")
+
+  function handleSelectView(view: ViewDefinition) {
+    setActiveViewId(view.id)
+    setSearch("")
+    setStatusFilter(view.filters.status ?? "all")
+    setModuleFilter(view.filters.module ?? "all")
+  }
 
   useEffect(() => {
     if (status === "loading") return
@@ -145,7 +183,11 @@ export default function RequestsPage() {
 
   const filtered = useMemo(() => {
     let result = requests
-    if (statusFilter !== "all") result = result.filter((r) => r.status === statusFilter)
+    if (statusFilter === "active") {
+      result = result.filter((r) => !["completed", "cancelled", "delivered"].includes(r.status))
+    } else if (statusFilter !== "all") {
+      result = result.filter((r) => r.status === statusFilter)
+    }
     if (moduleFilter !== "all") result = result.filter((r) => r.module === moduleFilter)
     const q = search.trim().toLowerCase()
     if (q) result = result.filter((r) =>
@@ -175,7 +217,11 @@ export default function RequestsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">My Requests</h1>
+          <ViewSelector
+            groups={MY_REQUESTS_VIEWS}
+            activeViewId={activeViewId}
+            onSelect={handleSelectView}
+          />
           <p className="text-muted-foreground text-sm mt-0.5">View all your requests across all modules</p>
         </div>
       </div>

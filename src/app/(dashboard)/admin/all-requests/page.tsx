@@ -2,17 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { Search, Layers, TrendingUp, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, ExternalLink } from "lucide-react"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table"
+import { Button } from "@/components/ui/button"
 import { fetchAllRequests, type EngineRequest } from "@/lib/requests-api"
 import { cn } from "@/lib/utils"
 import { useSession } from "next-auth/react"
 import { StatusDropdown } from "@/components/ui/status-dropdown"
 import type { RequestStatus } from "@/components/ui/status-dropdown"
 import Link from "next/link"
+import { ViewSelector, type ViewDefinition } from "@/components/ui/view-selector"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -53,7 +52,6 @@ const MODULE_DOT: Record<string, string> = {
   travel: "bg-pink-500", hr: "bg-teal-500",
 }
 
-const MODULES  = ["shipping", "maintenance", "purchase", "event", "travel", "hr"] as const
 const STATUSES = ["draft", "new", "on_hold", "in_transit", "delivered", "completed", "cancelled"] as const
 
 function formatModule(m: string) { return m.charAt(0).toUpperCase() + m.slice(1) }
@@ -61,9 +59,38 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
 }
 
+// ─── Predefined Views ─────────────────────────────────────────────────────────
+
+const ALL_REQUESTS_VIEWS = [
+  {
+    label: "Status Views",
+    views: [
+      { id: "all",       label: "All Requests",       filters: {} },
+      { id: "active",    label: "All Active Requests", filters: { status: "active" } },
+      { id: "new",       label: "New Requests",        filters: { status: "new" } },
+      { id: "on_hold",   label: "In Progress",         filters: { status: "on_hold" } },
+      { id: "in_transit",label: "In Customs",          filters: { status: "in_transit" } },
+      { id: "delivered", label: "Delivered",           filters: { status: "delivered" } },
+      { id: "completed", label: "Completed Requests",  filters: { status: "completed" } },
+      { id: "cancelled", label: "Cancelled Requests",  filters: { status: "cancelled" } },
+    ],
+  },
+  {
+    label: "Module Views",
+    views: [
+      { id: "mod-shipping",    label: "Shipping Module",     filters: { module: "shipping" } },
+      { id: "mod-hr",          label: "HR Module",           filters: { module: "hr" } },
+      { id: "mod-maintenance", label: "Maintenance Module",  filters: { module: "maintenance" } },
+      { id: "mod-purchase",    label: "Purchase Module",     filters: { module: "purchase" } },
+      { id: "mod-event",       label: "Event Module",        filters: { module: "event" } },
+      { id: "mod-travel",      label: "Travel Module",       filters: { module: "travel" } },
+    ],
+  },
+]
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-type ModuleTab = "all" | typeof MODULES[number]
+type ModuleTab = "all" | "shipping" | "maintenance" | "purchase" | "event" | "travel" | "hr"
 type SortKey = "id" | "title" | "requesterName" | "createdAt" | "module" | "status" | "updatedAt"
 type SortDir = "asc" | "desc"
 
@@ -76,6 +103,18 @@ export default function AllRequestsPage() {
   const [sortKey, setSortKey]           = useState<SortKey>("updatedAt")
   const [sortDir, setSortDir]           = useState<SortDir>("desc")
   const [updatingId, setUpdatingId]     = useState<string | null>(null)
+  const [selectedIds, setSelectedIds]   = useState<string[]>([])
+  const [bulkStatus, setBulkStatus]     = useState<RequestStatus>("on_hold")
+  const [bulkUpdating, setBulkUpdating] = useState(false)
+  const selectAllRef                    = useRef<HTMLInputElement | null>(null)
+  const [activeViewId, setActiveViewId] = useState("all")
+
+  function handleSelectView(view: ViewDefinition) {
+    setActiveViewId(view.id)
+    setSearch("")
+    setStatusFilter(view.filters.status ?? "all")
+    setActiveTab((view.filters.module as ModuleTab) ?? "all")
+  }
 
   // ── Column resize ──────────────────────────────────────────────────────────
   const isAdmin = session?.user?.role === 'super_admin' || session?.user?.role === 'admin'
@@ -129,10 +168,12 @@ export default function AllRequestsPage() {
       : <ChevronDown className="h-3 w-3 ml-1 shrink-0" />
   }
 
+  // ── Data fetching ──────────────────────────────────────────────────────────
   useEffect(() => {
     fetchAllRequests().then(setRequests)
   }, [])
 
+  // ── Filtered data computation ──────────────────────────────────────────────
   const filtered = useMemo(() => {
     let result = requests
     if (activeTab !== "all") result = result.filter((r) => r.module === activeTab)
@@ -156,6 +197,36 @@ export default function AllRequestsPage() {
     })
   }, [requests, activeTab, statusFilter, search, sortKey, sortDir])
 
+  // ── Selection state (declare before useEffect) ──────────────────────────────
+  const allVisibleIds = useMemo(() => filtered.map((req) => req.id), [filtered])
+  
+  const selectedVisibleCount = useMemo(
+    () => allVisibleIds.filter((id) => selectedIds.includes(id)).length,
+    [allVisibleIds, selectedIds]
+  )
+  
+  const allVisibleSelected = useMemo(
+    () => filtered.length > 0 && selectedVisibleCount === filtered.length,
+    [filtered.length, selectedVisibleCount]
+  )
+  
+  const partiallySelected = useMemo(
+    () => selectedVisibleCount > 0 && selectedVisibleCount < filtered.length,
+    [selectedVisibleCount, filtered.length]
+  )
+
+  // ── Update select-all checkbox when selection changes ──────────────────────
+  useEffect(() => {
+    if (!selectAllRef.current) return
+    selectAllRef.current.indeterminate = partiallySelected
+  }, [partiallySelected])
+
+  // ── Sync selected IDs with filtered list ────────────────────────────────────
+  useEffect(() => {
+    setSelectedIds((prev) => prev.filter((id) => allVisibleIds.includes(id)))
+  }, [allVisibleIds])
+
+  // ── Stats ──────────────────────────────────────────────────────────────────
   const stats = useMemo(() => ({
     total:     requests.length,
     new:       requests.filter((r) => r.status === "new").length,
@@ -206,13 +277,72 @@ export default function AllRequestsPage() {
     }
   }
 
+  const toggleOne = (requestId: string, checked: boolean) => {
+    setSelectedIds((prev) =>
+      checked ? [...new Set([...prev, requestId])] : prev.filter((id) => id !== requestId)
+    )
+  }
+
+  const toggleAllVisible = (checked: boolean) => {
+    setSelectedIds((prev) => {
+      if (checked) return [...new Set([...prev, ...allVisibleIds])]
+      return prev.filter((id) => !allVisibleIds.includes(id))
+    })
+  }
+
+  const handleBulkStatusChange = async () => {
+    if (selectedIds.length === 0) return
+
+    setBulkUpdating(true)
+    try {
+      const response = await fetch("/api/requests/status/bulk", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          requestIds: selectedIds,
+          status: bulkStatus,
+        }),
+      })
+
+      if (!response.ok) return
+
+      const payload = await response.json() as {
+        requestIds: string[]
+        status: RequestStatus
+      }
+
+      setRequests((prev) =>
+        prev.map((request) =>
+          payload.requestIds.includes(request.id)
+            ? {
+                ...request,
+                status: payload.status as typeof request.status,
+                updatedAt: new Date().toISOString(),
+              }
+            : request
+        )
+      )
+      setSelectedIds([])
+    } catch (error) {
+      console.error("Failed to bulk update statuses:", error)
+    } finally {
+      setBulkUpdating(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">All Requests</h1>
+          <ViewSelector
+            groups={ALL_REQUESTS_VIEWS}
+            activeViewId={activeViewId}
+            onSelect={handleSelectView}
+          />
           <p className="text-muted-foreground text-sm mt-0.5">
             All requests submitted by administration team members
           </p>
@@ -318,18 +448,76 @@ export default function AllRequestsPage() {
             </div>
           </div>
 
+          {isAdmin && (
+            <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-blue-100 bg-blue-50/80 px-4 py-3">
+              <p className="text-sm font-medium text-slate-700">
+                {selectedIds.length} selected
+              </p>
+              <select
+                value={bulkStatus}
+                onChange={(e) => setBulkStatus(e.target.value as RequestStatus)}
+                className="h-10 rounded-lg border border-blue-200 bg-white px-3 text-sm text-slate-700 shadow-sm"
+              >
+                {[
+                  "draft",
+                  "new",
+                  "on_hold",
+                  "in_customs",
+                  "in_transit",
+                  "delivered",
+                  "completed",
+                  "cancelled",
+                ].map((status) => (
+                  <option key={status} value={status}>
+                    {STATUS_LABELS[status] ?? status}
+                  </option>
+                ))}
+              </select>
+              <Button
+                size="sm"
+                disabled={selectedIds.length === 0 || bulkUpdating}
+                onClick={handleBulkStatusChange}
+              >
+                {bulkUpdating ? "Updating..." : "Update Selected"}
+              </Button>
+              {selectedIds.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={bulkUpdating}
+                  onClick={() => setSelectedIds([])}
+                >
+                  Clear Selection
+                </Button>
+              )}
+            </div>
+          )}
+
           <p className="text-sm text-muted-foreground font-normal mt-1">
             Showing {filtered.length} request{filtered.length !== 1 ? "s" : ""}
           </p>
         </CardHeader>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm" style={{ tableLayout: "fixed", minWidth: colWidths.reduce((a, b) => a + b, 0) }}>
+          <table className="w-full text-sm" style={{ tableLayout: "fixed", minWidth: colWidths.reduce((a, b) => a + b, isAdmin ? 52 : 0) }}>
             <colgroup>
+              {isAdmin && <col style={{ width: 52 }} />}
               {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
             </colgroup>
             <thead>
               <tr className="bg-slate-800 border-b border-slate-700">
+                {isAdmin && (
+                  <th className="py-3 pl-5 pr-2 text-left">
+                    <input
+                      ref={selectAllRef}
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      onChange={(e) => toggleAllVisible(e.target.checked)}
+                      aria-label="Select all visible requests"
+                      className="h-4 w-4 rounded border-slate-500 bg-slate-900 accent-sky-500"
+                    />
+                  </th>
+                )}
                 {COLS.map((col, idx) => (
                   <th
                     key={col.key}
@@ -367,6 +555,17 @@ export default function AllRequestsPage() {
                     i % 2 === 0 ? "bg-white" : "bg-gray-50/40"
                   )}
                 >
+                  {isAdmin && (
+                    <td className="py-3 pl-5 pr-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(req.id)}
+                        onChange={(e) => toggleOne(req.id, e.target.checked)}
+                        aria-label={`Select request ${req.id}`}
+                        className="h-4 w-4 rounded border-slate-300 accent-sky-600"
+                      />
+                    </td>
+                  )}
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
                     <Link href={`/${req.module}/${req.id}`}>
                       <span className="text-sm font-medium text-blue-600 hover:text-blue-800 truncate block flex items-center gap-1 cursor-pointer">
@@ -418,7 +617,7 @@ export default function AllRequestsPage() {
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="text-center text-gray-400 text-sm py-16">
+                  <td colSpan={isAdmin ? 8 : 7} className="text-center text-gray-400 text-sm py-16">
                     No records match the current filters
                   </td>
                 </tr>

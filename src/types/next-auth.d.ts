@@ -10,6 +10,7 @@ declare module "next-auth" {
       email: string
       image?: string
       role: UserRole
+      sessionVersion: number
     }
   }
 }
@@ -18,5 +19,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     id: string
     role: UserRole
+    sessionVersion: number
   }
 }

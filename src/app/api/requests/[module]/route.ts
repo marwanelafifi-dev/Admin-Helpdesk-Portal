@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
+import type { Prisma } from '@prisma/client'
 import { getPrisma } from '@/server/engine/prisma'
+
+const querySchema = z.object({
+  skip: z.coerce.number().int().min(0).default(0),
+  take: z.coerce.number().int().min(1).max(100).default(50),
+  status: z.string().optional(),
+})
 
 /**
  * GET /api/requests/[module]
@@ -7,21 +15,32 @@ import { getPrisma } from '@/server/engine/prisma'
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { requestModule: string } }
+  context: { params: Promise<{ module: string }> }
 ) {
   try {
-    const { requestModule } = params
+    const { module } = await context.params
     const prisma = getPrisma()
-    
-    const url = new URL(req.url)
-    const skip = parseInt(url.searchParams.get("skip") || "0")
-    const take = parseInt(url.searchParams.get("take") || "50")
-    const status = url.searchParams.get("status")
 
-    const where: any = { module: requestModule }
-    
+    const url = new URL(req.url)
+    const parsed = querySchema.safeParse({
+      skip: url.searchParams.get("skip") ?? undefined,
+      take: url.searchParams.get("take") ?? undefined,
+      status: url.searchParams.get("status") ?? undefined,
+    })
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid query parameters", details: parsed.error.flatten() },
+        { status: 400 }
+      )
+    }
+
+    const { skip, take, status } = parsed.data
+
+    const where: Prisma.RequestWhereInput = { module }
+
     if (status) {
-      where.status = status
+      where.status = status as Prisma.EnumRequestStatusFilter
     }
 
     const [requests, total] = await Promise.all([

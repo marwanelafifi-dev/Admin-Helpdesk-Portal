@@ -1,120 +1,113 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { z } from 'zod'
+import { authOptions } from '@/lib/auth/options'
 import { getPrisma } from '@/server/engine/prisma'
 import { sendStatusChangeNotification, sendEmailAsync } from '@/lib/mailer'
 
-/**
- * PUT /api/requests/[module]/[id]/status
- * Update request status and send notification to requester
- */
+interface StatusHistoryEntry {
+  status: string
+  changedBy: string
+  changedAt: string
+  comment?: string
+}
+
+const BodySchema = z.object({
+  status: z.string().min(1),
+  comment: z.string().optional(),
+})
+
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { requestModule: string; id: string } }
+  context: { params: Promise<{ module: string; id: string }> }
 ) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const { id } = await context.params
+
+  const bodyParsed = BodySchema.safeParse(await req.json())
+  if (!bodyParsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid body', details: bodyParsed.error.flatten() },
+      { status: 400 }
+    )
+  }
+
+  const { status, comment } = bodyParsed.data
+
   try {
-    const { id } = params
-    const { requestModule } = params
-    const userId = req.headers.get('x-user-id')
-    const userName = req.headers.get('x-user-name')
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID required' },
-        { status: 401 }
-      )
-    }
-
-    const body = await req.json()
-    const { status, comment } = body
-
-    if (!status) {
-      return NextResponse.json(
-        { error: 'Status is required' },
-        { status: 400 }
-      )
-    }
-
     const prisma = getPrisma()
 
-    // Get the current request with requester information
     const currentRequest = await prisma.request.findUnique({
       where: { id },
       include: {
-        requester: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
+        requester: { select: { id: true, name: true, email: true } },
       },
     })
 
     if (!currentRequest) {
-      return NextResponse.json(
-        { error: 'Request not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Request not found' }, { status: 404 })
     }
 
-    // Update the request status
+    const prevHistory: StatusHistoryEntry[] = Array.isArray(currentRequest.statusHistory)
+      ? (currentRequest.statusHistory as unknown as StatusHistoryEntry[])
+      : []
+
     const updatedRequest = await prisma.request.update({
       where: { id },
       data: {
-        status,
-        // Update status history
+        status: status as any,
         statusHistory: [
-          ...(currentRequest.statusHistory as Array<{
-            status: string
-            changedBy: string
-            changedAt: string
-            comment?: string
-          }> || []),
+          ...(prevHistory as any[]),
           {
             status,
-            changedBy: userId,
+            changedBy: session.user.id,
+            changedByName: session.user.name ?? session.user.email ?? session.user.id,
             changedAt: new Date().toISOString(),
-            comment: comment || '',
+            comment: comment ?? '',
           },
-        ],
+        ] as any,
       },
       include: {
-        requester: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
+        requester: { select: { id: true, name: true, email: true } },
       },
     })
 
-    // Send email notification to requester (asynchronously)
+    // Fetch admin emails for notifications
+    const adminUsers = await prisma.user.findMany({
+      where: { role: 'admin' },
+      select: { email: true },
+    })
+    const adminEmails = adminUsers.map((u) => u.email).filter(Boolean) as string[]
+
     if (currentRequest.requester.email) {
-      const requestForEmail = {
+      const requestForEmail: any = {
         id: updatedRequest.id,
         module: updatedRequest.module,
         title: updatedRequest.title,
         status: updatedRequest.status,
         requesterId: updatedRequest.requesterId,
-        requesterName: updatedRequest.requester.name || 'Unknown User',
-        requesterEmail: updatedRequest.requester.email || '',
+        requesterName: updatedRequest.requester.name ?? 'Unknown User',
+        requesterEmail: updatedRequest.requester.email!,
         payload: updatedRequest.payload as Record<string, unknown>,
-        statusHistory: updatedRequest.statusHistory as any || [],
+        statusHistory: [],
         createdAt: updatedRequest.createdAt.toISOString(),
         updatedAt: updatedRequest.updatedAt.toISOString(),
       }
 
-      // Send email asynchronously without blocking the response
       sendEmailAsync(async () => {
         await sendStatusChangeNotification(
           requestForEmail,
           status,
-          currentRequest.requester.email!
+          currentRequest.requester.email!,
+          adminEmails,
         )
       })
     }
 
-    // Create notification for requester
     await prisma.notification.create({
       data: {
         type: 'request_updated',
@@ -134,9 +127,6 @@ export async function PUT(
     })
   } catch (error) {
     console.error('Failed to update request status:', error)
-    return NextResponse.json(
-      { error: 'Failed to update request status' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to update request status' }, { status: 500 })
   }
 }

@@ -105,7 +105,7 @@ export async function createRequest(module: string, body: unknown): Promise<Engi
     status: "new",
     requesterId: meta.requesterId ?? "USR-CURRENT",
     requesterName: meta.requesterName ?? "Current User",
-    requesterEmail: meta.requesterEmail ?? "user@si-ware.com",
+    requesterEmail: meta.requesterEmail ?? "",
     payload: parsed.payload,
     statusHistory: [
       {

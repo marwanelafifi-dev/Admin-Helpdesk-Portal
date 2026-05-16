@@ -9,12 +9,10 @@ export async function GET(req: NextRequest) {
   try {
     const prisma = getPrisma()
     
-    // Fetch all users with admin or super_admin role
+    // Fetch only users with admin role (super_admin excluded — they are the sender)
     const adminUsers = await prisma.user.findMany({
       where: {
-        role: {
-          in: ['admin', 'super_admin']
-        }
+        role: 'admin'
       },
       select: {
         id: true,

@@ -22,6 +22,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Building2,
+  BarChart3,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -36,6 +37,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { title: "Dashboard",    href: "/dashboard",          icon: LayoutDashboard, roles: ["super_admin", "admin", "manager"] },
   { title: "All Requests", href: "/admin/all-requests", icon: ClipboardList,   roles: ["super_admin", "admin", "manager"] },
+  { title: "Analytics",    href: "/analytics",          icon: BarChart3,       roles: ["super_admin", "admin", "manager"] },
   { title: "My Requests",  href: "/requests",           icon: FileText },
   { title: "HR",           href: "/hr",                 icon: UserCog,         roles: ["super_admin", "admin", "manager"] },
   {
@@ -87,18 +89,18 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "relative flex flex-col bg-slate-900 text-white transition-all duration-300 ease-in-out flex-shrink-0",
+        "relative flex flex-col border-r border-white/10 bg-slate-900/95 text-white shadow-[18px_0_50px_-28px_rgba(15,23,42,0.8)] backdrop-blur-xl transition-all duration-300 ease-in-out flex-shrink-0",
         collapsed ? "w-16" : "w-64"
       )}
     >
       {/* Logo */}
       <div
         className={cn(
-          "flex items-center gap-3 border-b border-slate-700 py-5",
+          "flex items-center gap-3 border-b border-slate-700/80 py-5",
           collapsed ? "justify-center px-0" : "px-5"
         )}
       >
-        <Building2 className="h-6 w-6 text-blue-400 flex-shrink-0" />
+        <Building2 className="h-6 w-6 text-blue-400 drop-shadow-[0_6px_18px_rgba(96,165,250,0.45)] flex-shrink-0" />
         {!collapsed && (
           <div className="overflow-hidden">
             <span className="font-bold text-base tracking-tight whitespace-nowrap">AdminPortal</span>
@@ -108,11 +110,10 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 space-y-0.5 px-2">
+      <nav className="flex-1 overflow-y-auto py-4 space-y-1 px-2">
         {navItems.filter(canSee).map((item) => {
           if (item.children) {
             const isAdmin    = item.title === "Admin"
-            const isShipping = item.title === "Shipping"
             const expanded    = isAdmin ? adminExpanded : shippingExpanded
             const setExpanded = isAdmin ? setAdminExpanded : setShippingExpanded
 
@@ -128,10 +129,10 @@ export function Sidebar() {
                   onClick={() => !collapsed && setExpanded(!expanded)}
                   title={collapsed ? item.title : undefined}
                   className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
+                    "interactive-lift w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
                     active
-                      ? "bg-blue-600 text-white"
-                      : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                      ? "bg-blue-600 text-white shadow-[0_14px_30px_-18px_rgba(59,130,246,0.8)]"
+                      : "text-slate-300 hover:bg-slate-800/90 hover:text-white"
                   )}
                 >
                   <item.icon className="h-5 w-5 flex-shrink-0" />
@@ -148,16 +149,16 @@ export function Sidebar() {
                 </button>
 
                 {!collapsed && expanded && (
-                  <div className="ml-3 mt-0.5 space-y-0.5 border-l border-slate-700 pl-3">
+                  <div className="ml-3 mt-1 space-y-1 border-l border-slate-700/80 pl-3">
                     {visibleChildren.map((child) => (
                       <Link
                         key={child.title}
                         href={child.href}
                         className={cn(
-                          "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                          "interactive-lift flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200",
                           pathname === child.href
-                            ? "bg-blue-600 text-white"
-                            : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                            ? "bg-blue-600 text-white shadow-[0_14px_30px_-18px_rgba(59,130,246,0.8)]"
+                            : "text-slate-400 hover:bg-slate-800/90 hover:text-white"
                         )}
                       >
                         <child.icon className="h-4 w-4 flex-shrink-0" />
@@ -176,11 +177,11 @@ export function Sidebar() {
               href={item.href}
               title={collapsed ? item.title : undefined}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
+                "interactive-lift flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
                 collapsed && "justify-center",
                 isActive(item.href)
-                  ? "bg-blue-600 text-white"
-                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                  ? "bg-blue-600 text-white shadow-[0_14px_30px_-18px_rgba(59,130,246,0.8)]"
+                  : "text-slate-300 hover:bg-slate-800/90 hover:text-white"
               )}
             >
               <item.icon className="h-5 w-5 flex-shrink-0" />
@@ -195,7 +196,7 @@ export function Sidebar() {
         <button
           onClick={() => setCollapsed(!collapsed)}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="w-full flex items-center justify-center p-2 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+          className="interactive-lift w-full flex items-center justify-center p-2 rounded-xl text-slate-400 hover:bg-slate-800/90 hover:text-white transition-all duration-200"
         >
           {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
         </button>

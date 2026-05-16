@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils"
 
 const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
   ({ className, ...props }, ref) => (
-    <div className="relative w-full overflow-auto">
+    <div className="surface-card relative w-full overflow-auto rounded-xl border border-white/70">
       <table ref={ref} className={cn("w-full caption-bottom text-sm", className)} {...props} />
     </div>
   )
@@ -45,7 +45,7 @@ const TableRow = React.forwardRef<HTMLTableRowElement, HTMLMotionProps<'tr'>>(
     <motion.tr
       ref={ref}
       className={cn(
-        "border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
+        "border-b transition-all duration-200 hover:bg-muted/50 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] data-[state=selected]:bg-muted",
         className
       )}
       initial={{ opacity: 0, y: 16 }}

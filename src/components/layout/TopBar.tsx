@@ -1,7 +1,9 @@
 "use client"
 
-import { Bell, LogOut } from "lucide-react"
+import { Bell, LogOut, Sun, Moon } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
+import { useRouter } from "next/navigation"
+import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -35,7 +37,26 @@ function dedupeNotifications(items: Notification[]): Notification[] {
   return output
 }
 
+function ThemeToggle() {
+  const { resolvedTheme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  if (!mounted) return <div className="h-9 w-9" />
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      title={resolvedTheme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+      className="text-muted-foreground hover:text-foreground"
+    >
+      {resolvedTheme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+    </Button>
+  )
+}
+
 export function TopBar() {
+  const router = useRouter()
   const { data: session, status } = useSession()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -129,7 +150,7 @@ export function TopBar() {
   const displayCount = Math.min(unreadCount, 99)
 
   return (
-    <header className="h-16 border-b bg-white flex items-center justify-between px-6 flex-shrink-0">
+    <header className="glass-panel sticky top-0 z-20 h-16 border-b border-white/60 shadow-[0_16px_38px_-30px_rgba(15,23,42,0.45)] flex items-center justify-between px-6 flex-shrink-0">
       {/* Left: brand */}
       <div className="flex items-center gap-2">
         <span className="text-sm text-muted-foreground font-medium">
@@ -139,13 +160,16 @@ export function TopBar() {
 
       {/* Right: actions */}
       <div className="flex items-center gap-2">
+        {/* Dark mode toggle */}
+        <ThemeToggle />
+
         {/* Notification Bell */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5 text-slate-600" />
               {unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow-[0_10px_24px_-10px_rgba(239,68,68,0.85)]">
                   {displayCount}
                 </span>
               )}
@@ -196,24 +220,25 @@ export function TopBar() {
               ))
             )}
 
-            {notifications.length > 0 && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-center text-sm text-blue-600 cursor-pointer justify-center">
-                  View all notifications
-                </DropdownMenuItem>
-              </>
-            )}
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-center text-sm text-blue-600 cursor-pointer justify-center"
+                onClick={() => router.push("/notifications")}
+              >
+                View all notifications
+              </DropdownMenuItem>
+            </>
           </DropdownMenuContent>
         </DropdownMenu>
 
         {/* User Avatar + Name */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-gray-100 transition-colors">
+            <button className="interactive-lift flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-gray-100/90 transition-all duration-200">
               <Avatar className="h-8 w-8">
                 {image && <AvatarImage src={image} alt={name} />}
-                <AvatarFallback className="bg-blue-600 text-white text-xs font-semibold">
+                <AvatarFallback className="bg-blue-600 text-white text-xs font-semibold shadow-[0_12px_24px_-12px_rgba(37,99,235,0.85)]">
                   {initials}
                 </AvatarFallback>
               </Avatar>
@@ -230,8 +255,12 @@ export function TopBar() {
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Profile</DropdownMenuItem>
-            <DropdownMenuItem>Settings</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push("/profile")} className="cursor-pointer">
+              Profile
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push("/settings")} className="cursor-pointer">
+              Settings
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
 
             <DropdownMenuItem

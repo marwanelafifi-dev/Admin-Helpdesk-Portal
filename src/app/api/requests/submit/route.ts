@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth/options'
+import { rateLimit } from '@/lib/rate-limit'
 import { getPrisma } from '@/server/engine/prisma'
 import { sendNewRequestNotification, sendEmailAsync } from '@/lib/mailer'
 import { getAdminEmails } from '@/lib/admin-emails-api'
@@ -11,16 +14,21 @@ import { getAdminEmails } from '@/lib/admin-emails-api'
  * 3. Create notification record
  */
 export async function POST(req: NextRequest) {
-  try {
-    const userId = req.headers.get('x-user-id')
-    const userName = req.headers.get('x-user-name')
+  const limited = rateLimit(req)
+  if (limited) return limited
 
-    if (!userId) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { error: 'User ID required' },
+        { error: 'Unauthorized' },
         { status: 401 }
       )
     }
+
+    const userId = session.user.id
+    const userName = session.user.name ?? 'Unknown User'
 
     const body = await req.json()
     const {
@@ -84,23 +92,22 @@ export async function POST(req: NextRequest) {
         await sendNewRequestNotification(requestForEmail, adminEmailsResponse.emails)
       })
 
-      // Create admin notifications
+      // Create admin notifications in a single query (avoids N+1)
       const admins = await prisma.user.findMany({
-        where: { role: { in: ['super_admin', 'admin'] } },
+        where: { role: 'admin' },
+        select: { id: true },
       })
 
-      for (const admin of admins) {
-        await prisma.notification.create({
-          data: {
-            type: 'admin_alert',
-            title: `New ${module} Request: ${title}`,
-            message: `${userName || 'A user'} submitted a new ${module} request.`,
-            userId: admin.id,
-            requestId: request.id,
-            link: `/admin/all-requests?id=${request.id}`,
-          },
-        })
-      }
+      await prisma.notification.createMany({
+        data: admins.map((admin) => ({
+          type: 'admin_alert' as const,
+          title: `New ${module} Request: ${title}`,
+          message: `${userName} submitted a new ${module} request.`,
+          userId: admin.id,
+          requestId: request.id,
+          link: `/admin/all-requests?id=${request.id}`,
+        })),
+      })
     } catch (emailError) {
       console.error('Failed to send admin notifications:', emailError)
       // Don't fail the request if email sending fails
