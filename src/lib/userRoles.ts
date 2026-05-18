@@ -1,9 +1,9 @@
 import { prisma } from "@/lib/prisma"
 
-export const DEFAULT_USER_ROLES = ["super_admin", "admin", "manager", "requester", "viewer"] as const
+export const DEFAULT_USER_ROLES = ["Full Access", "admin", "manager", "requester", "viewer"] as const
 
 const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
-  super_admin: ["*"],
+  "Full Access": ["*"],
   admin: [
     "page:dashboard",
     "page:feedback-reports",
@@ -75,8 +75,7 @@ export type UserRoleOption = {
 }
 
 export function canManageUsers(role?: string) {
-  const normalized = role?.toLowerCase()
-  return normalized === "super_admin" || normalized === "admin"
+  return role === "Full Access" || role === "Administration Team" || role?.toLowerCase() === "admin"
 }
 
 function toLabel(value: string) {

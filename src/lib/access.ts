@@ -49,7 +49,7 @@ export function hasPermission(permissions: string[] | undefined, permission: str
 }
 
 export function isSuperAdmin(role?: string) {
-  return role?.toLowerCase() === "super_admin"
+  return role === "Full Access" || role?.toLowerCase() === "super_admin"
 }
 
 export function permissionForPath(pathname: string): RoutePermission | null {

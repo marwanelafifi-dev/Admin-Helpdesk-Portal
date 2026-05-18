@@ -15,7 +15,7 @@ const STORE_PATH = path.join(process.cwd(), "data", "roles.json")
 const DEFAULT_ROLES: StoredRole[] = [
   {
     id: "role-super-admin",
-    name: "super_admin",
+    name: "Full Access",
     description: "Full access to all modules and settings",
     permissions: ["*"],
     createdAt: new Date().toISOString(),

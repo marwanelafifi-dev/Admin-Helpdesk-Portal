@@ -19,10 +19,9 @@ function getInitials(name?: string | null, email?: string | null) {
 
 const ROLE_COLORS: Record<string, string> = {
   "Full Access":         "bg-purple-100 text-purple-700 border-purple-200",
-  "super_admin":         "bg-purple-100 text-purple-700 border-purple-200",
   "Administration Team": "bg-blue-100 text-blue-700 border-blue-200",
+  "People Team":         "bg-indigo-100 text-indigo-700 border-indigo-200",
   "Requester":           "bg-green-100 text-green-700 border-green-200",
-  "requester":           "bg-green-100 text-green-700 border-green-200",
   "Viewer":              "bg-gray-100 text-gray-700 border-gray-200",
 }
 

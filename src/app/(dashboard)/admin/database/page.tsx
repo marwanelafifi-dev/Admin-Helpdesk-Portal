@@ -3,7 +3,7 @@
 import { useState, useRef } from "react"
 import {
   Download, Upload, CheckCircle2, AlertTriangle, Clock, Shield, Trash2,
-  Package, Wrench, ShoppingCart, CalendarDays, Plane, UserCog, Bell, MessageSquare, ListTodo, ChevronRight,
+  Package, Wrench, ShoppingCart, CalendarDays, Plane, UserCog, Bell, MessageSquare, ListTodo, ChevronRight, Inbox,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -37,6 +37,7 @@ const REQUEST_MODULES = [
   { id: "event",       label: "Event",       icon: CalendarDays,  color: "text-pink-600",   bg: "bg-pink-50",   border: "border-pink-200" },
   { id: "travel",      label: "Travel",      icon: Plane,         color: "text-cyan-600",   bg: "bg-cyan-50",   border: "border-cyan-200" },
   { id: "hr",          label: "HR",          icon: UserCog,       color: "text-teal-600",   bg: "bg-teal-50",   border: "border-teal-200" },
+  { id: "general",     label: "General",     icon: Inbox,         color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-200" },
 ] as const
 
 // Other clearable stores (non-request)
