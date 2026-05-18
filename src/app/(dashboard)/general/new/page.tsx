@@ -123,7 +123,7 @@ export default function NewGeneralRequestPage() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 max-w-2xl">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 max-w-3xl mx-auto">
 
         {/* Request Details */}
         <Card>
