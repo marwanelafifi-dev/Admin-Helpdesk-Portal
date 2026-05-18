@@ -15,10 +15,13 @@ import { fetchDashboardData, type DashboardRequest } from "@/lib/dashboard-api"
 import { cn } from "@/lib/utils"
 
 const STATUS_COLORS: Record<string, string> = {
-  new: "bg-sky-50 text-sky-700", on_hold: "bg-amber-50 text-amber-700",
-  in_transit: "bg-amber-50 text-amber-700", delivered: "bg-green-50 text-green-700",
-  completed: "bg-emerald-50 text-emerald-700", cancelled: "bg-red-50 text-red-600",
-  draft: "bg-zinc-100 text-zinc-700",
+  new:        "bg-sky-50     text-sky-700     dark:bg-sky-950/40     dark:text-sky-300",
+  on_hold:    "bg-amber-50   text-amber-700   dark:bg-amber-950/40   dark:text-amber-300",
+  in_transit: "bg-amber-50   text-amber-700   dark:bg-amber-950/40   dark:text-amber-300",
+  delivered:  "bg-green-50   text-green-700   dark:bg-green-950/40   dark:text-green-300",
+  completed:  "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
+  cancelled:  "bg-red-50     text-red-600     dark:bg-red-950/40     dark:text-red-300",
+  draft:      "bg-zinc-100   text-zinc-700    dark:bg-zinc-800/50    dark:text-zinc-400",
 }
 
 const STATUS_DOT: Record<string, string> = {
@@ -62,7 +65,7 @@ function KPICard({ title, value, icon: Icon, iconColor, iconBg, trend }: KPICard
               <p className="text-4xl font-bold mt-3 tracking-tight">{value}</p>
               {trend && (
                 <div className="flex items-center gap-2 mt-3">
-                  <div className={cn("px-2 py-1 rounded-md text-xs font-semibold flex items-center gap-1", trend.isPositive ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700")}> 
+                  <div className={cn("px-2 py-1 rounded-md text-xs font-semibold flex items-center gap-1", trend.isPositive ? "bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300" : "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300")}>
                     {trend.isPositive ? (
                       <TrendingUp className="h-3 w-3" />
                     ) : (
@@ -107,7 +110,7 @@ export default function DashboardPage() {
         setError(null)
       } catch (err) {
         console.error('Failed to load dashboard data:', err)
-        setError('Failed to load dashboard data')
+        setError(err instanceof Error ? err.message : 'Failed to load dashboard data.')
       } finally {
         setLoading(false)
       }
@@ -379,7 +382,7 @@ export default function DashboardPage() {
                 initial={{ opacity: 0, y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: idx * 0.07, ease: "easeOut" }}
-                className="flex items-start gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0"
+                className="flex items-start gap-3 pb-3 border-b border-border last:border-0 last:pb-0"
               >
                 <span className={cn("h-2.5 w-2.5 rounded-full mt-1.5 flex-shrink-0", STATUS_DOT[req.status] ?? "bg-gray-400")} />
                 <div className="flex-1 min-w-0">

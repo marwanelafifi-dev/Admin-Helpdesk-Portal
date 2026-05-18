@@ -13,7 +13,6 @@ import {
 } from "./maintenance.schema"
 import { createRequest } from "@/lib/requests-api"
 import { useSession } from "next-auth/react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -24,9 +23,15 @@ import {
 import { AlertCircle, Wrench, Upload, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-const BRAND = "#A78BFA" // purple-400
-
 type MaintenanceForm = z.infer<typeof MaintenancePayloadSchema>
+
+const fieldClass =
+  "h-11 border-slate-300 bg-white text-slate-950 shadow-none placeholder:text-slate-400 focus-visible:ring-blue-500 focus-visible:ring-offset-0"
+const textareaClass =
+  "min-h-28 border-slate-300 bg-white text-slate-950 shadow-none placeholder:text-slate-400 focus-visible:ring-blue-500 focus-visible:ring-offset-0"
+const labelClass = "text-sm font-medium text-slate-700"
+const selectClass =
+  "h-11 rounded-lg border-slate-300 bg-white text-slate-950 shadow-none focus:ring-blue-500 focus:ring-offset-0"
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null
@@ -40,17 +45,15 @@ function FieldError({ message }: { message?: string }) {
 
 function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementType; title: string; subtitle?: string }) {
   return (
-    <CardHeader className="pb-4">
-      <div className="flex items-center gap-3">
-        <div className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${BRAND}18` }}>
-          <Icon className="h-5 w-5" style={{ color: BRAND }} />
-        </div>
-        <div>
-          <CardTitle className="text-base">{title}</CardTitle>
-          {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
-        </div>
+    <div className="mb-5 flex items-center gap-3">
+      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+        <Icon className="h-4 w-4" />
       </div>
-    </CardHeader>
+      <div>
+        <h2 className="text-base font-semibold text-slate-950">{title}</h2>
+        {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
+      </div>
+    </div>
   )
 }
 
@@ -87,36 +90,36 @@ export function MaintenanceForm({ onCancel }: { onCancel?: () => void }) {
   }
 
   return (
-    <div className="space-y-5 max-w-3xl mx-auto pb-12">
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+    <div className="request-form">
+      <form onSubmit={handleSubmit(onSubmit)} className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         {apiError && (
-          <p className="text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">{apiError}</p>
+          <div className="border-b border-red-100 bg-red-50 px-6 py-3 text-sm font-medium text-red-700">{apiError}</div>
         )}
-        {/* Issue Details */}
-        <Card>
+
+        <section className="border-b border-slate-200 p-6">
           <SectionHeader icon={Wrench} title="Issue Details" subtitle="Describe the maintenance issue" />
-          <CardContent className="space-y-4">
+          <div className="space-y-5">
             <div className="space-y-1.5">
-              <Label htmlFor="issueTitle">Issue Title <span className="text-red-500">*</span></Label>
-              <Input id="issueTitle" placeholder="e.g. AC unit not cooling" {...register("issueTitle")} className={cn(errors.issueTitle && "border-red-400")} />
+              <Label htmlFor="issueTitle" className={labelClass}>Issue Title <span className="text-red-500">*</span></Label>
+              <Input id="issueTitle" placeholder="e.g. AC unit not cooling" {...register("issueTitle")} className={cn(fieldClass, errors.issueTitle && "border-red-400")} />
               <FieldError message={errors.issueTitle?.message} />
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="description">Description <span className="text-red-500">*</span></Label>
-              <Textarea id="description" placeholder="Provide detailed description of the issue..." rows={4} {...register("description")} className={cn(errors.description && "border-red-400")} />
+              <Label htmlFor="description" className={labelClass}>Description <span className="text-red-500">*</span></Label>
+              <Textarea id="description" placeholder="Provide detailed description of the issue..." rows={4} {...register("description")} className={cn(textareaClass, errors.description && "border-red-400")} />
               <FieldError message={errors.description?.message} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="priority">Priority <span className="text-red-500">*</span></Label>
+                <Label htmlFor="priority" className={labelClass}>Priority <span className="text-red-500">*</span></Label>
                 <Controller
                   name="priority"
                   control={control}
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger className={cn(errors.priority && "border-red-400")}>
+                      <SelectTrigger className={cn(selectClass, errors.priority && "border-red-400")}>
                         <SelectValue placeholder="Select priority" />
                       </SelectTrigger>
                       <SelectContent>
@@ -131,13 +134,13 @@ export function MaintenanceForm({ onCancel }: { onCancel?: () => void }) {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="category">Category <span className="text-red-500">*</span></Label>
+                <Label htmlFor="category" className={labelClass}>Category <span className="text-red-500">*</span></Label>
                 <Controller
                   name="category"
                   control={control}
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger className={cn(errors.category && "border-red-400")}>
+                      <SelectTrigger className={cn(selectClass, errors.category && "border-red-400")}>
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
                       <SelectContent>
@@ -154,13 +157,13 @@ export function MaintenanceForm({ onCancel }: { onCancel?: () => void }) {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="floorNumber">Floor Number <span className="text-red-500">*</span></Label>
+                <Label htmlFor="floorNumber" className={labelClass}>Floor Number <span className="text-red-500">*</span></Label>
                 <Controller
                   name="floorNumber"
                   control={control}
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger className={cn(errors.floorNumber && "border-red-400")}>
+                      <SelectTrigger className={cn(selectClass, errors.floorNumber && "border-red-400")}>
                         <SelectValue placeholder="Select floor" />
                       </SelectTrigger>
                       <SelectContent>
@@ -175,75 +178,69 @@ export function MaintenanceForm({ onCancel }: { onCancel?: () => void }) {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="roomArea">Room/Area <span className="text-red-500">*</span></Label>
-                <Input id="roomArea" placeholder="e.g. Conference Room A" {...register("roomArea")} className={cn(errors.roomArea && "border-red-400")} />
+                <Label htmlFor="roomArea" className={labelClass}>Room/Area <span className="text-red-500">*</span></Label>
+                <Input id="roomArea" placeholder="e.g. Conference Room A" {...register("roomArea")} className={cn(fieldClass, errors.roomArea && "border-red-400")} />
                 <FieldError message={errors.roomArea?.message} />
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
 
-        {/* Attachments */}
-        <Card>
+        <section className="border-b border-slate-200 bg-slate-50/70 p-6">
           <SectionHeader icon={Upload} title="Attachments" subtitle="Upload photos or documents" />
-          <CardContent>
-            <div className="space-y-3">
-              <input
-                id="attachments"
-                type="file"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  if (e.target.files) {
-                    setUploadedFiles(Array.from(e.target.files))
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => document.getElementById("attachments")?.click()}
-                className="w-full px-6 py-8 border-2 border-dashed border-purple-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-all duration-200 flex flex-col items-center justify-center gap-2 group"
-              >
-                <Upload className="h-6 w-6 text-purple-600 group-hover:scale-110 transition-transform duration-200" />
-                <span className="text-sm font-medium text-gray-700">Click to upload or drag and drop</span>
-                <span className="text-xs text-muted-foreground">Photos or supporting documents</span>
-              </button>
+          <div className="space-y-3">
+            <input
+              id="attachments"
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) {
+                  setUploadedFiles(Array.from(e.target.files))
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => document.getElementById("attachments")?.click()}
+              className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 bg-white px-6 py-8 text-center transition-colors hover:border-blue-400 hover:bg-blue-50/50"
+            >
+              <Upload className="h-6 w-6 text-blue-600" />
+              <span className="text-sm font-medium text-slate-800">Click to upload or drag and drop</span>
+              <span className="text-xs text-slate-500">Photos or supporting documents</span>
+            </button>
 
-              {uploadedFiles.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-gray-700">{uploadedFiles.length} file(s) selected:</p>
-                  <div className="space-y-1.5">
-                    {uploadedFiles.map((file, idx) => (
-                      <div key={idx} className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-purple-50 border border-purple-200">
-                        <span className="text-sm text-gray-700 truncate">{file.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => setUploadedFiles(uploadedFiles.filter((_, i) => i !== idx))}
-                          className="p-1 hover:bg-purple-200 rounded transition-colors"
-                        >
-                          <X className="h-4 w-4 text-purple-600" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+            {uploadedFiles.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-slate-700">{uploadedFiles.length} file(s) selected:</p>
+                <div className="space-y-1.5">
+                  {uploadedFiles.map((file, idx) => (
+                    <div key={idx} className="flex items-center justify-between gap-2 rounded-lg border border-blue-100 bg-blue-50 p-2.5">
+                      <span className="truncate text-sm text-slate-700">{file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setUploadedFiles(uploadedFiles.filter((_, i) => i !== idx))}
+                        className="rounded p-1 text-blue-700 transition-colors hover:bg-blue-100"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              )}
-              <p className="text-xs text-muted-foreground">Optional: Upload issue photos for faster resolution</p>
-            </div>
-          </CardContent>
-        </Card>
+              </div>
+            )}
+            <p className="text-xs text-slate-500">Optional: upload issue photos for faster resolution.</p>
+          </div>
+        </section>
 
-        {/* Additional Notes */}
-        <Card>
+        <section className="border-b border-slate-200 p-6">
           <SectionHeader icon={Wrench} title="Additional Notes" subtitle="Any extra information" />
-          <CardContent>
-            <Textarea placeholder="Optional notes..." rows={3} {...register("notes")} />
-          </CardContent>
-        </Card>
+          <Textarea placeholder="Optional notes..." rows={3} {...register("notes")} className={textareaClass} />
+        </section>
 
-        <div className="sticky bottom-0 bg-white border-t py-4 px-1 flex items-center justify-between gap-3">
-          <Button type="button" variant="ghost" onClick={handleCancel}>Cancel</Button>
-          <Button type="submit" disabled={isSubmitting} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px]">
+        <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-slate-200 bg-white/95 px-6 py-4 backdrop-blur">
+          <Button type="button" variant="ghost" onClick={handleCancel} className="text-slate-600 hover:bg-slate-100 hover:text-slate-950">Cancel</Button>
+          <Button type="submit" disabled={isSubmitting} className="min-w-[210px] bg-blue-600 text-white hover:bg-blue-700">
             {isSubmitting ? "Submitting..." : "Submit Maintenance Request"}
           </Button>
         </div>

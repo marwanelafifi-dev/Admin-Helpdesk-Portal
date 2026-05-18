@@ -150,7 +150,7 @@ export function TopBar() {
   const displayCount = Math.min(unreadCount, 99)
 
   return (
-    <header className="glass-panel sticky top-0 z-20 h-16 border-b border-white/60 shadow-[0_16px_38px_-30px_rgba(15,23,42,0.45)] flex items-center justify-between px-6 flex-shrink-0">
+    <header className="glass-panel sticky top-0 z-20 h-16 border-b border-border/60 shadow-[0_16px_38px_-30px_rgba(15,23,42,0.45)] dark:shadow-[0_16px_38px_-30px_rgba(0,0,0,0.6)] flex items-center justify-between px-6 flex-shrink-0">
       {/* Left: brand */}
       <div className="flex items-center gap-2">
         <span className="text-sm text-muted-foreground font-medium">
@@ -167,7 +167,7 @@ export function TopBar() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative">
-              <Bell className="h-5 w-5 text-slate-600" />
+              <Bell className="h-5 w-5 text-muted-foreground" />
               {unreadCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow-[0_10px_24px_-10px_rgba(239,68,68,0.85)]">
                   {displayCount}
@@ -200,8 +200,8 @@ export function TopBar() {
               recentNotifications.map((notification) => (
                 <DropdownMenuItem
                   key={notification.id}
-                  className={`flex flex-col items-start gap-0.5 cursor-pointer p-3 hover:bg-gray-100 ${
-                    !notification.read ? "bg-blue-50" : ""
+                  className={`flex flex-col items-start gap-0.5 cursor-pointer p-3 hover:bg-accent transition-colors ${
+                    !notification.read ? "bg-primary/5 dark:bg-primary/10" : ""
                   }`}
                   onClick={() =>
                     handleMarkAsRead(notification.id, notification.link)
@@ -235,7 +235,7 @@ export function TopBar() {
         {/* User Avatar + Name */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="interactive-lift flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-gray-100/90 transition-all duration-200">
+            <button className="interactive-lift flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-accent transition-all duration-200">
               <Avatar className="h-8 w-8">
                 {image && <AvatarImage src={image} alt={name} />}
                 <AvatarFallback className="bg-blue-600 text-white text-xs font-semibold shadow-[0_12px_24px_-12px_rgba(37,99,235,0.85)]">

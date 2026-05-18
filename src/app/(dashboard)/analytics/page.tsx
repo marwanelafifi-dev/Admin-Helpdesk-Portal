@@ -7,7 +7,7 @@ import {
 } from "recharts"
 import {
   TrendingUp, TrendingDown, CheckCircle2, Clock, AlertTriangle,
-  Activity, Package, Users, BarChart3, Target, RefreshCw,
+  Activity, Package, Users, BarChart3, Target, RefreshCw, Download,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
@@ -92,13 +92,13 @@ interface KPICardProps {
 
 function KPICard({ title, value, subtitle, icon: Icon, color, bg, trend }: KPICardProps) {
   return (
-    <Card className="border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+    <Card className="border border-border shadow-sm hover:shadow-md transition-shadow">
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{title}</p>
-            <p className="text-3xl font-bold mt-2 tracking-tight text-gray-900">{value}</p>
-            {subtitle && <p className="text-[11px] text-gray-400 mt-0.5">{subtitle}</p>}
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{title}</p>
+            <p className="text-3xl font-bold mt-2 tracking-tight text-foreground">{value}</p>
+            {subtitle && <p className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</p>}
             {trend && (
               <div className={cn(
                 "inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full text-xs font-semibold",
@@ -125,13 +125,13 @@ function ChartTooltip({ active, payload, label }: {
 }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-lg px-4 py-3 text-sm">
-      {label && <p className="font-semibold text-gray-700 mb-2">{label}</p>}
+    <div className="bg-popover border border-border rounded-xl shadow-lg px-4 py-3 text-sm">
+      {label && <p className="font-semibold text-popover-foreground mb-2">{label}</p>}
       {payload.map((p, i) => (
         <div key={i} className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
-          <span className="text-gray-500">{p.name}:</span>
-          <span className="font-medium text-gray-800">{p.value}</span>
+          <span className="text-muted-foreground">{p.name}:</span>
+          <span className="font-medium text-popover-foreground">{p.value}</span>
         </div>
       ))}
     </div>
@@ -142,9 +142,9 @@ function ChartTooltip({ active, payload, label }: {
 
 function EmptyChart({ message = "No data yet — analytics will populate as requests come in" }: { message?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center h-44 text-gray-300 select-none">
-      <BarChart3 className="h-12 w-12 mb-3 opacity-40" />
-      <p className="text-sm text-gray-400 text-center max-w-48 leading-relaxed">{message}</p>
+    <div className="flex flex-col items-center justify-center h-44 select-none">
+      <BarChart3 className="h-12 w-12 mb-3 text-muted-foreground opacity-40" />
+      <p className="text-sm text-muted-foreground text-center max-w-48 leading-relaxed">{message}</p>
     </div>
   )
 }
@@ -156,6 +156,24 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true)
   const [range, setRange] = useState("90")
   const [refreshKey, setRefreshKey] = useState(0)
+  const [exporting, setExporting] = useState(false)
+
+  const exportData = useCallback(async (format: "csv" | "json") => {
+    setExporting(true)
+    try {
+      const res = await fetch(`/api/analytics/export?format=${format}&days=${range}`)
+      if (!res.ok) return
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `analytics-${new Date().toISOString().split("T")[0]}.${format}`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setExporting(false)
+    }
+  }, [range])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -178,13 +196,13 @@ export default function AnalyticsPage() {
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">Analytics & Insights</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Analytics & Insights</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Request performance, resolution trends, and workload distribution — visible to managers and above
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center bg-gray-100 rounded-xl p-1 gap-0.5">
+          <div className="flex items-center bg-muted rounded-xl p-1 gap-0.5">
             {RANGE_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
@@ -192,8 +210,8 @@ export default function AnalyticsPage() {
                 className={cn(
                   "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
                   range === opt.value
-                    ? "bg-white text-blue-600 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
+                    ? "bg-card text-blue-600 shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 {opt.label}
@@ -203,11 +221,35 @@ export default function AnalyticsPage() {
           <button
             onClick={() => setRefreshKey((k) => k + 1)}
             disabled={loading}
-            className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="p-2 rounded-xl border border-border text-muted-foreground hover:bg-accent transition-colors disabled:opacity-50"
             title="Refresh data"
           >
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
           </button>
+
+          <div className="relative group">
+            <button
+              disabled={exporting || loading}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              <Download className="h-4 w-4" />
+              {exporting ? "Exporting…" : "Export"}
+            </button>
+            <div className="absolute right-0 top-full mt-1 w-36 bg-popover border border-border rounded-xl shadow-lg overflow-hidden z-10 hidden group-hover:block">
+              <button
+                onClick={() => void exportData("csv")}
+                className="w-full text-left px-4 py-2.5 text-sm text-popover-foreground hover:bg-accent transition-colors font-medium"
+              >
+                CSV (Excel)
+              </button>
+              <button
+                onClick={() => void exportData("json")}
+                className="w-full text-left px-4 py-2.5 text-sm text-popover-foreground hover:bg-accent transition-colors font-medium"
+              >
+                JSON
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -260,12 +302,12 @@ export default function AnalyticsPage() {
       {/* ── Volume Trend + Status Breakdown ────────────────────────────── */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
 
-        <Card className="xl:col-span-2 border border-gray-100 shadow-sm">
+        <Card className="xl:col-span-2 border border-border shadow-sm">
           <CardHeader className="pb-1">
-            <CardTitle className="flex items-center gap-2 text-base font-semibold text-gray-800">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
               <TrendingUp className="h-4 w-4 text-blue-500" /> Monthly Request Volume
             </CardTitle>
-            <p className="text-xs text-gray-400">12-month rolling view — total vs completed vs cancelled</p>
+            <p className="text-xs text-muted-foreground">12-month rolling view — total vs completed vs cancelled</p>
           </CardHeader>
           <CardContent>
             {!hasData && !loading ? <EmptyChart /> : (
@@ -281,9 +323,9 @@ export default function AnalyticsPage() {
                       <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} allowDecimals={false} />
                   <Tooltip content={<ChartTooltip />} />
                   <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
                   <Area type="monotone" dataKey="total"     name="Total"     stroke="#3b82f6" strokeWidth={2} fill="url(#totalGrad)"     dot={false} />
@@ -295,12 +337,12 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border border-gray-100 shadow-sm">
+        <Card className="border border-border shadow-sm">
           <CardHeader className="pb-1">
-            <CardTitle className="flex items-center gap-2 text-base font-semibold text-gray-800">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
               <Activity className="h-4 w-4 text-violet-500" /> Status Breakdown
             </CardTitle>
-            <p className="text-xs text-gray-400">Current distribution across all statuses</p>
+            <p className="text-xs text-muted-foreground">Current distribution across all statuses</p>
           </CardHeader>
           <CardContent>
             {!hasData && !loading ? <EmptyChart /> : (
@@ -319,7 +361,7 @@ export default function AnalyticsPage() {
                     </Pie>
                     <Tooltip
                       formatter={(v: number, name: string) => [v, STATUS_LABELS[name] ?? name]}
-                      contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }}
+                      contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))", fontSize: 12, background: "hsl(var(--popover))", color: "hsl(var(--popover-foreground))" }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -345,12 +387,12 @@ export default function AnalyticsPage() {
       {/* ── Module Performance ──────────────────────────────────────────── */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 
-        <Card className="border border-gray-100 shadow-sm">
+        <Card className="border border-border shadow-sm">
           <CardHeader className="pb-1">
-            <CardTitle className="flex items-center gap-2 text-base font-semibold text-gray-800">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
               <BarChart3 className="h-4 w-4 text-blue-500" /> Module Completion Rate
             </CardTitle>
-            <p className="text-xs text-gray-400">Percentage of requests fully resolved, per module</p>
+            <p className="text-xs text-muted-foreground">Percentage of requests fully resolved, per module</p>
           </CardHeader>
           <CardContent>
             {!hasData && !loading ? <EmptyChart /> : (
@@ -360,17 +402,17 @@ export default function AnalyticsPage() {
                   layout="vertical"
                   margin={{ top: 0, right: 30, left: 10, bottom: 0 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-                  <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} unit="%" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" horizontal={false} />
+                  <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} unit="%" />
                   <YAxis
                     type="category" dataKey="module"
-                    tick={{ fontSize: 12, fill: "#475569" }}
+                    tick={{ fontSize: 12, fill: "hsl(var(--foreground))" }}
                     axisLine={false} tickLine={false} width={85}
                     tickFormatter={(v: string) => v.charAt(0).toUpperCase() + v.slice(1)}
                   />
                   <Tooltip
                     formatter={(v: number) => [`${v}%`, "Completion Rate"]}
-                    contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }}
+                    contentStyle={{ borderRadius: 12, border: "1px solid hsl(var(--border))", fontSize: 12, background: "hsl(var(--popover))", color: "hsl(var(--popover-foreground))" }}
                   />
                   <Bar dataKey="completionRate" radius={[0, 6, 6, 0]} name="Completion Rate">
                     {(data?.moduleStats ?? []).map((entry, i) => (
@@ -383,35 +425,35 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border border-gray-100 shadow-sm">
+        <Card className="border border-border shadow-sm">
           <CardHeader className="pb-1">
-            <CardTitle className="flex items-center gap-2 text-base font-semibold text-gray-800">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
               <Package className="h-4 w-4 text-orange-500" /> Module Performance Summary
             </CardTitle>
-            <p className="text-xs text-gray-400">Volume, completion rate, and avg resolution per module</p>
+            <p className="text-xs text-muted-foreground">Volume, completion rate, and avg resolution per module</p>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50/60">
-                    <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Module</th>
-                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Total</th>
-                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Done</th>
-                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Rate</th>
-                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Avg Days</th>
+                  <tr className="border-b border-border bg-muted/30">
+                    <th className="text-left px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Module</th>
+                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Total</th>
+                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Done</th>
+                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Rate</th>
+                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Avg Days</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(data?.moduleStats ?? []).map((m, i) => (
-                    <tr key={i} className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors">
+                    <tr key={i} className="border-b border-border/40 hover:bg-accent/40 transition-colors">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: MODULE_COLORS[m.module] ?? "#94a3b8" }} />
-                          <span className="font-medium text-gray-700 capitalize">{m.module}</span>
+                          <span className="font-medium text-foreground capitalize">{m.module}</span>
                         </div>
                       </td>
-                      <td className="text-right px-4 py-3 text-gray-600 font-medium">{m.total}</td>
+                      <td className="text-right px-4 py-3 text-foreground font-medium">{m.total}</td>
                       <td className="text-right px-4 py-3 text-emerald-600 font-medium">{m.completed}</td>
                       <td className="text-right px-4 py-3">
                         <span className={cn(
@@ -424,7 +466,7 @@ export default function AnalyticsPage() {
                           {m.total === 0 ? "—" : `${m.completionRate}%`}
                         </span>
                       </td>
-                      <td className="text-right px-4 py-3 text-gray-500 text-xs">
+                      <td className="text-right px-4 py-3 text-muted-foreground text-xs">
                         {m.avgResolutionDays > 0 ? `${m.avgResolutionDays}d` : "—"}
                       </td>
                     </tr>
@@ -439,20 +481,20 @@ export default function AnalyticsPage() {
       {/* ── Resolution Time + Day Pattern ───────────────────────────────── */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
 
-        <Card className="border border-gray-100 shadow-sm">
+        <Card className="border border-border shadow-sm">
           <CardHeader className="pb-1">
-            <CardTitle className="flex items-center gap-2 text-base font-semibold text-gray-800">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
               <Clock className="h-4 w-4 text-teal-500" /> Resolution Time Distribution
             </CardTitle>
-            <p className="text-xs text-gray-400">How long it takes to close requests — SLA target is 7 days</p>
+            <p className="text-xs text-muted-foreground">How long it takes to close requests — SLA target is 7 days</p>
           </CardHeader>
           <CardContent>
             {!hasData && !loading ? <EmptyChart /> : (
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={data?.resolutionBuckets ?? []} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="range" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="range" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} allowDecimals={false} />
                   <Tooltip content={<ChartTooltip />} />
                   <Bar dataKey="count" name="Requests" radius={[6, 6, 0, 0]}>
                     {(data?.resolutionBuckets ?? []).map((b, i) => (
@@ -465,20 +507,20 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border border-gray-100 shadow-sm">
+        <Card className="border border-border shadow-sm">
           <CardHeader className="pb-1">
-            <CardTitle className="flex items-center gap-2 text-base font-semibold text-gray-800">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
               <Activity className="h-4 w-4 text-pink-500" /> Submission Day Pattern
             </CardTitle>
-            <p className="text-xs text-gray-400">Which days of the week receive the most requests</p>
+            <p className="text-xs text-muted-foreground">Which days of the week receive the most requests</p>
           </CardHeader>
           <CardContent>
             {!hasData && !loading ? <EmptyChart /> : (
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={data?.dayOfWeekDistribution ?? []} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="day" tick={{ fontSize: 12, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="day" tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} allowDecimals={false} />
                   <Tooltip content={<ChartTooltip />} />
                   <Bar dataKey="count" name="Requests" radius={[6, 6, 0, 0]}>
                     {(data?.dayOfWeekDistribution ?? []).map((d, i) => (
@@ -493,12 +535,12 @@ export default function AnalyticsPage() {
       </div>
 
       {/* ── Top Requesters ──────────────────────────────────────────────── */}
-      <Card className="border border-gray-100 shadow-sm">
+      <Card className="border border-border shadow-sm">
         <CardHeader className="pb-1">
-          <CardTitle className="flex items-center gap-2 text-base font-semibold text-gray-800">
+          <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
             <Users className="h-4 w-4 text-blue-500" /> Top Requesters
           </CardTitle>
-          <p className="text-xs text-gray-400">Users with the highest request volume in the selected period</p>
+          <p className="text-xs text-muted-foreground">Users with the highest request volume in the selected period</p>
         </CardHeader>
         <CardContent className="p-0">
           {!hasData && !loading ? (
@@ -507,18 +549,18 @@ export default function AnalyticsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50/60">
-                    <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider w-12">Rank</th>
-                    <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Name</th>
-                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Submitted</th>
-                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Completed</th>
-                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Rate</th>
+                  <tr className="border-b border-border bg-muted/30">
+                    <th className="text-left px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider w-12">Rank</th>
+                    <th className="text-left px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Name</th>
+                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Submitted</th>
+                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Completed</th>
+                    <th className="text-right px-4 py-3 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Rate</th>
                     <th className="px-4 py-3 w-28"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {(data?.topRequesters ?? []).map((u, i) => (
-                    <tr key={i} className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors">
+                    <tr key={i} className="border-b border-border/40 hover:bg-accent/40 transition-colors">
                       <td className="px-4 py-3">
                         <span className={cn(
                           "h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold",
@@ -529,7 +571,7 @@ export default function AnalyticsPage() {
                           {i + 1}
                         </span>
                       </td>
-                      <td className="px-4 py-3 font-medium text-gray-800">{u.name}</td>
+                      <td className="px-4 py-3 font-medium text-foreground">{u.name}</td>
                       <td className="text-right px-4 py-3 text-gray-600 font-semibold">{u.total}</td>
                       <td className="text-right px-4 py-3 text-emerald-600 font-medium">{u.completed}</td>
                       <td className="text-right px-4 py-3">
@@ -542,7 +584,7 @@ export default function AnalyticsPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="w-full bg-gray-100 rounded-full h-1.5">
+                        <div className="w-full bg-muted rounded-full h-1.5">
                           <div
                             className="h-1.5 rounded-full bg-blue-500 transition-all"
                             style={{ width: `${u.completionRate}%` }}

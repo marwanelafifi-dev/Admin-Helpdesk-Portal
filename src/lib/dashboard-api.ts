@@ -38,7 +38,13 @@ export interface DashboardResponse {
 export async function fetchDashboardData(): Promise<DashboardResponse> {
   const response = await fetch('/api/dashboard')
   if (!response.ok) {
-    throw new Error('Failed to fetch dashboard data')
+    if (response.status === 401) {
+      throw new Error('Please sign in to view dashboard data.')
+    }
+    if (response.status === 403) {
+      throw new Error('Your account does not have access to the dashboard.')
+    }
+    throw new Error('Failed to fetch dashboard data.')
   }
   return response.json()
 }

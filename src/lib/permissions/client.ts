@@ -13,7 +13,8 @@ export const PERMISSIONS = {
 
 export function can(role: string | undefined, perm: keyof typeof PERMISSIONS): boolean {
   if (!role) return false
-  return (PERMISSIONS[perm] as readonly string[]).includes(role)
+  const allowedRoles = PERMISSIONS[perm]
+  return !!allowedRoles && (allowedRoles as readonly string[]).includes(role)
 }
 
 export function isRestricted(role: string | undefined): boolean {

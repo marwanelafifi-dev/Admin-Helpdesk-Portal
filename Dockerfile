@@ -5,8 +5,14 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Disable SSL verification for package downloads (corporate proxy workaround)
-ENV NODE_TLS_REJECT_UNAUTHORIZED=0
+# Disable SSL verification only during build for corporate proxy environments
+# This is NOT carried into the runtime image
+ARG NODE_TLS_REJECT_UNAUTHORIZED=0
+ENV NODE_TLS_REJECT_UNAUTHORIZED=${NODE_TLS_REJECT_UNAUTHORIZED}
+
+# Force Prisma to use binary engine instead of WASM (required for Alpine Linux)
+ENV PRISMA_CLI_QUERY_ENGINE_TYPE=binary
+ENV PRISMA_CLIENT_ENGINE_TYPE=binary
 
 # Install build dependencies
 RUN apk add --no-cache python3 make g++ openssl
@@ -14,15 +20,16 @@ RUN apk add --no-cache python3 make g++ openssl
 # Copy package files first for layer caching
 COPY package.json package-lock.json ./
 
+# Copy prisma schema before npm install so @prisma/client generates correctly
+COPY prisma ./prisma
+
 # Configure npm to skip SSL verification and install dependencies
 RUN npm config set strict-ssl false && \
     npm ci --legacy-peer-deps && \
+    npm install @prisma/client --legacy-peer-deps && \
     npm cache clean --force
 
-# Copy prisma schema early for client generation
-COPY prisma ./prisma
-
-# Generate Prisma client before build
+# Generate Prisma client after node_modules are installed
 RUN npx prisma generate
 
 # Copy source code
@@ -44,8 +51,8 @@ WORKDIR /app
 # Install only runtime dependencies
 RUN apk add --no-cache libc6-compat openssl dumb-init
 
-# Create non-root user for security (optional, can be used with different approach)
-# RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 
 # Copy built application from builder (standalone includes all dependencies)
 COPY --from=builder /app/.next/standalone ./
@@ -58,7 +65,9 @@ COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh && \
     mkdir -p /app/node_modules/next/next-swc-fallback /app/.next/cache /app/.next/cache/swc && \
     chmod -R 755 /app && \
-    chmod -R 777 /app/node_modules /app/.next /app/.next/cache
+    chown -R nextjs:nodejs /app
+
+USER nextjs
 
 # Set environment variables
 ENV NODE_ENV=production

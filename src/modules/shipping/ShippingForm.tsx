@@ -270,7 +270,7 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 max-w-4xl mx-auto pb-12">
+    <form onSubmit={handleSubmit(onSubmit)} className="request-form space-y-5">
       {submitSuccess && (
         <div
           role="status"

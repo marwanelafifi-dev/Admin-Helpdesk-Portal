@@ -1,34 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { prisma } from '@/server/db'
 
-/**
- * PATCH /api/notifications/[id]
- * Mark notification as read
- */
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params
-
-    const userId = req.headers.get('x-user-id')
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID required' },
-        { status: 401 }
-      )
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const notification = await prisma.notification.findUnique({
-      where: { id },
-    })
+    const { id } = await params
+    const notification = await prisma.notification.findUnique({ where: { id } })
 
-    if (!notification || notification.userId !== userId) {
-      return NextResponse.json(
-        { error: 'Notification not found' },
-        { status: 404 }
-      )
+    if (!notification || notification.userId !== session.user.id) {
+      return NextResponse.json({ error: 'Notification not found' }, { status: 404 })
     }
 
     const updated = await prisma.notification.update({
@@ -39,52 +28,31 @@ export async function PATCH(
     return NextResponse.json(updated)
   } catch (error) {
     console.error('Failed to update notification:', error)
-    return NextResponse.json(
-      { error: 'Failed to update notification' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to update notification' }, { status: 500 })
   }
 }
 
-/**
- * DELETE /api/notifications/[id]
- */
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { id } = await params
+    const notification = await prisma.notification.findUnique({ where: { id } })
 
-    const userId = req.headers.get('x-user-id')
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID required' },
-        { status: 401 }
-      )
+    if (!notification || notification.userId !== session.user.id) {
+      return NextResponse.json({ error: 'Notification not found' }, { status: 404 })
     }
 
-    const notification = await prisma.notification.findUnique({
-      where: { id },
-    })
-
-    if (!notification || notification.userId !== userId) {
-      return NextResponse.json(
-        { error: 'Notification not found' },
-        { status: 404 }
-      )
-    }
-
-    await prisma.notification.delete({
-      where: { id },
-    })
-
+    await prisma.notification.delete({ where: { id } })
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Failed to delete notification:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete notification' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to delete notification' }, { status: 500 })
   }
 }

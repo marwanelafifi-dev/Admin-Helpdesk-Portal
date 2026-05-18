@@ -364,7 +364,7 @@ export default function AllRequestsPage() {
               onClick={() => setStatusFilter(key === "all" ? "all" : (p) => p === key ? "all" : key)}
               className={cn(
                 "text-left rounded-xl border-2 p-5 flex items-center gap-4 transition-all hover:shadow-md",
-                isActive ? `${activeBg} ${activeBorder} text-white shadow-sm` : "bg-white border-gray-100 hover:border-gray-200"
+                isActive ? `${activeBg} ${activeBorder} text-white shadow-sm` : "bg-card border-border hover:border-primary/40 dark:hover:border-primary/60"
               )}
             >
               <div className={cn("h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all", isActive ? "bg-white/20" : iconBg)}>
@@ -552,7 +552,7 @@ export default function AllRequestsPage() {
                   key={req.id}
                   className={cn(
                     "border-b border-gray-100 hover:bg-blue-50/30 transition-colors",
-                    i % 2 === 0 ? "bg-white" : "bg-gray-50/40"
+                    i % 2 === 0 ? "bg-card" : "bg-muted/20"
                   )}
                 >
                   {isAdmin && (

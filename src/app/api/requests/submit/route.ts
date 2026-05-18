@@ -55,6 +55,15 @@ export async function POST(req: NextRequest) {
         status,
         requesterId: userId,
         payload,
+        statusHistory: [
+          {
+            status,
+            changedBy: userId,
+            changedByName: userName,
+            changedAt: new Date().toISOString(),
+            comment: "Submitted via form",
+          },
+        ],
       },
     })
 
@@ -94,7 +103,7 @@ export async function POST(req: NextRequest) {
 
       // Create admin notifications in a single query (avoids N+1)
       const admins = await prisma.user.findMany({
-        where: { role: 'admin' },
+        where: { role: { in: ['admin', 'super_admin'] } },
         select: { id: true },
       })
 

@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
+  engineType = "binary"
 }
 
 datasource db {
@@ -46,12 +47,15 @@ model User {
   customPermissions Json?
   requests      Request[]
   notifications Notification[]
+  conversations Conversation[]
 
   accounts      Account[]
   sessions      Session[]
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  @@index([role])
 }
 
 model Request {
@@ -165,6 +169,29 @@ model RolePermission {
   @@unique([role, permission])
 }
 
+// ─── AI Conversations ─────────────────────────────────────────────────────────
+//
+// Stores the full message history for each AI Assistant conversation.
+// `messages` is a JSON array of { role, content } objects — the same shape
+// the client sends in `history` and the orchestrator passes to Groq.
+//
+// Connection-pooling note:
+//   The singleton getPrisma() helper reuses one PrismaClient across hot-reloads
+//   in development and across warm serverless invocations in production.
+//   This is the correct pattern for PostgreSQL + Prisma in Next.js.
+
+model Conversation {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String?
+  messages  Json     @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, updatedAt])
+}
+
 // ─── Audit Logs ───────────────────────────────────────────────────────────
 
 model AuditLog {
@@ -180,4 +207,5 @@ model AuditLog {
   
   @@index([module, recordId])
   @@index([userId, createdAt])
+  @@index([userId, action, createdAt])
 }

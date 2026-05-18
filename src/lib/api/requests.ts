@@ -111,11 +111,7 @@ export async function createRequest(
 ): Promise<{ ok: true; data: EngineRequest } | { ok: false; error: string }> {
   const res = await fetch(`/api/requests/submit`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-user-id": meta.requesterId || "",
-      "x-user-name": meta.requesterName || "",
-    },
+    headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify({
       module,

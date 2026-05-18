@@ -185,7 +185,7 @@ export default function PurchasePage() {
               onClick={() => setStatusFilter(key === "all" ? "all" : (p) => p === key ? "all" : key)}
               className={cn(
                 "text-left rounded-lg border-2 p-3 flex flex-col items-start gap-2 transition-all hover:shadow-sm",
-                isActive ? `${activeBg} ${activeBorder} text-white shadow-sm` : "bg-white border-gray-100 hover:border-gray-200"
+                isActive ? `${activeBg} ${activeBorder} text-white shadow-sm` : "bg-card border-border hover:border-primary/40 dark:hover:border-primary/60"
               )}
             >
               <div className={cn("h-8 w-8 rounded flex items-center justify-center flex-shrink-0 transition-all", isActive ? "bg-white/20" : iconBg)}>
@@ -265,7 +265,7 @@ export default function PurchasePage() {
             </thead>
             <tbody>
               {filtered.map((req, i) => (
-                <tr key={req.id} className={cn("border-b border-gray-100 hover:bg-blue-50/30 transition-colors", i % 2 === 0 ? "bg-white" : "bg-gray-50/40")}>
+                <tr key={req.id} className={cn("border-b border-border hover:bg-accent/30 transition-colors", i % 2 === 0 ? "bg-card" : "bg-muted/20")}>
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.id}</span>
                   </td>

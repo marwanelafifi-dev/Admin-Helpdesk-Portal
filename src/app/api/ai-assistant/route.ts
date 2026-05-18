@@ -1,201 +1,215 @@
+/**
+ * POST /api/ai-assistant
+ *
+ * Thin route — all business logic lives in the orchestrator and tools.
+ * This route handles:
+ *   1. Authentication
+ *   2. Input validation
+ *   3. Per-user rate limiting
+ *   4. Loading conversation history from DB (server-authoritative)
+ *   5. Running the agentic loop
+ *   6. Persisting conversation (awaited — no race condition)
+ *   7. Returning typed response
+ */
+
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/options"
 import { getPrisma } from "@/server/engine/prisma"
-import type { Prisma } from "@prisma/client"
+import { runAgent } from "@/lib/agent/orchestrator"
+import { AgentError, RateLimitError } from "@/lib/errors"
+import type { AgentRequestBody, AgentResponseBody } from "@/lib/agent/types"
 
-const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-const MODEL = "llama-3.1-8b-instant"
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
 
-const SYSTEM_PROMPT = `You are a helpful assistant for the Admin Request Platform (ARP) at SI-Ware.
-Your job is to help employees submit requests by asking them the right questions and submitting on their behalf.
+// ─── In-memory rate limiter ───────────────────────────────────────────────────
+// 20 messages / user / 60 s.  Replace Map with Redis INCR+EXPIRE for multi-instance.
 
-Available request modules and their required fields:
+interface RateBucket { count: number; resetAt: number }
+const rateBuckets = new Map<string, RateBucket>()
+const RATE_LIMIT  = 20
+const WINDOW_MS   = 60_000
 
-1. SHIPPING - For sending packages or documents
-   Required: title, recipientName, recipientAddress, carrier (DHL/FedEx/UPS/Aramex/Other), description
-   Optional: trackingNumber, weight, notes
-
-2. MAINTENANCE - For reporting facility or equipment issues
-   Required: title, location, issueDescription, priority (high/medium/low)
-   Optional: notes
-
-3. PURCHASE - For buying items or services
-   Required: title, itemDescription, quantity, estimatedPrice, supplier
-   Optional: notes, budgetCode
-
-4. EVENT - For organizing company events
-   Required: title, eventDate (YYYY-MM-DD), eventLocation, attendeesCount, eventDescription
-   Optional: notes
-
-5. TRAVEL - For business travel requests
-   Required: title, destination, travelDate (YYYY-MM-DD), returnDate (YYYY-MM-DD), travelPurpose
-   Optional: notes, hotelRequired
-
-6. HR - For HR requests (onboarding or offboarding)
-   Required: title, hrType (onboarding/offboarding), employeeName, employeeId, department, jobTitle
-   Optional: notes, startDate or lastWorkingDay
-
-Guidelines:
-- Greet the user and ask what type of request they need
-- Ask questions ONE AT A TIME — don't ask multiple questions at once
-- Be friendly, concise, and professional
-- Support both English and Arabic naturally
-- Once you have ALL required fields, call the submit_request function
-- Always confirm what you're about to submit before calling the function
-- If user says something unclear, ask for clarification`
-
-const TOOLS = [
-  {
-    type: "function",
-    function: {
-      name: "submit_request",
-      description: "Submit a request on behalf of the user after collecting all required information",
-      parameters: {
-        type: "object",
-        properties: {
-          module: {
-            type: "string",
-            enum: ["shipping", "maintenance", "purchase", "event", "travel", "hr"],
-            description: "The module/type of the request"
-          },
-          title: {
-            type: "string",
-            description: "A clear title for the request"
-          },
-          payload: {
-            type: "object",
-            description: "All collected field values for this request"
-          }
-        },
-        required: ["module", "title", "payload"]
-      }
-    }
+function checkRateLimit(userId: string): void {
+  const now    = Date.now()
+  const bucket = rateBuckets.get(userId)
+  if (!bucket || now > bucket.resetAt) {
+    rateBuckets.set(userId, { count: 1, resetAt: now + WINDOW_MS })
+    return
   }
-]
+  if (bucket.count >= RATE_LIMIT) throw new RateLimitError()
+  bucket.count++
+}
+
+// ─── Route handler ────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  // 1. Auth ──────────────────────────────────────────────────────────────────
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const apiKey = process.env.GROQ_API_KEY
-  if (!apiKey) {
-    return NextResponse.json({ error: "AI assistant not configured" }, { status: 503 })
+  const apiKeys = {
+    openai: process.env.OPENAI_API_KEY  || undefined,
+    groq:   process.env.GROQ_API_KEY    || undefined,
+  }
+  if (!apiKeys.groq && !apiKeys.openai) {
+    return NextResponse.json(
+      { error: "AI assistant is not configured. Contact your administrator." },
+      { status: 503 },
+    )
   }
 
-  const { messages } = await req.json() as { messages: { role: string; content: string }[] }
-
+  // 2. Parse & validate body ─────────────────────────────────────────────────
+  let body: AgentRequestBody
   try {
-    // Call Groq API
-    const groqRes = await fetch(GROQ_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          ...messages,
-        ],
-        tools: TOOLS,
-        tool_choice: "auto",
-        temperature: 0.7,
-        max_tokens: 1024,
-      }),
-    })
-
-    if (!groqRes.ok) {
-      const err = await groqRes.text()
-      console.error("[ai-assistant] Groq error:", err)
-      return NextResponse.json({ error: "AI service error" }, { status: 502 })
-    }
-
-    const groqData = await groqRes.json() as {
-      choices: Array<{
-        message: {
-          role: string
-          content: string | null
-          tool_calls?: Array<{
-            id: string
-            function: { name: string; arguments: string }
-          }>
-        }
-        finish_reason: string
-      }>
-    }
-
-    const choice = groqData.choices[0]
-    const message = choice.message
-
-    // If AI wants to submit a request
-    if (message.tool_calls && message.tool_calls.length > 0) {
-      const toolCall = message.tool_calls[0]
-      const args = JSON.parse(toolCall.function.arguments) as {
-        module: string
-        title: string
-        payload: Record<string, unknown>
-      }
-      args.module = args.module.toLowerCase()
-
-      // Submit the request via existing API
-      const prisma = getPrisma()
-      const newRequest = await prisma.request.create({
-        data: {
-          module: args.module,
-          title: args.title,
-          status: "new",
-          payload: args.payload as Prisma.InputJsonValue,
-          requesterId: session.user.id,
-          statusHistory: [
-            {
-              status: "new",
-              changedBy: session.user.id,
-              changedByName: session.user.name ?? session.user.email ?? "AI Assistant",
-              changedAt: new Date().toISOString(),
-              comment: "Submitted via AI Assistant",
-            },
-          ] as Prisma.InputJsonValue,
-        },
-      })
-
-      // Create notification for admins
-      const adminUsers = await prisma.user.findMany({
-        where: { role: "admin" },
-        select: { id: true },
-      })
-      if (adminUsers.length > 0) {
-        await prisma.notification.createMany({
-          data: adminUsers.map((admin) => ({
-            type: "admin_alert" as const,
-            title: `New ${args.module} Request: ${args.title}`,
-            message: `${session.user.name ?? session.user.email} submitted a new request via AI Assistant.`,
-            userId: admin.id,
-            requestId: newRequest.id,
-            link: `/${args.module}/${newRequest.id}`,
-          })),
-        })
-      }
-
-      return NextResponse.json({
-        role: "assistant",
-        content: `✅ تم إرسال طلبك بنجاح!\n\n**Request ID:** ${newRequest.id}\n**Module:** ${args.module.toUpperCase()}\n**Title:** ${args.title}\n\nسيتم إشعار فريق الإدارة الآن. يمكنك متابعة طلبك من صفحة "My Requests".`,
-        requestId: newRequest.id,
-        module: args.module,
-      })
-    }
-
-    // Normal text response
-    return NextResponse.json({
-      role: "assistant",
-      content: message.content ?? "Sorry, I couldn't process that. Please try again.",
-    })
-
-  } catch (err) {
-    console.error("[ai-assistant] Error:", err)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    body = (await req.json()) as AgentRequestBody
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
   }
+
+  const message = body.message?.trim()
+  if (!message) {
+    return NextResponse.json({ error: "message is required" }, { status: 400 })
+  }
+  if (message.length > 2000) {
+    return NextResponse.json(
+      { error: "Message too long (max 2000 characters)" },
+      { status: 400 },
+    )
+  }
+
+  const conversationId = body.conversationId ?? null
+
+  // 3. Rate limit ────────────────────────────────────────────────────────────
+  try {
+    checkRateLimit(session.user.id)
+  } catch (err) {
+    if (err instanceof AgentError) {
+      return NextResponse.json({ error: err.message }, { status: err.statusCode })
+    }
+    throw err
+  }
+
+  // 4. Load conversation history from DB (server-authoritative) ──────────────
+  // Trusting the client's history array would allow fabrication attacks.
+  // We always load from DB when a conversationId is present.
+  const clientHistory = Array.isArray(body.history) ? body.history : []
+  const dbHistory     = conversationId
+    ? await loadConversationHistory(conversationId, session.user.id)
+    : null
+
+  // DB history is authoritative when available; fall back to client history
+  // for the first turn (no ID yet) or when load fails.
+  const effectiveHistory = dbHistory ?? clientHistory
+
+  // 5. Build tool context ────────────────────────────────────────────────────
+  const ctx = {
+    userId:    session.user.id,
+    userName:  session.user.name  ?? "",
+    userEmail: session.user.email ?? "",
+    userRole:  session.user.role  ?? "employee",
+  }
+
+  // 6. Run the agentic loop ─────────────────────────────────────────────────
+  let result: Awaited<ReturnType<typeof runAgent>>
+  try {
+    result = await runAgent(message, effectiveHistory, ctx, apiKeys)
+  } catch (err) {
+    if (err instanceof AgentError) {
+      console.error(`[ai-assistant] AgentError (${err.code}):`, err.message)
+      return NextResponse.json({ error: err.message }, { status: err.statusCode })
+    }
+    console.error("[ai-assistant] Unexpected error:", err)
+    return NextResponse.json(
+      { error: "Something went wrong. Please try again." },
+      { status: 500 },
+    )
+  }
+
+  // 7. Persist conversation (awaited — no race condition) ────────────────────
+  // Awaiting adds ~10–50 ms of DB latency, negligible vs. LLM call duration.
+  const savedId = await persistConversation(
+    conversationId,
+    session.user.id,
+    message,
+    result.content,
+    effectiveHistory,
+  ).catch((err: unknown) => {
+    console.error("[ai-assistant] conversation persist error:", err)
+    return conversationId // degrade gracefully — don't fail the user request
+  })
+
+  // 8. Return response ───────────────────────────────────────────────────────
+  const response: AgentResponseBody = {
+    content:        result.content,
+    conversationId: savedId ?? `tmp-${Date.now()}`,
+    requestId:      result.requestId,
+    requestModule:  result.requestModule,
+  }
+
+  return NextResponse.json(response)
+}
+
+// ─── Load conversation history from DB ────────────────────────────────────────
+
+async function loadConversationHistory(
+  conversationId: string,
+  userId: string,
+): Promise<Array<{ role: "user" | "assistant"; content: string }> | null> {
+  try {
+    const prisma = getPrisma()
+    const conv   = await prisma.conversation.findUnique({
+      where:  { id: conversationId },
+      select: { messages: true, userId: true },
+    })
+
+    // Silently reject if conversation belongs to a different user
+    if (!conv || conv.userId !== userId) return null
+
+    const msgs = conv.messages as Array<{ role: string; content: string }>
+    return msgs
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .map((m)    => ({ role: m.role as "user" | "assistant", content: m.content }))
+  } catch (err) {
+    console.error("[ai-assistant] Failed to load conversation history:", err)
+    return null
+  }
+}
+
+// ─── Persist conversation to DB ───────────────────────────────────────────────
+
+async function persistConversation(
+  conversationId: string | null,
+  userId: string,
+  userMessage: string,
+  assistantReply: string,
+  previousHistory: Array<{ role: "user" | "assistant"; content: string }>,
+): Promise<string> {
+  const prisma = getPrisma()
+
+  const allMessages = [
+    ...previousHistory,
+    { role: "user"      as const, content: userMessage },
+    { role: "assistant" as const, content: assistantReply },
+  ]
+
+  if (conversationId) {
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data:  { messages: allMessages, updatedAt: new Date() },
+    })
+    return conversationId
+  }
+
+  const newConv = await prisma.conversation.create({
+    data: {
+      userId,
+      title:    userMessage.slice(0, 80),
+      messages: allMessages,
+    },
+  })
+  return newConv.id
 }

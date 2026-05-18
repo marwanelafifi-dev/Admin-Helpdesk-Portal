@@ -110,7 +110,7 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 space-y-1 px-2">
+      <nav className="flex-1 overflow-y-auto py-4 space-y-1 px-2 stagger-children">
         {navItems.filter(canSee).map((item) => {
           if (item.children) {
             const isAdmin    = item.title === "Admin"
@@ -124,7 +124,7 @@ export function Sidebar() {
             const visibleChildren = item.children.filter(canSee)
 
             return (
-              <div key={item.title}>
+              <div key={item.title} className="animate-slide-left">
                 <button
                   onClick={() => !collapsed && setExpanded(!expanded)}
                   title={collapsed ? item.title : undefined}
@@ -177,7 +177,7 @@ export function Sidebar() {
               href={item.href}
               title={collapsed ? item.title : undefined}
               className={cn(
-                "interactive-lift flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
+                "animate-slide-left interactive-lift flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
                 collapsed && "justify-center",
                 isActive(item.href)
                   ? "bg-blue-600 text-white shadow-[0_14px_30px_-18px_rgba(59,130,246,0.8)]"

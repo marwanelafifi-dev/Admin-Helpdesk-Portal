@@ -13,9 +13,12 @@
     "lint": "next lint",
     "lint:staged": "node scripts/lint-staged.cjs",
     "test": "vitest run",
-    "test:unit": "vitest run tests/unit tests/integration",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:all": "vitest run && playwright test"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -34,7 +37,7 @@
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
     "lucide-react": "^0.487.0",
-    "next": "^15.1.0",
+    "next": "^16.2.6",
     "next-auth": "^4.24.14",
     "next-themes": "^0.4.6",
     "nodemailer": "^8.0.7",

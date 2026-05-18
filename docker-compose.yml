@@ -70,7 +70,11 @@ services:
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-}
       NOTIFICATION_EMAIL_ADMINS: ${NOTIFICATION_EMAIL_ADMINS:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      AI_MAX_TOKENS: ${AI_MAX_TOKENS:-512}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
     ports:
       - "3003:3003"
     healthcheck:

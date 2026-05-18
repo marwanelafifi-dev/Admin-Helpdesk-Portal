@@ -1,245 +1,193 @@
-# ROADMAP.md: Admin Request Platform
-
-This document tracks the phased development of the Admin Request Platform, moving from the core engine to full module implementation.
+# Admin Request Platform — Master Reference
 
 ## Architecture
 
 ### Frontend (Next.js App Router)
-- UI routes live under `src/app/(dashboard)/...` (module pages + forms).
-- Shared UI layout is under `src/app/(dashboard)/layout.tsx` and `src/components/layout/*`.
+- UI routes: `src/app/(dashboard)/...`
+- Shared layout: `src/app/(dashboard)/layout.tsx`, `src/components/layout/`
 
-### Backend (Built-in API inside Next.js)
-- Route Handlers (Node runtime):
-  - `GET /api/health` -> `src/app/api/health/route.ts`
-  - `GET|POST /api/auth/[...nextauth]` -> `src/app/api/auth/[...nextauth]/route.ts`
-  - Requests CRUD:
-    - `GET|POST /api/requests/:module` -> `src/app/api/requests/[module]/route.ts`
-    - `GET|PATCH|DELETE /api/requests/:module/:id` -> `src/app/api/requests/[module]/[id]/route.ts`
-  - Dev seed (non-production): `POST /api/dev/seed` -> `src/app/api/dev/seed/route.ts`
+### Backend (Next.js Route Handlers — Node runtime)
+| Route | File |
+|-------|------|
+| `GET /api/health` | `src/app/api/health/route.ts` |
+| `GET\|POST /api/auth/[...nextauth]` | `src/app/api/auth/[...nextauth]/route.ts` |
+| `GET\|POST /api/requests/:module` | `src/app/api/requests/[module]/route.ts` |
+| `GET\|PATCH\|DELETE /api/requests/:module/:id` | `src/app/api/requests/[module]/[id]/route.ts` |
+| `GET /api/dashboard` | `src/app/api/dashboard/route.ts` |
+| `GET /api/analytics` | `src/app/api/analytics/route.ts` |
+| `GET\|POST /api/users` | `src/app/api/users/route.ts` |
+| `GET\|POST /api/notifications` | `src/app/api/notifications/route.ts` |
 
-### Persistence (Current + Target)
-- Current store: file-backed JSON
-  - DB file: `.data/arp-db.json` (git-ignored)
-  - Store logic: `src/server/engine/*` (`db.ts`, `store.ts`, `seed.ts`)
-- Target relational store: PostgreSQL + Prisma (same API routes, store implementation can be swapped internally)
+### Database
+- PostgreSQL + Prisma ORM — schema: `prisma/schema.prisma`
+- Singleton client: `src/server/engine/prisma.ts` → `getPrisma()`
+- Shared import: `src/server/db.ts` → `prisma`
 
-### Docker Infrastructure (web + db)
-- Containerizes the Next.js app (frontend + built-in API) and a PostgreSQL database:
-  - `Dockerfile` builds and runs the app on port `3003`.
-  - `docker-compose.yml` runs:
-    - `web` (Next.js) on `3003:3003`
-    - `db` (PostgreSQL) on `5432:5432` with persistent volume `arp_pgdata`
-- Env template: `.env.example` (create local `.env` from it).
-  - `DATABASE_URL` uses docker service host `db`.
-
-### Prisma Connection Pooling (Dev Hot-Reload Safety)
-- Singleton Prisma client is provided:
-  - `src/server/engine/prisma.ts` exports `getPrisma()`.
-- Store-layer usage pattern:
-  - API route -> store function -> `const prisma = getPrisma()` -> Prisma queries.
-- Keep Prisma access centralized in store functions to avoid extra clients.
-
-### Auth (Google Domain Restricted)
-- `next-auth` + Prisma adapter is configured in `src/app/api/auth/[...nextauth]/route.ts`.
-- Domain restriction is enforced in two layers:
-  - Google authorization hint (`hd`) uses `GOOGLE_ALLOWED_DOMAIN`.
-  - `signIn` callback strictly rejects unverified emails or domains outside `GOOGLE_ALLOWED_DOMAIN`.
-## Phase 1: Foundation (Completed)
-- [x] Architecture Planning & Diagramming.
-- [x] Core NestJS Request Engine Setup.
-- [x] Prisma + PostgreSQL Database Integration.
-- [x] Global Dashboard & UI/UX Layout.
-- [x] Authentication & RBAC System (Super Admin, Admin, Manager, Requester, Viewer).
-
-## Phase 2: Core Module Implementation (Current) — UI Complete, Forms Pending
-- [x] **Dashboard — Professional Analytics Redesign:**
-  - [x] Primary KPIs: Total Requests, Active Requests, Completed, Avg Resolution Days — all with trend indicators.
-  - [x] Secondary KPIs: Pending Approvals, Overdue Items (7+ days), Cancellation Rate.
-  - [x] Status breakdown bar chart (Draft/New/On Hold/In Transit/Delivered/Completed/Cancelled).
-  - [x] Module distribution pie chart (all 6 modules with color-coded segments).
-  - [x] Recent activity stream (10 most recent with timestamps, status badges).
-  - [x] Smart alerts panel: overdue count, pending approvals warning, cancellation rate flag, or "All Clear".
-  - [x] Trend indicators (up/down arrows) with comparison labels on all KPI cards.
-- [x] **Shipping Module:** Full CRUD, tracking, and status updates.
-  - [x] Shipping-specific statuses: Draft → New → On Hold → In Transit → Delivered → Completed → Cancelled.
-  - [x] Carrier filter pills (DHL, FedEx, UPS, Aramex, Other).
-  - [x] Stat cards: Total Shipments, On Hold, In Transit, Delivered — clickable, sync with filter.
-  - [x] Sortable + resizable dark slate table header. Zebra rows, dot indicators, footer count.
-- [x] **My Requests Page (Unified View):**
-  - [x] Shows all requests across all modules scoped to the logged-in user (USR-001).
-  - [x] 8 clickable stat cards (Total, Draft, New, On Hold, In Transit, Delivered, Completed, Cancelled) — highlight in status color when active.
-  - [x] Status and Module quick-filter pill rows with per-color active states.
-  - [x] Sortable + resizable dark slate table (native `<table>` + `<colgroup>`).
-  - [x] Columns: Request ID, Request Title, Submission Date, Module, Status, Last Update Date — all sortable and resizable.
-  - [x] Zebra rows, dot indicators, footer count.
-  - [x] Sidebar label: "My Requests".
-- [x] **All Requests Page (Admin View):**
-  - [x] Page at `/admin/all-requests` — shows all requests across all team members.
-  - [x] Title: "All Requests"; sidebar item positioned directly after Dashboard.
-  - [x] Sidebar active highlight scoped to exact path `/admin/all-requests` (does not bleed into Admin parent item).
-  - [x] Overview stat cards: Total Requests, New, On Hold, Completed — clickable.
-  - [x] Quick-filter pills for Module (All, Shipping, Maintenance, Purchase, Event, Travel, HR) and Status (All + 7 statuses + Active special filter).
-  - [x] Active pill highlights in the matching color per module/status.
-  - [x] Sortable + resizable dark slate table. Columns: Request ID, Request Title, Submission Date, Requester Name, Module, Status, Last Update Date.
-  - [x] Search by ID, title, or requester name.
-- [x] **HR Module:**
-  - [x] Zod schema for Onboarding and Offboarding payloads (`hr.schema.ts`).
-  - [x] HR page with All / Onboarding / Offboarding tabs, stat cards, and filtered table.
-  - [x] Sortable + resizable dark slate table. Columns: Request ID, Employee ID, Employee Name, Department, Sector, Type, Status, Last Update Date.
-  - [x] Statuses: New, On Hold, Completed.
-  - [x] Onboarding items: Medical Insurance for New Hire, Access Card, Seating Assignment.
-  - [x] Offboarding items: Desk/Office, Farewell, Close Medical for Leaver, Collect Access Card. Offboarding displayed in red.
-  - [x] 6 mock records (3 onboarding, 3 offboarding) + 2 team records seeded via `initializeMockData`.
-  - [x] Added to sidebar with `UserCog` icon; teal color in My Requests module filter.
-  - [x] `HRForm.tsx` — create form with Onboarding/Offboarding toggle, checkbox items, Zod validation.
-  - [x] `/hr/new` page — accepts `?type=onboarding|offboarding` query param to pre-select form type.
-  - [x] "Add HR Request" dropdown button (blue-600) on HR page — links directly to Onboarding or Offboarding form.
-  - [x] On submit → persists to engine store as `"new"` status → redirects to `/hr`.
-  - [x] Onboarding form fields: Employee Name, Employee ID, Mobile Number, National ID Number, Job Title, Employment Type, Direct Manager, Sector, Department, Entity, Start Date, Items, Attachments, Notes.
-  - [x] Offboarding form fields: Employee Name, Employee ID, Job Title, Employment Type, Direct Manager, Department, Sector, Last Working Day, Items, Attachments, Notes.
-- [x] **Maintenance Module page** — formal redesign + real mock data:
-  - [x] 4 clickable stat cards: Total Tickets, New, In Progress, Completed.
-  - [x] Status filter pills + search. Sortable + resizable dark slate table.
-  - [x] Columns: Request ID, Request Title, Submission Date, Requester Name, Priority (color-coded High/Medium/Low), Status, Last Update Date.
-  - [x] 5 mock records across all statuses. "Coming soon" message preserved below table.
-  - [ ] Define Zod Schema for ticket fields.
-  - [ ] Build full create form + NestJS CRUD endpoints.
-- [x] **Purchase Module page** — formal redesign + real mock data:
-  - [x] 4 clickable stat cards: Total Orders, New, Pending Approval, Completed.
-  - [x] Status filter pills + search. Sortable + resizable dark slate table.
-  - [x] Columns: Request ID, Request Title, Submission Date, Requester Name, Supplier, Estimated Price, Last Update Date.
-  - [x] 4 mock records across statuses. "Coming soon" message preserved.
-  - [ ] Define Zod Schema for PO/Budget fields.
-  - [ ] Build full create form + NestJS logic + budget calculation.
-- [x] **Event Module page** — formal redesign + real mock data:
-  - [x] 4 clickable stat cards: Total Events, Upcoming, Pending, Completed.
-  - [x] Status filter pills + search. Sortable + resizable dark slate table.
-  - [x] Columns: Request ID, Request Title, Submission Date, Requester Name, Event Date, Attendees, Status, Last Update Date.
-  - [x] 4 mock records (New, On Hold, In Transit, Completed). "Coming soon" message preserved.
-  - [ ] Define Zod Schema + build create form + calendar integration.
-- [x] **Travel Module page** — formal redesign + real mock data:
-  - [x] 4 clickable stat cards: Total Trips, Upcoming, On Hold, Completed.
-  - [x] Status filter pills + search. Sortable + resizable dark slate table.
-  - [x] Columns: Request ID, Request Title, Submission Date, Requester Name, Destination, Travel Date, Status, Last Update Date.
-  - [x] 5 mock records across statuses. "Coming soon" message preserved.
-  - [ ] Define Zod Schema + build booking/approval workflow form.
-- [x] **engineService mock data** — bumped to `v7`. Total seeded records: 8 SHP, 5 MNT, 4 PRC, 4 EVT, 5 TRV, 8 HR (including team records).
-
-## Phase 2.5: Analytics & Advanced Insights (Implemented)
-- [x] **Comprehensive Analytics Page** (`/analytics`):
-  - [x] 4 Analytics APIs: Performance, Trends, Resources, Export.
-  - [x] Performance Metrics: Total Requests, Completion Rate, Avg Resolution Time, On-Time Rate.
-  - [x] Status & Module Distribution charts (Pie & Bar charts).
-  - [x] Daily & Monthly Trends (Line charts with 14-day / monthly views).
-  - [x] Resource Analysis: User Load, Role Distribution, Top Loaded Users.
-  - [x] Performance by Module: detailed metrics for each module.
-  - [x] Time period selector: 7, 30, 60, 90 days.
-  - [x] CSV Export button (JSON ready).
-  - [x] Sidebar integration with `BarChart3` icon.
-  - [x] Access control: super_admin, admin, manager only.
-  - [x] Configuration system: `analytics-config.ts` for feature toggles.
-- [x] **Analytics APIs** (Backend):
-  - [x] `GET /api/analytics/performance?days=30` — KPIs, status/module breakdown, per-module performance.
-  - [x] `GET /api/analytics/trends?days=90` — daily/monthly trends, module distribution over time.
-  - [x] `GET /api/analytics/resources?days=30` — user stats, role distribution, user load scores.
-  - [x] `GET /api/analytics/export?format=csv|json&days=30` — exportable data.
-- [x] **Utilities**:
-  - [x] `src/lib/analytics-api.ts` — client-side API wrappers and download helpers.
-  - [x] `src/lib/analytics-config.ts` — feature flags and configuration management.
-  - [x] `ANALYTICS_GUIDE.md` — comprehensive documentation with examples.
-
-## Phase 3: Advanced Functionality (Upcoming)
-- [ ] **Predictions & Forecasting:** ML-based request volume predictions, bottleneck detection.
-- [ ] **Audit Trail Enhancement:** Add granular history logs to the dashboard.
-- [ ] **Notifications System:** Automated email/in-app notifications for pending approvals.
-- [ ] **Dashboard Enhancements:** Additional charts, drill-down capabilities, custom metric builders.
-- [ ] **Email Reporting:** Scheduled analytics reports sent via email.
-
-## Phase 4: Optimization & Scaling
-- [ ] Add Redis caching for frequently accessed dashboard data.
-- [ ] Implement file upload storage service for AWB/Invoices/Receipts.
-- [ ] Performance audit on polymorphic JSONB queries.
+### Docker
+- `Dockerfile` builds app on port `3003`
+- `docker-compose.yml`: `web` (3003), `db` (5432), `migrate` (runs migrations first)
+- Env template: `.env.example` → copy to `.env`
 
 ---
 
-## UI Design System (All Pages — Consistent Pattern)
-Every module page follows the same formal layout:
-1. **Header** — page title + subtitle + action button (blue-600).
-2. **Stat cards** — 4 clickable rounded-xl border-2 cards; active card fills in its color; synced with status filter.
-3. **Table card** — `<Card>` with `<CardHeader>` containing search input + status filter pills (+ any module-specific secondary pills).
-4. **Table** — native `<table>` with `tableLayout: fixed`, `<colgroup>` for resizable columns, dark slate (`bg-slate-800`) sortable header with drag handles, zebra rows, dot + badge status indicators, footer count.
+## Security Rules (NON-NEGOTIABLE)
 
-## Standardized Table Column Structure (All Modules)
-All module pages follow a consistent column ordering for professional appearance:
-| Column | Type | Notes |
-|--------|------|-------|
-| Request ID | Primary Key | Unique identifier for each request |
-| Request Title | Text | User-entered request title/description |
-| Submission Date | Date | createdAt timestamp, formatted DD-MMM-YYYY |
-| Requester Name | Text | Name of the user who submitted the request |
-| Module-Specific Cols | Varies | Supplier (Purchase), Priority (Maintenance), Event Date (Event), Destination (Travel), Employee ID (HR), etc. |
-| Status | Badge | Color-coded status with dot indicator (only non-formal styling) |
-| Last Update Date | Date | updatedAt timestamp, formatted DD-MMM-YYYY |
+### Authentication
+**ALWAYS** use `getServerSession(authOptions)` — NEVER use `x-user-role` or `x-user-id` headers:
+```typescript
+const session = await getServerSession(authOptions)
+if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+```
 
-All data cells use: `text-sm font-medium text-gray-700` for formal, consistent appearance.
-Status column preserves color styling with dot indicators; other columns use neutral gray text.
+### Authorization
+- `can(session.user.role, 'permission')` from `@/lib/permissions`
+- `isRestricted(session.user.role)` → employee/external see only their own data
+- Role hierarchy: `super_admin > admin > manager > employee > external`
+- API user creation: only `employee`, `external`, `manager` allowed — never `super_admin`/`admin`
 
-## Unified Status Model (All Modules)
+### Input Validation
+- All POST/PATCH must use Zod `.safeParse()` before DB access
+- Return 400 with `details: parsed.error.flatten()` on failure
+- Max lengths: title ≤ 500, message ≤ 1000
+
+---
+
+## Performance Rules
+
+- **NEVER** `findMany()` without `take` (always paginate)
+- **PREFER** `groupBy()` + `_count` over loading all rows
+- **USE** `Promise.all([...])` for parallel independent queries
+- **AVOID** N+1: no queries inside loops
+- Dashboard uses `Cache-Control: private, s-maxage=60`
+
+---
+
+## Testing
+
+```bash
+npm run test              # unit + integration
+npm run test:unit         # tests/unit only
+npm run test:integration  # tests/integration only
+npm run test:coverage     # with coverage (target ≥ 70%)
+npm run test:e2e          # playwright
+npm run test:all          # everything
+```
+
+### Structure
+```
+tests/
+├── unit/                 # Pure logic — no DB, no HTTP
+├── integration/          # API routes with mocked Prisma + NextAuth
+├── e2e/                  # Playwright — real browser
+└── setup/
+    ├── global.setup.ts   # env vars
+    ├── prisma.mock.ts    # prismaMock factory
+    └── nextauth.mock.ts  # session helpers
+```
+
+### Conventions
+- Every new API route must have: 401 (no auth), 403 (wrong role), 2xx (happy path)
+- E2E: skip with `test.skip(REQUIRES_CREDS, SKIP_MSG)` when no credentials
+
+---
+
+## Docker Development
+
+```bash
+# Development (hot reload)
+docker-compose up -d db
+npm run dev
+
+# Production
+docker-compose build --no-cache
+docker-compose up -d
+```
+
+- Container runs as non-root `nextjs`
+- `NODE_TLS_REJECT_UNAUTHORIZED=0` = build-time ARG only
+- Prisma uses `engineType = "binary"` for Alpine Linux
+
+---
+
+## Module Development Loop
+
+1. Define Zod schema in `src/modules/<module>/<module>.schema.ts`
+2. Add API routes in `src/app/api/requests/<module>/`
+3. Add `getServerSession` auth + Zod validation to every handler
+4. Write integration tests in `tests/integration/<module>.test.ts`
+5. Add page in `src/app/(dashboard)/<module>/page.tsx`
+6. Update this `CLAUDE.md`
+
+---
+
+## UI Design System
+
+Every module page:
+1. **Header** — title + subtitle + action button (blue-600)
+2. **Stat cards** — 4 clickable `rounded-xl border-2` cards, synced with status filter
+3. **Table card** — `<Card>` with search + filter pills
+4. **Table** — `<table>` with `tableLayout: fixed`, dark slate header (`bg-slate-800`), zebra rows, dot + badge status indicators
+
+### Standard Column Order
+`Request ID` → `Request Title` → `Submission Date` → `Requester Name` → `[Module-Specific]` → `Status` → `Last Update Date`
+
+All data cells: `text-sm font-medium text-gray-700`
+
+### Status Model
 | Status | Color | Meaning |
 |--------|-------|---------|
-| Draft | Zinc | Saved but not submitted |
+| Draft | Zinc | Saved, not submitted |
 | New | Sky | Submitted, awaiting action |
-| On Hold | Amber | Blocked / awaiting external input |
-| In Progress | Blue | Actively being processed |
-| Delivered | Green | Item/service delivered |
-| Completed | Emerald | Fully resolved and closed |
-| Cancelled | Red | Cancelled by user or admin |
-| Awaiting Approval | Amber | Awaiting approval (Purchase module specific) |
-| In Customs | Amber | In customs/transit (Shipping module specific) |
-
-## Statistics & Metrics Tracked on Dashboard
-- **Total Requests:** Count across all modules and statuses.
-- **Active Requests:** Count of requests in New, On Hold, or In Transit status.
-- **Completed Requests:** Count of requests in Completed status.
-- **Average Resolution Time:** Mean days from creation to completion.
-- **On-Time Completion Rate:** % of completed requests (baseline metric).
-- **Pending Approvals:** Count of New + On Hold requests.
-- **Overdue Items:** Count of requests pending for 7+ days (not Completed/Cancelled/Delivered).
-- **Cancellation Rate:** % of cancelled requests out of total.
-- **Module Breakdown:** Count per module (Shipping, Maintenance, Purchase, Event, Travel, HR).
-- **Status Distribution:** Count per status across all modules.
-
-## Key Files
-| File | Purpose | Key Features |
-|------|---------|--------------|
-| `src/app/(dashboard)/dashboard/page.tsx` | Professional analytics dashboard | KPIs, charts, alerts, trend indicators |
-| `src/app/(dashboard)/analytics/page.tsx` | Comprehensive analytics page | Performance, Trends, Resources, Module Analysis, CSV Export |
-| `src/app/api/analytics/performance.ts` | Performance metrics API | Total requests, completion rate, resolution time, on-time rate, module breakdown |
-| `src/app/api/analytics/trends.ts` | Trends analysis API | Daily/Monthly trends, module trends, growth patterns |
-| `src/app/api/analytics/resources.ts` | Resource utilization API | User stats, role distribution, load scores, top loaded users |
-| `src/app/api/analytics/export.ts` | Analytics export API | CSV & JSON export with customizable date ranges |
-| `src/lib/analytics-api.ts` | Client-side analytics API wrapper | Fetch functions for all analytics endpoints, CSV/JSON download helpers |
-| `src/lib/analytics-config.ts` | Analytics feature configuration | Feature flags, refresh intervals, enabled/disabled toggles |
-| `ANALYTICS_GUIDE.md` | Analytics documentation | Complete API guide, usage examples, metrics definition |
-| `src/services/engineService.ts` | Core request engine, localStorage | Mock data seed (v7), polymorphic JSONB payload handling |
-| `src/app/(dashboard)/requests/page.tsx` | My Requests unified view | Request ID, Title, Submission Date, Module, Status, Last Update Date |
-| `src/app/(dashboard)/admin/all-requests/page.tsx` | All Requests admin view | Request ID, Title, Submission Date, Requester, Module, Status, Last Update Date |
-| `src/app/(dashboard)/shipping/page.tsx` | Shipping module page | Pickup Date, Tracking Number, PO Number, Cost Center, Carrier, Requester, Status, Delivery Date, Last Update |
-| `src/app/(dashboard)/hr/page.tsx` | HR module page (list + tabs) | Request ID, Employee ID, Employee Name, Department, Sector, Type, Status, Last Update Date |
-| `src/app/(dashboard)/hr/new/page.tsx` | New HR request form page | Onboarding/Offboarding form with query param support |
-| `src/app/(dashboard)/maintenance/page.tsx` | Maintenance module page | Request ID, Request Title, Submission Date, Requester Name, Priority, Status, Last Update Date |
-| `src/app/(dashboard)/purchase/page.tsx` | Purchase module page | Request ID, Request Title, Submission Date, Requester Name, Supplier, Estimated Price, Last Update Date |
-| `src/app/(dashboard)/event/page.tsx` | Event module page | Request ID, Request Title, Submission Date, Requester Name, Event Date, Attendees, Status, Last Update Date |
-| `src/app/(dashboard)/travel/page.tsx` | Travel module page | Request ID, Request Title, Submission Date, Requester Name, Destination, Travel Date, Status, Last Update Date |
-| `src/modules/hr/hr.schema.ts` | Zod schemas for Onboarding & Offboarding | Validated payload structures with required fields |
-| `src/modules/hr/HRForm.tsx` | HR create form | Onboarding / Offboarding toggle, checkbox items, Zod validation |
-| `src/components/layout/Sidebar.tsx` | Navigation sidebar | Module navigation with active state highlighting, Analytics link added |
-| `src/lib/mock-data.ts` | Static mock data | Legacy shipments, users, roles |
-| `src/modules/shipping/ShippingForm.tsx` | Shipping request form | Full form with carrier selection and validation |
+| On Hold | Amber | Blocked |
+| In Progress | Blue | Being processed |
+| Delivered | Green | Delivered |
+| Completed | Emerald | Fully closed |
+| Cancelled | Red | Cancelled |
 
 ---
-### Development Loop (Repeat for each module)
-1. **Sync Plan:** Update this `CLAUDE.md`.
-2. **Define Schema:** Create/Update `Zod` schemas.
-3. **Execute:** Write NestJS code & DB migrations.
-4. **Verify:** Test against Audit Logs and JSONB validation.
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `src/lib/permissions/client.ts` | `can()`, `isRestricted()`, `PERMISSIONS` |
+| `src/lib/auth/options.ts` | NextAuth config |
+| `src/lib/rate-limit.ts` | Rate limiter (swap Redis for prod) |
+| `src/lib/pagination.ts` | `getPaginationParams()` |
+| `src/lib/mailer.ts` | SMTP email sender |
+| `src/server/engine/prisma.ts` | Prisma singleton `getPrisma()` |
+| `prisma/schema.prisma` | DB schema + indexes |
+| `vitest.config.ts` | Test config + coverage thresholds |
+| `playwright.config.ts` | E2E config |
+| `next.config.ts` | Security headers, compression, images |
+
+---
+
+## Roadmap
+
+### Phase 1 — Foundation ✅
+- Architecture, Prisma + PostgreSQL, Auth (Google + credentials), RBAC
+
+### Phase 2 — Core Modules ✅
+- Dashboard (KPIs, charts, alerts), All 6 modules (Shipping, HR, Maintenance, Purchase, Event, Travel)
+- My Requests + All Requests pages, Notifications, AI Assistant (Groq)
+
+### Phase 2.5 — Analytics ✅
+- `/analytics` page: Performance, Trends, Resources, Export (CSV/JSON)
+- APIs: `/api/analytics` with range filter
+
+### Phase 2.6 — Enterprise Hardening ✅
+- Security: auth bypass fixed, role escalation prevented, Zod validation
+- Performance: DB aggregations, parallel queries, cache headers, indexes
+- Testing: 43 tests, vitest + playwright + coverage
+
+### Phase 3 — Advanced (Pending)
+- [ ] Redis rate limiting (multi-instance)
+- [ ] ML Predictions & Forecasting
+- [ ] Audit Trail granular logs
+- [ ] Scheduled email reports
+
+### Phase 4 — Scaling (Pending)
+- [ ] Redis caching for dashboard/analytics
+- [ ] File upload service (AWB, invoices)
+- [ ] NextAuth v5 migration

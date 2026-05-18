@@ -17,27 +17,36 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url)
   const range = url.searchParams.get("range") ?? "90"
-  const daysBack = parseInt(range, 10)
-  const since = daysBack === 0 ? new Date(0) : new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000)
+  const daysBack = Math.max(1, Math.min(365, parseInt(range, 10) || 90))
+  const since = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000)
+  const twelveMonthsAgo = new Date()
+  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12)
 
   const prisma = getPrisma()
 
-  const requests = await prisma.request.findMany({
-    where: daysBack === 0 ? undefined : { createdAt: { gte: since } },
-    select: {
-      id: true,
-      module: true,
-      status: true,
-      createdAt: true,
-      updatedAt: true,
-      requesterId: true,
-      requester: { select: { name: true, email: true } },
-    },
-  })
+  // Single query for filtered range + separate minimal query for 12-month trend
+  const [requests, allRequests] = await Promise.all([
+    prisma.request.findMany({
+      where: { createdAt: { gte: since } },
+      select: {
+        id: true,
+        module: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        requesterId: true,
+        requester: { select: { name: true, email: true } },
+      },
+    }),
+    prisma.request.findMany({
+      where: { createdAt: { gte: twelveMonthsAgo } },
+      select: { status: true, createdAt: true },
+    }),
+  ])
 
   const total = requests.length
 
-  // ── Monthly Volume (last 12 months always) ──────────────────────────────
+  // ── Monthly Volume (last 12 months) ────────────────────────────────────
   const monthlyMap: Record<string, { total: number; completed: number; cancelled: number }> = {}
   const now = new Date()
   for (let i = 11; i >= 0; i--) {
@@ -45,13 +54,6 @@ export async function GET(req: NextRequest) {
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
     monthlyMap[key] = { total: 0, completed: 0, cancelled: 0 }
   }
-
-  // Use ALL requests for trend (not filtered by range)
-  const allRequests = daysBack === 0
-    ? requests
-    : await prisma.request.findMany({
-        select: { status: true, createdAt: true },
-      })
 
   allRequests.forEach((r) => {
     const d = new Date(r.createdAt)

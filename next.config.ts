@@ -19,14 +19,26 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  compress: true,
   ...(isProd ? { output: "standalone" } : {}),
-  eslint: { ignoreDuringBuilds: true },
+  images: {
+    formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 60,
+  },
+
+  experimental: {
+    optimizePackageImports: ['recharts', 'lucide-react', '@radix-ui/react-icons'],
+  },
 
   async headers() {
     return [
       {
         source: "/(.*)",
         headers: securityHeaders,
+      },
+      {
+        source: "/api/dashboard",
+        headers: [{ key: "Cache-Control", value: "private, s-maxage=60, stale-while-revalidate=120" }],
       },
     ]
   },

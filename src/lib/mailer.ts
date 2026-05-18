@@ -15,7 +15,7 @@ function getTransport() {
     port,
     secure: port === 465, // true for 465, false for other ports
     auth: { user, pass },
-    tls: { rejectUnauthorized: false }, // corporate proxy safe
+    tls: { rejectUnauthorized: process.env.NODE_ENV === 'production' },
   })
 }
 

@@ -1,62 +1,52 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { prisma } from '@/server/db'
 import { withApiHandler } from '@/lib/api-handler'
 import { isValidUserRole, updateUserRole } from '@/lib/user-admin'
 
-/**
- * PATCH /api/users/[id]
- * Update user role (Super Admin only)
- */
 export const PATCH = withApiHandler(async (
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) => {
-    const { id } = await params
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  if (session.user.role !== 'super_admin') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
-    const userRole = (req as NextRequest).headers.get('x-user-role')
-    if (userRole !== 'super_admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 403 }
-      )
-    }
+  const { id } = await params
+  const body = await req.json()
+  const { role } = body
 
-    const body = await req.json()
-    const { role } = body
+  if (!isValidUserRole(role)) {
+    return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
+  }
 
-    if (!isValidUserRole(role)) {
-      return NextResponse.json(
-        { error: 'Invalid role' },
-        { status: 400 }
-      )
-    }
-
-    const user = await updateUserRole(id, role)
-
-    return NextResponse.json(user)
+  const user = await updateUserRole(id, role)
+  return NextResponse.json(user)
 })
 
-/**
- * DELETE /api/users/[id]
- * Remove user from team (Super Admin only)
- */
 export const DELETE = withApiHandler(async (
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) => {
-    const { id } = await params
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  if (session.user.role !== 'super_admin') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
-    const userRole = (req as NextRequest).headers.get('x-user-role')
-    if (userRole !== 'super_admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 403 }
-      )
-    }
+  const { id } = await params
 
-    await prisma.user.delete({
-      where: { id },
-    })
+  if (id === session.user.id) {
+    return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 })
+  }
 
-    return NextResponse.json({ success: true })
+  await prisma.user.delete({ where: { id } })
+  return NextResponse.json({ success: true })
 })

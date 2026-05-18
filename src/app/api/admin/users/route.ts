@@ -54,10 +54,20 @@ export const POST = withApiHandler(async (req: Request) => {
   if (!role) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!can(role, "adminPanel")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
+  const CREATABLE_ROLES = ['employee', 'external', 'manager'] as const
+  type CreatableRole = (typeof CREATABLE_ROLES)[number]
+
   const { name, email, password, role: newUserRole = "external" } = await req.json()
 
   if (!name || !email || !password) {
     return NextResponse.json({ error: "name, email, and password are required" }, { status: 400 })
+  }
+
+  if (!CREATABLE_ROLES.includes(newUserRole as CreatableRole)) {
+    return NextResponse.json(
+      { error: `Role must be one of: ${CREATABLE_ROLES.join(', ')}` },
+      { status: 400 }
+    )
   }
 
   const prisma = getPrisma()
@@ -68,7 +78,7 @@ export const POST = withApiHandler(async (req: Request) => {
 
   const hash = await bcrypt.hash(password, 12)
   const user = await prisma.user.create({
-    data: { name, email, password: hash, role: newUserRole },
+    data: { name, email, password: hash, role: newUserRole as CreatableRole },
     select: { id: true, name: true, email: true, role: true, sessionVersion: true, createdAt: true },
   })
 

@@ -528,7 +528,7 @@ export function HRForm({ defaultType = "onboarding", onCancel }: { defaultType?:
   const handleCancel = onCancel ?? (() => router.push("/hr"))
 
   return (
-    <div className="space-y-5 max-w-3xl mx-auto pb-12">
+    <div className="request-form space-y-5">
       {/* Type Toggle */}
       <div className="flex gap-2">
         <button

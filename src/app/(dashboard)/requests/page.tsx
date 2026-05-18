@@ -244,7 +244,7 @@ export default function RequestsPage() {
                 "text-left rounded-xl border-2 px-4 py-3 transition-all hover:shadow-md",
                 isActive
                   ? `${accentBg} ${accentBorder} text-white shadow-sm`
-                  : "bg-white border-gray-100 hover:border-gray-200"
+                  : "bg-card border-border hover:border-primary/40 dark:hover:border-primary/60"
               )}
             >
               <p className={cn("text-[10px] font-semibold uppercase tracking-widest mb-1", isActive ? "text-white/70" : "text-gray-400")}>{label}</p>
@@ -348,7 +348,7 @@ export default function RequestsPage() {
             </thead>
             <tbody>
               {filtered.map((req, i) => (
-                <tr key={req.id} className={cn("border-b border-gray-100 hover:bg-blue-50/30 transition-colors", i % 2 === 0 ? "bg-white" : "bg-gray-50/40")}>
+                <tr key={req.id} className={cn("border-b border-border hover:bg-accent/30 transition-colors", i % 2 === 0 ? "bg-card" : "bg-muted/20")}>
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.id}</span>
                   </td>

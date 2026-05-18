@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { Prisma } from '@prisma/client'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { isRestricted } from '@/lib/permissions'
 import { getPrisma } from '@/server/engine/prisma'
 
 const querySchema = z.object({
@@ -9,15 +12,16 @@ const querySchema = z.object({
   status: z.string().optional(),
 })
 
-/**
- * GET /api/requests/[module]
- * Fetch requests for a specific module
- */
 export async function GET(
   req: NextRequest,
   context: { params: Promise<{ module: string }> }
 ) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { module } = await context.params
     const prisma = getPrisma()
 
@@ -38,6 +42,11 @@ export async function GET(
     const { skip, take, status } = parsed.data
 
     const where: Prisma.RequestWhereInput = { module }
+
+    // Restricted users (employee/external) can only see their own requests
+    if (isRestricted(session.user.role)) {
+      where.requesterId = session.user.id
+    }
 
     if (status) {
       where.status = status as Prisma.EnumRequestStatusFilter

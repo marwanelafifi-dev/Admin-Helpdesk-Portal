@@ -1,19 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { prisma } from '@/server/db'
 
-/**
- * PATCH /api/notifications/read-all
- * Mark all notifications as read for the current user
- */
 export async function PATCH(req: NextRequest) {
   try {
-    const userId = req.headers.get('x-user-id')
-    if (!userId) {
-      return NextResponse.json({ error: 'User ID required' }, { status: 401 })
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { count } = await prisma.notification.updateMany({
-      where: { userId, read: false },
+      where: { userId: session.user.id, read: false },
       data: { read: true },
     })
 

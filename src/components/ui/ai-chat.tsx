@@ -1,37 +1,89 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { Bot, X, Send, Minimize2, Loader2, ExternalLink } from "lucide-react"
+import { useEffect, useRef, useState, useCallback } from "react"
+import { Bot, X, Send, Minimize2, Loader2, ExternalLink, RotateCcw } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
+import type { AgentRequestBody, AgentResponseBody } from "@/lib/agent/types"
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Message {
   role: "user" | "assistant"
   content: string
   requestId?: string
-  module?: string
+  requestModule?: string
 }
 
-const WELCOME = `مرحباً! أنا المساعد الذكي لمنصة الطلبات. 😊
+// ─── Welcome message ──────────────────────────────────────────────────────────
+
+const WELCOME: Message = {
+  role: "assistant",
+  content: `مرحباً! أنا مساعدك الذكي في برنامج Admin Portal.
 
 أقدر أساعدك في:
 - **إرسال طلب جديد** (شحن، صيانة، مشتريات، فعالية، سفر، HR)
-- **شرح كيفية استخدام** المنصة
+- **متابعة طلب موجود** - اكتب رقم الطلب أو نوعه
+- **إحصائيات البرنامج** (للمديرين والإدارة)
 
-قولي إيه اللي تحتاجه وأنا هساعدك!`
+اكتب لي ما الذي تحتاجه.`,
+}
+
+// ─── Simple markdown renderer ─────────────────────────────────────────────────
+
+function renderMarkdown(text: string): React.ReactNode[] {
+  return text.split("\n").map((line, i) => {
+    if (line.startsWith("- ")) {
+      return (
+        <li key={i} className="ml-3 list-disc">
+          {applyInline(line.slice(2))}
+        </li>
+      )
+    }
+    if (line.trim() === "") return <div key={i} className="h-1.5" />
+    return <p key={i}>{applyInline(line)}</p>
+  })
+}
+
+function applyInline(text: string): React.ReactNode {
+  const parts: React.ReactNode[] = []
+  const regex = /(\*\*(.+?)\*\*|`(.+?)`)/g
+  let last = 0
+  let match: RegExpExecArray | null
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > last) parts.push(text.slice(last, match.index))
+    if (match[2]) {
+      parts.push(<strong key={match.index}>{match[2]}</strong>)
+    } else if (match[3]) {
+      parts.push(
+        <code key={match.index} className="bg-muted text-foreground px-1 rounded text-xs font-mono">
+          {match[3]}
+        </code>,
+      )
+    }
+    last = regex.lastIndex
+  }
+
+  if (last < text.length) parts.push(text.slice(last))
+  return parts.length === 1 ? parts[0] : parts
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export function AiChat() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [open, setOpen] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: WELCOME },
-  ])
-  const [input, setInput] = useState("")
-  const [loading, setLoading] = useState(false)
+
+  const [open, setOpen]                     = useState(false)
+  const [messages, setMessages]             = useState<Message[]>([WELCOME])
+  const [input, setInput]                   = useState("")
+  const [loading, setLoading]               = useState(false)
+  const [conversationId, setConversationId] = useState<string | null>(null)
+
   const bottomRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const inputRef  = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     if (open) {
@@ -40,58 +92,76 @@ export function AiChat() {
     }
   }, [open, messages])
 
-  async function handleSend() {
+  const handleSend = useCallback(async () => {
     const text = input.trim()
     if (!text || loading) return
 
     const userMsg: Message = { role: "user", content: text }
-    const newMessages = [...messages, userMsg]
-    setMessages(newMessages)
+    const updatedMessages  = [...messages, userMsg]
+    setMessages(updatedMessages)
     setInput("")
     setLoading(true)
 
     try {
+      const body: AgentRequestBody = {
+        message:        text,
+        conversationId: conversationId,
+        history: messages
+          .slice(1)
+          .filter((m) => m.role === "user" || m.role === "assistant")
+          .slice(-8)
+          .map((m) => ({ role: m.role, content: m.content })),
+      }
+
       const res = await fetch("/api/ai-assistant", {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: newMessages
-            .filter((m) => m.role === "user" || m.role === "assistant")
-            .map((m) => ({ role: m.role, content: m.content })),
-        }),
+        body:    JSON.stringify(body),
       })
 
-      const data = await res.json() as Message & { error?: string }
-
-      if (data.error) {
-        setMessages((prev) => [...prev, { role: "assistant", content: "❌ حدث خطأ. حاول مرة أخرى." }])
-      } else {
-        setMessages((prev) => [...prev, {
-          role: "assistant",
-          content: data.content,
-          requestId: data.requestId,
-          module: data.module,
-        }])
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(err.error ?? `HTTP ${res.status}`)
       }
-    } catch {
-      setMessages((prev) => [...prev, { role: "assistant", content: "❌ تعذر الاتصال. تحقق من الإنترنت." }])
+
+      const data = (await res.json()) as AgentResponseBody
+      if (data.conversationId) setConversationId(data.conversationId)
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role:          "assistant",
+          content:       data.content,
+          requestId:     data.requestId,
+          requestModule: data.requestModule,
+        },
+      ])
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "خطأ غير متوقع"
+      setMessages((prev) => [...prev, { role: "assistant", content: `❌ ${msg}` }])
     } finally {
       setLoading(false)
     }
-  }
+  }, [input, loading, messages, conversationId])
 
-  function handleKey(e: React.KeyboardEvent) {
+  const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
       void handleSend()
     }
   }
 
+  const resetConversation = () => {
+    setMessages([WELCOME])
+    setInput("")
+    setConversationId(null)
+  }
+
   if (status !== "authenticated") return null
 
   return (
     <>
-      {/* Floating Button */}
+      {/* ── Floating button ─────────────────────────────────────────────── */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
@@ -99,15 +169,16 @@ export function AiChat() {
           title="AI Assistant"
         >
           <Bot className="h-6 w-6" />
-          <span className="absolute -top-8 right-0 bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+          <span className="absolute -top-8 right-0 bg-popover text-popover-foreground border border-border text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-md">
             AI Assistant
           </span>
         </button>
       )}
 
-      {/* Chat Window */}
+      {/* ── Chat window ─────────────────────────────────────────────────── */}
       {open && (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col w-96 h-[560px] bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
+        <div className="fixed bottom-6 right-6 z-50 flex flex-col w-96 h-[580px] bg-card rounded-2xl shadow-2xl border border-border overflow-hidden animate-scale-in">
+
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white shrink-0">
             <div className="flex items-center gap-2">
@@ -115,7 +186,7 @@ export function AiChat() {
                 <Bot className="h-4 w-4" />
               </div>
               <div>
-                <p className="text-sm font-semibold leading-tight">AI Assistant</p>
+                <p className="text-sm font-semibold leading-tight">Admin Portal Assistant</p>
                 <p className="text-[10px] text-blue-200 leading-tight">
                   {session.user?.name ?? session.user?.email}
                 </p>
@@ -123,41 +194,63 @@ export function AiChat() {
             </div>
             <div className="flex items-center gap-1">
               <button
-                onClick={() => { setMessages([{ role: "assistant", content: WELCOME }]); setInput("") }}
-                className="p-1.5 hover:bg-white/20 rounded-lg transition-colors text-[10px] font-medium px-2"
+                onClick={resetConversation}
+                className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
                 title="New conversation"
               >
-                New
+                <RotateCcw className="h-3.5 w-3.5" />
               </button>
-              <button onClick={() => setOpen(false)} className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
+              <button
+                onClick={() => setOpen(false)}
+                className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
+                title="Minimise"
+              >
                 <Minimize2 className="h-4 w-4" />
               </button>
-              <button onClick={() => setOpen(false)} className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
+              <button
+                onClick={() => setOpen(false)}
+                className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
+                title="Close"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-gray-50">
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-muted/30">
             {messages.map((msg, i) => (
-              <div key={i} className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}>
+              <div
+                key={i}
+                className={cn("flex animate-fade-up", msg.role === "user" ? "justify-end" : "justify-start")}
+                style={{ animationDelay: `${i * 0.03}s` }}
+              >
                 {msg.role === "assistant" && (
                   <div className="h-6 w-6 rounded-full bg-blue-600 flex items-center justify-center shrink-0 mr-2 mt-1">
                     <Bot className="h-3 w-3 text-white" />
                   </div>
                 )}
-                <div className={cn(
-                  "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
-                  msg.role === "user"
-                    ? "bg-blue-600 text-white rounded-tr-sm"
-                    : "bg-white text-gray-800 shadow-sm border border-gray-100 rounded-tl-sm"
-                )}>
-                  <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                  {msg.requestId && msg.module && (
+
+                <div
+                  className={cn(
+                    "max-w-[82%] rounded-2xl px-3 py-2 text-sm",
+                    msg.role === "user"
+                      ? "bg-blue-600 text-white rounded-tr-sm"
+                      : "bg-card text-card-foreground shadow-sm border border-border rounded-tl-sm",
+                  )}
+                >
+                  {msg.role === "assistant" ? (
+                    <div className="space-y-0.5 leading-relaxed">
+                      {renderMarkdown(msg.content)}
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                  )}
+
+                  {msg.requestId && msg.requestModule && (
                     <button
-                      onClick={() => router.push(`/${msg.module}/${msg.requestId}`)}
-                      className="mt-2 flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                      onClick={() => router.push(`/${msg.requestModule}/${msg.requestId}`)}
+                      className="mt-2 flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 hover:underline font-medium transition-colors"
                     >
                       <ExternalLink className="h-3 w-3" />
                       View Request
@@ -167,21 +260,25 @@ export function AiChat() {
               </div>
             ))}
 
+            {/* Typing indicator */}
             {loading && (
-              <div className="flex justify-start">
+              <div className="flex justify-start animate-fade-up">
                 <div className="h-6 w-6 rounded-full bg-blue-600 flex items-center justify-center shrink-0 mr-2 mt-1">
                   <Bot className="h-3 w-3 text-white" />
                 </div>
-                <div className="bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border border-gray-100">
-                  <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                <div className="bg-card border border-border rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                  <span className="h-1.5 w-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                  <span className="h-1.5 w-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:300ms]" />
                 </div>
               </div>
             )}
+
             <div ref={bottomRef} />
           </div>
 
-          {/* Input */}
-          <div className="px-3 py-3 border-t bg-white shrink-0">
+          {/* Input area */}
+          <div className="px-3 py-3 border-t border-border bg-card/95 backdrop-blur-sm shrink-0">
             <div className="flex items-end gap-2">
               <textarea
                 ref={inputRef}
@@ -191,7 +288,7 @@ export function AiChat() {
                 placeholder="اكتب رسالتك هنا..."
                 rows={1}
                 disabled={loading}
-                className="flex-1 resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 max-h-24 overflow-y-auto disabled:opacity-50"
+                className="flex-1 resize-none rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 max-h-28 overflow-y-auto disabled:opacity-50 transition-colors"
                 dir="auto"
               />
               <button
@@ -199,10 +296,14 @@ export function AiChat() {
                 disabled={!input.trim() || loading}
                 className="h-9 w-9 rounded-xl bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
               >
-                <Send className="h-4 w-4" />
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
               </button>
             </div>
-            <p className="text-[10px] text-gray-400 mt-1.5 text-center">
+            <p className="text-[10px] text-muted-foreground mt-1.5 text-center">
               Enter to send · Shift+Enter for new line
             </p>
           </div>
