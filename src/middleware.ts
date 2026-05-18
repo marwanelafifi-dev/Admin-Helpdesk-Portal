@@ -28,6 +28,7 @@ const pagePermissions: Record<string, string> = {
   "/admin/settings": "page:admin-settings",
   "/admin/audit-trail": "page:admin-audit",
   "/admin/database": "page:admin-database",
+  "/admin/company-data": "page:admin-database",
   "/admin/notifications": "page:admin-notifications",
 }
 

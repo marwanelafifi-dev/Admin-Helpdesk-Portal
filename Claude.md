@@ -264,6 +264,62 @@ This document tracks the phased development of the Admin Request Platform, movin
   - [x] Header logo read by `TopBar.tsx`; login logo read by `login/page.tsx`.
   - [x] Previously both shared one key `arp_custom_logo` — now fully independent.
 
+## Phase 5c: General Request Module (Completed — 18 May 2026)
+- [x] **General Request Module:**
+  - [x] New module added after HR in sidebar with `Inbox` icon (indigo color theme).
+  - [x] List page at `/general` — 5 stat cards, sortable/resizable dark slate table, InlineStatusSelect, RequestActionsMenu, comment counts, row expansion.
+  - [x] Statuses: New, In Progress, Completed, Cancelled.
+  - [x] Create form at `/general/new` — Title (required) + Description + Attachments (base64 data URLs). Centered `max-w-3xl mx-auto`.
+  - [x] Added `"general"` to `RequestModule` union in `engineService.ts`, `MODULE_PREFIX` map (`GEN`).
+  - [x] Added to All Requests filters, My Requests filters, Database page backup/restore/clear sections.
+  - [x] Permissions `page:general` and `page:general-new` added to middleware and all 4 roles in `data/roles.json`.
+  - [x] `isSuperAdmin()` in `access.ts` updated to match `"Full Access"` first (was only matching `"super_admin"`).
+
+## Phase 5d: Dark Mode (Completed — 18 May 2026)
+- [x] **Dark Mode & Theme Toggle:**
+  - [x] `next-themes@0.4.6` installed. `ThemeProvider` wraps entire app in `layout.tsx`.
+  - [x] Sun/Moon toggle button in `TopBar.tsx` (left of bell icon). Theme persists via `localStorage` key `arp_theme`.
+  - [x] CSS variables for dark palette in `globals.css` (`.dark` block) — professional navy-gray (`220 16%`) base.
+  - [x] Global dark-mode overrides in `globals.css` for all hardcoded Tailwind classes (`bg-white`, `bg-gray-50/100`, `text-gray-900/700/600/500`, `border-gray-*`, colored panels).
+  - [x] Dashboard charts (bar + pie) use dynamic `chartAxisColor`, `chartGridColor`, `chartTooltipBg` from `useTheme()`.
+  - [x] `tailwind.config.ts` already had `darkMode: ["class"]` — no change needed.
+  - [x] Dashboard layout wrapper changed from `bg-gray-50` → `bg-background`; TopBar from `bg-white` → `bg-background`.
+
+## Phase 5e: Admin Company Data (Completed — 18 May 2026)
+- [x] **Company Data Admin Page** at `/admin/company-data`:
+  - [x] Manages 4 lookup tables: **Suppliers**, **Cost Centers**, **Managers**, **Carriers**.
+  - [x] localStorage store at `src/lib/companyDataStore.ts` — key `arp_company_data`. Defaults seed from previous hardcoded values. Empty arrays are preserved (uses `Array.isArray` check, not `??`).
+  - [x] Per-section UI: inline add input, delete button (hover to reveal), Import (.csv/.xlsx/.xls), Export (.csv).
+  - [x] CSV import: plain JS split by newline + first column. XLSX import: uses `xlsx` package (already installed). Deduplicates on import, shows status message.
+  - [x] Sidebar entry "Company Data" (Building2 icon) added under Admin group, between Notifications and Audit Trail.
+  - [x] Permission: reuses `page:admin-database`. Added to `middleware.ts`.
+- [x] **All Shipping dropdowns now read from Company Data store (no hardcoded fallback to mockUsers):**
+  - [x] `ShippingForm.tsx` — Supplier, Cost Center, Carrier, Direct Manager all load from `getList()`.
+  - [x] `mapApprovers()` updated — manager id is now the name string (no mockUsers lookup needed).
+  - [x] `shipping/page.tsx` and `shipping/receiving/page.tsx` — carrier filter pills load from `getList("carriers")`.
+- [x] **HR Direct Manager dropdowns read from Company Data store:**
+  - [x] `HRForm.tsx` — both Onboarding and Offboarding `directManager` changed from free-text Input → Select dropdown, populated from `getList("managers")`.
+- [x] **Password Reset fixed:**
+  - [x] `api/users/[id]/reset-password/route.ts` — was a stub; now hashes with `bcrypt` and calls `updateUser()`.
+  - [x] Verifies current password with `bcrypt.compare` before allowing own-password change.
+  - [x] Admin (Full Access) resetting another user's password bypasses current-password check.
+  - [x] `account/settings/page.tsx` — sends `currentPassword` in request body.
+- [x] **Roles page edit dialog widened** (`max-w-4xl`) — page access in 3-column grid, permissions in 4-column grid, no scroll needed.
+- [x] **Audit Trail** — actor column resolves USR-* IDs to real display names via `buildUserMap()`.
+- [x] **All `super_admin` references replaced with `Full Access`** across `userRoles.ts`, `rolesStore.ts`, `profile/page.tsx`, `access.ts`.
+
+## Phase 5f: Polish & Branding (Completed — 18 May 2026)
+- [x] **App renamed to "Admin Helpdesk Portal":**
+  - [x] `src/app/layout.tsx` metadata title + description updated.
+  - [x] `admin/settings/page.tsx` DEFAULTS: `platformName`, `loginTitle` both updated to "Admin Helpdesk Portal".
+  - [x] Email test route updated.
+- [x] **Favicon:** New headset SVG (`public/favicon.svg`) — blue circle with headset icon. Linked via `metadata.icons` in `layout.tsx`.
+- [x] **General Request form — CC Notifications:** Added `CcEmailsField` card between Description and Attachments. `ccEmails` state passed into `submitRequest` payload and `createRequestUpdateNotifications`. Restores CC list when editing.
+- [x] **Database page — complete backup coverage:**
+  - [x] `ALL_BACKUP_KEYS` expanded to include: `arp_company_data`, `arp_platform_settings`, `arp_theme`, `arp_logo_header`, `arp_logo_login`.
+  - [x] Backup checklist updated: "All 7 modules", added Company Data, Platform Settings, Logos rows.
+  - [x] `OTHER_STORES` (Clear by Data Type) expanded with: Company Data (`arp_company_data`), Platform Settings (`arp_platform_settings`), Header Logo (`arp_logo_header`), Login Logo (`arp_logo_login`).
+
 ## Phase 6: Advanced Functionality (Pending)
 - [ ] **Email Notifications:** SMTP ports 465/587 may be blocked by corporate firewall. Use Admin → Notifications to configure Gmail App Password or switch to SendGrid/Brevo (HTTP API, not blocked).
 - [ ] **Audit Trail Enhancement:** Currently reads from localStorage. Future: persist to PostgreSQL for cross-session history.
@@ -356,6 +412,8 @@ Status column preserves color styling with dot indicators; other columns use neu
 |------|---------|--------------|
 | `src/app/(dashboard)/shipping/page.tsx` | Shipping module | Status: new/in_progress/in_customs/delivered/cancelled |
 | `src/app/(dashboard)/shipping/receiving/page.tsx` | Shipping Receiving submodule | Receiving-specific workflow |
+| `src/app/(dashboard)/general/page.tsx` | General Request module | Statuses: new/in_progress/completed/cancelled; indigo color theme |
+| `src/app/(dashboard)/general/new/page.tsx` | General Request form | Title + Description + Attachments (base64); centered max-w-3xl |
 | `src/app/(dashboard)/hr/page.tsx` | HR module (list + tabs) | Onboarding/Offboarding tabs, status: new/on_hold/completed |
 | `src/app/(dashboard)/hr/new/page.tsx` | HR form page | Form with type query param support |
 | `src/app/(dashboard)/maintenance/page.tsx` | Maintenance module | Priority filtering, status: new/on_hold/completed/cancelled |
@@ -367,8 +425,10 @@ Status column preserves color styling with dot indicators; other columns use neu
 | File | Purpose | Key Features |
 |------|---------|--------------|
 | `src/app/(dashboard)/tasks/page.tsx` | Team Tasks management | Administration Team role only, real assignee from API, comment attachments, activity tracking |
-| `src/app/(dashboard)/admin/audit-trail/page.tsx` | Audit Trail | Reads localStorage, shows all events by category with search/filter |
+| `src/app/(dashboard)/admin/audit-trail/page.tsx` | Audit Trail | Reads localStorage, resolves USR-* IDs to names, category filter + search |
 | `src/app/(dashboard)/admin/database/page.tsx` | Database Backup/Restore | JSON export of all stores, file upload restore with overwrite warning |
+| `src/app/(dashboard)/admin/company-data/page.tsx` | Company Data lookups | Manages Suppliers, Cost Centers, Managers, Carriers — CSV/XLSX import + export |
+| `src/lib/companyDataStore.ts` | Company Data store | localStorage key `arp_company_data`; `getList()`, `saveList()`; Array.isArray empty-array safe |
 | `src/app/(dashboard)/notifications/page.tsx` | Notification log | All/Unread filter, mark-all-read, click to navigate to request |
 | `src/app/(dashboard)/notifications/settings/page.tsx` | Notification preferences | Per-user email/in-app toggle settings |
 | `src/app/api/users/assignable/route.ts` | Assignable users API | Returns users whose role has `page:tasks` permission |
@@ -378,11 +438,12 @@ Status column preserves color styling with dot indicators; other columns use neu
 | File | Purpose | Key Features |
 |------|---------|--------------|
 | `src/components/layout/Sidebar.tsx` | Navigation sidebar | Module nav, active state highlighting, collapsible groups |
+| `src/components/layout/ThemeProvider.tsx` | Dark mode provider | next-themes wrapper; `attribute="class"`, `storageKey="arp_theme"` |
 | `src/components/ui/InlineStatusSelect.tsx` | Inline status dropdown | Module-aware status list, optimistic update, chevron indicator |
 | `src/components/ui/RequestActionsMenu.tsx` | Three-dot row action menu | View Details (expand), Edit (form link) |
 | `src/hooks/useExpandedRows.ts` | Row expansion state hook | `toggleRow()`, `isExpanded()` per request ID |
-| `src/modules/hr/HRForm.tsx` | HR create form | Toggle-based type selection, checkbox items, validation |
-| `src/modules/shipping/ShippingForm.tsx` | Shipping form | Carrier selection, full field validation |
+| `src/modules/hr/HRForm.tsx` | HR create form | Toggle-based type selection, checkbox items, Direct Manager Select from companyDataStore |
+| `src/modules/shipping/ShippingForm.tsx` | Shipping form | All dropdowns (Supplier, Cost Center, Carrier, Manager) read from companyDataStore |
 
 ---
 ### Development Loop (Repeat for each module)

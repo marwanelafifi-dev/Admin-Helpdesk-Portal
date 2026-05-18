@@ -8,12 +8,9 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import {
   ShippingRequestFormSchema,
   type ShippingRequestForm,
-  CARRIERS,
-  SUPPLIERS,
-  COST_CENTERS,
 } from "./shipping.schema"
 import { shippingFormDefaults } from "./shipping.mock"
-import { mockUsers } from "@/lib/mock-data"
+import { getList } from "@/lib/companyDataStore"
 import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
 import { createNewRequestNotifications } from "@/lib/notificationStore"
 
@@ -98,14 +95,12 @@ function hasRequiredDocs(files: StagedFile[]) {
 }
 
 function mapApprovers(approvers: ShippingRequestForm["approvers"]) {
-  const toPerson = (id: string) => {
-    const u = mockUsers.find((x) => x.id === id)
-    return u ? { userId: u.id, name: u.name, email: u.email } : undefined
-  }
+  // manager id is the name string from companyDataStore
+  const toPerson = (id: string) => ({ userId: id, name: id, email: "" })
   return {
-    directManager: toPerson(approvers.directManager)!,
-    techManager: approvers.techManager.map((id) => toPerson(id)).filter(Boolean),
-    pm: approvers.pm.map((id) => toPerson(id)).filter(Boolean),
+    directManager: toPerson(approvers.directManager),
+    techManager: approvers.techManager.map(toPerson),
+    pm: approvers.pm.map(toPerson),
   }
 }
 
@@ -176,6 +171,17 @@ export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel
   const { data: session } = useSession()
   const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([])
   const [ccEmailInput, setCcEmailInput] = useState("")
+  const [suppliers, setSuppliers] = useState<string[]>([])
+  const [costCenters, setCostCenters] = useState<string[]>([])
+  const [carriers, setCarriers] = useState<string[]>([])
+  const [managers, setManagers] = useState<{ id: string; name: string; email: string }[]>([])
+
+  useEffect(() => {
+    setSuppliers(getList("suppliers"))
+    setCostCenters(getList("cost_centers"))
+    setCarriers(getList("carriers"))
+    setManagers(getList("managers").map((name) => ({ id: name, name, email: "" })))
+  }, [])
 
   const { register, control, handleSubmit, watch, setValue, setError, clearErrors, formState: { errors, isSubmitting }, reset } = useForm<ShippingRequestForm>({
     resolver: zodResolver(ShippingRequestFormSchema) as any,
@@ -282,7 +288,7 @@ export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel
               <Controller name="supplier" control={control} render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger className={cn(errors.supplier && "border-red-400")}><SelectValue placeholder="Select supplier" /></SelectTrigger>
-                  <SelectContent>{SUPPLIERS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                  <SelectContent>{suppliers.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                 </Select>
               )} />
               <FieldError message={errors.supplier?.message} />
@@ -292,7 +298,7 @@ export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel
               <Controller name="costCenter" control={control} render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger className={cn(errors.costCenter && "border-red-400")}><SelectValue placeholder="Select cost center" /></SelectTrigger>
-                  <SelectContent>{COST_CENTERS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  <SelectContent>{costCenters.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                 </Select>
               )} />
               <FieldError message={errors.costCenter?.message} />
@@ -315,7 +321,7 @@ export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel
               <Select value={field.value} onValueChange={field.onChange}>
                 <SelectTrigger className={cn((errors.approvers as any)?.directManager && "border-red-400")}><SelectValue placeholder="Select direct manager" /></SelectTrigger>
                 <SelectContent>
-                  {mockUsers.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                  {managers.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             )} />
@@ -333,7 +339,7 @@ export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel
               <Controller name="carrier" control={control} render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger className={cn(errors.carrier && "border-red-400")}><SelectValue placeholder="Select carrier" /></SelectTrigger>
-                  <SelectContent>{CARRIERS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  <SelectContent>{carriers.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                 </Select>
               )} />
               <FieldError message={errors.carrier?.message} />

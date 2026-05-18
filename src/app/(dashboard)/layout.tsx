@@ -22,7 +22,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50" suppressHydrationWarning>
+    <div className="flex h-screen overflow-hidden bg-background" suppressHydrationWarning>
       <ProductionDataWipe />
       <Sidebar />
       <div className="flex flex-1 flex-col overflow-hidden">

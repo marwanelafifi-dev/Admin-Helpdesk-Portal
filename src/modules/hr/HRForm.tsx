@@ -27,6 +27,7 @@ import {
 import { AlertCircle, UserPlus, UserMinus, User, Building2, Calendar, ClipboardList, Upload, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
+import { getList } from "@/lib/companyDataStore"
 
 const BRAND = "#0F766E" // teal-700
 
@@ -67,10 +68,12 @@ function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCance
   const router = useRouter()
   const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const [managers, setManagers] = useState<string[]>([])
   const { register, control, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<OnboardingForm>({
     resolver: zodResolver(OnboardingPayloadSchema),
     defaultValues: { hrType: "onboarding", items: [], attachments: [], ccEmails: [] },
   })
+  useEffect(() => { setManagers(getList("managers")) }, [])
 
   useEffect(() => {
     if (isEditing && editingRequest?.payload) {
@@ -205,8 +208,19 @@ function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCance
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="directManager">Direct Manager</Label>
-            <Input id="directManager" placeholder="Manager name" {...register("directManager")} />
+            <Label>Direct Manager</Label>
+            <Controller
+              name="directManager"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                  <SelectTrigger><SelectValue placeholder="Select direct manager" /></SelectTrigger>
+                  <SelectContent>
+                    {managers.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -367,10 +381,12 @@ function OffboardingFormFields({ onCancel, editingRequest, isEditing }: { onCanc
   const router = useRouter()
   const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const [managers, setManagers] = useState<string[]>([])
   const { register, control, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<OffboardingForm>({
     resolver: zodResolver(OffboardingPayloadSchema),
     defaultValues: { hrType: "offboarding", items: [], attachments: [], ccEmails: [] },
   })
+  useEffect(() => { setManagers(getList("managers")) }, [])
 
   useEffect(() => {
     if (isEditing && editingRequest?.payload) {
@@ -490,8 +506,19 @@ function OffboardingFormFields({ onCancel, editingRequest, isEditing }: { onCanc
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="directManager">Direct Manager</Label>
-            <Input id="directManager" placeholder="Manager name" {...register("directManager")} />
+            <Label>Direct Manager</Label>
+            <Controller
+              name="directManager"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                  <SelectTrigger><SelectValue placeholder="Select direct manager" /></SelectTrigger>
+                  <SelectContent>
+                    {managers.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </div>
 
           <div className="space-y-1.5">

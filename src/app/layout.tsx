@@ -1,20 +1,27 @@
 import type { Metadata } from "next"
 import { AuthProvider } from "@/components/auth/AuthProvider"
 import { RootClientProvider } from "@/components/layout/RootClientProvider"
+import { ThemeProvider } from "@/components/layout/ThemeProvider"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "Admin Request Platform",
-  description: "Enterprise admin request management platform",
+  title: "Admin Helpdesk Portal",
+  description: "Enterprise admin helpdesk and request management portal",
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
-        <AuthProvider>
-          <RootClientProvider>{children}</RootClientProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <RootClientProvider>{children}</RootClientProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

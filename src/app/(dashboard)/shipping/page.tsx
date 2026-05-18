@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useMemo, useRef } from "react"
+import React, { useState, useMemo, useRef, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { Search, Plus, Package, Truck, CheckCircle2, Clock, MoreHorizontal, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
 import Link from "next/link"
@@ -22,11 +22,11 @@ import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 import { useExpandedRows } from "@/hooks/useExpandedRows"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
+import { getList } from "@/lib/companyDataStore"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUSES = ["new", "in_progress", "in_customs", "delivered", "cancelled"] as const
-const CARRIERS = ["DHL", "FedEx", "UPS", "Aramex", "Other"] as const
 
 const STATUS_LABELS: Record<string, string> = {
   new: "New", in_progress: "In Progress", in_customs: "In Customs", delivered: "Delivered", cancelled: "Cancelled",
@@ -78,6 +78,8 @@ export default function ShippingPage() {
   const [search, setSearch]           = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [carrierFilter, setCarrierFilter] = useState("all")
+  const [dynamicCarriers, setDynamicCarriers] = useState<string[]>([])
+  useEffect(() => { setDynamicCarriers(getList("carriers")) }, [])
   const [sortKey, setSortKey]         = useState<SortKey>("id")
   const [sortDir, setSortDir]         = useState<"asc" | "desc">("asc")
   const [colWidths, setColWidths]     = useState<(number | null)[]>(() => COLS.map(() => null))
@@ -276,7 +278,7 @@ export default function ShippingPage() {
           <div className="flex items-center gap-3 flex-wrap mt-1">
             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest w-12 shrink-0">Carrier</span>
             <div className="flex flex-wrap gap-1.5">
-              {(["all", ...CARRIERS] as const).map((c) => (
+              {(["all", ...dynamicCarriers]).map((c) => (
                 <button
                   key={c}
                   onClick={() => setCarrierFilter(c)}

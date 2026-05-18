@@ -25,6 +25,28 @@
     --ring: 221.2 83.2% 53.3%;
     --radius: 0.5rem;
   }
+
+  .dark {
+    --background: 220 16% 12%;
+    --foreground: 220 14% 93%;
+    --card: 220 16% 17%;
+    --card-foreground: 220 14% 93%;
+    --popover: 220 16% 17%;
+    --popover-foreground: 220 14% 93%;
+    --primary: 217 91% 65%;
+    --primary-foreground: 220 16% 8%;
+    --secondary: 220 16% 23%;
+    --secondary-foreground: 220 14% 93%;
+    --muted: 220 16% 23%;
+    --muted-foreground: 220 10% 58%;
+    --accent: 220 16% 23%;
+    --accent-foreground: 220 14% 93%;
+    --destructive: 0 72% 58%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 16% 26%;
+    --input: 220 16% 23%;
+    --ring: 217 91% 65%;
+  }
 }
 
 @layer base {
@@ -39,6 +61,61 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
+
+/* Dark mode overrides for hardcoded Tailwind color classes used throughout the app */
+.dark .bg-white           { background-color: hsl(220 16% 17%) !important; }
+.dark .bg-gray-50         { background-color: hsl(220 16% 20%) !important; }
+.dark .bg-gray-100        { background-color: hsl(220 16% 22%) !important; }
+.dark .bg-gray-200        { background-color: hsl(220 16% 25%) !important; }
+.dark .border-gray-100    { border-color: hsl(220 16% 24%) !important; }
+.dark .border-gray-200    { border-color: hsl(220 16% 26%) !important; }
+.dark .border-gray-300    { border-color: hsl(220 16% 30%) !important; }
+.dark .text-gray-900      { color: hsl(220 14% 93%) !important; }
+.dark .text-gray-800      { color: hsl(220 14% 88%) !important; }
+.dark .text-gray-700      { color: hsl(220 12% 80%) !important; }
+.dark .text-gray-600      { color: hsl(220 10% 68%) !important; }
+.dark .text-gray-500      { color: hsl(220 10% 58%) !important; }
+.dark .text-gray-400      { color: hsl(220 10% 50%) !important; }
+
+/* Form footers and section headers in dark mode */
+.dark .bg-gray-50.rounded-t-lg  { background-color: hsl(220 16% 20%) !important; }
+.dark .hover\:bg-gray-100:hover  { background-color: hsl(220 16% 22%) !important; }
+.dark .hover\:bg-indigo-50:hover { background-color: hsl(240 30% 20%) !important; }
+.dark .bg-indigo-50              { background-color: hsl(240 30% 18%) !important; }
+.dark .border-indigo-200         { border-color: hsl(240 40% 35%) !important; }
+.dark .bg-indigo-100             { background-color: hsl(240 35% 22%) !important; }
+
+/* Amber/warning panels */
+.dark .bg-amber-50   { background-color: hsl(43 40% 15%) !important; }
+.dark .border-amber-200 { border-color: hsl(43 50% 30%) !important; }
+.dark .text-amber-700   { color: hsl(43 90% 65%) !important; }
+.dark .text-amber-600   { color: hsl(43 90% 60%) !important; }
+
+/* Blue info panels */
+.dark .bg-blue-50  { background-color: hsl(214 40% 16%) !important; }
+.dark .bg-blue-100 { background-color: hsl(214 40% 20%) !important; }
+.dark .border-blue-200 { border-color: hsl(214 50% 32%) !important; }
+
+/* Red panels */
+.dark .bg-red-50   { background-color: hsl(0 40% 14%) !important; }
+
+/* Stat card icon backgrounds */
+.dark .bg-orange-50    { background-color: hsl(25 40% 16%) !important; }
+.dark .bg-green-50     { background-color: hsl(142 30% 14%) !important; }
+.dark .bg-emerald-50   { background-color: hsl(152 30% 14%) !important; }
+.dark .bg-purple-50    { background-color: hsl(270 30% 16%) !important; }
+.dark .bg-yellow-50    { background-color: hsl(45 40% 14%) !important; }
+.dark .bg-teal-50      { background-color: hsl(174 30% 14%) !important; }
+.dark .bg-sky-50       { background-color: hsl(204 40% 14%) !important; }
+.dark .bg-pink-50      { background-color: hsl(330 30% 16%) !important; }
+.dark .bg-rose-50      { background-color: hsl(350 30% 16%) !important; }
+
+/* Zebra rows */
+.dark .bg-slate-50  { background-color: hsl(220 16% 19%) !important; }
+.dark tr.bg-slate-50 { background-color: hsl(220 16% 19%) !important; }
+
+/* Dropdown & popover backgrounds */
+.dark [data-radix-popper-content-wrapper] .bg-white { background-color: hsl(220 16% 17%) !important; }
 
 @layer utilities {
   @keyframes fade-in {

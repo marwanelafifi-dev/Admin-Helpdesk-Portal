@@ -11,9 +11,10 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
-import { Upload, X, Inbox } from "lucide-react"
+import { Upload, X, Inbox, Mail } from "lucide-react"
 import { submitRequest, getRequests, type EngineRequest } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
+import { CcEmailsField } from "@/components/ui/CcEmailsField"
 import { cn } from "@/lib/utils"
 
 const schema = z.object({
@@ -44,6 +45,7 @@ export default function NewGeneralRequestPage() {
   const requestId = searchParams.get("id")
   const [existingRequest, setExistingRequest] = useState<EngineRequest | null>(null)
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const [ccEmails, setCcEmails] = useState<string[]>([])
   const isEditing = !!requestId
 
   const {
@@ -58,10 +60,12 @@ export default function NewGeneralRequestPage() {
       const req = getRequests().find(r => r.id === requestId)
       if (req) {
         setExistingRequest(req)
+        const payload = req.payload as Record<string, unknown>
         reset({
           title: req.title,
-          description: String((req.payload as Record<string, unknown>).description ?? ""),
+          description: String(payload.description ?? ""),
         })
+        if (Array.isArray(payload.ccEmails)) setCcEmails(payload.ccEmails as string[])
       }
     }
   }, [requestId, reset])
@@ -91,7 +95,7 @@ export default function NewGeneralRequestPage() {
 
     const saved = submitRequest(
       "general",
-      { description: values.description ?? "", attachments },
+      { description: values.description ?? "", attachments, ccEmails },
       { title: values.title, requesterId: userId, requesterName: userName, requesterEmail: userEmail }
     )
 
@@ -106,7 +110,7 @@ export default function NewGeneralRequestPage() {
       actionUserEmail: userEmail,
       preview: "New general request submitted",
       updateType: "request_updated",
-      ccEmails: [],
+      ccEmails,
     })
 
     router.push("/general")
@@ -149,6 +153,14 @@ export default function NewGeneralRequestPage() {
                 {...register("description")}
               />
             </div>
+          </CardContent>
+        </Card>
+
+        {/* CC Notifications */}
+        <Card>
+          <SectionHeader icon={Mail} title="CC Notifications" subtitle="Add recipients to be notified about this request" />
+          <CardContent className="pt-5">
+            <CcEmailsField value={ccEmails} onChange={setCcEmails} />
           </CardContent>
         </Card>
 

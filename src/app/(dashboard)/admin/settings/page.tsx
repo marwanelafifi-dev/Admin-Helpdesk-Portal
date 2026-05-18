@@ -48,9 +48,9 @@ export interface PlatformSettings {
 }
 
 export const DEFAULTS: PlatformSettings = {
-  platformName: "Admin Request Platform",
-  orgName: "Si-Ware",
-  supportEmail: "support@si-ware.com",
+  platformName: "Admin Helpdesk Portal",
+  orgName: "Si-Ware Systems",
+  supportEmail: "adminhelpdesk@si-ware.com",
   timezone: "Africa/Cairo",
   dateFormat: "DD-MMM-YYYY",
   sessionTimeout: "480",

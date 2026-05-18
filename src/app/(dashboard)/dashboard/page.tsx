@@ -15,6 +15,7 @@ import { getFeedbackResponses } from "@/services/feedbackService"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { cn } from "@/lib/utils"
+import { useTheme } from "next-themes"
 
 const STATUS_COLORS: Record<string, string> = {
   new: "bg-sky-50 text-sky-700", on_hold: "bg-amber-50 text-amber-700",
@@ -98,6 +99,13 @@ interface DateRange {
 }
 
 export default function DashboardPage() {
+  const { resolvedTheme } = useTheme()
+  const isDark = resolvedTheme === "dark"
+  const chartAxisColor = isDark ? "#94a3b8" : "#64748b"
+  const chartGridColor = isDark ? "#334155" : "#f1f5f9"
+  const chartTooltipBg = isDark ? "#1e293b" : "#ffffff"
+  const chartTooltipBorder = isDark ? "#334155" : "#e2e8f0"
+
   const [requests, setRequests] = useState<EngineRequest[]>([])
   const [timeRange, setTimeRange] = useState<TimeRange>("7d")
   const [customRange, setCustomRange] = useState<DateRange>({
@@ -482,15 +490,15 @@ export default function DashboardPage() {
             <CardContent>
               <ResponsiveContainer width="100%" height={320}>
                 <BarChart data={statusTrendData} margin={{ top: 20, right: 30, left: 0, bottom: 40 }}>
-                  <CartesianGrid strokeDasharray="4 4" stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="status" tick={{ fontSize: 12, fill: "#64748b", fontWeight: 500 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <CartesianGrid strokeDasharray="4 4" stroke={chartGridColor} vertical={false} />
+                  <XAxis dataKey="status" tick={{ fontSize: 12, fill: chartAxisColor, fontWeight: 500 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 12, fill: chartAxisColor }} axisLine={false} tickLine={false} allowDecimals={false} />
                   <Tooltip
                     contentStyle={{
                       borderRadius: "12px",
-                      border: "1px solid #e2e8f0",
-                      boxShadow: "0 10px 25px rgba(0, 0, 0, 0.1)",
-                      backgroundColor: "#ffffff",
+                      border: `1px solid ${chartTooltipBorder}`,
+                      boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15)",
+                      backgroundColor: chartTooltipBg,
                       padding: "12px 16px"
                     }}
                     cursor={{ fill: "rgba(59, 130, 246, 0.08)" }}
@@ -518,7 +526,11 @@ export default function DashboardPage() {
                     cx="50%"
                     cy="50%"
                     labelLine={true}
-                    label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(0)}%)`}
+                    label={({ name, value, percent, x, y, textAnchor }) => (
+                      <text x={x} y={y} fill={chartAxisColor} textAnchor={textAnchor} fontSize={12}>
+                        {`${name}: ${value} (${(percent * 100).toFixed(0)}%)`}
+                      </text>
+                    )}
                     outerRadius={100}
                     innerRadius={40}
                     fill="#8884d8"
@@ -532,9 +544,9 @@ export default function DashboardPage() {
                   <Tooltip
                     contentStyle={{
                       borderRadius: "12px",
-                      border: "1px solid #e2e8f0",
-                      boxShadow: "0 10px 25px rgba(0, 0, 0, 0.1)",
-                      backgroundColor: "#ffffff",
+                      border: `1px solid ${chartTooltipBorder}`,
+                      boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15)",
+                      backgroundColor: chartTooltipBg,
                       padding: "12px 16px"
                     }}
                     formatter={(value) => [`${value} requests`, "Total"]}

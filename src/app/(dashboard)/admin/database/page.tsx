@@ -3,7 +3,7 @@
 import { useState, useRef } from "react"
 import {
   Download, Upload, CheckCircle2, AlertTriangle, Clock, Shield, Trash2,
-  Package, Wrench, ShoppingCart, CalendarDays, Plane, UserCog, Bell, MessageSquare, ListTodo, ChevronRight, Inbox,
+  Package, Wrench, ShoppingCart, CalendarDays, Plane, UserCog, Bell, MessageSquare, ListTodo, ChevronRight, Inbox, Building2,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -26,7 +26,8 @@ const SYSTEM_KEYS = ["arp_prod_wipe_v1", "arp_mock_version"]
 const ALL_BACKUP_KEYS = [
   "arp_requests", "arp_viewed_comments", "arp_notifications",
   "arp_notification_preferences", "feedback_surveys", "feedback_responses",
-  "admin_tasks", ...SYSTEM_KEYS,
+  "admin_tasks", "arp_company_data", "arp_platform_settings", "arp_theme",
+  "arp_logo_header", "arp_logo_login", ...SYSTEM_KEYS,
 ]
 
 // Module definitions — each maps to a filter on arp_requests[].module
@@ -42,12 +43,16 @@ const REQUEST_MODULES = [
 
 // Other clearable stores (non-request)
 const OTHER_STORES = [
-  { key: "arp_notifications",            label: "Notifications",           description: "In-app notification log",                   icon: Bell,           color: "text-amber-600",  bg: "bg-amber-50",  border: "border-amber-200" },
-  { key: "arp_notification_preferences", label: "Notification Preferences",description: "Per-user email & in-app toggle settings",   icon: Bell,           color: "text-amber-600",  bg: "bg-amber-50",  border: "border-amber-200" },
-  { key: "arp_viewed_comments",          label: "Viewed Comments",         description: "Read/unread comment tracking per user",     icon: MessageSquare,  color: "text-slate-600",  bg: "bg-slate-50",  border: "border-slate-200" },
-  { key: "feedback_surveys",             label: "Feedback Surveys",        description: "Pending and sent employee survey records",  icon: MessageSquare,  color: "text-emerald-600",bg: "bg-emerald-50",border: "border-emerald-200" },
-  { key: "feedback_responses",           label: "Feedback Responses",      description: "Submitted star ratings and comments",       icon: MessageSquare,  color: "text-emerald-600",bg: "bg-emerald-50",border: "border-emerald-200" },
-  { key: "admin_tasks",                  label: "Team Tasks",              description: "Task records, comments, and activity logs", icon: ListTodo,       color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-200" },
+  { key: "arp_notifications",            label: "Notifications",           description: "In-app notification log",                          icon: Bell,         color: "text-amber-600",  bg: "bg-amber-50",   border: "border-amber-200" },
+  { key: "arp_notification_preferences", label: "Notification Preferences",description: "Per-user email & in-app toggle settings",          icon: Bell,         color: "text-amber-600",  bg: "bg-amber-50",   border: "border-amber-200" },
+  { key: "arp_viewed_comments",          label: "Viewed Comments",         description: "Read/unread comment tracking per user",            icon: MessageSquare,color: "text-slate-600",  bg: "bg-slate-50",   border: "border-slate-200" },
+  { key: "feedback_surveys",             label: "Feedback Surveys",        description: "Pending and sent employee survey records",         icon: MessageSquare,color: "text-emerald-600",bg: "bg-emerald-50", border: "border-emerald-200" },
+  { key: "feedback_responses",           label: "Feedback Responses",      description: "Submitted star ratings and comments",              icon: MessageSquare,color: "text-emerald-600",bg: "bg-emerald-50", border: "border-emerald-200" },
+  { key: "admin_tasks",                  label: "Team Tasks",              description: "Task records, comments, and activity logs",        icon: ListTodo,     color: "text-indigo-600", bg: "bg-indigo-50",  border: "border-indigo-200" },
+  { key: "arp_company_data",             label: "Company Data",            description: "Suppliers, Cost Centers, Managers, Carriers lists",icon: Building2,    color: "text-blue-600",   bg: "bg-blue-50",    border: "border-blue-200" },
+  { key: "arp_platform_settings",        label: "Platform Settings",       description: "Branding, login page, header, and system config",  icon: Shield,       color: "text-gray-600",   bg: "bg-gray-50",    border: "border-gray-200" },
+  { key: "arp_logo_header",              label: "Header Logo",             description: "Custom header logo (base64 image data)",          icon: Shield,       color: "text-gray-600",   bg: "bg-gray-50",    border: "border-gray-200" },
+  { key: "arp_logo_login",               label: "Login Logo",              description: "Custom login page logo (base64 image data)",      icon: Shield,       color: "text-gray-600",   bg: "bg-gray-50",    border: "border-gray-200" },
 ]
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -227,11 +232,14 @@ export default function DatabasePage() {
           <CardContent className="p-6 space-y-4">
             <div className="grid grid-cols-2 gap-2">
               {[
-                { label: "All Requests", sub: "All 6 modules" },
+                { label: "All Requests", sub: "All 7 modules" },
                 { label: "Team Tasks", sub: "Comments & activity" },
                 { label: "Feedback", sub: "Surveys & responses" },
                 { label: "Notifications", sub: "Log & preferences" },
                 { label: "Viewed Comments", sub: "Read state tracking" },
+                { label: "Company Data", sub: "Suppliers, managers, carriers" },
+                { label: "Platform Settings", sub: "Branding & config" },
+                { label: "Logos", sub: "Header & login images" },
                 { label: "System Config", sub: "Version markers" },
               ].map(({ label, sub }) => (
                 <div key={label} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">

@@ -4,7 +4,8 @@ import { useEffect, useState } from "react"
 import Image from "next/image"
 import { signOut, useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { Bell, LogOut, Settings, User } from "lucide-react"
+import { Bell, LogOut, Settings, Sun, Moon, User } from "lucide-react"
+import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -46,6 +47,7 @@ export function TopBar() {
   const user = session?.user
   const userId = user?.id
   const { notifications, unreadCount } = useNotifications(userId)
+  const { theme, setTheme } = useTheme()
   const [isOpen, setIsOpen] = useState(false)
   const [headerShowLogo, setHeaderShowLogo] = useState(true)
   const [headerLogoAlt, setHeaderLogoAlt] = useState("Si-Ware Systems")
@@ -77,7 +79,7 @@ export function TopBar() {
   }
 
   return (
-    <header className="h-16 border-b bg-white flex items-center justify-between px-6 flex-shrink-0">
+    <header className="h-16 border-b bg-background flex items-center justify-between px-6 flex-shrink-0">
       {/* Left: Empty space */}
       <div className="flex-1" />
 
@@ -99,6 +101,17 @@ export function TopBar() {
 
       {/* Right: actions */}
       <div className="flex items-center gap-2">
+        {/* Theme toggle */}
+        <Button
+          variant="ghost"
+          size="icon"
+          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+        </Button>
+
         {/* Notification Bell */}
         <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
           <DropdownMenuTrigger asChild>
