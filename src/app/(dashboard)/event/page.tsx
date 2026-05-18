@@ -1,15 +1,21 @@
 "use client"
 
-import { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import { useSession } from "next-auth/react"
 import { Search, Plus, CalendarDays, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
 import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
-import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
+import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, type EngineRequest, type RequestStatus } from "@/services/engineService"
+import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { cn } from "@/lib/utils"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
+import { useExpandedRows } from "@/hooks/useExpandedRows"
+import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
+import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
+import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
+import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -38,15 +44,6 @@ const STATUS_PILL_ACTIVE: Record<string, string> = {
   cancelled: "bg-red-600 border-red-600 text-white",
 }
 
-const STATUS_OPTIONS = [
-  { value: "new", label: "New", colorClass: "bg-sky-50 text-sky-700 border-transparent", dotClass: "bg-sky-500" },
-  { value: "on_hold", label: "In Progress", colorClass: "bg-amber-50 text-amber-700 border-transparent", dotClass: "bg-amber-500" },
-  { value: "in_transit", label: "In Transit", colorClass: "bg-blue-50 text-blue-700 border-transparent", dotClass: "bg-blue-500" },
-  { value: "delivered", label: "Delivered", colorClass: "bg-green-50 text-green-700 border-transparent", dotClass: "bg-green-500" },
-  { value: "completed", label: "Completed", colorClass: "bg-emerald-50 text-emerald-700 border-transparent", dotClass: "bg-emerald-500" },
-  { value: "cancelled", label: "Cancelled", colorClass: "bg-red-50 text-red-600 border-transparent", dotClass: "bg-red-500" },
-]
-
 const STATUSES = ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"] as const
 
 type SortKey = "id" | "title" | "createdAt" | "requesterName" | "eventDate" | "attendees" | "status" | "updatedAt"
@@ -69,15 +66,20 @@ function formatDate(iso: string) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function EventPage() {
+  const { data: session } = useSession()
   const [requests, setRequests]           = useState<EngineRequest[]>([])
   const [search, setSearch]               = useState("")
   const [statusFilter, setStatusFilter]   = useState("all")
   const [sortKey, setSortKey]             = useState<SortKey>("updatedAt")
   const [sortDir, setSortDir]             = useState<"asc" | "desc">("desc")
-  const [colWidths, setColWidths]         = useState<number[]>(() => COLS.map((c) => c.defaultW))
-  const resizingCol  = useRef<number | null>(null)
-  const resizeStartX = useRef(0)
-  const resizeStartW = useRef(0)
+  const [colWidths, setColWidths]         = useState<(number | null)[]>(() => COLS.map(() => null))
+  const tableRef = useRef<HTMLTableElement>(null)
+
+  const canUpdateStatus = ((session?.user?.permissions as string[])?.includes("update_status") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  const canEditRequest = ((session?.user?.permissions as string[])?.includes("edit_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  const canCancelRequest = ((session?.user?.permissions as string[])?.includes("cancel_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+
+  const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
   useEffect(() => {
     initializeMockData()
@@ -88,20 +90,52 @@ export default function EventPage() {
     return () => { window.removeEventListener("focus", sync); window.removeEventListener("storage", sync) }
   }, [])
 
+  function handleStatusChange(id: string, newStatus: string) {
+    const request = requests.find(r => r.id === id)
+    const currentUserId = session?.user?.id || "USR-001"
+    const oldStatus = request?.status
+    setRequests(prev => prev.map(r => r.id === id ? { ...r, status: newStatus as RequestStatus, updatedAt: new Date().toISOString() } : r))
+    updateStatus(id, newStatus as RequestStatus, currentUserId)
+
+    if (request) {
+      createRequestUpdateNotifications({
+        requestId: id,
+        requestTitle: request.title,
+        module: "event",
+        requestOwnerId: request.requesterId,
+        requestOwnerEmail: request.requesterEmail,
+        actionUserId: currentUserId,
+        actionUserName: session?.user?.name || "User",
+        actionUserEmail: session?.user?.email || undefined,
+        preview: `Status changed from ${oldStatus} to ${newStatus}`,
+        previousStatus: oldStatus,
+        newStatus,
+        updateType: "status",
+        ccEmails: getAllCcEmails(getRequestById(id) ?? { adminCc: [], payload: {} } as any),
+      })
+    }
+  }
+
+  function handleCancelRequest(id: string) {
+    if (confirm("Are you sure you want to cancel this request?")) {
+      handleStatusChange(id, "cancelled")
+    }
+  }
+
   const commentCounts = useCommentCounts(requests.map(r => r.id))
   const { viewedComments } = useViewedComments()
+  const { expandedRows, toggleRow, isExpanded } = useExpandedRows()
 
   const onResizeMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
     e.preventDefault(); e.stopPropagation()
-    resizingCol.current = idx
-    resizeStartX.current = e.clientX
-    resizeStartW.current = colWidths[idx]
+    const startX = e.clientX
+    const th = (e.currentTarget as HTMLElement).closest("th")
+    const startW = th ? th.getBoundingClientRect().width : (colWidths[idx] ?? 120)
     const onMove = (ev: MouseEvent) => {
-      if (resizingCol.current === null) return
-      const newW = Math.max(60, resizeStartW.current + ev.clientX - resizeStartX.current)
-      setColWidths((prev) => prev.map((w, i) => i === resizingCol.current ? newW : w))
+      const newW = Math.max(60, startW + ev.clientX - startX)
+      setColWidths((prev) => prev.map((w, i) => i === idx ? newW : w))
     }
-    const onUp = () => { resizingCol.current = null; window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp) }
+    const onUp = () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp) }
     window.addEventListener("mousemove", onMove)
     window.addEventListener("mouseup", onUp)
   }, [colWidths])
@@ -140,12 +174,6 @@ export default function EventPage() {
     })
   }, [requests, statusFilter, search, sortKey, sortDir])
 
-  function updateRequestStatus(id: string, status: string) {
-    setRequests((prev) => prev.map((request) =>
-      request.id === id ? { ...request, status, updatedAt: new Date().toISOString() } : request
-    ))
-  }
-
   const counts = useMemo(() => ({
     total:    requests.length,
     upcoming: requests.filter((r) => ["new", "in_transit"].includes(r.status)).length,
@@ -165,11 +193,14 @@ export default function EventPage() {
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold tracking-tight">Event</h1>
           <p className="text-muted-foreground text-sm mt-0.5">Plan and manage corporate event requests</p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white" disabled>
+        {(newRequestsCount > 0 || newTasksCount > 0) && (
+          <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
+        )}
+        <Button className="bg-blue-600 hover:bg-blue-700 text-white ml-4" disabled>
           <Plus className="h-4 w-4 mr-2" />
           New Event Request
         </Button>
@@ -177,7 +208,7 @@ export default function EventPage() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {statCards.map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }) => {
+        {statCards.map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }, index) => {
           const isActive = statusFilter === key || (key === "all" && statusFilter === "all")
           return (
             <button
@@ -185,7 +216,8 @@ export default function EventPage() {
               onClick={() => setStatusFilter(key === "all" ? "all" : (p) => p === key ? "all" : key)}
               className={cn(
                 "text-left rounded-xl border-2 p-5 flex items-center gap-4 transition-all hover:shadow-md",
-                isActive ? `${activeBg} ${activeBorder} text-white shadow-sm` : "bg-white border-gray-100 hover:border-gray-200"
+                isActive ? `${activeBg} ${activeBorder} text-white shadow-sm` : "bg-white border-gray-100 hover:border-gray-200",
+                
               )}
             >
               <div className={cn("h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all", isActive ? "bg-white/20" : iconBg)}>
@@ -236,13 +268,15 @@ export default function EventPage() {
           </p>
         </CardHeader>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm" style={{ tableLayout: "fixed", minWidth: colWidths.reduce((a, b) => a + b, 0) }}>
+        <div className="-mx-6 px-6 -mb-6 overflow-visible">
+          <div className="overflow-x-auto overflow-y-visible">
+            <table ref={tableRef} className="w-full text-sm border-collapse" style={{ tableLayout: colWidths.some(w => w !== null) ? "fixed" : "auto" }}>
             <colgroup>
-              {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
+              {colWidths.map((w, i) => <col key={i} style={w !== null ? { width: w } : undefined} />)}
+              <col />
             </colgroup>
-            <thead>
-              <tr className="bg-slate-800 border-b border-slate-700 hover:bg-slate-800">
+            <thead className="bg-slate-800">
+              <tr className="border-b border-slate-700">
                 {COLS.map((col, idx) => (
                   <th
                     key={col.key}
@@ -261,13 +295,15 @@ export default function EventPage() {
                     </span>
                   </th>
                 ))}
+                <th className="bg-slate-800" />
               </tr>
             </thead>
             <tbody>
               {filtered.map((req, i) => {
                 const hasUnreadComments = (commentCounts[req.id] ?? 0) > (viewedComments[req.id] ?? 0)
                 return (
-                <tr key={req.id} className={cn("border-b border-gray-100 hover:bg-blue-50/30 transition-colors", hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40"))}>
+                <React.Fragment key={req.id}>
+                <tr className={cn("border-b border-gray-100 hover:bg-blue-50/30 transition-colors", hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40"))}>
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-gray-700 truncate block">{req.id}</span>
@@ -302,21 +338,66 @@ export default function EventPage() {
                   </td>
                   <td className="py-3 px-3">
                     <InlineStatusSelect
-                      status={req.status}
-                      options={STATUS_OPTIONS}
-                      onChange={(nextStatus) => updateRequestStatus(req.id, nextStatus)}
+                      currentStatus={req.status}
+                      statuses={STATUSES}
+                      statusColors={STATUS_COLORS}
+                      statusDot={STATUS_DOT}
+                      statusLabels={STATUS_LABELS}
+                      onStatusChange={(newStatus) => handleStatusChange(req.id, newStatus)}
+                      canUpdateStatus={canUpdateStatus}
                     />
                   </td>
                   <td className="py-3 px-3">
                     <span className="text-sm font-medium text-gray-700">{formatDate(req.updatedAt)}</span>
                   </td>
+                  <td className="py-3 px-2 text-right">
+                    <RequestActionsMenu
+                      requestId={req.id}
+                      showCancelOption={canCancelRequest}
+                      isExpanded={isExpanded(req.id)}
+                      onViewDetails={() => toggleRow(req.id)}
+                      onEdit={canEditRequest ? (id) => window.open(`/requests/${id}?source=event`, '_blank') : undefined}
+                      onCancel={handleCancelRequest}
+                    />
+                  </td>
                 </tr>
+                {isExpanded(req.id) && (
+                  <tr className="bg-blue-50">
+                    <td colSpan={9} className="py-4 px-6">
+                      <div className="space-y-3 text-sm">
+                        <div className="grid grid-cols-2 gap-6">
+                          <div>
+                            <p className="font-semibold text-gray-700">Title</p>
+                            <p className="text-gray-600">{req.title}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Event Date</p>
+                            <p className="text-gray-600">{(req.payload as Record<string, unknown>).eventDate ? formatDate(String((req.payload as Record<string, unknown>).eventDate)) : "—"}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Attendees</p>
+                            <p className="text-gray-600">{String((req.payload as Record<string, unknown>).expectedAttendees ?? "—")}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Status</p>
+                            <p className="text-gray-600">{STATUS_LABELS[req.status] || req.status}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Requester</p>
+                            <p className="text-gray-600">{req.requesterName}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
               )
               })}
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="py-16 text-center text-gray-400 text-sm">
+                  <td colSpan={9} className="py-16 text-center text-gray-400 text-sm">
                     No events match the current filters
                   </td>
                 </tr>
@@ -336,8 +417,10 @@ export default function EventPage() {
               Showing {filtered.length} of {requests.length} events
             </div>
           )}
-        </div>
+            </div>
+          </div>
       </Card>
     </div>
   )
 }
+

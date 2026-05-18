@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -10,7 +11,7 @@ import {
   TRAVEL_CLASS,
   TravelPayloadSchema,
 } from "./travel.schema"
-import { requestsAPI } from "@/lib/apiClient"
+import { submitRequest } from "@/services/engineService"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -21,6 +22,7 @@ import {
 } from "@/components/ui/select"
 import { AlertCircle, Plane, Upload, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { CcEmailsField } from "@/components/ui/CcEmailsField"
 
 const BRAND = "#ec4899" // pink-500
 
@@ -54,20 +56,22 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
 
 export function TravelForm({ onCancel }: { onCancel?: () => void }) {
   const router = useRouter()
+  const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<TravelForm>({
     resolver: zodResolver(TravelPayloadSchema),
-    defaultValues: { attachments: [] },
+    defaultValues: { attachments: [], ccEmails: [] },
   })
 
   const handleCancel = onCancel ?? (() => router.push("/travel"))
 
   const onSubmit = async (data: TravelForm) => {
     try {
-      await requestsAPI.create("travel", {
+      submitRequest("travel", data, {
         title: data.requestTitle,
-        payload: data,
-        requesterId: "USR-001",
+        requesterId: session?.user?.id || "USR-001",
+        requesterName: session?.user?.name || session?.user?.email || "Current User",
+        requesterEmail: session?.user?.email || "user@si-ware.com",
       })
       router.push("/travel")
       router.refresh()
@@ -77,7 +81,7 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
   }
 
   return (
-    <div className="space-y-5 max-w-3xl mx-auto pb-12">
+    <div className="space-y-5 max-w-3xl mx-auto">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {/* Request Title */}
         <Card>
@@ -271,10 +275,24 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
           </CardContent>
         </Card>
 
-        <div className="sticky bottom-0 bg-white border-t py-4 px-1 flex items-center justify-between gap-3">
+        {/* CC Notifications */}
+        <Card>
+          <SectionHeader icon={Plane} title="CC Notifications" subtitle="Additional recipients for email updates on this request" />
+          <CardContent>
+            <Controller
+              control={control}
+              name="ccEmails"
+              render={({ field }) => (
+                <CcEmailsField value={field.value ?? []} onChange={field.onChange} />
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        <div className="border-t bg-gray-50 py-4 px-1 flex items-center justify-between gap-3">
           <Button type="button" variant="ghost" onClick={handleCancel}>Cancel</Button>
-          <Button type="submit" disabled={isSubmitting} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px]">
-            {isSubmitting ? "Submitting..." : "Submit Travel Request"}
+          <Button type="submit" disabled={true} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px] opacity-50 cursor-not-allowed">
+            Coming Soon
           </Button>
         </div>
       </form>

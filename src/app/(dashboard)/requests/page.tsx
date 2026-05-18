@@ -9,20 +9,23 @@ import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
 import { cn } from "@/lib/utils"
+import { animationClasses } from "@/lib/animations"
 import { requestsAPI } from "@/lib/apiClient"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
+import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
+import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: "Draft", new: "New", on_hold: "In Progress", in_transit: "In Customs",
+  new: "New", on_hold: "In Progress", in_transit: "In Customs",
   delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
   "New": "New", "In Progress": "In Progress", "In Customs": "In Customs", "In Transit": "In Customs",
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-zinc-100 text-zinc-600", new: "bg-sky-50 text-sky-700",
+  new: "bg-sky-50 text-sky-700",
   on_hold: "bg-amber-50 text-amber-700", in_transit: "bg-blue-50 text-blue-700",
   delivered: "bg-green-50 text-green-700", completed: "bg-emerald-50 text-emerald-700",
   cancelled: "bg-red-50 text-red-600",
@@ -30,14 +33,13 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 const STATUS_DOT: Record<string, string> = {
-  draft: "bg-zinc-400", new: "bg-sky-500", on_hold: "bg-amber-500",
+  new: "bg-sky-500", on_hold: "bg-amber-500",
   in_transit: "bg-blue-500", delivered: "bg-green-500",
   completed: "bg-emerald-500", cancelled: "bg-red-500",
   "New": "bg-sky-500", "In Progress": "bg-blue-500", "In Customs": "bg-amber-500", "In Transit": "bg-blue-500",
 }
 
 const STATUS_PILL_ACTIVE: Record<string, string> = {
-  draft: "bg-zinc-500 border-zinc-500 text-white",
   new: "bg-sky-500 border-sky-500 text-white",
   on_hold: "bg-amber-500 border-amber-500 text-white",
   in_transit: "bg-blue-600 border-blue-600 text-white",
@@ -78,13 +80,13 @@ const STATUS_OPTIONS = [
 const MODULE_COLORS: Record<string, string> = {
   shipping: "text-blue-700", maintenance: "text-purple-700",
   purchase: "text-green-700", event: "text-orange-600",
-  travel: "text-pink-600", hr: "text-teal-700",
+  travel: "text-pink-600", hr: "text-teal-700", general: "text-indigo-700",
 }
 
 const MODULE_DOT: Record<string, string> = {
   shipping: "bg-blue-500", maintenance: "bg-purple-500",
   purchase: "bg-green-500", event: "bg-orange-500",
-  travel: "bg-pink-500", hr: "bg-teal-500",
+  travel: "bg-pink-500", hr: "bg-teal-500", general: "bg-indigo-500",
 }
 
 const MODULE_PILL_ACTIVE: Record<string, string> = {
@@ -94,14 +96,14 @@ const MODULE_PILL_ACTIVE: Record<string, string> = {
   event: "bg-orange-500 border-orange-500 text-white",
   travel: "bg-pink-500 border-pink-500 text-white",
   hr: "bg-teal-600 border-teal-600 text-white",
+  general: "bg-indigo-600 border-indigo-600 text-white",
 }
 
-const STATUSES = ["draft", "new", "on_hold", "in_transit", "delivered", "completed", "cancelled"] as const
-const MODULES  = ["shipping", "maintenance", "purchase", "event", "travel", "hr"] as const
+const STATUSES = ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"] as const
+const MODULES  = ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"] as const
 
 const STAT_CARDS = [
   { key: "total",      label: "Total",      accentBg: "bg-slate-800",   accentBorder: "border-slate-800" },
-  { key: "draft",      label: "Draft",      accentBg: "bg-zinc-500",    accentBorder: "border-zinc-500" },
   { key: "new",        label: "New",        accentBg: "bg-sky-500",     accentBorder: "border-sky-500" },
   { key: "on_hold",    label: "In Progress", accentBg: "bg-amber-500",   accentBorder: "border-amber-500" },
   { key: "in_transit", label: "In Customs",  accentBg: "bg-blue-600",    accentBorder: "border-blue-600" },
@@ -137,13 +139,12 @@ export default function RequestsPage() {
   const [moduleFilter, setModuleFilter] = useState("all")
   const [sortKey, setSortKey]           = useState<SortKey>("updatedAt")
   const [sortDir, setSortDir]           = useState<"asc" | "desc">("desc")
-  const [colWidths, setColWidths]       = useState<number[]>(() => COLS.map((c) => c.defaultW))
-  const resizingCol  = useRef<number | null>(null)
-  const resizeStartX = useRef(0)
-  const resizeStartW = useRef(0)
+  const [colWidths, setColWidths]       = useState<(number | null)[]>(() => COLS.map(() => null))
+  const tableRef = useRef<HTMLTableElement>(null)
 
   const commentCounts = useCommentCounts(requests.map(r => r.id))
   const { viewedComments } = useViewedComments()
+  const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -163,15 +164,14 @@ export default function RequestsPage() {
 
   const onResizeMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
     e.preventDefault(); e.stopPropagation()
-    resizingCol.current = idx
-    resizeStartX.current = e.clientX
-    resizeStartW.current = colWidths[idx]
+    const startX = e.clientX
+    const th = (e.currentTarget as HTMLElement).closest("th")
+    const startW = th ? th.getBoundingClientRect().width : (colWidths[idx] ?? 120)
     const onMove = (ev: MouseEvent) => {
-      if (resizingCol.current === null) return
-      const newW = Math.max(60, resizeStartW.current + ev.clientX - resizeStartX.current)
-      setColWidths((prev) => prev.map((w, i) => i === resizingCol.current ? newW : w))
+      const newW = Math.max(60, startW + ev.clientX - startX)
+      setColWidths((prev) => prev.map((w, i) => i === idx ? newW : w))
     }
-    const onUp = () => { resizingCol.current = null; window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp) }
+    const onUp = () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp) }
     window.addEventListener("mousemove", onMove)
     window.addEventListener("mouseup", onUp)
   }, [colWidths])
@@ -217,10 +217,9 @@ export default function RequestsPage() {
 
   const counts = useMemo(() => ({
     total:      userRequests.length,
-    draft:      userRequests.filter((r) => r.status === "draft").length,
     new:        userRequests.filter((r) => r.status === "new").length,
     on_hold:    userRequests.filter((r) => r.status === "on_hold").length,
-    in_transit: userRequests.filter((r) => r.status === "in_transit").length,
+    in_transit: userRequests.filter((r) => r.status === "in_customs").length,
     delivered:  userRequests.filter((r) => r.status === "delivered").length,
     completed:  userRequests.filter((r) => r.status === "completed").length,
     cancelled:  userRequests.filter((r) => r.status === "cancelled").length,
@@ -230,16 +229,19 @@ export default function RequestsPage() {
     <div className="space-y-6">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className={cn("flex items-center justify-between", animationClasses.headerFadeIn)}>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold tracking-tight">My Requests</h1>
           <p className="text-muted-foreground text-sm mt-0.5">View all your requests across all modules</p>
         </div>
+        {(newRequestsCount > 0 || newTasksCount > 0) && (
+          <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
+        )}
       </div>
 
       {/* Stat Cards */}
       <div className="grid grid-cols-4 lg:grid-cols-8 gap-3">
-        {STAT_CARDS.map(({ key, label, accentBg, accentBorder }) => {
+        {STAT_CARDS.map(({ key, label, accentBg, accentBorder }, index) => {
           const count = counts[key as keyof typeof counts]
           const isActive = key === "total"
             ? statusFilter === "all" && moduleFilter === "all"
@@ -255,7 +257,8 @@ export default function RequestsPage() {
                 "text-left rounded-xl border-2 px-4 py-3 transition-all hover:shadow-md",
                 isActive
                   ? `${accentBg} ${accentBorder} text-white shadow-sm`
-                  : "bg-white border-gray-100 hover:border-gray-200"
+                  : "bg-white border-gray-100 hover:border-gray-200",
+                
               )}
             >
               <p className={cn("text-[10px] font-semibold uppercase tracking-widest mb-1", isActive ? "text-white/70" : "text-gray-400")}>{label}</p>
@@ -330,13 +333,15 @@ export default function RequestsPage() {
         </CardHeader>
 
         {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm" style={{ tableLayout: "fixed", minWidth: colWidths.reduce((a, b) => a + b, 0) }}>
+        <div className="-mx-6 px-6 -mb-6 overflow-visible">
+          <div className="overflow-x-auto overflow-y-visible">
+            <table ref={tableRef} className="w-full text-sm border-collapse" style={{ tableLayout: colWidths.some(w => w !== null) ? "fixed" : "auto" }}>
             <colgroup>
-              {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
+              {colWidths.map((w, i) => <col key={i} style={w !== null ? { width: w } : undefined} />)}
+              <col />
             </colgroup>
-            <thead>
-              <tr className="bg-slate-800 border-b border-slate-700 hover:bg-slate-800">
+            <thead className="bg-slate-800">
+              <tr className="border-b border-slate-700">
                 {COLS.map((col, idx) => (
                   <th
                     key={col.key}
@@ -355,6 +360,7 @@ export default function RequestsPage() {
                     </span>
                   </th>
                 ))}
+                <th className="bg-slate-800" />
               </tr>
             </thead>
             <tbody>
@@ -363,7 +369,8 @@ export default function RequestsPage() {
                 return (
                 <tr key={req.id} className={cn(
                   "border-b border-gray-100 hover:bg-blue-50/30 transition-colors",
-                  hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40")
+                  hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40"),
+                  
                 )}>
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
                     <div className="flex items-center gap-2">
@@ -419,12 +426,13 @@ export default function RequestsPage() {
             </tbody>
           </table>
 
-          {filtered.length > 0 && (
-            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-[11px] text-gray-400 text-right">
-              Showing {filtered.length} of {counts.total} requests
+            {filtered.length > 0 && (
+              <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-[11px] text-gray-400 text-right">
+                Showing {filtered.length} of {counts.total} requests
+              </div>
+            )}
             </div>
-          )}
-        </div>
+          </div>
       </Card>
     </div>
   )

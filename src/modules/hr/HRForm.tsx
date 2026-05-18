@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -13,7 +14,8 @@ import {
   OnboardingPayloadSchema,
   OffboardingPayloadSchema,
 } from "./hr.schema"
-import { requestsAPI } from "@/lib/apiClient"
+import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
+import { createNewRequestNotifications } from "@/lib/notificationStore"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -24,6 +26,8 @@ import {
 } from "@/components/ui/select"
 import { AlertCircle, UserPlus, UserMinus, User, Building2, Calendar, ClipboardList, Upload, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { CcEmailsField } from "@/components/ui/CcEmailsField"
+import { getList } from "@/lib/companyDataStore"
 
 const BRAND = "#0F766E" // teal-700
 
@@ -60,25 +64,62 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
 type OnboardingForm = z.infer<typeof OnboardingPayloadSchema>
 type OffboardingForm = z.infer<typeof OffboardingPayloadSchema>
 
-function OnboardingFormFields({ onCancel }: { onCancel: () => void }) {
+function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCancel: () => void; editingRequest?: EngineRequest | null; isEditing?: boolean }) {
   const router = useRouter()
+  const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
-  const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<OnboardingForm>({
+  const [managers, setManagers] = useState<string[]>([])
+  const { register, control, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<OnboardingForm>({
     resolver: zodResolver(OnboardingPayloadSchema),
-    defaultValues: { hrType: "onboarding", items: [], attachments: [] },
+    defaultValues: { hrType: "onboarding", items: [], attachments: [], ccEmails: [] },
   })
+  useEffect(() => { setManagers(getList("managers")) }, [])
+
+  useEffect(() => {
+    if (isEditing && editingRequest?.payload) {
+      const payload = editingRequest.payload as any
+      reset({
+        hrType: "onboarding",
+        requestTitle: editingRequest.title || "",
+        employeeName: payload.employeeName || "",
+        employeeId: payload.employeeId || "",
+        mobileNumber: payload.mobileNumber || "",
+        nationalIdNumber: payload.nationalIdNumber || "",
+        jobTitle: payload.jobTitle || "",
+        employmentType: payload.employmentType || "",
+        sector: payload.sector || "",
+        department: payload.department || "",
+        directManager: payload.directManager || "",
+        entity: payload.entity || "",
+        startDate: payload.startDate || "",
+        items: payload.items || [],
+        notes: payload.notes || "",
+      })
+    }
+  }, [editingRequest, isEditing, reset])
 
   const onSubmit = async (data: OnboardingForm) => {
     try {
-      await requestsAPI.create("hr", {
-        title: data.requestTitle,
-        payload: data,
-        requesterId: "USR-001",
-      })
+      if (isEditing && editingRequest) {
+        updateRequest(editingRequest.id, data, {
+          title: data.requestTitle,
+          requesterId: editingRequest.requesterId,
+          requesterName: editingRequest.requesterName,
+          requesterEmail: editingRequest.requesterEmail,
+        })
+      } else {
+        const newReq = submitRequest("hr", data, {
+          title: data.requestTitle,
+          requesterId: session?.user?.id || "USR-001",
+          requesterName: session?.user?.name || session?.user?.email || "Current User",
+          requesterEmail: session?.user?.email || "user@si-ware.com",
+        })
+        createNewRequestNotifications({ requestId: newReq.id, requestTitle: newReq.title, module: "hr", requesterId: newReq.requesterId, requesterName: newReq.requesterName, requesterEmail: newReq.requesterEmail })
+      }
       router.push("/hr")
       router.refresh()
     } catch (error) {
-      console.error("Failed to create request:", error)
+      console.error(isEditing ? "Failed to update request:" : "Failed to create request:", error)
     }
   }
 
@@ -167,8 +208,19 @@ function OnboardingFormFields({ onCancel }: { onCancel: () => void }) {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="directManager">Direct Manager</Label>
-            <Input id="directManager" placeholder="Manager name" {...register("directManager")} />
+            <Label>Direct Manager</Label>
+            <Controller
+              name="directManager"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                  <SelectTrigger><SelectValue placeholder="Select direct manager" /></SelectTrigger>
+                  <SelectContent>
+                    {managers.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -299,10 +351,24 @@ function OnboardingFormFields({ onCancel }: { onCancel: () => void }) {
         </CardContent>
       </Card>
 
-      <div className="sticky bottom-0 bg-white border-t py-4 px-1 flex items-center justify-between gap-3">
+      {/* CC Notifications */}
+      <Card>
+        <SectionHeader icon={Building2} title="CC Notifications" subtitle="Additional recipients for email updates on this request" />
+        <CardContent>
+          <Controller
+            control={control}
+            name="ccEmails"
+            render={({ field }) => (
+              <CcEmailsField value={field.value ?? []} onChange={field.onChange} />
+            )}
+          />
+        </CardContent>
+      </Card>
+
+      <div className="border-t bg-gray-50 py-4 px-1 flex items-center justify-between gap-3">
         <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
         <Button type="submit" disabled={isSubmitting} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px]">
-          {isSubmitting ? "Submitting..." : "Submit Onboarding Request"}
+          {isSubmitting ? (isEditing ? "Updating..." : "Submitting...") : (isEditing ? "Update Request" : "Submit Onboarding Request")}
         </Button>
       </div>
     </form>
@@ -311,25 +377,59 @@ function OnboardingFormFields({ onCancel }: { onCancel: () => void }) {
 
 // ─── Offboarding Form ─────────────────────────────────────────────────────────
 
-function OffboardingFormFields({ onCancel }: { onCancel: () => void }) {
+function OffboardingFormFields({ onCancel, editingRequest, isEditing }: { onCancel: () => void; editingRequest?: EngineRequest | null; isEditing?: boolean }) {
   const router = useRouter()
+  const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
-  const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<OffboardingForm>({
+  const [managers, setManagers] = useState<string[]>([])
+  const { register, control, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<OffboardingForm>({
     resolver: zodResolver(OffboardingPayloadSchema),
-    defaultValues: { hrType: "offboarding", items: [], attachments: [] },
+    defaultValues: { hrType: "offboarding", items: [], attachments: [], ccEmails: [] },
   })
+  useEffect(() => { setManagers(getList("managers")) }, [])
+
+  useEffect(() => {
+    if (isEditing && editingRequest?.payload) {
+      const payload = editingRequest.payload as any
+      reset({
+        hrType: "offboarding",
+        requestTitle: editingRequest.title || "",
+        employeeName: payload.employeeName || "",
+        employeeId: payload.employeeId || "",
+        jobTitle: payload.jobTitle || "",
+        employmentType: payload.employmentType || "",
+        sector: payload.sector || "",
+        department: payload.department || "",
+        directManager: payload.directManager || "",
+        lastWorkingDay: payload.lastWorkingDay || "",
+        items: payload.items || [],
+        notes: payload.notes || "",
+      })
+    }
+  }, [editingRequest, isEditing, reset])
 
   const onSubmit = async (data: OffboardingForm) => {
     try {
-      await requestsAPI.create("hr", {
-        title: data.requestTitle,
-        payload: data,
-        requesterId: "USR-001",
-      })
+      if (isEditing && editingRequest) {
+        updateRequest(editingRequest.id, data, {
+          title: data.requestTitle,
+          requesterId: editingRequest.requesterId,
+          requesterName: editingRequest.requesterName,
+          requesterEmail: editingRequest.requesterEmail,
+        })
+      } else {
+        const newReq = submitRequest("hr", data, {
+          title: data.requestTitle,
+          requesterId: session?.user?.id || "USR-001",
+          requesterName: session?.user?.name || session?.user?.email || "Current User",
+          requesterEmail: session?.user?.email || "user@si-ware.com",
+        })
+        createNewRequestNotifications({ requestId: newReq.id, requestTitle: newReq.title, module: "hr", requesterId: newReq.requesterId, requesterName: newReq.requesterName, requesterEmail: newReq.requesterEmail })
+      }
       router.push("/hr")
       router.refresh()
     } catch (error) {
-      console.error("Failed to create request:", error)
+      console.error(isEditing ? "Failed to update request:" : "Failed to create request:", error)
     }
   }
 
@@ -406,8 +506,19 @@ function OffboardingFormFields({ onCancel }: { onCancel: () => void }) {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="directManager">Direct Manager</Label>
-            <Input id="directManager" placeholder="Manager name" {...register("directManager")} />
+            <Label>Direct Manager</Label>
+            <Controller
+              name="directManager"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value ?? ""} onValueChange={field.onChange}>
+                  <SelectTrigger><SelectValue placeholder="Select direct manager" /></SelectTrigger>
+                  <SelectContent>
+                    {managers.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -517,10 +628,24 @@ function OffboardingFormFields({ onCancel }: { onCancel: () => void }) {
         </CardContent>
       </Card>
 
-      <div className="sticky bottom-0 bg-white border-t py-4 px-1 flex items-center justify-between gap-3">
+      {/* CC Notifications */}
+      <Card>
+        <SectionHeader icon={Building2} title="CC Notifications" subtitle="Additional recipients for email updates on this request" />
+        <CardContent>
+          <Controller
+            control={control}
+            name="ccEmails"
+            render={({ field }) => (
+              <CcEmailsField value={field.value ?? []} onChange={field.onChange} />
+            )}
+          />
+        </CardContent>
+      </Card>
+
+      <div className="border-t bg-gray-50 py-4 px-1 flex items-center justify-between gap-3">
         <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
         <Button type="submit" disabled={isSubmitting} className="bg-red-600 text-white hover:opacity-90 min-w-[160px]">
-          {isSubmitting ? "Submitting..." : "Submit Offboarding Request"}
+          {isSubmitting ? (isEditing ? "Updating..." : "Submitting...") : (isEditing ? "Update Request" : "Submit Offboarding Request")}
         </Button>
       </div>
     </form>
@@ -529,46 +654,48 @@ function OffboardingFormFields({ onCancel }: { onCancel: () => void }) {
 
 // ─── Main HR Form ─────────────────────────────────────────────────────────────
 
-export function HRForm({ defaultType = "onboarding", onCancel }: { defaultType?: HRType; onCancel?: () => void }) {
+export function HRForm({ defaultType = "onboarding", onCancel, editingRequest, isEditing }: { defaultType?: HRType; onCancel?: () => void; editingRequest?: EngineRequest | null; isEditing?: boolean }) {
   const router = useRouter()
-  const [hrType, setHrType] = useState<HRType>(defaultType)
+  const [hrType, setHrType] = useState<HRType>(isEditing && editingRequest?.payload ? (editingRequest.payload as any).hrType || defaultType : defaultType)
   const handleCancel = onCancel ?? (() => router.push("/hr"))
 
   return (
-    <div className="space-y-5 max-w-3xl mx-auto pb-12">
-      {/* Type Toggle */}
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => setHrType("onboarding")}
-          className={cn(
-            "flex items-center gap-2 px-5 py-2.5 rounded-lg border-2 text-sm font-semibold transition",
-            hrType === "onboarding"
-              ? "border-teal-600 bg-teal-50 text-teal-700"
-              : "border-gray-200 text-gray-600 hover:border-gray-300"
-          )}
-        >
-          <UserPlus className="h-4 w-4" />
-          Onboarding
-        </button>
-        <button
-          type="button"
-          onClick={() => setHrType("offboarding")}
-          className={cn(
-            "flex items-center gap-2 px-5 py-2.5 rounded-lg border-2 text-sm font-semibold transition",
-            hrType === "offboarding"
-              ? "border-red-600 bg-red-50 text-red-700"
-              : "border-gray-200 text-gray-600 hover:border-gray-300"
-          )}
-        >
-          <UserMinus className="h-4 w-4" />
-          Offboarding
-        </button>
-      </div>
+    <div className="space-y-5 max-w-3xl mx-auto">
+      {/* Type Toggle - Disabled when editing */}
+      {!isEditing && (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setHrType("onboarding")}
+            className={cn(
+              "flex items-center gap-2 px-5 py-2.5 rounded-lg border-2 text-sm font-semibold transition",
+              hrType === "onboarding"
+                ? "border-teal-600 bg-teal-50 text-teal-700"
+                : "border-gray-200 text-gray-600 hover:border-gray-300"
+            )}
+          >
+            <UserPlus className="h-4 w-4" />
+            Onboarding
+          </button>
+          <button
+            type="button"
+            onClick={() => setHrType("offboarding")}
+            className={cn(
+              "flex items-center gap-2 px-5 py-2.5 rounded-lg border-2 text-sm font-semibold transition",
+              hrType === "offboarding"
+                ? "border-red-600 bg-red-50 text-red-700"
+                : "border-gray-200 text-gray-600 hover:border-gray-300"
+            )}
+          >
+            <UserMinus className="h-4 w-4" />
+            Offboarding
+          </button>
+        </div>
+      )}
 
       {hrType === "onboarding"
-        ? <OnboardingFormFields onCancel={handleCancel} />
-        : <OffboardingFormFields onCancel={handleCancel} />
+        ? <OnboardingFormFields onCancel={handleCancel} editingRequest={editingRequest} isEditing={isEditing} />
+        : <OffboardingFormFields onCancel={handleCancel} editingRequest={editingRequest} isEditing={isEditing} />
       }
     </div>
   )

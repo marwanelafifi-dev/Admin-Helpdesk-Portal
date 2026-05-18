@@ -1,31 +1,3 @@
-export interface MockRequest {
-  id: string
-  title: string
-  module: string
-  status: "Pending" | "Approved" | "Rejected" | "In Progress"
-  requester: string
-  date: string
-  priority: "Low" | "Medium" | "High"
-}
-
-export interface MockShipment {
-  id: string
-  title: string
-  supplier: string
-  description: string
-  trackingNumber: string
-  carrier: string
-  origin: string
-  destination: string
-  status: "New" | "On Hold" | "In Customs" | "Delivered" | "Cancelled"
-  expectedDelivery: string
-  requester: string
-  pickupDate: string
-  poNumber: string
-  costCenter: string
-  lastUpdate: string
-}
-
 export interface MockUser {
   id: string
   name: string
@@ -43,66 +15,7 @@ export interface MockRole {
   userCount: number
 }
 
-export interface ActivityItem {
-  id: string
-  title: string
-  time: string
-  status: string
-  module: string
-}
-
-export const mockStats = {
-  totalRequests: 142,
-  pendingRequests: 28,
-  approvedRequests: 89,
-  rejectedRequests: 25,
-  inProgress: 45,
-  totalShipments: 7,
-  inTransit: 3,
-  delivered: 2,
-}
-
-export const mockRequestsByModule = [
-  { module: "Shipping", count: 35 },
-  { module: "Maintenance", count: 22 },
-  { module: "Purchase", count: 31 },
-  { module: "Event", count: 15 },
-  { module: "Travel", count: 18 },
-  { module: "Other", count: 21 },
-]
-
-export const mockRecentActivity: ActivityItem[] = [
-  { id: "1", title: "Shipment REQ-2041 approved", time: "2 minutes ago", status: "Approved", module: "Shipping" },
-  { id: "2", title: "Purchase request PRQ-088 submitted", time: "15 minutes ago", status: "Pending", module: "Purchase" },
-  { id: "3", title: "Maintenance ticket MNT-023 in progress", time: "1 hour ago", status: "In Progress", module: "Maintenance" },
-  { id: "4", title: "Travel request TRV-016 rejected", time: "2 hours ago", status: "Rejected", module: "Travel" },
-  { id: "5", title: "Event request EVT-009 approved", time: "3 hours ago", status: "Approved", module: "Event" },
-  { id: "6", title: "Shipment REQ-2040 delivered", time: "5 hours ago", status: "Approved", module: "Shipping" },
-]
-
-export const mockRequests: MockRequest[] = [
-  { id: "REQ-2041", title: "Office supplies procurement", module: "Purchase", status: "Pending", requester: "Ahmed Hassan", date: "2026-04-27", priority: "Medium" },
-  { id: "REQ-2040", title: "Server room AC maintenance", module: "Maintenance", status: "In Progress", requester: "Sara Ali", date: "2026-04-26", priority: "High" },
-  { id: "REQ-2039", title: "Shipment to Cairo warehouse", module: "Shipping", status: "Approved", requester: "Marwan Elafifi", date: "2026-04-25", priority: "High" },
-  { id: "REQ-2038", title: "Team building event venue", module: "Event", status: "Approved", requester: "Nour Ibrahim", date: "2026-04-24", priority: "Low" },
-  { id: "REQ-2037", title: "Business travel to Dubai", module: "Travel", status: "Rejected", requester: "Khalid Mahmoud", date: "2026-04-23", priority: "Medium" },
-  { id: "REQ-2036", title: "New laptop for dev team", module: "Purchase", status: "Approved", requester: "Dina Youssef", date: "2026-04-22", priority: "High" },
-  { id: "REQ-2035", title: "DHL pickup – client samples", module: "Shipping", status: "In Progress", requester: "Omar Farouk", date: "2026-04-22", priority: "Medium" },
-  { id: "REQ-2034", title: "HVAC filter replacement", module: "Maintenance", status: "Pending", requester: "Layla Nasser", date: "2026-04-21", priority: "Low" },
-  { id: "REQ-2033", title: "Annual conference registration", module: "Event", status: "Pending", requester: "Tarek Saleh", date: "2026-04-20", priority: "Medium" },
-  { id: "REQ-2032", title: "Flight booking – Riyadh", module: "Travel", status: "Approved", requester: "Hana Gamal", date: "2026-04-19", priority: "High" },
-]
-
-export const mockShipments: MockShipment[] = [
-  { id: "SHP-0067", title: "Shipment to Dubai", supplier: "DHL", description: "Electronics shipment to Dubai facility", trackingNumber: "1Z999AA10123456784", carrier: "DHL", origin: "Cairo, EG", destination: "Dubai, AE", status: "In Customs", expectedDelivery: "2026-04-30", requester: "Marwan Elafifi", pickupDate: "2026-04-25", poNumber: "PO-2026-0067", costCenter: "Operations", lastUpdate: "2026-04-29" },
-  { id: "SHP-0066", title: "Shipment to London", supplier: "FedEx", description: "Apparel shipment to London branch", trackingNumber: "9400111899223388456", carrier: "FedEx", origin: "Alexandria, EG", destination: "London, UK", status: "Delivered", expectedDelivery: "2026-04-22", requester: "Sara Ali", pickupDate: "2026-04-20", poNumber: "PO-2026-0066", costCenter: "Sales", lastUpdate: "2026-04-22" },
-  { id: "SHP-0065", title: "Shipment to Riyadh", supplier: "Aramex", description: "Parts shipment for Riyadh operations", trackingNumber: "JD014600006741234567", carrier: "Aramex", origin: "Cairo, EG", destination: "Riyadh, SA", status: "On Hold", expectedDelivery: "2026-05-03", requester: "Ahmed Hassan", pickupDate: "2026-04-27", poNumber: "PO-2026-0065", costCenter: "Operations", lastUpdate: "2026-04-28" },
-  { id: "SHP-0064", title: "Shipment to Frankfurt", supplier: "UPS", description: "Machine tooling shipment to Frankfurt", trackingNumber: "1Z999AA10123456785", carrier: "UPS", origin: "Giza, EG", destination: "Frankfurt, DE", status: "In Customs", expectedDelivery: "2026-04-29", requester: "Omar Farouk", pickupDate: "2026-04-26", poNumber: "PO-2026-0064", costCenter: "Logistics", lastUpdate: "2026-04-28" },
-  { id: "SHP-0063", title: "Shipment to New York", supplier: "USPS", description: "Marketing materials shipment to New York", trackingNumber: "4206300192748927005377", carrier: "USPS", origin: "Cairo, EG", destination: "New York, US", status: "Delivered", expectedDelivery: "2026-04-18", requester: "Nour Ibrahim", pickupDate: "2026-04-15", poNumber: "PO-2026-0063", costCenter: "Sales", lastUpdate: "2026-04-18" },
-  { id: "SHP-0062", title: "Shipment to Paris", supplier: "TNT", description: "Sample products shipment to Paris", trackingNumber: "JD014600006741234568", carrier: "TNT", origin: "Cairo, EG", destination: "Paris, FR", status: "Cancelled", expectedDelivery: "2026-04-15", requester: "Khalid Mahmoud", pickupDate: "2026-04-13", poNumber: "PO-2026-0062", costCenter: "Operations", lastUpdate: "2026-04-14" },
-  { id: "SHP-0061", title: "Shipment to Rotterdam", supplier: "Maersk", description: "Raw material shipment to Rotterdam", trackingNumber: "1Z999AA10123456786", carrier: "Maersk", origin: "Port Said, EG", destination: "Rotterdam, NL", status: "In Customs", expectedDelivery: "2026-05-10", requester: "Dina Youssef", pickupDate: "2026-04-28", poNumber: "PO-2026-0061", costCenter: "Logistics", lastUpdate: "2026-04-29" },
-]
-
+// Kept for notification routing and user lookups
 export const mockUsers: MockUser[] = [
   { id: "USR-001", name: "Marwan Elafifi", email: "marwan.elafifi@si-ware.com", role: "Super Admin", status: "Active", joinedDate: "2024-01-15" },
   { id: "USR-002", name: "Sara Ali", email: "sara.ali@si-ware.com", role: "Admin", status: "Active", joinedDate: "2024-02-10" },
@@ -140,13 +53,32 @@ export const mockRoles: MockRole[] = [
     name: "Requester",
     description: "Can create and view own requests",
     permissions: ["create", "read_own"],
-    userCount: 8,
+    userCount: 0,
   },
   {
     id: "ROLE-005",
     name: "Viewer",
     description: "Read-only access to all modules",
     permissions: ["read"],
-    userCount: 5,
+    userCount: 2,
   },
 ]
+
+// Legacy type stubs kept so existing imports don't break
+export interface MockShipment {
+  id: string
+  title: string
+  trackingNumber: string
+  carrier: string
+  origin: string
+  destination: string
+  status: string
+  expectedDelivery: string
+  requester: string
+  pickupDate: string
+  poNumber: string
+  costCenter: string
+  lastUpdate: string
+}
+
+export const mockShipments: MockShipment[] = []

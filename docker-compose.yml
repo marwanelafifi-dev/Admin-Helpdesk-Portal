@@ -1,0 +1,89 @@
+name: admin-helpdesk
+
+services:
+
+  db:
+    image: postgres:16-alpine
+    container_name: admin-helpdesk-db
+    environment:
+      POSTGRES_USER: ${DB_USER:-admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-admin_password_123}
+      POSTGRES_DB: ${DB_NAME:-admin_request_platform}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    networks:
+      - helpdesk-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: admin-helpdesk-app
+    env_file:
+      - .env.local
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-admin}:${DB_PASSWORD:-admin_password_123}@db:5432/${DB_NAME:-admin_request_platform}
+      NEXTAUTH_URL: http://localhost:3003
+      AUTH_URL: http://localhost:3003
+      AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID}
+      AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET}
+      ENABLE_GOOGLE_AUTH: "true"
+      NODE_ENV: production
+      NODE_TLS_REJECT_UNAUTHORIZED: "0"
+      DISABLE_TLS_CERT_CHECK: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+    volumes:
+      - app_data:/app/data
+    ports:
+      - "${APP_PORT:-3003}:3003"
+    networks:
+      - helpdesk-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:3003"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 90s
+    restart: unless-stopped
+
+  # Cloudflare Tunnel — makes app accessible from anywhere
+  # To activate: set CLOUDFLARE_TUNNEL_TOKEN in .env.local
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: admin-helpdesk-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - helpdesk-net
+    profiles:
+      - tunnel
+
+volumes:
+  postgres_data:
+    driver: local
+  app_data:
+    driver: local
+
+networks:
+  helpdesk-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
+          gateway: 172.25.0.1

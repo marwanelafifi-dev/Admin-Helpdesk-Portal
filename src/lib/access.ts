@@ -1,5 +1,7 @@
 export type RoutePermission =
   | "page:dashboard"
+  | "page:feedback-reports"
+  | "page:tasks"
   | "page:all-requests"
   | "page:my-requests"
   | "page:request-detail"
@@ -15,12 +17,21 @@ export type RoutePermission =
   | "page:purchase-new"
   | "page:event"
   | "page:travel"
+  | "page:general"
+  | "page:general-new"
   | "page:admin-users"
   | "page:admin-roles"
   | "page:admin-settings"
+  | "page:admin-audit"
+  | "page:admin-database"
+  | "page:admin-notifications"
   | "manage_users"
   | "manage_roles"
+  | "manage_tasks"
   | "settings"
+  | "update_status"
+  | "cancel_request"
+  | "edit_request"
 
 function normalizePathname(pathname: string) {
   if (pathname.length > 1 && pathname.endsWith("/")) {
@@ -38,13 +49,15 @@ export function hasPermission(permissions: string[] | undefined, permission: str
 }
 
 export function isSuperAdmin(role?: string) {
-  return role?.toLowerCase() === "super_admin"
+  return role === "Full Access" || role?.toLowerCase() === "super_admin"
 }
 
 export function permissionForPath(pathname: string): RoutePermission | null {
   const path = normalizePathname(pathname)
 
   if (path === "/dashboard") return "page:dashboard"
+  if (path === "/feedback-reports") return "page:feedback-reports"
+  if (path === "/tasks") return "page:tasks"
   if (path === "/admin/all-requests") return "page:all-requests"
   if (path === "/requests") return "page:my-requests"
   if (path.startsWith("/requests/")) return "page:request-detail"
@@ -60,9 +73,14 @@ export function permissionForPath(pathname: string): RoutePermission | null {
   if (path === "/purchase/new") return "page:purchase-new"
   if (path === "/event") return "page:event"
   if (path === "/travel") return "page:travel"
+  if (path === "/general") return "page:general"
+  if (path === "/general/new") return "page:general-new"
   if (path === "/admin/users") return "page:admin-users"
   if (path === "/admin/roles") return "page:admin-roles"
   if (path === "/admin/settings") return "page:admin-settings"
+  if (path === "/admin/audit-trail") return "page:admin-audit"
+  if (path === "/admin/database") return "page:admin-database"
+  if (path === "/admin/notifications") return "page:admin-notifications"
 
   return null
 }
@@ -108,11 +126,25 @@ export function canAccessPath(pathname: string, permissions: string[] = [], role
     return hasPermission(permissions, "settings")
   }
 
+  if (permission === "page:admin-audit") {
+    return isSuperAdmin(role) || hasPermission(permissions, "manage_users")
+  }
+
+  if (permission === "page:admin-database") {
+    return isSuperAdmin(role) || hasPermission(permissions, "settings")
+  }
+
+  if (permission === "page:admin-notifications") {
+    return isSuperAdmin(role) || hasPermission(permissions, "settings")
+  }
+
   return false
 }
 
 const defaultRouteOrder = [
   "/dashboard",
+  "/feedback-reports",
+  "/tasks",
   "/admin/all-requests",
   "/requests",
   "/shipping",

@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -10,7 +11,8 @@ import {
   PURCHASE_PLATFORMS,
   PurchasePayloadSchema,
 } from "./purchase.schema"
-import { requestsAPI } from "@/lib/apiClient"
+import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
+import { createNewRequestNotifications } from "@/lib/notificationStore"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -21,6 +23,7 @@ import {
 } from "@/components/ui/select"
 import { AlertCircle, ShoppingCart, Upload, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { CcEmailsField } from "@/components/ui/CcEmailsField"
 
 const BRAND = "#22c55e" // green-500
 
@@ -52,13 +55,34 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
   )
 }
 
-export function PurchaseForm({ onCancel }: { onCancel?: () => void }) {
+export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel?: () => void; editingRequest?: EngineRequest | null; isEditing?: boolean }) {
   const router = useRouter()
+  const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
-  const { register, control, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<PurchaseForm>({
+  const { register, control, handleSubmit, watch, formState: { errors, isSubmitting }, reset } = useForm<PurchaseForm>({
     resolver: zodResolver(PurchasePayloadSchema),
-    defaultValues: { attachments: [] },
+    defaultValues: { attachments: [], ccEmails: [] },
   })
+
+  useEffect(() => {
+    if (isEditing && editingRequest?.payload) {
+      const payload = editingRequest.payload as any
+      reset({
+        requestTitle: editingRequest.title || "",
+        itemTitle: payload.itemTitle || "",
+        description: payload.description || "",
+        category: payload.category || "Other",
+        supplier: payload.supplier || "",
+        platform: payload.platform || "Other",
+        productUrl: payload.productUrl || "",
+        quantity: payload.quantity || 1,
+        estimatedPrice: payload.estimatedPrice || 0,
+        department: payload.department || "",
+        notes: payload.notes || "",
+        attachments: payload.attachments || [],
+      })
+    }
+  }, [editingRequest, isEditing, reset])
 
   const platformValue = watch("platform")
 
@@ -66,20 +90,33 @@ export function PurchaseForm({ onCancel }: { onCancel?: () => void }) {
 
   const onSubmit = async (data: PurchaseForm) => {
     try {
-      await requestsAPI.create("purchase", {
-        title: data.requestTitle,
-        payload: data,
-        requesterId: "USR-001",
-      })
+      if (isEditing && editingRequest) {
+        // Update existing request
+        updateRequest(editingRequest.id, data, {
+          title: data.requestTitle,
+          requesterId: editingRequest.requesterId,
+          requesterName: editingRequest.requesterName,
+          requesterEmail: editingRequest.requesterEmail,
+        })
+      } else {
+        // Create new request
+        const newReq = submitRequest("purchase", data, {
+          title: data.requestTitle,
+          requesterId: session?.user?.id || "USR-001",
+          requesterName: session?.user?.name || session?.user?.email || "Current User",
+          requesterEmail: session?.user?.email || "user@si-ware.com",
+        })
+        createNewRequestNotifications({ requestId: newReq.id, requestTitle: newReq.title, module: "purchase", requesterId: newReq.requesterId, requesterName: newReq.requesterName, requesterEmail: newReq.requesterEmail })
+      }
       router.push("/purchase")
       router.refresh()
     } catch (error) {
-      console.error("Failed to create request:", error)
+      console.error(isEditing ? "Failed to update request:" : "Failed to create request:", error)
     }
   }
 
   return (
-    <div className="space-y-5 max-w-3xl mx-auto pb-12">
+    <div className="space-y-5 max-w-3xl mx-auto">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {/* Request Title */}
         <Card>
@@ -258,10 +295,24 @@ export function PurchaseForm({ onCancel }: { onCancel?: () => void }) {
           </CardContent>
         </Card>
 
-        <div className="sticky bottom-0 bg-white border-t py-4 px-1 flex items-center justify-between gap-3">
+        {/* CC Notifications */}
+        <Card>
+          <SectionHeader icon={ShoppingCart} title="CC Notifications" subtitle="Additional recipients for email updates on this request" />
+          <CardContent>
+            <Controller
+              control={control}
+              name="ccEmails"
+              render={({ field }) => (
+                <CcEmailsField value={field.value ?? []} onChange={field.onChange} />
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        <div className="border-t bg-gray-50 py-4 px-1 flex items-center justify-between gap-3">
           <Button type="button" variant="ghost" onClick={handleCancel}>Cancel</Button>
           <Button type="submit" disabled={isSubmitting} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px]">
-            {isSubmitting ? "Submitting..." : "Submit Purchase Request"}
+            {isSubmitting ? (isEditing ? "Updating..." : "Submitting...") : (isEditing ? "Update Request" : "Submit Purchase Request")}
           </Button>
         </div>
       </form>

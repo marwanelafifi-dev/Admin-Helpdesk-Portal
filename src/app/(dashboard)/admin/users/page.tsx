@@ -38,6 +38,7 @@ type PlatformUser = {
   department: string | null
   active: boolean
   createdAt: string
+  provider?: string
 }
 
 type RoleOption = {
@@ -47,19 +48,17 @@ type RoleOption = {
 }
 
 const fallbackRoles: RoleOption[] = [
-  { value: "requester", label: "Requester" },
-  { value: "manager", label: "Manager" },
-  { value: "admin", label: "Admin" },
-  { value: "super_admin", label: "Super Admin" },
-  { value: "viewer", label: "Viewer" },
+  { value: "Full Access", label: "Full Access" },
+  { value: "Administration Team", label: "Administration Team" },
+  { value: "People Team", label: "People Team" },
+  { value: "Requester", label: "Requester" },
 ]
 
 const ROLE_COLORS: Record<string, string> = {
-  super_admin: "bg-purple-100 text-purple-800",
-  admin: "bg-blue-100 text-blue-800",
-  manager: "bg-indigo-100 text-indigo-800",
-  requester: "bg-gray-100 text-gray-700",
-  viewer: "bg-slate-100 text-slate-700",
+  "Full Access": "bg-purple-100 text-purple-800",
+  "Administration Team": "bg-blue-100 text-blue-800",
+  "People Team": "bg-indigo-100 text-indigo-800",
+  "Requester": "bg-gray-100 text-gray-700",
 }
 
 function roleLabel(role: string, roles: RoleOption[]) {
@@ -89,7 +88,7 @@ function getDefaultRoleValue(roles: RoleOption[]) {
     return requester.value
   }
 
-  const safeRole = roles.find((role) => !["super_admin", "admin"].includes(role.value.toLowerCase()))
+  const safeRole = roles.find((role) => !["Full Access", "Administration Team"].includes(role.value))
   return safeRole?.value ?? roles[0]?.value ?? "requester"
 }
 
@@ -310,6 +309,31 @@ export default function AdminUsersPage() {
     }
   }
 
+  const handleResetPassword = async (userId: string) => {
+    const user = users.find((u) => u.id === userId)
+    if (!user) return
+
+    const newPassword = prompt("Enter a new temporary password (minimum 8 characters):")
+    if (!newPassword || newPassword.length < 8) {
+      alert("Password must be at least 8 characters.")
+      return
+    }
+
+    const response = await fetch(`/api/users/${userId}/reset-password`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: newPassword }),
+    })
+
+    const data = await response.json()
+    if (response.ok) {
+      alert(`Password has been reset successfully. New password: ${newPassword}`)
+    } else {
+      alert(`Failed to reset password: ${data.error || "Unknown error"}`)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -375,6 +399,7 @@ export default function AdminUsersPage() {
                 <TableRow className="bg-gray-50">
                   <TableHead>User</TableHead>
                   <TableHead>Role</TableHead>
+                  <TableHead>Auth Type</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Joined</TableHead>
                   <TableHead className="w-[60px]"></TableHead>
@@ -405,6 +430,17 @@ export default function AdminUsersPage() {
                           }`}
                         >
                           {roleLabel(user.role, roles)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            user.provider === "google" || user.provider === "oauth"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-blue-100 text-blue-700"
+                          }`}
+                        >
+                          {user.provider === "google" || user.provider === "oauth" ? "Google" : "Local"}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -457,6 +493,17 @@ export default function AdminUsersPage() {
                                 ))}
                               </DropdownMenuContent>
                             </DropdownMenu>
+                            {(!user.provider || user.provider === "local" || user.provider === "credentials") && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => handleResetPassword(user.id)}
+                                  className="text-blue-600 focus:text-blue-600"
+                                >
+                                  Reset password
+                                </DropdownMenuItem>
+                              </>
+                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() => handleDeactivateUser(user.id)}
@@ -536,39 +583,22 @@ export default function AdminUsersPage() {
                 />
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="new-user-password">Password</Label>
-                  <Input
-                    id="new-user-password"
-                    type="password"
-                    minLength={8}
-                    value={form.password}
-                    onChange={(e) =>
-                      setForm((current) => ({ ...current, password: e.target.value }))
-                    }
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Role</Label>
-                  <Select
-                    value={form.role}
-                    onValueChange={(role) => setForm((current) => ({ ...current, role }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roles.map((role) => (
-                        <SelectItem key={role.value} value={role.value}>
-                          {role.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-user-password">Password</Label>
+                <Input
+                  id="new-user-password"
+                  type="password"
+                  minLength={8}
+                  value={form.password}
+                  onChange={(e) =>
+                    setForm((current) => ({ ...current, password: e.target.value }))
+                  }
+                  required
+                />
               </div>
+              <p className="text-xs text-muted-foreground">
+                New users are assigned the <strong>Requester</strong> role by default. You can change their role after creation.
+              </p>
 
               {createError && <p className="text-sm text-destructive">{createError}</p>}
 

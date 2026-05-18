@@ -28,10 +28,13 @@ const PERMISSION_LABELS: Record<string, string> = {
   read: "Read",
   read_own: "Read Own",
   update: "Update",
+  update_status: "Update Status",
   delete: "Delete",
-  approve: "Approve",
-  reject: "Reject",
   activity: "Activity",
+  view_details: "View Details",
+  edit_request: "Edit Request",
+  cancel_request: "Cancel Request",
+  manage_cc: "Manage CC",
   manage_users: "Manage Users",
   manage_roles: "Manage Roles",
   settings: "Settings",
@@ -42,10 +45,13 @@ const AVAILABLE_PERMISSIONS = [
   "read",
   "read_own",
   "update",
+  "update_status",
   "delete",
-  "approve",
-  "reject",
   "activity",
+  "view_details",
+  "edit_request",
+  "cancel_request",
+  "manage_cc",
   "manage_users",
   "manage_roles",
   "settings",
@@ -53,6 +59,8 @@ const AVAILABLE_PERMISSIONS = [
 
 const PAGES = [
   { id: "dashboard", label: "Dashboard", path: "/dashboard" },
+  { id: "feedback-reports", label: "Feedback & Reports", path: "/feedback-reports" },
+  { id: "tasks", label: "Team Tasks", path: "/tasks" },
   { id: "all-requests", label: "All Requests", path: "/admin/all-requests" },
   { id: "my-requests", label: "My Requests", path: "/requests" },
   { id: "request-detail", label: "Request Detail", path: "/requests/[id]" },
@@ -68,9 +76,14 @@ const PAGES = [
   { id: "purchase-new", label: "Purchase New", path: "/purchase/new" },
   { id: "event", label: "Event", path: "/event" },
   { id: "travel", label: "Travel", path: "/travel" },
+  { id: "general", label: "General Request", path: "/general" },
+  { id: "general-new", label: "General Request New", path: "/general/new" },
   { id: "admin-users", label: "Users (Admin)", path: "/admin/users" },
   { id: "admin-roles", label: "Roles (Admin)", path: "/admin/roles" },
   { id: "admin-settings", label: "Settings (Admin)", path: "/admin/settings" },
+  { id: "admin-audit", label: "Audit Trail (Admin)", path: "/admin/audit-trail" },
+  { id: "admin-database", label: "Database (Admin)", path: "/admin/database" },
+  { id: "admin-notifications", label: "Notifications (Admin)", path: "/admin/notifications" },
 ]
 
 const ROLE_COLORS: Record<string, string> = {
@@ -318,8 +331,8 @@ export default function AdminRolesPage() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
+        <DialogContent className="max-w-4xl w-full max-h-[90vh] flex flex-col">
+          <DialogHeader className="shrink-0">
             <DialogTitle>{editingRole ? "Edit Role" : "Create Role"}</DialogTitle>
             <DialogDescription>
               {editingRole
@@ -328,74 +341,78 @@ export default function AdminRolesPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSave} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="role-name">Role Name</Label>
-              <Input
-                id="role-name"
-                value={formData.name}
-                onChange={(e) => setFormData((current) => ({ ...current, name: e.target.value }))}
-                placeholder="e.g., Content Manager"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="role-desc">Description</Label>
-              <Input
-                id="role-desc"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData((current) => ({ ...current, description: e.target.value }))
-                }
-                placeholder="What does this role do?"
-              />
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label>Permissions</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={toggleAllPermissions}
-                >
-                  {formData.permissions.length === AVAILABLE_PERMISSIONS.length ? "Deselect All" : "Select All"}
-                </Button>
+          <form onSubmit={handleSave} className="flex flex-col flex-1 min-h-0 gap-4 overflow-hidden">
+            <div className="overflow-y-auto flex-1 pr-1 space-y-5">
+              {/* Name + Description row */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="role-name">Role Name</Label>
+                  <Input
+                    id="role-name"
+                    value={formData.name}
+                    onChange={(e) => setFormData((current) => ({ ...current, name: e.target.value }))}
+                    placeholder="e.g., Content Manager"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="role-desc">Description</Label>
+                  <Input
+                    id="role-desc"
+                    value={formData.description}
+                    onChange={(e) =>
+                      setFormData((current) => ({ ...current, description: e.target.value }))
+                    }
+                    placeholder="What does this role do?"
+                  />
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-3 p-3 border rounded-lg bg-gray-50">
-                {AVAILABLE_PERMISSIONS.map((perm) => (
-                  <label
-                    key={perm}
-                    className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded"
+
+              {/* Permissions */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold">Permissions</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={toggleAllPermissions}
                   >
-                    <Checkbox
-                      checked={formData.permissions.includes(perm)}
-                      onCheckedChange={() => togglePermission(perm)}
-                    />
-                    <span className="text-sm font-medium">{PERMISSION_LABELS[perm]}</span>
-                  </label>
-                ))}
+                    {formData.permissions.length === AVAILABLE_PERMISSIONS.length ? "Deselect All" : "Select All"}
+                  </Button>
+                </div>
+                <div className="grid grid-cols-4 gap-2 p-3 border rounded-lg bg-gray-50">
+                  {AVAILABLE_PERMISSIONS.map((perm) => (
+                    <label
+                      key={perm}
+                      className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded"
+                    >
+                      <Checkbox
+                        checked={formData.permissions.includes(perm)}
+                        onCheckedChange={() => togglePermission(perm)}
+                      />
+                      <span className="text-sm font-medium">{PERMISSION_LABELS[perm]}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label>Page Access</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={toggleAllPages}
-                >
-                  {formData.pages.length === PAGES.length ? "Deselect All" : "Select All"}
-                </Button>
-              </div>
-              <div className="max-h-48 overflow-y-auto border rounded-lg bg-gray-50 p-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Page Access */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold">Page Access</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={toggleAllPages}
+                  >
+                    {formData.pages.length === PAGES.length ? "Deselect All" : "Select All"}
+                  </Button>
+                </div>
+                <div className="grid grid-cols-3 gap-2 p-3 border rounded-lg bg-gray-50">
                   {PAGES.map((page) => (
                     <label
                       key={page.id}
@@ -412,9 +429,9 @@ export default function AdminRolesPage() {
               </div>
             </div>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && <p className="text-sm text-destructive shrink-0">{error}</p>}
 
-            <div className="flex justify-end gap-2 pt-4 border-t">
+            <div className="flex justify-end gap-2 pt-4 border-t shrink-0">
               <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>
                 Cancel
               </Button>

@@ -1,16 +1,19 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
 import {
   MAINTENANCE_CATEGORIES,
   MAINTENANCE_PRIORITIES,
   FLOOR_NUMBERS,
   MaintenancePayloadSchema,
 } from "./maintenance.schema"
-import { requestsAPI } from "@/lib/apiClient"
+import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
+import { createNewRequestNotifications } from "@/lib/notificationStore"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -20,6 +23,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import { AlertCircle, Wrench, Upload, X } from "lucide-react"
+import { CcEmailsField } from "@/components/ui/CcEmailsField"
 import { cn } from "@/lib/utils"
 
 const BRAND = "#A78BFA" // purple-400
@@ -52,32 +56,70 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
   )
 }
 
-export function MaintenanceForm({ onCancel }: { onCancel?: () => void }) {
+export function MaintenanceForm({ onCancel, editingRequest, isEditing }: { onCancel?: () => void; editingRequest?: EngineRequest | null; isEditing?: boolean }) {
   const router = useRouter()
+  const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
-  const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<MaintenanceForm>({
+  const { register, control, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<MaintenanceForm>({
     resolver: zodResolver(MaintenancePayloadSchema),
-    defaultValues: { attachments: [] },
+    defaultValues: { attachments: [], ccEmails: [] },
   })
+
+  useEffect(() => {
+    if (isEditing && editingRequest?.payload) {
+      const payload = editingRequest.payload as any
+      reset({
+        requestTitle: editingRequest.title || "",
+        issueTitle: payload.issueTitle || "",
+        description: payload.description || "",
+        priority: payload.priority || "",
+        category: payload.category || "",
+        floorNumber: payload.floorNumber || "",
+        roomArea: payload.roomArea || "",
+        notes: payload.notes || "",
+        attachments: payload.attachments || [],
+      })
+    }
+  }, [editingRequest, isEditing, reset])
 
   const handleCancel = onCancel ?? (() => router.push("/maintenance"))
 
   const onSubmit = async (data: MaintenanceForm) => {
     try {
-      await requestsAPI.create("maintenance", {
-        title: data.requestTitle,
-        payload: data,
-        requesterId: "USR-001",
-      })
+      if (isEditing && editingRequest) {
+        // Update existing request
+        updateRequest(editingRequest.id, data, {
+          title: data.requestTitle,
+          requesterId: editingRequest.requesterId,
+          requesterName: editingRequest.requesterName,
+          requesterEmail: editingRequest.requesterEmail,
+        })
+      } else {
+        // Create new request
+        const newReq = submitRequest("maintenance", data, {
+          title: data.requestTitle,
+          requesterId: session?.user?.id || "USR-001",
+          requesterName: session?.user?.name || session?.user?.email || "Current User",
+          requesterEmail: session?.user?.email || "user@si-ware.com",
+        })
+        createNewRequestNotifications({
+          requestId: newReq.id,
+          requestTitle: newReq.title,
+          module: "maintenance",
+          requesterId: newReq.requesterId,
+          requesterName: newReq.requesterName,
+          requesterEmail: newReq.requesterEmail,
+        })
+      }
       router.push("/maintenance")
       router.refresh()
     } catch (error) {
-      console.error("Failed to create request:", error)
+      console.error(isEditing ? "Failed to update request:" : "Failed to create request:", error)
     }
   }
 
   return (
-    <div className="space-y-5 max-w-3xl mx-auto pb-12">
+    <div className="space-y-5 max-w-3xl mx-auto">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {/* Request Title */}
         <Card>
@@ -239,10 +281,24 @@ export function MaintenanceForm({ onCancel }: { onCancel?: () => void }) {
           </CardContent>
         </Card>
 
-        <div className="sticky bottom-0 bg-white border-t py-4 px-1 flex items-center justify-between gap-3">
+        {/* CC Notifications */}
+        <Card>
+          <SectionHeader icon={Wrench} title="CC Notifications" subtitle="Additional recipients for email updates on this request" />
+          <CardContent>
+            <Controller
+              control={control}
+              name="ccEmails"
+              render={({ field }) => (
+                <CcEmailsField value={field.value ?? []} onChange={field.onChange} />
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        <div className="border-t bg-gray-50 py-4 px-1 flex items-center justify-between gap-3">
           <Button type="button" variant="ghost" onClick={handleCancel}>Cancel</Button>
           <Button type="submit" disabled={isSubmitting} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px]">
-            {isSubmitting ? "Submitting..." : "Submit Maintenance Request"}
+            {isSubmitting ? (isEditing ? "Updating..." : "Submitting...") : (isEditing ? "Update Request" : "Submit Maintenance Request")}
           </Button>
         </div>
       </form>

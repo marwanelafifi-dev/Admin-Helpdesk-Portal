@@ -1,19 +1,18 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
   ShippingRequestFormSchema,
   type ShippingRequestForm,
-  CARRIERS,
-  SUPPLIERS,
-  COST_CENTERS,
 } from "./shipping.schema"
 import { shippingFormDefaults } from "./shipping.mock"
-import { mockUsers } from "@/lib/mock-data"
-import { submitRequest } from "@/services/engineService"
+import { getList } from "@/lib/companyDataStore"
+import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
+import { createNewRequestNotifications } from "@/lib/notificationStore"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -96,14 +95,12 @@ function hasRequiredDocs(files: StagedFile[]) {
 }
 
 function mapApprovers(approvers: ShippingRequestForm["approvers"]) {
-  const toPerson = (id: string) => {
-    const u = mockUsers.find((x) => x.id === id)
-    return u ? { userId: u.id, name: u.name, email: u.email } : undefined
-  }
+  // manager id is the name string from companyDataStore
+  const toPerson = (id: string) => ({ userId: id, name: id, email: "" })
   return {
-    directManager: toPerson(approvers.directManager)!,
-    techManager: approvers.techManager.map((id) => toPerson(id)).filter(Boolean),
-    pm: approvers.pm.map((id) => toPerson(id)).filter(Boolean),
+    directManager: toPerson(approvers.directManager),
+    techManager: approvers.techManager.map(toPerson),
+    pm: approvers.pm.map(toPerson),
   }
 }
 
@@ -169,15 +166,53 @@ function FileUploadZone({
   )
 }
 
-export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
+export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel?: () => void; editingRequest?: EngineRequest | null; isEditing?: boolean }) {
   const router = useRouter()
+  const { data: session } = useSession()
   const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([])
   const [ccEmailInput, setCcEmailInput] = useState("")
+  const [suppliers, setSuppliers] = useState<string[]>([])
+  const [costCenters, setCostCenters] = useState<string[]>([])
+  const [carriers, setCarriers] = useState<string[]>([])
+  const [managers, setManagers] = useState<{ id: string; name: string; email: string }[]>([])
 
-  const { register, control, handleSubmit, watch, setValue, setError, clearErrors, formState: { errors, isSubmitting } } = useForm<ShippingRequestForm>({
+  useEffect(() => {
+    setSuppliers(getList("suppliers"))
+    setCostCenters(getList("cost_centers"))
+    setCarriers(getList("carriers"))
+    setManagers(getList("managers").map((name) => ({ id: name, name, email: "" })))
+  }, [])
+
+  const { register, control, handleSubmit, watch, setValue, setError, clearErrors, formState: { errors, isSubmitting }, reset } = useForm<ShippingRequestForm>({
     resolver: zodResolver(ShippingRequestFormSchema) as any,
     defaultValues: shippingFormDefaults as any,
   })
+
+  useEffect(() => {
+    if (isEditing && editingRequest?.payload) {
+      const payload = editingRequest.payload as any
+      reset({
+        title: editingRequest.title || "",
+        notes: payload.notes || "",
+        supplier: payload.supplier || "",
+        poNumber: payload.poNumber || "",
+        costCenter: payload.costCenter || "",
+        carrier: payload.carrier || "",
+        carrierName: payload.carrierName || "",
+        trackingNumber: payload.trackingNumber || "",
+        trackingLink: payload.trackingLink || "",
+        description: payload.description || "",
+        expectedPickupDate: payload.expectedPickupDate || "",
+        expectedDeliveryDate: payload.expectedDeliveryDate || "",
+        approvers: {
+          directManager: payload.approvers?.directManager?.userId || "",
+          techManager: payload.approvers?.techManager?.map((a: any) => a.userId) || [],
+          pm: payload.approvers?.pm?.map((a: any) => a.userId) || [],
+        },
+        ccEmails: payload.ccEmails || [],
+      })
+    }
+  }, [editingRequest, isEditing, reset])
 
   const ccEmails = watch("ccEmails") ?? []
   const carrier = watch("carrier")
@@ -186,7 +221,7 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
   const removeStagedFile = useCallback((id: string) => setStagedFiles((prev) => prev.filter((f) => f.id !== id)), [])
 
   const onSubmit = async (data: ShippingRequestForm) => {
-    if (!hasRequiredDocs(stagedFiles)) {
+    if (!isEditing && !hasRequiredDocs(stagedFiles)) {
       setError("attachments", { type: "manual", message: "AWB and Commercial Invoice are both required." })
       return
     }
@@ -196,29 +231,39 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
       const payload = {
         ...data,
         approvers: mapApprovers(data.approvers),
-        attachments: buildAttachmentPayload(stagedFiles),
+        attachments: isEditing ? (editingRequest?.payload as any)?.attachments : buildAttachmentPayload(stagedFiles),
       }
 
-      const created = submitRequest("shipping", payload, {
-        title: data.title,
-        requesterId: "USR-001",
-        requesterName: "Marwan Elafifi",
-        requesterEmail: "marwan.elafifi@si-ware.com",
-      })
-
-      router.push(`/requests/${created.id}`)
+      if (isEditing && editingRequest) {
+        updateRequest(editingRequest.id, payload, {
+          title: data.title,
+          requesterId: editingRequest.requesterId,
+          requesterName: editingRequest.requesterName,
+          requesterEmail: editingRequest.requesterEmail,
+        })
+        router.push(`/requests/${editingRequest.id}`)
+      } else {
+        const created = submitRequest("shipping", payload, {
+          title: data.title,
+          requesterId: session?.user?.id || "USR-001",
+          requesterName: session?.user?.name || session?.user?.email || "Current User",
+          requesterEmail: session?.user?.email || "user@si-ware.com",
+        })
+        createNewRequestNotifications({ requestId: created.id, requestTitle: created.title, module: "shipping", requesterId: created.requesterId, requesterName: created.requesterName, requesterEmail: created.requesterEmail })
+        router.push(`/requests/${created.id}`)
+      }
       router.refresh()
     } catch (error) {
-      console.error("Failed to create request:", error)
+      console.error(isEditing ? "Failed to update request:" : "Failed to create request:", error)
       setError("title", {
         type: "manual",
-        message: "Failed to create request. Please try again.",
+        message: isEditing ? "Failed to update request. Please try again." : "Failed to create request. Please try again.",
       })
     }
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 max-w-4xl mx-auto pb-12">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 max-w-4xl mx-auto">
       <Card>
         <SectionHeader icon={FileText} title="Request Details" subtitle="General information about this request" />
         <CardContent className="space-y-4">
@@ -243,7 +288,7 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
               <Controller name="supplier" control={control} render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger className={cn(errors.supplier && "border-red-400")}><SelectValue placeholder="Select supplier" /></SelectTrigger>
-                  <SelectContent>{SUPPLIERS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                  <SelectContent>{suppliers.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                 </Select>
               )} />
               <FieldError message={errors.supplier?.message} />
@@ -253,7 +298,7 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
               <Controller name="costCenter" control={control} render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger className={cn(errors.costCenter && "border-red-400")}><SelectValue placeholder="Select cost center" /></SelectTrigger>
-                  <SelectContent>{COST_CENTERS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  <SelectContent>{costCenters.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                 </Select>
               )} />
               <FieldError message={errors.costCenter?.message} />
@@ -276,7 +321,7 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
               <Select value={field.value} onValueChange={field.onChange}>
                 <SelectTrigger className={cn((errors.approvers as any)?.directManager && "border-red-400")}><SelectValue placeholder="Select direct manager" /></SelectTrigger>
                 <SelectContent>
-                  {mockUsers.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                  {managers.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             )} />
@@ -294,7 +339,7 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
               <Controller name="carrier" control={control} render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger className={cn(errors.carrier && "border-red-400")}><SelectValue placeholder="Select carrier" /></SelectTrigger>
-                  <SelectContent>{CARRIERS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  <SelectContent>{carriers.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                 </Select>
               )} />
               <FieldError message={errors.carrier?.message} />
@@ -387,10 +432,10 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
         </CardContent>
       </Card>
 
-      <div className="sticky bottom-0 bg-white border-t py-4 px-1 flex items-center justify-between gap-3 -mx-1">
+      <div className="border-t bg-gray-50 py-4 px-1 flex items-center justify-between gap-3 -mx-1">
         <Button type="button" variant="ghost" onClick={() => onCancel?.()}>Cancel</Button>
         <Button type="submit" disabled={isSubmitting} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px]">
-          {isSubmitting ? "Submitting..." : "Submit"}
+          {isSubmitting ? (isEditing ? "Updating..." : "Submitting...") : (isEditing ? "Update Request" : "Submit")}
         </Button>
       </div>
     </form>

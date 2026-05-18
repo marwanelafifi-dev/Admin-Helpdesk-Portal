@@ -3,10 +3,10 @@ import { commentsStore } from '@/lib/commentsStore'
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { commentId: string } }
+  { params }: { params: Promise<{ commentId: string }> }
 ) {
   try {
-    const { commentId } = params
+    const { commentId } = await params
 
     if (!commentId) {
       return NextResponse.json(
@@ -39,10 +39,10 @@ export async function DELETE(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { commentId: string } }
+  { params }: { params: Promise<{ commentId: string }> }
 ) {
   try {
-    const { commentId } = params
+    const { commentId } = await params
     const { content } = await req.json()
 
     if (!commentId || !content) {

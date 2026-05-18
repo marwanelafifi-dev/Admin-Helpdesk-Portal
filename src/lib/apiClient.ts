@@ -47,7 +47,7 @@ export const commentsAPI = {
     if (limit) params.append('limit', limit.toString())
     if (offset) params.append('offset', offset.toString())
     try {
-      const url = `/api/requests/comments?${params.toString()}`
+      const url = `${API_BASE}/requests/comments?${params.toString()}`
       const response = await fetch(url)
       if (!response.ok) {
         console.error(`API Error fetching comments for ${requestId}: ${response.status}`, response.statusText)
@@ -63,7 +63,7 @@ export const commentsAPI = {
   // Batch fetch comment counts for multiple request IDs in a single call
   batchGetCounts: async (requestIds: string[]) => {
     try {
-      const response = await fetch('/api/requests/comments/batch', {
+      const response = await fetch(`${API_BASE}/requests/comments/batch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ requestIds }),
@@ -90,15 +90,26 @@ export const commentsAPI = {
       files.forEach((file) => formData.append('files', file))
     }
 
-    const response = await fetch('/api/requests/comments', {
-      method: 'POST',
-      body: formData,
-      // DO NOT set Content-Type header - browser will set it with boundary
-    })
+    const postUrl = `${API_BASE}/requests/comments`
+    console.log('[commentsAPI.create] POST', postUrl, { requestId, authorId })
+
+    let response: Response
+    try {
+      response = await fetch(postUrl, {
+        method: 'POST',
+        body: formData,
+        // DO NOT set Content-Type header - browser will set it with boundary
+      })
+    } catch (networkErr) {
+      console.error('[commentsAPI.create] Network error:', networkErr)
+      throw new Error(`Network error: ${networkErr instanceof Error ? networkErr.message : String(networkErr)}`)
+    }
+
+    console.log('[commentsAPI.create] Response status:', response.status, response.url)
 
     if (!response.ok) {
       const errorBody = await response.json().catch(() => null)
-      const message = errorBody?.error || `API Error: ${response.status}`
+      const message = errorBody?.error || `API Error: ${response.status} — redirected to: ${response.url}`
       throw new Error(message)
     }
 
@@ -107,7 +118,7 @@ export const commentsAPI = {
   },
 
   delete: (commentId: string) =>
-    fetch(`/api/requests/comments/${commentId}`, {
+    fetch(`${API_BASE}/requests/comments/${commentId}`, {
       method: 'DELETE',
     }).then(r => {
       if (!r.ok) throw new Error(`API Error: ${r.status}`)
@@ -115,7 +126,7 @@ export const commentsAPI = {
     }),
 
   update: (commentId: string, content: string) =>
-    fetch(`/api/requests/comments/${commentId}`, {
+    fetch(`${API_BASE}/requests/comments/${commentId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content }),

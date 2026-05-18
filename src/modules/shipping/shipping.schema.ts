@@ -7,12 +7,10 @@ export const COST_CENTERS = NETSUITE_COST_CENTERS as [string, ...string[]]
 export const CARRIERS = ["DHL", "FedEx", "UPS", "Aramex", "Other"] as const
 
 export const REQUEST_STATUSES = [
-  "draft",
-  "New",
-  "In Progress",
-  "In Customs",
-  "Delivered",
-  "Cancelled",
+  "new",
+  "in_customs",
+  "delivered",
+  "cancelled",
 ] as const
 
 export const AttachmentSchema = z.object({
@@ -45,7 +43,7 @@ export const BaseRequestSchema = z.object({
   id: z.string(),
   module: z.string(),
   title: z.string().min(3, "Title must be at least 3 characters"),
-  status: z.enum(REQUEST_STATUSES).default("draft"),
+  status: z.enum(REQUEST_STATUSES).default("new"),
   requesterId: z.string().min(1, "Requester ID is required"),
   requesterName: z.string().min(1),
   requesterEmail: z.email({ error: "Invalid requester email" }),
@@ -116,11 +114,11 @@ export const ShippingRequestFormSchema = z
     approvers: ShippingApproversFormSchema,
     ccEmails: z.array(z.email({ error: "Must be a valid email address" })).default([]),
 
-    supplier: z.enum(SUPPLIERS, { error: "Select a valid supplier" }),
-    costCenter: z.enum(COST_CENTERS, { error: "Select a valid cost center" }),
+    supplier: z.string().min(1, "Select a valid supplier"),
+    costCenter: z.string().min(1, "Select a valid cost center"),
     poNumber: z.string().min(1, "PO number is required"),
 
-    carrier: z.enum(CARRIERS),
+    carrier: z.string().min(1, "Select a carrier"),
     carrierName: z.string().optional(),
     trackingNumber: z.string().min(1, "Tracking Number is required"),
     trackingLink: z.string().optional(),
@@ -175,4 +173,4 @@ export type ShippingRequestForm = z.infer<typeof ShippingRequestFormSchema>
 export type RequestStatus = (typeof REQUEST_STATUSES)[number]
 export type Supplier = (typeof SUPPLIERS)[number]
 export type CostCenter = (typeof COST_CENTERS)[number]
-export type Carrier = (typeof CARRIERS)[number]
+export type Carrier = string

@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react"
 import Image from "next/image"
 import { signOut, useSession } from "next-auth/react"
-import { Bell, LogOut } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Bell, LogOut, Settings, Sun, Moon, User } from "lucide-react"
+import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -37,12 +39,32 @@ function roleLabel(role?: string) {
     : "User"
 }
 
+const SETTINGS_KEY = "arp_platform_settings"
+
 export function TopBar() {
   const { data: session } = useSession()
+  const router = useRouter()
   const user = session?.user
   const userId = user?.id
   const { notifications, unreadCount } = useNotifications(userId)
+  const { theme, setTheme } = useTheme()
   const [isOpen, setIsOpen] = useState(false)
+  const [headerShowLogo, setHeaderShowLogo] = useState(true)
+  const [headerLogoAlt, setHeaderLogoAlt] = useState("Si-Ware Systems")
+  const [logoSrc, setLogoSrc] = useState("/siware-logo.png")
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY)
+      if (raw) {
+        const s = JSON.parse(raw)
+        if (typeof s.headerShowLogo === "boolean") setHeaderShowLogo(s.headerShowLogo)
+        if (s.headerLogoAlt) setHeaderLogoAlt(s.headerLogoAlt)
+      }
+      const customLogo = localStorage.getItem("arp_logo_header")
+      if (customLogo) setLogoSrc(customLogo)
+    } catch {}
+  }, [])
 
   useEffect(() => {
     if (!isOpen || !userId) return
@@ -51,27 +73,45 @@ export function TopBar() {
       .forEach((notification) => markNotificationAsRead(notification.id))
   }, [isOpen, notifications, userId])
 
+  function handleNotificationClick(actionUrl?: string) {
+    setIsOpen(false)
+    if (actionUrl) router.push(actionUrl)
+  }
+
   return (
-    <header className="h-16 border-b bg-white flex items-center justify-between px-6 flex-shrink-0">
+    <header className="h-16 border-b bg-background flex items-center justify-between px-6 flex-shrink-0">
       {/* Left: Empty space */}
       <div className="flex-1" />
 
       {/* Center: Logo */}
-      <div className="flex items-center justify-center px-4 relative h-12 w-64">
-        <Image
-          src="/siware-logo.png"
-          alt="Si-Ware Systems"
-          fill
-          className="object-contain"
-          priority
-        />
-      </div>
+      {headerShowLogo ? (
+        <div className="flex items-center justify-center px-4 relative h-12 w-64">
+          {logoSrc.startsWith("data:") ? (
+            <img src={logoSrc} alt={headerLogoAlt} className="h-full w-full object-contain" />
+          ) : (
+            <Image src={logoSrc} alt={headerLogoAlt} fill className="object-contain" priority />
+          )}
+        </div>
+      ) : (
+        <div className="flex-1" />
+      )}
 
       {/* Right: Empty space */}
       <div className="flex-1" />
 
       {/* Right: actions */}
       <div className="flex items-center gap-2">
+        {/* Theme toggle */}
+        <Button
+          variant="ghost"
+          size="icon"
+          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+        </Button>
+
         {/* Notification Bell */}
         <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
           <DropdownMenuTrigger asChild>
@@ -85,7 +125,17 @@ export function TopBar() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
-            <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+            <div className="flex items-center justify-between px-3 py-2">
+              <span className="text-sm font-semibold text-gray-900">Notifications</span>
+              <button
+                onClick={() => { setIsOpen(false); router.push("/notifications/settings") }}
+                className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                title="Notification settings"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                Settings
+              </button>
+            </div>
             <DropdownMenuSeparator />
             {notifications.length === 0 ? (
               <div className="px-4 py-6 text-center text-sm text-slate-500">
@@ -95,15 +145,19 @@ export function TopBar() {
               notifications.slice(0, 6).map((notification) => (
                 <DropdownMenuItem
                   key={notification.id}
-                  className="flex flex-col items-start gap-0.5 cursor-pointer"
+                  className="flex flex-col items-start gap-0.5 cursor-pointer hover:bg-blue-50"
+                  onClick={() => handleNotificationClick(notification.actionUrl)}
                 >
-                  <span className="text-sm font-medium">{notification.title}</span>
+                  <span className="text-sm font-medium leading-snug">{notification.title}</span>
                   <span className="text-xs text-muted-foreground">{notification.description}</span>
                 </DropdownMenuItem>
               ))
             )}
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-center text-sm text-blue-600 cursor-pointer justify-center">
+            <DropdownMenuItem
+              className="text-center text-sm text-blue-600 cursor-pointer justify-center font-medium hover:bg-blue-50 hover:text-blue-700"
+              onClick={() => { setIsOpen(false); router.push("/notifications") }}
+            >
               View all notifications
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -127,11 +181,23 @@ export function TopBar() {
               </div>
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Profile</DropdownMenuItem>
-            <DropdownMenuItem>Settings</DropdownMenuItem>
+            <DropdownMenuItem
+              className="cursor-pointer gap-2"
+              onClick={() => router.push("/profile")}
+            >
+              <User className="h-4 w-4 text-gray-500" />
+              Profile
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="cursor-pointer gap-2"
+              onClick={() => router.push("/account/settings")}
+            >
+              <Settings className="h-4 w-4 text-gray-500" />
+              Settings
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"

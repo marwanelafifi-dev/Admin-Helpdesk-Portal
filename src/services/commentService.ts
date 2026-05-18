@@ -48,7 +48,7 @@ export async function getComments(
 
   const [comments, total] = await Promise.all([
     prisma.comment.findMany({
-      where: { requestId },
+      where: { requestId, parentCommentId: null }, // Only top-level comments
       include: {
         author: {
           select: {
@@ -73,7 +73,6 @@ export async function getComments(
           orderBy: { createdAt: 'asc' },
         },
       },
-      where: { parentCommentId: null }, // Only top-level comments
       orderBy: { createdAt: 'desc' },
       take: limit,
       skip: offset,

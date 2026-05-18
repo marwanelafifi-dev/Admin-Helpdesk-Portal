@@ -44,6 +44,7 @@ export const OnboardingPayloadSchema = z.object({
     .min(1, "Select at least one onboarding item"),
   attachments: z.array(z.string()).optional(),
   notes: z.string().max(500).optional(),
+  ccEmails: z.array(z.string().email()).default([]),
 })
 
 // ─── Offboarding Schema ───────────────────────────────────────────────────────
@@ -64,6 +65,7 @@ export const OffboardingPayloadSchema = z.object({
     .min(1, "Select at least one offboarding item"),
   attachments: z.array(z.string()).optional(),
   notes: z.string().max(500).optional(),
+  ccEmails: z.array(z.string().email()).default([]),
 })
 
 // ─── Combined HR Payload ──────────────────────────────────────────────────────

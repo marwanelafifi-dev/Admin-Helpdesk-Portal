@@ -1,0 +1,45 @@
+[
+  {
+    "email": "marwaanelafifi@gmail.com",
+    "name": "Full Access",
+    "role": "Full Access",
+    "image": null,
+    "active": true,
+    "provider": "credentials",
+    "id": "USR-1778660236228",
+    "createdAt": "2026-05-13T08:17:16.228Z",
+    "passwordHash": "$2b$12$PLEUgeDNvMy9R20Ab2wXKu53UASCWLwkXg2ZqkRflrpYgmZMLvZCi"
+  },
+  {
+    "email": "wanmohamed7@gmail.com",
+    "name": "Marwan Elafifi",
+    "role": "Requester",
+    "image": null,
+    "active": true,
+    "provider": "credentials",
+    "passwordHash": "$2b$12$ooaTG1Y.xLYjmDrDMVMlweCzMGmUi5S7FfefQw2IJWf6W9abO.Xva",
+    "id": "USR-1778661738037",
+    "createdAt": "2026-05-13T08:42:18.037Z"
+  },
+  {
+    "id": "USR-1778750000001",
+    "email": "amr.mostafa@si-ware.com",
+    "name": "Amr Mostafa",
+    "role": "Administration Team",
+    "image": null,
+    "active": true,
+    "provider": "credentials",
+    "passwordHash": "$2b$12$bOYONJS9KCtX3noQz8earerXWvomv9GqpV0fAlcP0LNCuCSaIEQgO",
+    "createdAt": "2026-05-14T14:00:00.000Z"
+  },
+  {
+    "id": "USR-1778681205922",
+    "email": "marwan.elafifi@si-ware.com",
+    "name": "Marwan Elafifi",
+    "role": "Full Access",
+    "image": "https://lh3.googleusercontent.com/a/ACg8ocKQ4ZC7g6LHk-G3BXqN-G4ntSVXWnTeZ6K3YMdbcCofQ-MgCg8=s96-c",
+    "active": true,
+    "createdAt": "2026-05-13T14:06:45.922Z",
+    "provider": "google"
+  }
+]

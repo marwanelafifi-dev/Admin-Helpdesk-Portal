@@ -1,28 +1,58 @@
 "use client"
 
-import { Suspense, useState } from "react"
+import { Suspense, useState, useEffect } from "react"
 import Image from "next/image"
 import { signIn } from "next-auth/react"
 import { useSearchParams } from "next/navigation"
+
+export const dynamic = "force-dynamic"
 import { Eye, EyeOff, Lock, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
-function LoginForm() {
-  const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/landing"
+const SETTINGS_KEY = "arp_platform_settings"
+const GOOGLE_AUTH_ENABLED = process.env.NEXT_PUBLIC_ENABLE_GOOGLE_AUTH !== "false"
+
+const LOGIN_DEFAULTS = {
+  loginTitle: "Admin Helpdesk Portal",
+  loginSubtitle: "Welcome to the Si-Ware Systems administrative support portal. Sign in with your corporate credentials to securely manage helpdesk requests and operational workflows.",
+  loginCardTitle: "Sign in securely",
+  loginCardSubtitle: "Authorized Si-Ware Employees only.\nPlease use your corporate credentials to continue.",
+  loginFooterLine1: "Operated by IT Team",
+  loginFooterLine2: "For assistance, please contact the IT Helpdesk.",
+  loginFooterEmail: "ithelpdesk@si-ware.com",
+  showGoogleLogin: GOOGLE_AUTH_ENABLED,
+}
+
+interface LoginFormProps {
+  callbackUrl: string
+  oauthError?: string | null
+}
+
+function LoginFormContent({ callbackUrl, oauthError }: LoginFormProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loadingProvider, setLoadingProvider] = useState<"google" | "credentials" | null>(null)
+  const [cfg, setCfg] = useState(LOGIN_DEFAULTS)
+  const [logoSrc, setLogoSrc] = useState("/siware-logo.png")
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY)
+      if (raw) setCfg({ ...LOGIN_DEFAULTS, ...JSON.parse(raw) })
+      const customLogo = localStorage.getItem("arp_logo_login")
+      if (customLogo) setLogoSrc(customLogo)
+    } catch {}
+  }, [])
 
   const handleGoogleSignIn = async () => {
     setError("")
     setLoadingProvider("google")
-    await signIn("google", { callbackUrl })
+    await signIn("google", { callbackUrl, redirect: true })
   }
 
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
@@ -52,27 +82,29 @@ function LoginForm() {
       <div className="w-full max-w-lg animate-fade-in">
         <div className="flex flex-col items-center gap-4 mb-10 animate-slide-up">
           <div className="relative h-24 w-48">
-            <Image src="/siware-logo.png" alt="Si-Ware Systems logo" fill className="object-contain" />
+            {logoSrc.startsWith("data:") ? (
+              <img src={logoSrc} alt="Logo" className="h-full w-full object-contain" />
+            ) : (
+              <Image src={logoSrc} alt="Si-Ware Systems logo" fill className="object-contain" />
+            )}
           </div>
           <div className="space-y-1 text-center">
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Admin Helpdesk Portal</h1>
-            <p className="text-sm text-slate-700 max-w-md mx-auto">
-              Welcome to the Si-Ware Systems administrative support portal. Sign in with your corporate credentials to securely manage helpdesk requests and operational workflows.
-            </p>
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-900">{cfg.loginTitle}</h1>
+            <p className="text-sm text-slate-700 max-w-md mx-auto">{cfg.loginSubtitle}</p>
           </div>
         </div>
 
         <Card className="border border-slate-200 bg-white shadow-xl shadow-slate-200/50 rounded-[1.75rem] animate-slide-up">
           <CardHeader className="space-y-2 pb-5 text-center">
-            <CardTitle className="text-2xl">Sign in securely</CardTitle>
+            <CardTitle className="text-2xl">{cfg.loginCardTitle}</CardTitle>
             <CardDescription className="text-slate-600">
-              Authorized Si-Ware Employees only.
-              <br />
-              Please use your corporate credentials to continue.
+              {cfg.loginCardSubtitle.split("\n").map((line, i) => (
+                <span key={i}>{line}{i < cfg.loginCardSubtitle.split("\n").length - 1 && <br />}</span>
+              ))}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button
+            {cfg.showGoogleLogin && <Button
               type="button"
               variant="secondary"
               className="w-full rounded-xl border-slate-300 bg-slate-950 text-white hover:bg-slate-800"
@@ -95,16 +127,16 @@ function LoginForm() {
                   Continue with Google
                 </>
               )}
-            </Button>
+            </Button>}
 
-            <div className="relative">
+            {cfg.showGoogleLogin && <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-white px-2 text-muted-foreground">Or</span>
               </div>
-            </div>
+            </div>}
 
             <form onSubmit={handleCredentialsSubmit} className="space-y-5">
               <div className="space-y-2">
@@ -162,19 +194,26 @@ function LoginForm() {
         </Card>
 
         <div className="text-center text-xs text-slate-500 mt-6 space-y-1">
-          <p className="font-medium text-slate-700">Operated by IT Team</p>
-          <p>For assistance, please contact the IT Helpdesk.</p>
-          <p className="text-slate-500">ithelpdesk@si-ware.com</p>
+          <p className="font-medium text-slate-700">{cfg.loginFooterLine1}</p>
+          <p>{cfg.loginFooterLine2}</p>
+          <p className="text-slate-500">{cfg.loginFooterEmail}</p>
         </div>
       </div>
     </div>
   )
 }
 
+function LoginFormWrapper() {
+  const searchParams = useSearchParams()
+  const callbackUrl = searchParams.get("callbackUrl") ?? "/landing"
+  const errorParam = searchParams.get("error")
+  return <LoginFormContent callbackUrl={callbackUrl} oauthError={errorParam} />
+}
+
 export default function LoginPage() {
   return (
-    <Suspense>
-      <LoginForm />
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-100">Loading...</div>}>
+      <LoginFormWrapper />
     </Suspense>
   )
 }

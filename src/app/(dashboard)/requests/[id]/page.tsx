@@ -4,12 +4,12 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
-import { ArrowLeft, Calendar, User, FileText, Clock, CheckCircle2, AlertCircle, ChevronDown } from "lucide-react"
+import { ArrowLeft, Calendar, User, FileText, Clock, CheckCircle2, AlertCircle, ChevronDown, Star, Send } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { commentsAPI } from "@/lib/apiClient"
-import { getRequests, updateStatus, initializeMockData, recordCommentActivity, type EngineRequest } from "@/services/engineService"
+import { getRequests, updateStatus, updateAdminCc, getAllCcEmails, initializeMockData, recordCommentActivity, type EngineRequest } from "@/services/engineService"
 import { cn } from "@/lib/utils"
 import { hasPermission } from "@/lib/access"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
@@ -72,6 +72,8 @@ interface RequestDetail {
   requesterId: string
   createdAt: string
   updatedAt: string
+  ccEmails: string[]
+  adminCc: string[]
   requester?: {
     id: string
     name: string
@@ -144,12 +146,16 @@ export default function RequestDetailPage() {
   const params = useParams()
   const router = useRouter()
   const id = params.id as string
-  const { data: session } = useSession()
+  const { data: session, status: sessionStatus } = useSession()
 
   const [request, setRequest] = useState<RequestDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>("details")
+  const [surveyRating, setSurveyRating] = useState(0)
+  const [surveyHover, setSurveyHover] = useState(0)
+  const [surveyComment, setSurveyComment] = useState("")
+  const [surveySubmitted, setSurveySubmitted] = useState(false)
 
   const fetchComments = async (requestId: string) => {
     try {
@@ -181,9 +187,12 @@ export default function RequestDetailPage() {
     }
   }
 
-  const canChangeStatus = session?.user?.permissions && hasPermission(session.user.permissions, "update")
+  const canChangeStatus = session?.user?.permissions && hasPermission(session.user.permissions, "update_status")
   const canViewActivity = session?.user?.permissions && hasPermission(session.user.permissions, "activity")
+  const canEditRequest = session?.user?.permissions && hasPermission(session.user.permissions, "edit_request")
+  const canManageCc = session?.user?.permissions ? hasPermission(session.user.permissions, "manage_users") : false
   const currentUserId = session?.user?.id || "USR-001"
+  const currentUserEmail = session?.user?.email || ""
 
   useEffect(() => {
     if (!canViewActivity && activeTab === "activity") {
@@ -222,9 +231,15 @@ export default function RequestDetailPage() {
         requestTitle: request.title,
         module: request.module,
         requestOwnerId: request.requester?.id || "USR-001",
+        requestOwnerEmail: request.requester?.email,
         actionUserId: currentUserId,
+        actionUserName: session?.user?.name || "User",
+        actionUserEmail: session?.user?.email || undefined,
         preview: `Status changed from ${oldStatus} to ${newStatus}`,
+        previousStatus: oldStatus,
+        newStatus,
         updateType: "status",
+        ccEmails: [...(request.ccEmails || []), ...(request.adminCc || [])],
       })
 
       // Update local state with new status and activity
@@ -237,6 +252,26 @@ export default function RequestDetailPage() {
         updatedAt: now,
         history: updatedHistory,
       })
+
+      // Send feedback survey email when request reaches completed or delivered
+      if (
+        (newStatus === "completed" || newStatus === "delivered") &&
+        oldStatus !== "completed" && oldStatus !== "delivered"
+      ) {
+        const surveyId = `FB-${Date.now()}`
+        fetch("/api/feedback/send-survey", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            surveyId,
+            requesterName: request.requester?.name || request.title,
+            requesterEmail: request.requester?.email,
+            requestId: request.id,
+            requestTitle: request.title,
+            module: request.module,
+          }),
+        }).catch(() => {})
+      }
     } catch (error) {
       console.error("Failed to update status:", error)
       alert("Failed to update status. Please try again.")
@@ -316,11 +351,13 @@ export default function RequestDetailPage() {
         let foundRequest: RequestDetail = {
           id: engineRequest.id,
           title: engineRequest.title,
-          description: engineRequest.payload?.description,
+          description: (engineRequest.payload?.description as string | undefined) || undefined,
           module: engineRequest.module,
           status: engineRequest.status,
           payload: engineRequest.payload || {},
           requesterId: engineRequest.requesterId,
+          ccEmails: Array.isArray((engineRequest.payload as any)?.ccEmails) ? (engineRequest.payload as any).ccEmails : [],
+          adminCc: Array.isArray(engineRequest.adminCc) ? engineRequest.adminCc : [],
           requester: {
             id: engineRequest.requesterId,
             name: engineRequest.requesterName,
@@ -329,7 +366,7 @@ export default function RequestDetailPage() {
           createdAt: engineRequest.createdAt,
           updatedAt: engineRequest.updatedAt,
           approvals: [],
-          attachments: engineRequest.payload?.attachments || [],
+          attachments: (Array.isArray(engineRequest.payload?.attachments) ? engineRequest.payload.attachments : []) as any[],
           comments: [],
           history: allHistory,
         }
@@ -475,6 +512,17 @@ export default function RequestDetailPage() {
                       ))}
                     </DropdownMenuContent>
                   </DropdownMenu>
+
+                  {/* Edit Button */}
+                  {canEditRequest && (
+                    <Button
+                      variant="outline"
+                      onClick={() => window.open(`/${request.module}/new?id=${request.id}`, '_blank')}
+                      className="ml-auto"
+                    >
+                      Edit
+                    </Button>
+                  )}
                 </div>
                 <h1 className="text-3xl font-bold tracking-tight">{request.title}</h1>
                 <p className="text-sm text-muted-foreground mt-1">Request ID: {request.id}</p>
@@ -640,6 +688,13 @@ export default function RequestDetailPage() {
             <CommentsTab
               requestId={request.id}
               comments={request.comments || []}
+              ccEmails={request.ccEmails || []}
+              adminCc={request.adminCc || []}
+              canEditCc={sessionStatus === "authenticated" && hasPermission(session?.user?.permissions ?? [], "manage_cc")}
+              onAdminCcChange={(emails) => {
+                updateAdminCc(request.id, emails)
+                setRequest((prev) => prev ? { ...prev, adminCc: emails } : prev)
+              }}
               onAddComment={async (content, attachments) => {
                 try {
                   console.log("Adding comment to request", request.id, { content, attachmentsCount: attachments.length })
@@ -656,15 +711,19 @@ export default function RequestDetailPage() {
                   // Record comment activity in history
                   recordCommentActivity(request.id, currentUserId)
 
-                  // Create notifications for the new comment
+                  // Create notifications for the new comment (with CC)
                   createRequestUpdateNotifications({
                     requestId: request.id,
                     requestTitle: request.title,
                     module: request.module,
                     requestOwnerId: request.requester?.id || "USR-001",
+                    requestOwnerEmail: request.requester?.email,
                     actionUserId: currentUserId,
+                    actionUserName: session?.user?.name || "User",
+                    actionUserEmail: session?.user?.email || undefined,
                     preview: content,
                     updateType: "comment",
+                    ccEmails: [...(request.ccEmails || []), ...(request.adminCc || [])],
                   })
 
                   // Add optimistic update - add comment immediately to state
@@ -772,6 +831,94 @@ export default function RequestDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Feedback Survey — hidden for Administration Team role (they process requests, not evaluate them) */}
+      {(request.status === "completed" || request.status === "delivered") && session?.user?.role !== "Administration Team" && (
+        <Card className="border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-white shadow-sm">
+          <CardHeader className="pb-3 border-b border-emerald-100">
+            <div className="flex items-center gap-3">
+              <div className="bg-emerald-100 rounded-lg p-2">
+                <Star className="h-5 w-5 text-emerald-700" />
+              </div>
+              <div>
+                <CardTitle className="text-base font-semibold text-gray-900">Service Feedback</CardTitle>
+                <p className="text-xs text-gray-500 mt-0.5">How satisfied are you with this {request.module} request?</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            {surveySubmitted ? (
+              <div className="flex flex-col items-center py-6 text-center">
+                <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center mb-3">
+                  <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+                </div>
+                <p className="font-semibold text-gray-900">Thank you for your feedback!</p>
+                <p className="text-sm text-gray-500 mt-1">Your response has been recorded.</p>
+                <div className="flex gap-1 mt-3">
+                  {[1,2,3,4,5].map((s) => (
+                    <Star key={s} className={cn("h-5 w-5", s <= surveyRating ? "fill-yellow-400 text-yellow-400" : "text-gray-200")} />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {/* Star rating */}
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-3">Rate your experience</p>
+                  <div className="flex gap-2">
+                    {[1,2,3,4,5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setSurveyRating(star)}
+                        onMouseEnter={() => setSurveyHover(star)}
+                        onMouseLeave={() => setSurveyHover(0)}
+                        className="p-1.5 rounded-lg transition-all hover:scale-110"
+                      >
+                        <Star className={cn(
+                          "h-8 w-8 transition-colors",
+                          (surveyHover || surveyRating) >= star
+                            ? "fill-yellow-400 text-yellow-400"
+                            : "text-gray-300 hover:text-yellow-300"
+                        )} />
+                      </button>
+                    ))}
+                    {surveyRating > 0 && (
+                      <span className="ml-2 self-center text-sm text-gray-600 font-medium">
+                        {["Poor","Fair","Good","Very Good","Excellent"][surveyRating - 1]}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Comment */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block">Additional comments (optional)</label>
+                  <textarea
+                    value={surveyComment}
+                    onChange={(e) => setSurveyComment(e.target.value)}
+                    placeholder="Tell us what we can improve..."
+                    rows={3}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent"
+                  />
+                </div>
+
+                <Button
+                  disabled={!surveyRating}
+                  onClick={() => {
+                    if (!surveyRating) return
+                    setSurveySubmitted(true)
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+                >
+                  <Send className="h-4 w-4" />
+                  Submit Feedback
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

@@ -1,8 +1,7 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { useRouter } from "next/navigation"
-import { useRouter } from "next/navigation"
+import React, { useState, useMemo, useRef, useEffect } from "react"
+import { useSession } from "next-auth/react"
 import { Search, Plus, Package, Truck, CheckCircle2, Clock, MoreHorizontal, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -12,38 +11,49 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { mockShipments, type MockShipment } from "@/lib/mock-data"
+import { mockShipments, mockUsers, type MockShipment } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
+import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
+import { updateStatus, getRequestById, getAllCcEmails } from "@/services/engineService"
+import { createRequestUpdateNotifications } from "@/lib/notificationStore"
+import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
+import { useExpandedRows } from "@/hooks/useExpandedRows"
+import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
+import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
+import { getList } from "@/lib/companyDataStore"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STATUSES = ["New", "In Progress", "In Customs", "Delivered", "Cancelled"] as const
-const CARRIERS = ["DHL", "FedEx", "UPS", "Aramex", "Other"] as const
+const STATUSES = ["new", "in_progress", "in_customs", "delivered", "cancelled"] as const
+
+const STATUS_LABELS: Record<string, string> = {
+  new: "New", in_progress: "In Progress", in_customs: "In Customs", delivered: "Delivered", cancelled: "Cancelled",
+}
 
 const STATUS_COLORS: Record<string, string> = {
-  "New":        "bg-sky-50 text-sky-700",
-  "In Progress": "bg-blue-50 text-blue-700",
-  "In Customs": "bg-amber-50 text-amber-700",
-  "Delivered":  "bg-green-50 text-green-700",
-  "Cancelled":  "bg-red-50 text-red-600",
+  new:        "bg-sky-50 text-sky-700",
+  in_progress: "bg-blue-50 text-blue-700",
+  in_customs: "bg-amber-50 text-amber-700",
+  delivered:  "bg-green-50 text-green-700",
+  cancelled:  "bg-red-50 text-red-600",
 }
 
 const STATUS_DOT: Record<string, string> = {
-  "New":        "bg-sky-500",
-  "In Progress": "bg-blue-500",
-  "In Customs": "bg-amber-500",
-  "Delivered":  "bg-green-500",
-  "Cancelled":  "bg-red-500",
+  new:        "bg-sky-500",
+  in_progress: "bg-blue-500",
+  in_customs: "bg-amber-500",
+  delivered:  "bg-green-500",
+  cancelled:  "bg-red-500",
 }
 
 const STATUS_PILL_ACTIVE: Record<string, string> = {
-  "New":        "bg-sky-500 border-sky-500 text-white",
-  "In Progress": "bg-blue-600 border-blue-600 text-white",
-  "In Customs": "bg-amber-600 border-amber-600 text-white",
-  "Delivered":  "bg-green-600 border-green-600 text-white",
-  "Cancelled":  "bg-red-600 border-red-600 text-white",
+  new:        "bg-sky-500 border-sky-500 text-white",
+  in_progress: "bg-blue-600 border-blue-600 text-white",
+  in_customs: "bg-amber-600 border-amber-600 text-white",
+  delivered:  "bg-green-600 border-green-600 text-white",
+  cancelled:  "bg-red-600 border-red-600 text-white",
 }
 
 type SortKey = keyof Pick<MockShipment, "id" | "pickupDate" | "trackingNumber" | "poNumber" | "costCenter" | "carrier" | "requester" | "status" | "expectedDelivery" | "lastUpdate">
@@ -64,26 +74,75 @@ const COLS: { key: SortKey; label: string; defaultW: number }[] = [
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ShippingPage() {
+  const { data: session } = useSession()
   const [search, setSearch]           = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [carrierFilter, setCarrierFilter] = useState("all")
+  const [dynamicCarriers, setDynamicCarriers] = useState<string[]>([])
+  useEffect(() => { setDynamicCarriers(getList("carriers")) }, [])
   const [sortKey, setSortKey]         = useState<SortKey>("id")
   const [sortDir, setSortDir]         = useState<"asc" | "desc">("asc")
-  const [shipments, setShipments]     = useState<MockShipment[]>(mockShipments)
-  const [expandedShipmentId, setExpandedShipmentId] = useState<string | null>(null)
-  const router = useRouter()
+  const [colWidths, setColWidths]     = useState<(number | null)[]>(() => COLS.map(() => null))
+  const tableRef = useRef<HTMLTableElement>(null)
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, string>>({})
 
-  const commentCounts = useCommentCounts(ste<MockShipment[]>(mockShipments)
-  const [expandedShipmentId, setExpandedShipmentId] = useState<string | null>(null)
-  const router = useRouter()
+  const canUpdateStatus = ((session?.user?.permissions as string[])?.includes("update_status") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  const canEditRequest = ((session?.user?.permissions as string[])?.includes("edit_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  const canCancelRequest = ((session?.user?.permissions as string[])?.includes("cancel_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+
+  const shipments = useMemo(() =>
+    mockShipments.map(s => ({
+      ...s,
+      status: (statusOverrides[s.id] ?? s.status) as string
+    })),
+    [statusOverrides]
+  )
 
   const commentCounts = useCommentCounts(shipments.map(s => s.id))
   const { viewedComments } = useViewedComments()
+  const { expandedRows, toggleRow, isExpanded } = useExpandedRows()
+  const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
+
+  function handleStatusChange(id: string, newStatus: string) {
+    const shipment = shipments.find(s => s.id === id)
+    const owner = mockUsers.find(user => user.name === shipment?.requester)
+    const currentUserId = session?.user?.id || "USR-001"
+    const oldStatus = shipment?.status
+    setStatusOverrides(prev => ({ ...prev, [id]: newStatus }))
+    updateStatus(id, newStatus as any, currentUserId)
+    if (shipment) {
+      const engineReq = getRequestById(id)
+      const ccEmails = engineReq ? getAllCcEmails(engineReq) : []
+      createRequestUpdateNotifications({
+        requestId: id,
+        requestTitle: shipment.title || shipment.id,
+        module: "shipping",
+        requestOwnerId: owner?.id || "USR-001",
+        requestOwnerEmail: owner?.email,
+        actionUserId: currentUserId,
+        actionUserName: session?.user?.name || "User",
+        actionUserEmail: session?.user?.email || undefined,
+        preview: `Status changed from ${oldStatus} to ${newStatus}`,
+        previousStatus: oldStatus,
+        newStatus,
+        updateType: "status",
+        ccEmails,
+      })
+    }
+  }
+
+  function handleCancelRequest(id: string) {
+    if (confirm("Are you sure you want to cancel this request?")) {
+      handleStatusChange(id, "cancelled")
+    }
+  }
 
   // ── Resize ──────────────────────────────────────────────────────────────
   function onResizeMouseDown(e: React.MouseEvent, idx: number) {
     e.preventDefault(); e.stopPropagation()
-    const startX = e.clientX, startW = colWidths[idx]
+    const startX = e.clientX
+    const th = (e.currentTarget as HTMLElement).closest("th")
+    const startW = th ? th.getBoundingClientRect().width : (colWidths[idx] ?? 120)
     const onMove = (ev: MouseEvent) => {
       const newW = Math.max(60, startW + ev.clientX - startX)
       setColWidths((prev) => prev.map((w, i) => i === idx ? newW : w))
@@ -101,7 +160,7 @@ export default function ShippingPage() {
 
   function SortIcon({ col }: { col: SortKey }) {
     if (sortKey !== col) return <ChevronsUpDown className="h-3 w-3 ml-1 opacity-40 shrink-0" />
-    return sortDis "asc" ? <ChevronUp className="h-3 w-3 ml-1 shrink-0" /> : <ChevronDown className="h-3 w-3 ml-1 shrink-0" />
+    return sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1 shrink-0" /> : <ChevronDown className="h-3 w-3 ml-1 shrink-0" />
   }
 
   const filtered = useMemo(() => {
@@ -115,21 +174,23 @@ export default function ShippingPage() {
     return result.sort((a, b) => {
       const av = a[sortKey] ?? "", bv = b[sortKey] ?? ""
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
-    })shipments.length,
-    inProgress: shipments.filter((s) => s.status === "In Progress").length,
-    inCustoms:  shipments.filter((s) => s.status === "In Customs").length,
-    delivered:  shipments.filter((s) => s.status === "Delivered").length,
-  }), [s    shipments.length,
-    inProgress: shipments.filter((s) => s.status === "In Progress").length,
-    inCustoms:  shipments.filter((s) => s.status === "In Customs").length,
-    delivered:  shipments.filter((s) => s.status === "Delivered").length,
+    })
+  }, [shipments, search, statusFilter, carrierFilter, sortKey, sortDir])
+
+  const stats = useMemo(() => ({
+    total:       shipments.length,
+    new:         shipments.filter((s) => s.status === "new").length,
+    inProgress:  shipments.filter((s) => s.status === "in_progress").length,
+    inCustoms:   shipments.filter((s) => s.status === "in_customs").length,
+    delivered:   shipments.filter((s) => s.status === "delivered").length,
   }), [shipments])
 
   const statCards = [
-    { key: "all",          label: "Total Shipments", value: stats.total,      icon: Package,      iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
-    { key: "In Progress",  label: "In Progress",     value: stats.inProgress, icon: Truck,        iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
-    { key: "In Customs",   label: "In Customs",      value: stats.inCustoms,  icon: Clock,        iconBg: "bg-amber-50",  iconColor: "text-amber-600",  activeBg: "bg-amber-600",  activeBorder: "border-amber-600" },
-    { key: "Delivered",    label: "Delivered",       value: stats.delivered,  icon: CheckCircle2, iconBg: "bg-green-50",  iconColor: "text-green-600",  activeBg: "bg-green-600",  activeBorder: "border-green-600" },
+    { key: "all",         label: "Total Shipments", value: stats.total,       icon: Package,      iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
+    { key: "new",         label: "New",             value: stats.new,         icon: Package,      iconBg: "bg-sky-50",    iconColor: "text-sky-600",    activeBg: "bg-sky-600",    activeBorder: "border-sky-600" },
+    { key: "in_progress", label: "In Progress",     value: stats.inProgress,  icon: Truck,        iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
+    { key: "in_customs",  label: "In Customs",      value: stats.inCustoms,   icon: Clock,        iconBg: "bg-amber-50",  iconColor: "text-amber-600",  activeBg: "bg-amber-600",  activeBorder: "border-amber-600" },
+    { key: "delivered",   label: "Delivered",       value: stats.delivered,   icon: CheckCircle2, iconBg: "bg-green-50",  iconColor: "text-green-600",  activeBg: "bg-green-600",  activeBorder: "border-green-600" },
   ] as const
 
   return (
@@ -137,11 +198,14 @@ export default function ShippingPage() {
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold tracking-tight">Shipping</h1>
           <p className="text-muted-foreground text-sm mt-0.5">Track and manage all shipment requests</p>
         </div>
-        <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white">
+        {(newRequestsCount > 0 || newTasksCount > 0) && (
+          <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
+        )}
+        <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white ml-4">
           <Link href="/shipping/new">
             <Plus className="h-4 w-4 mr-2" />
             Add Shipping Request
@@ -150,8 +214,8 @@ export default function ShippingPage() {
       </div>
 
       {/* Stat Cards — clickable */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {statCards.map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }) => {
+      <div className="grid grid-cols-5 gap-4">
+        {statCards.map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }, index) => {
           const isActive = statusFilter === key || (key === "all" && statusFilter === "all")
           return (
             <button
@@ -203,7 +267,7 @@ export default function ShippingPage() {
                       statusFilter === s ? activeClass : "bg-white border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700"
                     )}
                   >
-                    {s === "all" ? "All Statuses" : s}
+                    {s === "all" ? "All Statuses" : STATUS_LABELS[s]}
                   </button>
                 )
               })}
@@ -214,7 +278,7 @@ export default function ShippingPage() {
           <div className="flex items-center gap-3 flex-wrap mt-1">
             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest w-12 shrink-0">Carrier</span>
             <div className="flex flex-wrap gap-1.5">
-              {(["all", ...CARRIERS] as const).map((c) => (
+              {(["all", ...dynamicCarriers]).map((c) => (
                 <button
                   key={c}
                   onClick={() => setCarrierFilter(c)}
@@ -237,14 +301,15 @@ export default function ShippingPage() {
         </CardHeader>
 
         {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm" style={{ tableLayout: "fixed", minWidth: colWidths.reduce((a, b) => a + b, 0) + 56 }}>
+        <div className="-mx-6 px-6 -mb-6 overflow-visible">
+          <div className="overflow-x-auto overflow-y-visible">
+            <table ref={tableRef} className="w-full text-sm border-collapse" style={{ tableLayout: colWidths.some(w => w !== null) ? "fixed" : "auto" }}>
             <colgroup>
-              {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
-              <col style={{ width: 56 }} />
+              {colWidths.map((w, i) => <col key={i} style={w !== null ? { width: w } : undefined} />)}
+              <col />
             </colgroup>
-            <thead>
-              <tr className="bg-slate-800 border-b border-slate-700">
+            <thead className="bg-slate-800">
+              <tr className="border-b border-slate-700">
                 {COLS.map((col, idx) => (
                   <th
                     key={col.key}
@@ -266,15 +331,15 @@ export default function ShippingPage() {
                     </span>
                   </th>
                 ))}
-                <th className="py-3 text-xs font-semibold text-slate-300 tracking-wide text-left" style={{ paddingLeft: 12 }} />
+                <th className="bg-slate-800" />
               </tr>
             </thead>
             <tbody>
               {filtered.map((shipment, i) => {
                 const hasUnreadComments = (commentCounts[shipment.id] ?? 0) > (viewedComments[shipment.id] ?? 0)
                 return (
+                <React.Fragment key={shipment.id}>
                 <tr
-                  key={shipment.id}
                   className={cn(
                     "border-b border-gray-100 hover:bg-blue-50/30 transition-colors",
                     hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40")
@@ -317,13 +382,15 @@ export default function ShippingPage() {
                     <span className="text-sm text-gray-700 font-medium truncate block">{shipment.requester}</span>
                   </td>
                   <td className="py-3 px-3">
-                    <span className={cn(
-                      "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap",
-                      STATUS_COLORS[shipment.status] ?? "bg-zinc-100 text-zinc-600"
-                    )}>
-                      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STATUS_DOT[shipment.status] ?? "bg-gray-400")} />
-                      {shipment.status}
-                    </span>
+                    <InlineStatusSelect
+                      currentStatus={shipment.status}
+                      statuses={STATUSES}
+                      statusColors={STATUS_COLORS}
+                      statusDot={STATUS_DOT}
+                      statusLabels={STATUS_LABELS}
+                      onStatusChange={(newStatus) => handleStatusChange(shipment.id, newStatus)}
+                      canUpdateStatus={canUpdateStatus}
+                    />
                   </td>
                   <td className="py-3 px-3">
                     <span className="text-sm text-gray-700 font-medium whitespace-nowrap">{shipment.expectedDelivery}</span>
@@ -332,58 +399,52 @@ export default function ShippingPage() {
                     <span className="text-sm text-gray-700 font-medium whitespace-nowrap">{shipment.lastUpdate}</span>
                   </td>
                   <td className="py-3 px-2 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-600">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => toggleShipmentDetails(shipment.id)}>
-                          View details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openShipment(shipment.id)}>
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={() => cancelShipment(shipment.id)}
-                        >
-                          Cancel shipment
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <RequestActionsMenu
+                      requestId={shipment.id}
+                      showCancelOption={canCancelRequest}
+                      isExpanded={isExpanded(shipment.id)}
+                      onViewDetails={() => toggleRow(shipment.id)}
+                      onEdit={canEditRequest ? (id) => window.open(`/requests/${id}?source=shipping`, '_blank') : undefined}
+                      onCancel={handleCancelRequest}
+                    />
                   </td>
                 </tr>
-                {expandedShipmentId === shipment.id && (
-                  <tr className="bg-slate-50">
-                    <td colSpan={11} className="px-4 py-4">
-                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        <div className="rounded-xl border border-slate-200 bg-white p-4">
-                          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Shipment Details</p>
-                          <p className="mt-2 text-sm text-slate-700"><span className="font-semibold">Supplier:</span> {shipment.supplier}</p>
-                          <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">Requester Name:</span> {shipment.requester}</p>
-                          <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">Cost Center:</span> {shipment.costCenter}</p>
-                          <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">PO Number:</span> {shipment.poNumber}</p>
-                          <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">Tracking Number:</span> {shipment.trackingNumber}</p>
-                        </div>
-                        <div className="rounded-xl border border-slate-200 bg-white p-4">
-                          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Logistics</p>
-                          <p className="mt-2 text-sm text-slate-700"><span className="font-semibold">Carrier:</span> {shipment.carrier}</p>
-                          <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">Pickup Date:</span> {shipment.pickupDate}</p>
-                          <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">Expected Delivery Date:</span> {shipment.expectedDelivery}</p>
-                        </div>
-                        <div className="rounded-xl border border-slate-200 bg-white p-4">
-                          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Status</p>
-                          <p className="mt-2 text-sm text-slate-700"><span className="font-semibold">Status:</span> {shipment.status}</p>
-                          <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">Last Update:</span> {shipment.lastUpdate}</p>
-                          <p className="mt-1 text-sm text-slate-700"><span className="font-semibold">Description:</span> {shipment.description}</p>
+                {isExpanded(shipment.id) && (
+                  <tr className="bg-blue-50">
+                    <td colSpan={11} className="py-4 px-6">
+                      <div className="space-y-3 text-sm">
+                        <div className="grid grid-cols-3 gap-6">
+                          <div>
+                            <p className="font-semibold text-gray-700">Tracking Number</p>
+                            <p className="text-gray-600">{shipment.trackingNumber}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Carrier</p>
+                            <p className="text-gray-600">{shipment.carrier}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">PO Number</p>
+                            <p className="text-gray-600">{shipment.poNumber}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Cost Center</p>
+                            <p className="text-gray-600">{shipment.costCenter}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Status</p>
+                            <p className="text-gray-600">{shipment.status}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Requester</p>
+                            <p className="text-gray-600">{shipment.requester}</p>
+                          </div>
                         </div>
                       </div>
                     </td>
                   </tr>
                 )}
+                </React.Fragment>
+              )
               })}
 
               {filtered.length === 0 && (
@@ -398,10 +459,11 @@ export default function ShippingPage() {
 
           {filtered.length > 0 && (
             <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-[11px] text-gray-400 text-right">
-              Showing {filtered.length} of {shipments.length} shipments
+              Showing {filtered.length} of {mockShipments.length} shipments
             </div>
           )}
-        </div>
+            </div>
+          </div>
       </Card>
     </div>
   )

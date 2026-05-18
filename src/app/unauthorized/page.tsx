@@ -1,10 +1,11 @@
 import Link from "next/link"
 
-export default function UnauthorizedPage({
+export default async function UnauthorizedPage({
   searchParams,
 }: {
-  searchParams?: { from?: string }
+  searchParams?: Promise<{ from?: string }>
 }) {
+  const params = await searchParams
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-100 p-6">
       <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-sm border">
@@ -12,8 +13,8 @@ export default function UnauthorizedPage({
         <p className="mt-3 text-sm text-slate-600">
           You don’t have permission to do this action.
         </p>
-        {searchParams?.from ? (
-          <p className="mt-2 text-xs text-slate-500">Blocked route: {searchParams.from}</p>
+        {params?.from ? (
+          <p className="mt-2 text-xs text-slate-500">Blocked route: {params.from}</p>
         ) : null}
         <div className="mt-6">
           <Link
