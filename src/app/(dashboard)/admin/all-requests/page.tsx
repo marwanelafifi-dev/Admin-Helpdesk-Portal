@@ -61,10 +61,10 @@ const MODULE_COLORS: Record<string, string> = {
 const MODULE_DOT: Record<string, string> = {
   shipping: "bg-blue-500", maintenance: "bg-purple-500",
   purchase: "bg-green-500", event: "bg-orange-500",
-  travel: "bg-pink-500", hr: "bg-teal-500",
+  travel: "bg-pink-500", hr: "bg-teal-500", general: "bg-indigo-500",
 }
 
-const MODULES  = ["shipping", "maintenance", "purchase", "event", "travel", "hr"] as const
+const MODULES  = ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"] as const
 const STATUSES = ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"] as const
 
 // Module-specific statuses
@@ -75,6 +75,7 @@ const MODULE_STATUSES: Record<string, readonly string[]> = {
   event: ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"],
   travel: ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"],
   hr: ["new", "on_hold", "completed"],
+  general: ["new", "in_progress", "completed", "cancelled"],
 }
 
 // Module-specific status labels (overrides generic STATUS_LABELS)
@@ -252,6 +253,7 @@ export default function AllRequestsPage() {
   const tabs: { key: ModuleTab; label: string }[] = [
     { key: "all",         label: "All" },
     { key: "hr",          label: "HR" },
+    { key: "general",     label: "General" },
     { key: "shipping",    label: "Shipping" },
     { key: "maintenance", label: "Maintenance" },
     { key: "purchase",    label: "Purchase" },

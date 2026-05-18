@@ -21,6 +21,8 @@ const pagePermissions: Record<string, string> = {
   "/purchase/new": "page:purchase-new",
   "/event": "page:event",
   "/travel": "page:travel",
+  "/general": "page:general",
+  "/general/new": "page:general-new",
   "/admin/users": "page:admin-users",
   "/admin/roles": "page:admin-roles",
   "/admin/settings": "page:admin-settings",

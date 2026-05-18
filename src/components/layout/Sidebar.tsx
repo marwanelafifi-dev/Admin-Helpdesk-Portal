@@ -26,6 +26,7 @@ import {
   AlertCircle,
   Database,
   Bell,
+  Inbox,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { canAccessPath } from "@/lib/access"
@@ -51,6 +52,7 @@ const navItems: NavItem[] = [
   },
   { title: "My Requests", href: "/requests", icon: FileText },
   { title: "HR", href: "/hr", icon: UserCog },
+  { title: "General Request", href: "/general", icon: Inbox },
   {
     title: "Shipping",
     href: "/shipping",

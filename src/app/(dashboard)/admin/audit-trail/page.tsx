@@ -39,10 +39,45 @@ const CATEGORY_ICONS: Record<AuditEntry["category"], React.ElementType> = {
   auth:    Clock,
 }
 
+function buildUserMap(): Record<string, string> {
+  // Build a map of userId → display name from all requests in localStorage
+  const map: Record<string, string> = {}
+  try {
+    const raw = localStorage.getItem("arp_requests")
+    const requests: any[] = raw ? JSON.parse(raw) : []
+    requests.forEach((req: any) => {
+      if (req.requesterId && req.requesterName) {
+        map[req.requesterId] = req.requesterName
+      }
+    })
+  } catch {}
+  try {
+    const raw = localStorage.getItem("admin_tasks")
+    const tasks: any[] = raw ? JSON.parse(raw) : []
+    tasks.forEach((task: any) => {
+      if (task.createdById && task.createdBy) map[task.createdById] = task.createdBy
+      ;(task.activity ?? []).forEach((a: any) => {
+        if (a.userId && a.user) map[a.userId] = a.user
+      })
+    })
+  } catch {}
+  return map
+}
+
+function resolveActor(changedBy: string, userMap: Record<string, string>): string {
+  if (!changedBy) return "System"
+  // If it looks like a user ID, try to resolve it
+  if (/^USR-/.test(changedBy)) {
+    return userMap[changedBy] || changedBy
+  }
+  return changedBy
+}
+
 function buildAuditLog(): AuditEntry[] {
   if (typeof window === "undefined") return []
 
   const entries: AuditEntry[] = []
+  const userMap = buildUserMap()
 
   // --- Requests ---
   try {
@@ -69,7 +104,7 @@ function buildAuditLog(): AuditEntry[] {
         entries.push({
           id: `${req.id}-status-${i}`,
           timestamp: sh.changedAt,
-          actor: sh.changedBy,
+          actor: resolveActor(sh.changedBy, userMap),
           actorEmail: "",
           action: "Status changed",
           target: req.title,
@@ -85,7 +120,7 @@ function buildAuditLog(): AuditEntry[] {
         entries.push({
           id: `${req.id}-comment-${i}`,
           timestamp: ch.changedAt,
-          actor: ch.changedBy,
+          actor: resolveActor(ch.changedBy, userMap),
           actorEmail: "",
           action: "Comment added",
           target: req.title,
@@ -106,7 +141,7 @@ function buildAuditLog(): AuditEntry[] {
       entries.push({
         id: `task-${task.id}-created`,
         timestamp: task.createdAt,
-        actor: task.createdBy ?? "System",
+        actor: resolveActor(task.createdBy ?? "System", userMap),
         actorEmail: "",
         action: "Task created",
         target: task.title,
@@ -120,7 +155,7 @@ function buildAuditLog(): AuditEntry[] {
           entries.push({
             id: `task-${task.id}-act-${i}`,
             timestamp: a.timestamp,
-            actor: a.user ?? "System",
+            actor: resolveActor(a.user ?? "System", userMap),
             actorEmail: "",
             action: "Task status changed",
             target: task.title,

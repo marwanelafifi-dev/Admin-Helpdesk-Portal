@@ -41,7 +41,9 @@
       "page:admin-settings",
       "page:admin-audit",
       "page:admin-database",
-      "page:admin-notifications"
+      "page:admin-notifications",
+      "page:general",
+      "page:general-new"
     ],
     "createdAt": "2026-05-13T07:43:15.697Z",
     "updatedAt": "2026-05-14T15:30:00.000Z"
@@ -79,7 +81,9 @@
       "page:purchase",
       "page:purchase-new",
       "page:event",
-      "page:travel"
+      "page:travel",
+      "page:general",
+      "page:general-new"
     ],
     "createdAt": "2026-05-13T07:43:15.697Z",
     "updatedAt": "2026-05-14T12:00:00.000Z"
@@ -103,7 +107,9 @@
       "page:maintenance",
       "page:maintenance-new",
       "page:purchase",
-      "page:purchase-new"
+      "page:purchase-new",
+      "page:general",
+      "page:general-new"
     ],
     "createdAt": "2026-05-13T07:43:15.697Z",
     "updatedAt": "2026-05-13T08:26:47.792Z"
@@ -125,7 +131,9 @@
       "page:shipping-new",
       "page:shipping-receiving",
       "page:maintenance",
-      "page:maintenance-new"
+      "page:maintenance-new",
+      "page:general",
+      "page:general-new"
     ],
     "createdAt": "2026-05-13T07:43:15.697Z",
     "updatedAt": "2026-05-13T08:04:56.047Z"

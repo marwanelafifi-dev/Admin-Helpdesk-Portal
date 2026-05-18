@@ -50,13 +50,13 @@ const STATUS_PILL_ACTIVE: Record<string, string> = {
 const MODULE_COLORS: Record<string, string> = {
   shipping: "text-blue-700", maintenance: "text-purple-700",
   purchase: "text-green-700", event: "text-orange-600",
-  travel: "text-pink-600", hr: "text-teal-700",
+  travel: "text-pink-600", hr: "text-teal-700", general: "text-indigo-700",
 }
 
 const MODULE_DOT: Record<string, string> = {
   shipping: "bg-blue-500", maintenance: "bg-purple-500",
   purchase: "bg-green-500", event: "bg-orange-500",
-  travel: "bg-pink-500", hr: "bg-teal-500",
+  travel: "bg-pink-500", hr: "bg-teal-500", general: "bg-indigo-500",
 }
 
 const MODULE_PILL_ACTIVE: Record<string, string> = {
@@ -66,10 +66,11 @@ const MODULE_PILL_ACTIVE: Record<string, string> = {
   event: "bg-orange-500 border-orange-500 text-white",
   travel: "bg-pink-500 border-pink-500 text-white",
   hr: "bg-teal-600 border-teal-600 text-white",
+  general: "bg-indigo-600 border-indigo-600 text-white",
 }
 
 const STATUSES = ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"] as const
-const MODULES  = ["shipping", "maintenance", "purchase", "event", "travel", "hr"] as const
+const MODULES  = ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"] as const
 
 const STAT_CARDS = [
   { key: "total",      label: "Total",      accentBg: "bg-slate-800",   accentBorder: "border-slate-800" },

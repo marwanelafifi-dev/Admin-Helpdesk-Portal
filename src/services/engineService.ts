@@ -25,6 +25,7 @@ export type RequestModule =
   | "event"
   | "travel"
   | "hr"
+  | "general"
 
 export interface StatusChange {
   status: RequestStatus
@@ -76,6 +77,8 @@ const MODULE_PREFIX: Record<string, string> = {
   purchase:    "PRC",
   event:       "EVT",
   travel:      "TRV",
+  hr:          "HR",
+  general:     "GEN",
 }
 
 // â”€â”€â”€ ID generation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
