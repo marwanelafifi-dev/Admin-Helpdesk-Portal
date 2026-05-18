@@ -37,7 +37,7 @@ export default function AccountSettingsPage() {
       const res = await fetch(`/api/users/${user?.id}/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: newPw }),
+        body: JSON.stringify({ currentPassword: currentPw, password: newPw }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))

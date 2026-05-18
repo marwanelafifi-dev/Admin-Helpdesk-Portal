@@ -21,7 +21,7 @@ export async function POST(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    const { password } = await request.json()
+    const { password, currentPassword } = await request.json()
 
     if (!password || password.length < 8) {
       return NextResponse.json(
@@ -37,6 +37,22 @@ export async function POST(
 
     if (user.provider === "google") {
       return NextResponse.json({ error: "Cannot set a password for Google accounts" }, { status: 400 })
+    }
+
+    // When changing own password, verify current password first
+    // Admin (Full Access) resetting another user's password skips this check
+    const isOwnPasswordChange = session.user.id === userId
+    if (isOwnPasswordChange) {
+      if (!currentPassword) {
+        return NextResponse.json({ error: "Current password is required" }, { status: 400 })
+      }
+      if (!user.passwordHash) {
+        return NextResponse.json({ error: "No password set for this account" }, { status: 400 })
+      }
+      const currentMatches = await bcrypt.compare(currentPassword, user.passwordHash)
+      if (!currentMatches) {
+        return NextResponse.json({ error: "Current password is incorrect" }, { status: 400 })
+      }
     }
 
     const passwordHash = await bcrypt.hash(password, 12)
