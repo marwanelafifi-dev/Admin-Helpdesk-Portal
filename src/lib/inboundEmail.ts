@@ -84,15 +84,29 @@ export function extractReplyText(payload: InboundEmailPayload) {
 
   for (const line of lines) {
     const trimmed = line.trim()
+    // Stop at quoted reply markers
     if (trimmed.startsWith(">")) break
     if (/^On .+ wrote:$/i.test(trimmed)) break
     if (/^From:\s/i.test(trimmed)) break
     if (/^-{2,}\s*Original Message\s*-{2,}$/i.test(trimmed)) break
-    if (/^This is an automated notification from Si-Ware Systems Admin Helpdesk Portal\./i.test(trimmed)) break
+    // Stop at system notification content
+    if (/^This is an automated notification from Si-Ware/i.test(trimmed)) break
+    if (/^(Request updated|Request status updated|New comment added|New request added)$/i.test(trimmed)) break
+    if (/^(Marwan|Amr|.+) updated a request in the Admin Helpdesk Portal\.$/i.test(trimmed)) break
+    if (/^Open request$/i.test(trimmed)) break
     kept.push(line)
   }
 
-  return kept.join("\n").trim()
+  const result = kept.join("\n").trim()
+
+  // Reject if what's left is just system notification fields (no human text)
+  const isSystemContent =
+    /^(Request\s+.+\nRequest ID\s+|Module\s+|Update\s+)/m.test(result) &&
+    result.split("\n").filter(l => l.trim()).length <= 6
+
+  if (isSystemContent) return ""
+
+  return result
 }
 
 function getCommentId(payload: InboundEmailPayload, requestId: string, content: string) {

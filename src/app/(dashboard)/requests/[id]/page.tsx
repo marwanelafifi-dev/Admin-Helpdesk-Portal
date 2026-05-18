@@ -832,8 +832,8 @@ export default function RequestDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Feedback Survey — shown when request is completed or delivered */}
-      {(request.status === "completed" || request.status === "delivered") && (
+      {/* Feedback Survey — hidden for Administration Team role (they process requests, not evaluate them) */}
+      {(request.status === "completed" || request.status === "delivered") && session?.user?.role !== "Administration Team" && (
         <Card className="border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-white shadow-sm">
           <CardHeader className="pb-3 border-b border-emerald-100">
             <div className="flex items-center gap-3">

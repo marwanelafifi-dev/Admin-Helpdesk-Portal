@@ -3,12 +3,12 @@ import fs from "fs"
 import path from "path"
 import { readEmailConfig } from "./emailConfig"
 
-function getLogoBase64(): string {
+function getLogoBuffer(): Buffer | null {
   try {
     const logoPath = path.join(process.cwd(), "public", "siware-logo.png")
-    return `data:image/png;base64,${fs.readFileSync(logoPath).toString("base64")}`
+    return fs.readFileSync(logoPath)
   } catch {
-    return ""
+    return null
   }
 }
 
@@ -225,17 +225,29 @@ export async function sendRequestUpdateEmail(params: {
 
   const subject = getRequestEmailSubject(params.requestTitle, params.requestId)
 
+  const isNewRequest = params.updateType === "request_updated"
+
   const headline =
     params.updateType === "status"
       ? "Request status updated"
       : params.updateType === "comment"
       ? "New comment added"
-      : "Request updated"
+      : "New request added"
+
+  const bodyLine =
+    isNewRequest
+      ? `<strong>${escapeHtml(actor)}</strong> submitted a new request in the Admin Helpdesk Portal.`
+      : `<strong>${escapeHtml(actor)}</strong> updated a request in the Admin Helpdesk Portal.`
 
   const detail =
     params.updateType === "status"
       ? `Status changed${params.previousStatus ? ` from ${params.previousStatus}` : ""}${params.newStatus ? ` to ${params.newStatus}` : ""}.`
       : params.preview || "A new update was added to the request."
+
+  const logoBuffer = getLogoBuffer()
+  const logoHtml = logoBuffer
+    ? `<img src="cid:siware-logo" alt="Si-Ware Systems" style="height:44px;width:auto;display:block;margin:0 auto 14px;" />`
+    : `<p style="margin:0 0 8px;color:#94a3b8;font-size:13px;letter-spacing:1px;text-transform:uppercase;">Si-Ware Systems</p>`
 
   const html = `
 <!DOCTYPE html>
@@ -245,21 +257,24 @@ export async function sendRequestUpdateEmail(params: {
   <style>
     body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 0; }
     .container { max-width: 640px; margin: 32px auto; background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; }
-    .header { background: #0f172a; padding: 24px 32px; }
-    .header h1 { color: #ffffff; margin: 0; font-size: 20px; }
+    .header { background: #0f172a; padding: 24px 32px; text-align: center; }
+    .header h1 { color: #ffffff; margin: 0; font-size: 20px; font-weight: 700; }
     .body { padding: 28px 32px; color: #374151; font-size: 14px; line-height: 1.6; }
     .meta { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0; }
     .meta div { margin: 6px 0; }
     .label { color: #64748b; font-weight: 600; display: inline-block; min-width: 96px; }
     .btn { display: inline-block; background: #2563eb; color: #ffffff !important; text-decoration: none; padding: 11px 18px; border-radius: 6px; font-weight: 600; }
-    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 32px; color: #94a3b8; font-size: 12px; }
+    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 32px; color: #94a3b8; font-size: 12px; text-align: center; }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="header"><h1>${escapeHtml(headline)}</h1></div>
+    <div class="header">
+      ${logoHtml}
+      <h1>${escapeHtml(headline)}</h1>
+    </div>
     <div class="body">
-      <p><strong>${escapeHtml(actor)}</strong> updated a request in the Admin Helpdesk Portal.</p>
+      <p>${bodyLine}</p>
       <div class="meta">
         <div><span class="label">Request</span>${escapeHtml(params.requestTitle)}</div>
         <div><span class="label">Request ID</span>${escapeHtml(params.requestId)}</div>
@@ -288,6 +303,14 @@ export async function sendRequestUpdateEmail(params: {
       "X-ARP-Update-Type": params.updateType,
     },
     html,
+    ...(logoBuffer ? {
+      attachments: [{
+        filename: "siware-logo.png",
+        content: logoBuffer,
+        cid: "siware-logo",
+        contentType: "image/png",
+      }],
+    } : {}),
   })
 }
 
@@ -331,7 +354,7 @@ export async function sendFeedbackSurveyEmail(params: {
       <!-- Header -->
       <tr>
         <td style="background:linear-gradient(135deg,#1e293b 0%,#334155 100%);padding:30px 40px 28px;text-align:center;">
-          ${getLogoBase64() ? `<img src="${getLogoBase64()}" alt="Si-Ware Systems" style="height:48px;width:auto;margin-bottom:16px;display:block;margin-left:auto;margin-right:auto;" />` : `<div style="font-size:13px;color:#94a3b8;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Si-Ware Admin Portal</div>`}
+          <img src="cid:siware-logo" alt="Si-Ware Systems" style="height:48px;width:auto;margin-bottom:16px;display:block;margin-left:auto;margin-right:auto;" />
           <div style="width:100%;height:1px;background:rgba(255,255,255,0.1);margin-bottom:18px;"></div>
           <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;">Your Request is Completed ✓</h1>
           <p style="margin:8px 0 0;color:#cbd5e1;font-size:14px;">We'd love to hear how we did</p>
@@ -431,10 +454,19 @@ export async function sendFeedbackSurveyEmail(params: {
 </body>
 </html>`
 
+  const surveyLogoBuffer = getLogoBuffer()
   await sendMailWithRetry(transporter, {
     from: process.env.SMTP_FROM || `Si-Ware Admin Helpdesk <${process.env.SMTP_USER}>`,
     to: params.requesterEmail,
     subject,
     html,
+    ...(surveyLogoBuffer ? {
+      attachments: [{
+        filename: "siware-logo.png",
+        content: surveyLogoBuffer,
+        cid: "siware-logo",
+        contentType: "image/png",
+      }],
+    } : {}),
   })
 }

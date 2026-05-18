@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
-import { Search, Layers, TrendingUp, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle, CheckSquare, ArrowRight } from "lucide-react"
+import { Search, Layers, TrendingUp, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle, CheckSquare, ArrowRight, Download, FileSpreadsheet, ChevronDown as ChevronDownIcon } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -158,7 +158,9 @@ export default function AllRequestsPage() {
     { key: "actions"       as SortKey, label: "",                defaultW: 50   },
   ], [])
 
-  const [colWidths, setColWidths] = useState<(number | null)[]>(() => COLS.map(() => null))
+  const [colWidths, setColWidths]   = useState<(number | null)[]>(() => COLS.map(() => null))
+  const [exportOpen, setExportOpen] = useState(false)
+  const exportRef = useRef<HTMLDivElement>(null)
   const tableRef = useRef<HTMLTableElement>(null)
 
   const onResizeMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
@@ -197,9 +199,19 @@ export default function AllRequestsPage() {
         console.error("Failed to fetch requests:", error)
       }
     }
-
     fetchRequests()
   }, [])
+
+  useEffect(() => {
+    if (!exportOpen) return
+    function handleClickOutside(e: MouseEvent) {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+        setExportOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [exportOpen])
 
   const commentCounts = useCommentCounts(requests.map(r => r.id))
   const { viewedComments } = useViewedComments()
@@ -278,6 +290,51 @@ export default function AllRequestsPage() {
     if (confirm("Are you sure you want to cancel this request?")) {
       handleStatusChange(id, "cancelled")
     }
+  }
+
+  // ── Export ────────────────────────────────────────────────────────────────
+  function buildCsvRows() {
+    const headers = ["Request ID", "Request Title", "Submission Date", "Requester Name", "Requester Email", "Module", "Status", "Last Update Date"]
+    const rows = filtered.map((r) => [
+      r.id,
+      r.title,
+      formatDate(r.createdAt),
+      r.requesterName,
+      r.requesterEmail,
+      formatModule(r.module),
+      getStatusLabel(r.status, r.module),
+      formatDate(r.updatedAt),
+    ])
+    return [headers, ...rows]
+  }
+
+  function exportCsv() {
+    const rows = buildCsvRows()
+    const csv = rows.map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n")
+    const blob = new Blob(["﻿" + csv, ], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `all-requests-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    setExportOpen(false)
+  }
+
+  function exportGoogleSheets() {
+    const rows = buildCsvRows()
+    const csv = rows.map((row) => row.join("\t")).join("\n")
+    const encoded = encodeURIComponent(csv)
+    // Opens Google Sheets import dialog with the data pre-loaded via a data URI paste workaround
+    // Best practice: copy TSV to clipboard then open sheets
+    navigator.clipboard.writeText(rows.map((row) => row.join("\t")).join("\n")).then(() => {
+      window.open("https://sheets.new", "_blank")
+      setExportOpen(false)
+    }).catch(() => {
+      // Fallback: just open sheets
+      window.open("https://sheets.new", "_blank")
+      setExportOpen(false)
+    })
   }
 
   return (
@@ -395,6 +452,54 @@ export default function AllRequestsPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
+            </div>
+
+            {/* Export dropdown */}
+            <div className="relative" ref={exportRef}>
+              <button
+                onClick={() => setExportOpen((o) => !o)}
+                className="h-10 inline-flex items-center gap-2 px-4 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+              >
+                <Download className="h-4 w-4 text-gray-500" />
+                Export
+                <ChevronDownIcon className={`h-3.5 w-3.5 text-gray-400 transition-transform ${exportOpen ? "rotate-180" : ""}`} />
+              </button>
+              {exportOpen && (
+                <div className="absolute right-0 top-full mt-1.5 w-56 rounded-xl border border-gray-200 bg-white shadow-lg z-50 overflow-hidden">
+                  <div className="px-3 py-2 border-b border-gray-100">
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Export {filtered.length} records</p>
+                  </div>
+                  <button
+                    onClick={exportCsv}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="bg-emerald-100 rounded-lg p-1.5">
+                      <FileSpreadsheet className="h-4 w-4 text-emerald-700" />
+                    </div>
+                    <div className="text-left">
+                      <p className="font-medium">Export as CSV</p>
+                      <p className="text-xs text-gray-400">Opens in Excel or any spreadsheet app</p>
+                    </div>
+                  </button>
+                  <button
+                    onClick={exportGoogleSheets}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-100"
+                  >
+                    <div className="bg-blue-100 rounded-lg p-1.5">
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none">
+                        <rect x="4" y="2" width="16" height="20" rx="2" fill="#0F9D58"/>
+                        <rect x="8" y="8" width="8" height="1.5" rx="0.5" fill="white"/>
+                        <rect x="8" y="11.5" width="8" height="1.5" rx="0.5" fill="white"/>
+                        <rect x="8" y="15" width="5" height="1.5" rx="0.5" fill="white"/>
+                      </svg>
+                    </div>
+                    <div className="text-left">
+                      <p className="font-medium">Open in Google Sheets</p>
+                      <p className="text-xs text-gray-400">Data copied to clipboard — paste in Sheets</p>
+                    </div>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Status quick pills */}

@@ -54,7 +54,7 @@ export function upsertGoogleUser(email: string, name: string, image: string | nu
     id: `USR-${Date.now()}`,
     email: email.toLowerCase(),
     name,
-    role: "requester",
+    role: "Requester",
     image,
     active: true,
     createdAt: new Date().toISOString(),

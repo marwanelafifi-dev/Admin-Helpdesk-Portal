@@ -1,4 +1,6 @@
-// In-memory comments store (temporary until database is set up)
+import fs from "fs"
+import path from "path"
+
 export interface StoredComment {
   id: string
   content: string
@@ -19,42 +21,72 @@ export interface StoredComment {
   updatedAt?: string
 }
 
+type CommentsData = Record<string, StoredComment[]>
+
+const STORE_PATH = path.join(process.cwd(), "data", "comments.json")
+
+function readFromDisk(): CommentsData {
+  try {
+    const dir = path.dirname(STORE_PATH)
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+    if (!fs.existsSync(STORE_PATH)) return {}
+    return JSON.parse(fs.readFileSync(STORE_PATH, "utf-8"))
+  } catch {
+    return {}
+  }
+}
+
+function writeToDisk(data: CommentsData) {
+  try {
+    const dir = path.dirname(STORE_PATH)
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(STORE_PATH, JSON.stringify(data, null, 2), "utf-8")
+  } catch (err) {
+    console.error("[CommentsStore] Failed to persist comments:", err)
+  }
+}
+
 class CommentsStoreManager {
-  private store = new Map<string, StoredComment[]>()
+  private store: CommentsData
+
+  constructor() {
+    this.store = readFromDisk()
+    console.log(`[CommentsStore] Loaded ${Object.keys(this.store).length} request threads from disk`)
+  }
 
   getComments(requestId: string): StoredComment[] {
-    const comments = this.store.get(requestId)
-    console.log(`[CommentsStore] getComments(${requestId}):`, comments?.length || 0)
-    return comments || []
+    return this.store[requestId] || []
   }
 
   addComment(requestId: string, comment: StoredComment): StoredComment {
-    const comments = this.store.get(requestId) || []
-    comments.unshift(comment)
-    this.store.set(requestId, comments)
-    console.log(`[CommentsStore] addComment(${requestId}): now has ${comments.length} comments`)
+    if (!this.store[requestId]) this.store[requestId] = []
+    // Prepend (newest first)
+    this.store[requestId].unshift(comment)
+    writeToDisk(this.store)
+    console.log(`[CommentsStore] addComment(${requestId}): now has ${this.store[requestId].length} comments`)
     return comment
   }
 
   deleteComment(commentId: string): boolean {
-    for (const [, comments] of this.store.entries()) {
-      const index = comments.findIndex((c) => c.id === commentId)
+    for (const requestId of Object.keys(this.store)) {
+      const index = this.store[requestId].findIndex((c) => c.id === commentId)
       if (index > -1) {
-        comments.splice(index, 1)
+        this.store[requestId].splice(index, 1)
+        writeToDisk(this.store)
         console.log(`[CommentsStore] deleteComment(${commentId}): deleted`)
         return true
       }
     }
-    console.log(`[CommentsStore] deleteComment(${commentId}): not found`)
     return false
   }
 
   updateComment(commentId: string, content: string): StoredComment | null {
-    for (const comments of this.store.values()) {
-      const comment = comments.find((c) => c.id === commentId)
+    for (const requestId of Object.keys(this.store)) {
+      const comment = this.store[requestId].find((c) => c.id === commentId)
       if (comment) {
         comment.content = content
         comment.updatedAt = new Date().toISOString()
+        writeToDisk(this.store)
         console.log(`[CommentsStore] updateComment(${commentId}): updated`)
         return comment
       }
@@ -62,17 +94,17 @@ class CommentsStoreManager {
     return null
   }
 
-  getAllComments(): Map<string, StoredComment[]> {
-    return new Map(this.store)
+  getAllComments(): Record<string, StoredComment[]> {
+    return { ...this.store }
   }
 }
 
-// Use a global singleton to persist across requests
+// Global singleton — survives Next.js hot-reload in dev, persists across API calls in prod
 declare global {
   var __commentsStore: CommentsStoreManager | undefined
 }
 
-export const commentsStore = global.__commentsStore || new CommentsStoreManager()
+export const commentsStore = global.__commentsStore ?? new CommentsStoreManager()
 if (!global.__commentsStore) {
   global.__commentsStore = commentsStore
 }

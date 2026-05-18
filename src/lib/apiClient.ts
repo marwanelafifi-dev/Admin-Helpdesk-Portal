@@ -90,15 +90,26 @@ export const commentsAPI = {
       files.forEach((file) => formData.append('files', file))
     }
 
-    const response = await fetch(`${API_BASE}/requests/comments`, {
-      method: 'POST',
-      body: formData,
-      // DO NOT set Content-Type header - browser will set it with boundary
-    })
+    const postUrl = `${API_BASE}/requests/comments`
+    console.log('[commentsAPI.create] POST', postUrl, { requestId, authorId })
+
+    let response: Response
+    try {
+      response = await fetch(postUrl, {
+        method: 'POST',
+        body: formData,
+        // DO NOT set Content-Type header - browser will set it with boundary
+      })
+    } catch (networkErr) {
+      console.error('[commentsAPI.create] Network error:', networkErr)
+      throw new Error(`Network error: ${networkErr instanceof Error ? networkErr.message : String(networkErr)}`)
+    }
+
+    console.log('[commentsAPI.create] Response status:', response.status, response.url)
 
     if (!response.ok) {
       const errorBody = await response.json().catch(() => null)
-      const message = errorBody?.error || `API Error: ${response.status}`
+      const message = errorBody?.error || `API Error: ${response.status} — redirected to: ${response.url}`
       throw new Error(message)
     }
 

@@ -28,6 +28,12 @@ function getImapConfig() {
   }
 }
 
+function normalizeFromAddress(from?: string): string {
+  if (!from) return ""
+  const match = from.match(/<([^>]+)>/)
+  return (match?.[1] || from).trim().toLowerCase()
+}
+
 function headerValue(headers: Map<string, unknown>, key: string) {
   const value = headers.get(key.toLowerCase())
   if (Array.isArray(value)) return value.map(String)
@@ -79,6 +85,45 @@ export async function syncInboundEmailReplies() {
           .join(", ")
 
         const subject = parsed.subject || message.envelope?.subject || ""
+        const fromAddress = normalizeFromAddress(addressText(parsed.from))
+
+        // Skip emails sent BY the system itself (outbound notifications landing back in inbox)
+        const systemAddress = (process.env.SMTP_USER || "").toLowerCase()
+        const systemFrom = (process.env.SMTP_FROM || "").toLowerCase()
+        const isFromSystem =
+          systemAddress && (
+            fromAddress.toLowerCase().includes(systemAddress) ||
+            systemFrom.includes(fromAddress.toLowerCase())
+          )
+
+        if (isFromSystem) {
+          synced.push({
+            uid,
+            from: addressText(parsed.from),
+            subject,
+            status: "skipped",
+            reason: "Sent by the system itself",
+          })
+          continue
+        }
+
+        // Skip if the email body is an unmodified system notification (no human reply text)
+        const bodyText = (parsed.text || "").trim()
+        const isUnmodifiedNotification =
+          /^(Request updated|Request status updated|New comment added|New request added)/i.test(subject) &&
+          (bodyText.length === 0 || /^(Request|Request ID|Module|Update)\s/m.test(bodyText.split("\n")[0] || ""))
+
+        if (isUnmodifiedNotification) {
+          synced.push({
+            uid,
+            from: addressText(parsed.from),
+            subject,
+            status: "skipped",
+            reason: "Unmodified system notification",
+          })
+          continue
+        }
+
         const isRequestReply =
           /\+request-[a-z0-9-]+@/i.test(toText) ||
           /\b[A-Z]{2,5}-\d{4}-\d{4,}\b/i.test(subject) ||

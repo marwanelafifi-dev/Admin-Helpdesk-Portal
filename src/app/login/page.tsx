@@ -52,12 +52,7 @@ function LoginFormContent({ callbackUrl, oauthError }: LoginFormProps) {
   const handleGoogleSignIn = async () => {
     setError("")
     setLoadingProvider("google")
-    try {
-      await signIn("google", { callbackUrl, redirect: true })
-    } catch (err) {
-      setLoadingProvider(null)
-      setError("Google sign-in is unavailable on this network. Please use email and password.")
-    }
+    await signIn("google", { callbackUrl, redirect: true })
   }
 
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
