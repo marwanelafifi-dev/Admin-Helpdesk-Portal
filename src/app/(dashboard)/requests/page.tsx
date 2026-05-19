@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useCallback, useState } from "react"
 import Link from "next/link"
 import { Search, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
+import { useSession } from "next-auth/react"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader } from "@/components/ui/card"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
@@ -108,11 +109,18 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
 }
 
-const CURRENT_USER_ID = "USR-001"
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function RequestsPage() {
+  const { data: session } = useSession()
+  // Match the request to the logged-in user by id, email (case-insensitive),
+  // or session name — whichever the request was saved with. Older requests
+  // may have been written before Google auth (USR-* style ids); newer ones
+  // have the real session user id or just the email.
+  const currentUserId    = session?.user?.id ?? ""
+  const currentUserEmail = (session?.user?.email ?? "").toLowerCase()
+  const currentUserName  = session?.user?.name ?? ""
+
   const [requests, setRequests]         = useState<EngineRequest[]>([])
   const [search, setSearch]             = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -166,7 +174,12 @@ export default function RequestsPage() {
     return sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1 shrink-0" /> : <ChevronDown className="h-3 w-3 ml-1 shrink-0" />
   }
 
-  const userRequests = useMemo(() => requests.filter((r) => r.requesterId === CURRENT_USER_ID), [requests])
+  const userRequests = useMemo(() => requests.filter((r) => {
+    if (currentUserId && r.requesterId === currentUserId) return true
+    if (currentUserEmail && (r.requesterEmail ?? "").toLowerCase() === currentUserEmail) return true
+    if (currentUserName && r.requesterName === currentUserName) return true
+    return false
+  }), [requests, currentUserId, currentUserEmail, currentUserName])
 
   function updateRequestStatus(id: string, status: string) {
     setRequests((prev) => prev.map((request) =>
