@@ -121,9 +121,16 @@ export const STORE_REGISTRY: StoreDefinition[] = [
 
   // ── System markers (hidden from UI but cleared on Clear All) ──────────────
   {
-    key: "arp_prod_wipe_v1",
+    key: "arp_prod_wipe_v2",
     label: "Production Wipe Marker",
     description: "Version marker — first-boot data wipe completed",
+    icon: Shield, color: "text-gray-400", bg: "bg-gray-50", border: "border-gray-200",
+    system: true,
+  },
+  {
+    key: "arp_prod_wipe_v1",
+    label: "Production Wipe Marker (legacy)",
+    description: "Older v1 wipe marker — kept registered so it gets cleaned up on Clear All",
     icon: Shield, color: "text-gray-400", bg: "bg-gray-50", border: "border-gray-200",
     system: true,
   },

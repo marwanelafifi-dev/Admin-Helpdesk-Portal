@@ -10,30 +10,16 @@ export type CompanyData = Record<CompanyDataKey, string[]>
 
 const STORAGE_KEY = "arp_company_data"
 
+// Production defaults: empty. Administrators populate the lists via the
+// Admin > Company Data page or via CSV/XLSX import. Empty arrays are
+// intentionally preserved by getCompanyData() — see Array.isArray check below.
 const DEFAULTS: CompanyData = {
-  suppliers: ["Cloud IT", "Honest Trade"],
-  cost_centers: ["R&D", "IT"],
-  managers: [
-    "Marwan Elafifi",
-    "Sara Ali",
-    "Ahmed Hassan",
-    "Nour Ibrahim",
-    "Khalid Mahmoud",
-    "Dina Youssef",
-    "Omar Farouk",
-  ],
-  carriers: ["DHL", "FedEx", "UPS", "Aramex", "Other"],
-  departments: [
-    "Engineering",
-    "IT",
-    "Finance",
-    "Human Resources",
-    "Marketing",
-    "Sales",
-    "Operations",
-    "Administration",
-  ],
-  sectors: ["Technology", "Operations", "Corporate", "Commercial"],
+  suppliers: [],
+  cost_centers: [],
+  managers: [],
+  carriers: [],
+  departments: [],
+  sectors: [],
 }
 
 export function getCompanyData(): CompanyData {
