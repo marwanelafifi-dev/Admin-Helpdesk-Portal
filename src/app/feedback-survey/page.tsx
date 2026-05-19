@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
-import { getFeedbackSurveys, submitFeedbackResponse, type FeedbackSurvey } from "@/services/feedbackService"
+import type { FeedbackSurvey } from "@/services/feedbackService"
 
 export const dynamic = "force-dynamic"
 
@@ -30,35 +30,59 @@ function FeedbackSurveyContent() {
       return
     }
 
-    const surveys = getFeedbackSurveys()
-    const found = surveys.find((s) => s.id === surveyId)
-
-    if (!found) {
-      setError("Survey not found or has already been completed")
-      setLoading(false)
-      return
-    }
-
-    if (found.status === "completed") {
-      setError("This survey has already been completed")
-      setLoading(false)
-      return
-    }
-
-    setSurvey(found)
-    setLoading(false)
+    let cancelled = false
+    fetch(`/api/feedback/survey/${encodeURIComponent(surveyId)}`)
+      .then(async (res) => {
+        if (cancelled) return
+        if (res.status === 404) {
+          setError("Survey not found or has already been completed")
+          setLoading(false)
+          return
+        }
+        if (!res.ok) {
+          setError("Could not load survey. Please try again later.")
+          setLoading(false)
+          return
+        }
+        const data = await res.json()
+        if (data.survey?.status === "completed") {
+          setError("This survey has already been completed")
+          setLoading(false)
+          return
+        }
+        setSurvey(data.survey)
+        setLoading(false)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setError("Could not load survey. Please try again later.")
+        setLoading(false)
+      })
+    return () => { cancelled = true }
   }, [surveyId])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!rating || !survey) return
 
-    submitFeedbackResponse(survey.id, rating, comment)
-    setSubmitted(true)
-
-    setTimeout(() => {
-      router.push("/")
-    }, 3000)
+    try {
+      const res = await fetch(`/api/feedback/survey/${encodeURIComponent(survey.id)}/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rating, comment }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        setError(err.error === "not_found_or_already_completed"
+          ? "This survey has already been completed"
+          : "Failed to submit feedback. Please try again.")
+        return
+      }
+      setSubmitted(true)
+      setTimeout(() => { router.push("/") }, 3000)
+    } catch {
+      setError("Failed to submit feedback. Please try again.")
+    }
   }
 
   if (loading) {

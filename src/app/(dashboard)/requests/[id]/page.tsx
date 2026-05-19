@@ -15,7 +15,6 @@ import { hasPermission } from "@/lib/access"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { CommentsTab } from "@/components/request/CommentsTab"
 import { invalidateCommentCountCache } from "@/hooks/useCommentCounts"
-import { createFeedbackSurvey, submitFeedbackResponse, getFeedbackResponses } from "@/services/feedbackService"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -402,12 +401,18 @@ export default function RequestDetailPage() {
         setRequest(foundRequest)
 
         // Restore feedback state if already submitted for this request
-        const existing = getFeedbackResponses().find((r) => r.requestId === foundRequest.id)
-        if (existing) {
-          setSurveySubmitted(true)
-          setSurveyRating(existing.rating ?? 0)
-          setSurveyComment(existing.comment ?? "")
-        }
+        try {
+          const res = await fetch("/api/feedback/responses")
+          if (res.ok) {
+            const data = await res.json()
+            const existing = (data.responses ?? []).find((r: any) => r.requestId === foundRequest.id)
+            if (existing) {
+              setSurveySubmitted(true)
+              setSurveyRating(existing.rating ?? 0)
+              setSurveyComment(existing.comment ?? "")
+            }
+          }
+        } catch { /* feedback state restore is best-effort */ }
       } catch (err) {
         console.error("Failed to fetch request:", err)
         setError(err instanceof Error ? err.message : "Failed to fetch request")
@@ -914,22 +919,33 @@ export default function RequestDetailPage() {
 
                 <Button
                   disabled={!surveyRating}
-                  onClick={() => {
+                  onClick={async () => {
                     if (!surveyRating || !request) return
-                    // Override requesterName/Email with current session if the request
-                    // has stale "Unknown User" data, so the feedback row attributes
-                    // correctly to the actual employee filling out the survey.
+                    // POST to server-side store. Falls back to session name/email if
+                    // the request has stale "Unknown User" data, so the feedback row
+                    // attributes correctly to the actual employee filling it out.
                     const sessionName = session?.user?.name ?? ""
                     const sessionEmail = session?.user?.email ?? ""
-                    const requestWithUser = {
-                      ...request,
-                      requesterName: (request.requesterName && request.requesterName !== "Unknown User")
-                        ? request.requesterName : (sessionName || "Unknown User"),
-                      requesterEmail: request.requesterEmail || sessionEmail,
+                    try {
+                      const reqName = request.requester?.name
+                      const reqEmail = request.requester?.email
+                      const res = await fetch("/api/feedback/inline", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          requestId: request.id,
+                          requestTitle: request.title,
+                          module: request.module,
+                          requesterName: (reqName && reqName !== "Unknown User") ? reqName : sessionName,
+                          requesterEmail: reqEmail || sessionEmail,
+                          rating: surveyRating,
+                          comment: surveyComment,
+                        }),
+                      })
+                      if (res.ok) setSurveySubmitted(true)
+                    } catch (err) {
+                      console.error("Failed to submit feedback:", err)
                     }
-                    const survey = createFeedbackSurvey(requestWithUser)
-                    submitFeedbackResponse(survey.id, surveyRating, surveyComment)
-                    setSurveySubmitted(true)
                   }}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
                 >

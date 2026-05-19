@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { getRequests, initializeMockData } from "@/services/engineService"
-import { getFeedbackResponses, type FeedbackSurvey } from "@/services/feedbackService"
+import type { FeedbackSurvey } from "@/services/feedbackService"
 import { cn } from "@/lib/utils"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
@@ -103,24 +103,35 @@ export default function FeedbackReportsPage() {
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
   useEffect(() => {
-    const responses = getFeedbackResponses()
-    const feedback: Feedback[] = responses
-      .filter((r) => r.rating && r.rating > 0)
-      .map((r) => ({
-        requestId: r.requestId,
-        requestTitle: r.requestTitle,
-        requesterName: r.requesterName,
-        module: r.module,
-        rating: r.rating || 0,
-        comment: r.comment || "",
-        submittedAt: r.completedAt || r.createdAt,
-      }))
-    setAllFeedback(feedback)
+    let cancelled = false
+    fetch("/api/feedback/responses")
+      .then((res) => res.ok ? res.json() : { responses: [] })
+      .then((data) => {
+        if (cancelled) return
+        const responses: FeedbackSurvey[] = data.responses ?? []
+        const feedback: Feedback[] = responses
+          .filter((r) => r.rating && r.rating > 0)
+          .map((r) => ({
+            requestId: r.requestId,
+            requestTitle: r.requestTitle,
+            requesterName: r.requesterName,
+            module: r.module,
+            rating: r.rating || 0,
+            comment: r.comment || "",
+            submittedAt: r.completedAt || r.createdAt,
+          }))
+        setAllFeedback(feedback)
+      })
+      .catch(() => {
+        if (!cancelled) setAllFeedback([])
+      })
+    return () => { cancelled = true }
   }, [])
 
-  function handleClearFeedback() {
-    localStorage.removeItem("feedback_surveys")
-    localStorage.removeItem("feedback_responses")
+  async function handleClearFeedback() {
+    try {
+      await fetch("/api/feedback/responses", { method: "DELETE" })
+    } catch {}
     setAllFeedback([])
     setShowClearConfirm(false)
   }
