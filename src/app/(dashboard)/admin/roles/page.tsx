@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { PAGES as REGISTERED_PAGES, pagesByGroup } from "@/lib/pageRegistry"
 
 type Role = {
   id: string
@@ -57,34 +58,9 @@ const AVAILABLE_PERMISSIONS = [
   "settings",
 ]
 
-const PAGES = [
-  { id: "dashboard", label: "Dashboard", path: "/dashboard" },
-  { id: "feedback-reports", label: "Feedback & Reports", path: "/feedback-reports" },
-  { id: "tasks", label: "Team Tasks", path: "/tasks" },
-  { id: "all-requests", label: "All Requests", path: "/admin/all-requests" },
-  { id: "my-requests", label: "My Requests", path: "/requests" },
-  { id: "request-detail", label: "Request Detail", path: "/requests/[id]" },
-  { id: "shipping", label: "Shipping", path: "/shipping" },
-  { id: "shipping-new", label: "Shipping New", path: "/shipping/new" },
-  { id: "shipping-sending", label: "Shipping Sending", path: "/shipping/sending" },
-  { id: "shipping-receiving", label: "Shipping Receiving", path: "/shipping/receiving" },
-  { id: "hr", label: "HR", path: "/hr" },
-  { id: "hr-new", label: "HR New", path: "/hr/new" },
-  { id: "maintenance", label: "Maintenance", path: "/maintenance" },
-  { id: "maintenance-new", label: "Maintenance New", path: "/maintenance/new" },
-  { id: "purchase", label: "Purchase", path: "/purchase" },
-  { id: "purchase-new", label: "Purchase New", path: "/purchase/new" },
-  { id: "event", label: "Event", path: "/event" },
-  { id: "travel", label: "Travel", path: "/travel" },
-  { id: "general", label: "General Request", path: "/general" },
-  { id: "general-new", label: "General Request New", path: "/general/new" },
-  { id: "admin-users", label: "Users (Admin)", path: "/admin/users" },
-  { id: "admin-roles", label: "Roles (Admin)", path: "/admin/roles" },
-  { id: "admin-settings", label: "Settings (Admin)", path: "/admin/settings" },
-  { id: "admin-audit", label: "Audit Trail (Admin)", path: "/admin/audit-trail" },
-  { id: "admin-database", label: "Database (Admin)", path: "/admin/database" },
-  { id: "admin-notifications", label: "Notifications (Admin)", path: "/admin/notifications" },
-]
+// Pages come from the central registry — adding a page in src/lib/pageRegistry.ts
+// makes it appear here automatically.
+const PAGES = REGISTERED_PAGES
 
 const ROLE_COLORS: Record<string, string> = {
   "Super Admin": "border-purple-200 bg-purple-50",
@@ -412,18 +388,25 @@ export default function AdminRolesPage() {
                     {formData.pages.length === PAGES.length ? "Deselect All" : "Select All"}
                   </Button>
                 </div>
-                <div className="grid grid-cols-3 gap-2 p-3 border rounded-lg bg-gray-50">
-                  {PAGES.map((page) => (
-                    <label
-                      key={page.id}
-                      className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded"
-                    >
-                      <Checkbox
-                        checked={formData.pages.includes(page.id)}
-                        onCheckedChange={() => togglePage(page.id)}
-                      />
-                      <span className="text-sm font-medium">{page.label}</span>
-                    </label>
+                <div className="space-y-4 p-3 border rounded-lg bg-gray-50">
+                  {pagesByGroup().map(({ group, pages }) => (
+                    <div key={group} className="space-y-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">{group}</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {pages.map((page) => (
+                          <label
+                            key={page.id}
+                            className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded"
+                          >
+                            <Checkbox
+                              checked={formData.pages.includes(page.id)}
+                              onCheckedChange={() => togglePage(page.id)}
+                            />
+                            <span className="text-sm font-medium">{page.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>

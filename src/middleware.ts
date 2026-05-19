@@ -1,36 +1,12 @@
 import { getToken } from "@auth/core/jwt"
 import { NextRequest, NextResponse } from "next/server"
+import { PAGE_PERMISSIONS_BY_PATH } from "@/lib/pageRegistry"
 
 const publicRoutes = ["/login", "/unauthorized", "/feedback-survey"]
 
-const pagePermissions: Record<string, string> = {
-  "/dashboard": "page:dashboard",
-  "/feedback-reports": "page:feedback-reports",
-  "/tasks": "page:tasks",
-  "/admin/all-requests": "page:all-requests",
-  "/requests": "page:my-requests",
-  "/shipping": "page:shipping",
-  "/shipping/new": "page:shipping-new",
-  "/shipping/sending": "page:shipping-sending",
-  "/shipping/receiving": "page:shipping-receiving",
-  "/hr": "page:hr",
-  "/hr/new": "page:hr-new",
-  "/maintenance": "page:maintenance",
-  "/maintenance/new": "page:maintenance-new",
-  "/purchase": "page:purchase",
-  "/purchase/new": "page:purchase-new",
-  "/event": "page:event",
-  "/travel": "page:travel",
-  "/general": "page:general",
-  "/general/new": "page:general-new",
-  "/admin/users": "page:admin-users",
-  "/admin/roles": "page:admin-roles",
-  "/admin/settings": "page:admin-settings",
-  "/admin/audit-trail": "page:admin-audit",
-  "/admin/database": "page:admin-database",
-  "/admin/company-data": "page:admin-database",
-  "/admin/notifications": "page:admin-notifications",
-}
+// Sourced from the central page registry — adding a page in pageRegistry.ts
+// auto-wires its middleware gate (and the Admin > Roles checkbox).
+const pagePermissions: Record<string, string> = PAGE_PERMISSIONS_BY_PATH
 
 // Build redirect URLs from the public base URL instead of request.nextUrl,
 // so Cloudflare Tunnel deployments (where the inbound Host header is the
