@@ -57,10 +57,13 @@ services:
       - "${APP_PORT:-3003}:3003"
     networks:
       - helpdesk-net
+    # Port-open check instead of HTTP GET — once redirects target the public
+    # NEXTAUTH_URL (different host), wget treats it as an error and would
+    # report the container unhealthy even though the app is fine.
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:3003"]
+      test: ["CMD", "nc", "-z", "localhost", "3003"]
       interval: 30s
-      timeout: 15s
+      timeout: 5s
       retries: 5
       start_period: 90s
     restart: unless-stopped

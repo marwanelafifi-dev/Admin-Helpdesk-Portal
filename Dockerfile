@@ -52,6 +52,6 @@ ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1
 
 HEALTHCHECK --interval=30s --timeout=15s --start-period=90s --retries=5 \
-  CMD wget -q -O /dev/null http://localhost:3003 || exit 1
+  CMD nc -z localhost 3003 || exit 1
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
