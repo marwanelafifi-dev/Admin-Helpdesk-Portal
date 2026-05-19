@@ -83,6 +83,31 @@ const MODULE_PILL_ACTIVE: Record<string, string> = {
 const STATUSES = ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"] as const
 const MODULES  = ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"] as const
 
+// Module-specific allowed statuses — drives the inline status dropdown so each
+// row only offers statuses that make sense for its module (e.g. HR has no
+// Cancelled state; Shipping has no Completed; Purchase has Awaiting Approval).
+const MODULE_STATUSES: Record<string, readonly string[]> = {
+  shipping: ["new", "in_progress", "in_customs", "delivered", "cancelled"],
+  maintenance: ["new", "on_hold", "completed", "cancelled"],
+  purchase: ["new", "in_customs", "on_hold", "delivered", "cancelled"],
+  event: ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"],
+  travel: ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"],
+  hr: ["new", "on_hold", "completed"],
+  general: ["new", "in_progress", "completed", "cancelled"],
+}
+
+// Module-specific status labels — overrides generic STATUS_LABELS where wording
+// differs (e.g. Purchase uses "Awaiting Approval" instead of "In Customs").
+const MODULE_STATUS_LABELS: Record<string, Record<string, string>> = {
+  shipping:    { new: "New", in_progress: "In Progress", in_customs: "In Customs", delivered: "Delivered", cancelled: "Cancelled" },
+  purchase:    { new: "New", on_hold: "In Progress", in_customs: "Awaiting Approval", delivered: "Delivered", cancelled: "Cancelled" },
+  maintenance: { new: "New", on_hold: "In Progress", completed: "Completed", cancelled: "Cancelled" },
+  event:       { new: "New", on_hold: "In Progress", in_transit: "In Transit", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled" },
+  travel:      { new: "New", on_hold: "In Progress", in_transit: "In Transit", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled" },
+  hr:          { new: "New", on_hold: "In Progress", completed: "Completed" },
+  general:     { new: "New", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled" },
+}
+
 const STAT_CARDS = [
   { key: "total",      label: "Total",      accentBg: "bg-slate-800",   accentBorder: "border-slate-800" },
   { key: "new",        label: "New",        accentBg: "bg-sky-500",     accentBorder: "border-sky-500" },
@@ -391,10 +416,10 @@ export default function RequestsPage() {
                   <td className="py-3 px-3">
                     <InlineStatusSelect
                       currentStatus={req.status}
-                      statuses={STATUSES}
+                      statuses={MODULE_STATUSES[req.module] ?? STATUSES}
                       statusColors={STATUS_COLORS}
                       statusDot={STATUS_DOT}
-                      statusLabels={STATUS_LABELS}
+                      statusLabels={{ ...STATUS_LABELS, ...(MODULE_STATUS_LABELS[req.module] ?? {}) }}
                       onStatusChange={(nextStatus) => updateRequestStatus(req.id, nextStatus)}
                     />
                   </td>
