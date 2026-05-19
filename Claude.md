@@ -287,7 +287,7 @@ This document tracks the phased development of the Admin Request Platform, movin
 
 ## Phase 5e: Admin Company Data (Completed — 18 May 2026)
 - [x] **Company Data Admin Page** at `/admin/company-data`:
-  - [x] Manages 4 lookup tables: **Suppliers**, **Cost Centers**, **Managers**, **Carriers**.
+  - [x] Manages 6 lookup tables: **Suppliers**, **Cost Centers**, **Managers**, **Carriers**, **Departments**, **Sectors**.
   - [x] localStorage store at `src/lib/companyDataStore.ts` — key `arp_company_data`. Defaults seed from previous hardcoded values. Empty arrays are preserved (uses `Array.isArray` check, not `??`).
   - [x] Per-section UI: inline add input, delete button (hover to reveal), Import (.csv/.xlsx/.xls), Export (.csv).
   - [x] CSV import: plain JS split by newline + first column. XLSX import: uses `xlsx` package (already installed). Deduplicates on import, shows status message.
@@ -319,6 +319,44 @@ This document tracks the phased development of the Admin Request Platform, movin
   - [x] `ALL_BACKUP_KEYS` expanded to include: `arp_company_data`, `arp_platform_settings`, `arp_theme`, `arp_logo_header`, `arp_logo_login`.
   - [x] Backup checklist updated: "All 7 modules", added Company Data, Platform Settings, Logos rows.
   - [x] `OTHER_STORES` (Clear by Data Type) expanded with: Company Data (`arp_company_data`), Platform Settings (`arp_platform_settings`), Header Logo (`arp_logo_header`), Login Logo (`arp_logo_login`).
+
+## Phase 5h: Centralized Data Store Registry (Completed — 19 May 2026)
+- [x] **`src/lib/dataStoreRegistry.ts` — new central registry of every localStorage key the app owns:**
+  - [x] `STORE_REGISTRY: StoreDefinition[]` — one entry per key with `{ key, label, description, icon, color, bg, border, system? }`.
+  - [x] Exports: `STORE_BY_KEY` (lookup map), `ALL_REGISTERED_KEYS`, `USER_FACING_STORES`, `NON_REQUEST_STORES`, `OWNED_PREFIXES = ["arp_", "admin_", "feedback_"]`, `isOwnedKey()`, `discoverAllOwnedKeys()`.
+  - [x] `discoverAllOwnedKeys()` returns registry keys ∪ runtime-discovered owned keys, so newly-added stores show up in backup even if a developer forgets to register them.
+- [x] **Database admin page refactored** (`/admin/database`):
+  - [x] No more hardcoded key lists. Imports `NON_REQUEST_STORES`, `ALL_REGISTERED_KEYS`, `STORE_BY_KEY`, `discoverAllOwnedKeys`, `isOwnedKey` from the registry.
+  - [x] `collectBackup()` uses `discoverAllOwnedKeys()` — captures everything the app owns at runtime.
+  - [x] `clearAllOwnedKeys()` clears registry keys ∪ any runtime-discovered owned key.
+  - [x] Backup checklist UI is now generated from `NON_REQUEST_STORES` — adding a registry entry instantly appears in the user-facing list.
+  - [x] Info banner updated: "Every store the app owns is captured automatically".
+- [x] **Effect:** Adding any new localStorage key requires one edit to `dataStoreRegistry.ts`. Backup, restore, Clear-by-Data-Type, and Clear All all pick it up. No more silent gaps.
+
+## Phase 5g: Company Data — Departments, Sectors & Searchable Dropdowns (Completed — 19 May 2026)
+- [x] **Company Data store extended** (`src/lib/companyDataStore.ts`):
+  - [x] Added `departments` and `sectors` keys to `CompanyDataKey` union and `DEFAULTS`.
+  - [x] Defaults: Departments seeded with 8 standard departments (Engineering, IT, Finance, HR, Marketing, Sales, Operations, Administration). Sectors seeded with Technology, Operations, Corporate, Commercial.
+  - [x] `getCompanyData()` parses both new keys with the same `Array.isArray` empty-array-safe pattern as the others.
+- [x] **Admin → Company Data page** (`/admin/company-data`):
+  - [x] Two new sections: **Departments** (Briefcase icon, indigo) and **Sectors** (Network icon, pink).
+  - [x] Both inherit the existing search box + "Show all (N) / Show N more" collapse behavior, plus CSV/XLSX import + CSV export.
+  - [x] Page widened to `max-w-5xl` to give long lists more room.
+- [x] **Searchable dropdown component** (`src/components/ui/SearchableSelect.tsx` — new):
+  - [x] Self-contained combobox (no extra deps): trigger button, search input, filtered list with "X of Y" footer, click-outside to close, optional clear button.
+  - [x] Replaces every native `<Select>` that was sourced from companyDataStore — handles 1000+ items without UX collapse.
+- [x] **Forms migrated to SearchableSelect:**
+  - [x] **Shipping** — Supplier, Cost Center, Carrier, Direct Manager.
+  - [x] **HR Onboarding** — Sector, Department, Direct Manager.
+  - [x] **HR Offboarding** — Sector, Department, Direct Manager.
+  - [x] **Purchase** — Department.
+  - [x] **Event** — Department.
+  - [x] **Travel** — Department.
+  - [x] **Admin → Users** (Create + Edit dialogs) — Department.
+  - [x] Free-text `<Input>` Department/Sector fields removed; all values must now come from Company Data.
+- [x] **Database page copy updated** to mention Departments + Sectors under Company Data in the backup checklist and Clear-by-Data-Type list. `arp_company_data` already covered them — no schema changes needed.
+- [x] **`.gitattributes` rewritten as UTF-8 LF** with rules for `.ts/.tsx/.sh/.yml/Dockerfile`. Prevents the CRLF bug that broke `docker-entrypoint.sh` on the Linux container.
+- [x] **Pre-existing build errors in `src/app/(dashboard)/requests/page.tsx` fixed** — duplicate `STATUS_OPTIONS` block, duplicate `InlineStatusSelect` import, broken JSX paste inside unread-comment badge, duplicate `updateRequestStatus` function. Build was failing before this work; now clean.
 
 ## Phase 6: Advanced Functionality (Pending)
 - [ ] **Email Notifications:** SMTP ports 465/587 may be blocked by corporate firewall. Use Admin → Notifications to configure Gmail App Password or switch to SendGrid/Brevo (HTTP API, not blocked).
@@ -426,8 +464,10 @@ Status column preserves color styling with dot indicators; other columns use neu
 |------|---------|--------------|
 | `src/app/(dashboard)/tasks/page.tsx` | Team Tasks management | Administration Team role only, real assignee from API, comment attachments, activity tracking |
 | `src/app/(dashboard)/admin/audit-trail/page.tsx` | Audit Trail | Reads localStorage, resolves USR-* IDs to names, category filter + search |
-| `src/app/(dashboard)/admin/database/page.tsx` | Database Backup/Restore | JSON export of all stores, file upload restore with overwrite warning |
-| `src/app/(dashboard)/admin/company-data/page.tsx` | Company Data lookups | Manages Suppliers, Cost Centers, Managers, Carriers — CSV/XLSX import + export |
+| `src/app/(dashboard)/admin/database/page.tsx` | Database Backup/Restore | Imports central registry; auto-discovers all owned keys at runtime; backup checklist + Clear-by-Data-Type generated from registry |
+| `src/lib/dataStoreRegistry.ts` | Central localStorage registry | Single source of truth for every owned key. Adding a `StoreDefinition` here makes it appear in Database backup/restore/clear automatically |
+| `src/app/(dashboard)/admin/company-data/page.tsx` | Company Data lookups | Manages Suppliers, Cost Centers, Managers, Carriers, Departments, Sectors — searchable + collapsible lists, CSV/XLSX import + export |
+| `src/components/ui/SearchableSelect.tsx` | Searchable dropdown | Self-contained combobox: filter input, click-outside close, used by all form dropdowns sourced from companyDataStore |
 | `src/lib/companyDataStore.ts` | Company Data store | localStorage key `arp_company_data`; `getList()`, `saveList()`; Array.isArray empty-array safe |
 | `src/app/(dashboard)/notifications/page.tsx` | Notification log | All/Unread filter, mark-all-read, click to navigate to request |
 | `src/app/(dashboard)/notifications/settings/page.tsx` | Notification preferences | Per-user email/in-app toggle settings |

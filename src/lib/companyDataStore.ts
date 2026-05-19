@@ -1,4 +1,10 @@
-export type CompanyDataKey = "suppliers" | "cost_centers" | "managers" | "carriers"
+export type CompanyDataKey =
+  | "suppliers"
+  | "cost_centers"
+  | "managers"
+  | "carriers"
+  | "departments"
+  | "sectors"
 
 export type CompanyData = Record<CompanyDataKey, string[]>
 
@@ -17,6 +23,17 @@ const DEFAULTS: CompanyData = {
     "Omar Farouk",
   ],
   carriers: ["DHL", "FedEx", "UPS", "Aramex", "Other"],
+  departments: [
+    "Engineering",
+    "IT",
+    "Finance",
+    "Human Resources",
+    "Marketing",
+    "Sales",
+    "Operations",
+    "Administration",
+  ],
+  sectors: ["Technology", "Operations", "Corporate", "Commercial"],
 }
 
 export function getCompanyData(): CompanyData {
@@ -31,6 +48,8 @@ export function getCompanyData(): CompanyData {
       cost_centers: Array.isArray(parsed.cost_centers) ? parsed.cost_centers : DEFAULTS.cost_centers,
       managers:     Array.isArray(parsed.managers)     ? parsed.managers     : DEFAULTS.managers,
       carriers:     Array.isArray(parsed.carriers)     ? parsed.carriers     : DEFAULTS.carriers,
+      departments:  Array.isArray(parsed.departments)  ? parsed.departments  : DEFAULTS.departments,
+      sectors:      Array.isArray(parsed.sectors)      ? parsed.sectors      : DEFAULTS.sectors,
     }
   } catch {
     return { ...DEFAULTS }

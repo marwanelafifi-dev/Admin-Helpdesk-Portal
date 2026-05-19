@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { SearchableSelect } from "@/components/ui/SearchableSelect"
 import {
   FileText,
   Package,
@@ -286,20 +287,26 @@ export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel
             <div className="space-y-1.5">
               <Label>Supplier <span className="text-red-500">*</span></Label>
               <Controller name="supplier" control={control} render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger className={cn(errors.supplier && "border-red-400")}><SelectValue placeholder="Select supplier" /></SelectTrigger>
-                  <SelectContent>{suppliers.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={suppliers}
+                  placeholder="Select supplier"
+                  hasError={!!errors.supplier}
+                />
               )} />
               <FieldError message={errors.supplier?.message} />
             </div>
             <div className="space-y-1.5">
               <Label>Cost Center <span className="text-red-500">*</span></Label>
               <Controller name="costCenter" control={control} render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger className={cn(errors.costCenter && "border-red-400")}><SelectValue placeholder="Select cost center" /></SelectTrigger>
-                  <SelectContent>{costCenters.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={costCenters}
+                  placeholder="Select cost center"
+                  hasError={!!errors.costCenter}
+                />
               )} />
               <FieldError message={errors.costCenter?.message} />
             </div>
@@ -318,12 +325,13 @@ export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel
           <div className="space-y-1.5">
             <Label>Direct Manager <span className="text-red-500">*</span></Label>
             <Controller name="approvers.directManager" control={control} render={({ field }) => (
-              <Select value={field.value} onValueChange={field.onChange}>
-                <SelectTrigger className={cn((errors.approvers as any)?.directManager && "border-red-400")}><SelectValue placeholder="Select direct manager" /></SelectTrigger>
-                <SelectContent>
-                  {managers.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={field.value}
+                onChange={field.onChange}
+                options={managers.map((u) => u.name)}
+                placeholder="Select direct manager"
+                hasError={!!(errors.approvers as any)?.directManager}
+              />
             )} />
             <FieldError message={(errors.approvers as any)?.directManager?.message} />
           </div>
@@ -337,10 +345,13 @@ export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel
             <div className="space-y-1.5">
               <Label>Carrier <span className="text-red-500">*</span></Label>
               <Controller name="carrier" control={control} render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger className={cn(errors.carrier && "border-red-400")}><SelectValue placeholder="Select carrier" /></SelectTrigger>
-                  <SelectContent>{carriers.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={carriers}
+                  placeholder="Select carrier"
+                  hasError={!!errors.carrier}
+                />
               )} />
               <FieldError message={errors.carrier?.message} />
             </div>

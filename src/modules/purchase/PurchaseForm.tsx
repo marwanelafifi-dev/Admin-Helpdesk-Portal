@@ -24,6 +24,8 @@ import {
 import { AlertCircle, ShoppingCart, Upload, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
+import { SearchableSelect } from "@/components/ui/SearchableSelect"
+import { getList } from "@/lib/companyDataStore"
 
 const BRAND = "#22c55e" // green-500
 
@@ -59,6 +61,8 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
   const router = useRouter()
   const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const [departments, setDepartments] = useState<string[]>([])
+  useEffect(() => { setDepartments(getList("departments")) }, [])
   const { register, control, handleSubmit, watch, formState: { errors, isSubmitting }, reset } = useForm<PurchaseForm>({
     resolver: zodResolver(PurchasePayloadSchema),
     defaultValues: { attachments: [], ccEmails: [] },
@@ -224,8 +228,20 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
           <SectionHeader icon={ShoppingCart} title="Business Information" subtitle="Department and justification" />
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="department">Department <span className="text-red-500">*</span></Label>
-              <Input id="department" placeholder="e.g. Engineering, Marketing" {...register("department")} className={cn(errors.department && "border-red-400")} />
+              <Label>Department <span className="text-red-500">*</span></Label>
+              <Controller
+                name="department"
+                control={control}
+                render={({ field }) => (
+                  <SearchableSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    options={departments}
+                    placeholder="Select department"
+                    hasError={!!errors.department}
+                  />
+                )}
+              />
               <FieldError message={errors.department?.message} />
             </div>
 

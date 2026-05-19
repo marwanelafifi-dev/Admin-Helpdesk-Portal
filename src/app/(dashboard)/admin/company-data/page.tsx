@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { Building2, Layers, Users, Truck, Plus, X, Upload, Download, Check } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Building2, Layers, Users, Truck, Plus, X, Upload, Download, Check, Search, ChevronDown, ChevronUp, Briefcase, Network } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -55,6 +55,22 @@ const SECTIONS: SectionConfig[] = [
     icon: Truck,
     iconColor: "text-amber-600",
     iconBg: "bg-amber-50",
+  },
+  {
+    key: "departments",
+    label: "Departments",
+    description: "Departments used in HR, Purchase, Event, Travel forms and User admin",
+    icon: Briefcase,
+    iconColor: "text-indigo-600",
+    iconBg: "bg-indigo-50",
+  },
+  {
+    key: "sectors",
+    label: "Sectors",
+    description: "Sectors used in HR Onboarding and Offboarding forms",
+    icon: Network,
+    iconColor: "text-pink-600",
+    iconBg: "bg-pink-50",
   },
 ]
 
@@ -122,7 +138,20 @@ function LookupSection({
   const [newItem, setNewItem] = useState("")
   const [importStatus, setImportStatus] = useState<string | null>(null)
   const [importSuccess, setImportSuccess] = useState(false)
+  const [search, setSearch] = useState("")
+  const [expanded, setExpanded] = useState(false)
+  const COLLAPSED_LIMIT = 10
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return items
+    return items.filter((i) => i.toLowerCase().includes(q))
+  }, [items, search])
+
+  const isSearching = search.trim().length > 0
+  const visible = isSearching || expanded ? filtered : filtered.slice(0, COLLAPSED_LIMIT)
+  const hiddenCount = filtered.length - visible.length
 
   function addItem() {
     const val = newItem.trim()
@@ -226,6 +255,28 @@ function LookupSection({
           </Button>
         </div>
 
+        {/* Search */}
+        {items.length > 0 && (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={`Search ${label.toLowerCase()}…`}
+              className="pl-9 pr-9"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-muted text-muted-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        )}
+
         {/* List */}
         {items.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">
@@ -233,27 +284,59 @@ function LookupSection({
           </p>
         ) : (
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-              {items.length} item{items.length !== 1 ? "s" : ""}
-            </Label>
-            <div className="space-y-1">
-              {items.map((item) => (
-                <div
-                  key={item}
-                  className="flex items-center justify-between px-3 py-2 rounded-md border bg-card hover:bg-muted/40 transition-colors group"
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-muted-foreground uppercase tracking-wide">
+                {isSearching
+                  ? `${filtered.length} of ${items.length} match${filtered.length !== 1 ? "es" : ""}`
+                  : `${items.length} item${items.length !== 1 ? "s" : ""}`}
+              </Label>
+              {!isSearching && items.length > COLLAPSED_LIMIT && (
+                <button
+                  type="button"
+                  onClick={() => setExpanded((v) => !v)}
+                  className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
                 >
-                  <span className="text-sm font-medium">{item}</span>
+                  {expanded ? (
+                    <>Collapse <ChevronUp className="h-3.5 w-3.5" /></>
+                  ) : (
+                    <>Show all ({items.length}) <ChevronDown className="h-3.5 w-3.5" /></>
+                  )}
+                </button>
+              )}
+            </div>
+            {filtered.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No matches for &quot;{search}&quot;.
+              </p>
+            ) : (
+              <div className="space-y-1">
+                {visible.map((item) => (
+                  <div
+                    key={item}
+                    className="flex items-center justify-between px-3 py-2 rounded-md border bg-card hover:bg-muted/40 transition-colors group"
+                  >
+                    <span className="text-sm font-medium">{item}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeItem(item)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-50 hover:text-red-600 text-muted-foreground"
+                      title="Remove"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+                {!isSearching && !expanded && hiddenCount > 0 && (
                   <button
                     type="button"
-                    onClick={() => removeItem(item)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-red-50 hover:text-red-600 text-muted-foreground"
-                    title="Remove"
+                    onClick={() => setExpanded(true)}
+                    className="w-full text-xs text-blue-600 hover:text-blue-700 font-medium py-2 hover:bg-muted/40 rounded-md flex items-center justify-center gap-1"
                   >
-                    <X className="h-3.5 w-3.5" />
+                    Show {hiddenCount} more <ChevronDown className="h-3.5 w-3.5" />
                   </button>
-                </div>
-              ))}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -271,6 +354,8 @@ export default function CompanyDataPage() {
     cost_centers: [],
     managers: [],
     carriers: [],
+    departments: [],
+    sectors: [],
   })
   const [loaded, setLoaded] = useState(false)
 
@@ -288,7 +373,7 @@ export default function CompanyDataPage() {
   if (!loaded) return null
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-5xl">
       <div>
         <h1 className="text-2xl font-bold">Company Data</h1>
         <p className="text-sm text-muted-foreground mt-1">

@@ -3,10 +3,17 @@
 import { useState, useRef } from "react"
 import {
   Download, Upload, CheckCircle2, AlertTriangle, Clock, Shield, Trash2,
-  Package, Wrench, ShoppingCart, CalendarDays, Plane, UserCog, Bell, MessageSquare, ListTodo, ChevronRight, Inbox, Building2,
+  Package, Wrench, ShoppingCart, CalendarDays, Plane, UserCog, ChevronRight, Inbox,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import {
+  NON_REQUEST_STORES,
+  ALL_REGISTERED_KEYS,
+  discoverAllOwnedKeys,
+  isOwnedKey,
+  STORE_BY_KEY,
+} from "@/lib/dataStoreRegistry"
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -21,15 +28,6 @@ type Status = { type: "success" | "error" | "idle"; message: string }
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const SYSTEM_KEYS = ["arp_prod_wipe_v1", "arp_mock_version"]
-
-const ALL_BACKUP_KEYS = [
-  "arp_requests", "arp_viewed_comments", "arp_notifications",
-  "arp_notification_preferences", "feedback_surveys", "feedback_responses",
-  "admin_tasks", "arp_company_data", "arp_platform_settings", "arp_theme",
-  "arp_logo_header", "arp_logo_login", ...SYSTEM_KEYS,
-]
-
 // Module definitions — each maps to a filter on arp_requests[].module
 const REQUEST_MODULES = [
   { id: "shipping",    label: "Shipping",    icon: Package,       color: "text-blue-600",   bg: "bg-blue-50",   border: "border-blue-200" },
@@ -41,19 +39,9 @@ const REQUEST_MODULES = [
   { id: "general",     label: "General",     icon: Inbox,         color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-200" },
 ] as const
 
-// Other clearable stores (non-request)
-const OTHER_STORES = [
-  { key: "arp_notifications",            label: "Notifications",           description: "In-app notification log",                          icon: Bell,         color: "text-amber-600",  bg: "bg-amber-50",   border: "border-amber-200" },
-  { key: "arp_notification_preferences", label: "Notification Preferences",description: "Per-user email & in-app toggle settings",          icon: Bell,         color: "text-amber-600",  bg: "bg-amber-50",   border: "border-amber-200" },
-  { key: "arp_viewed_comments",          label: "Viewed Comments",         description: "Read/unread comment tracking per user",            icon: MessageSquare,color: "text-slate-600",  bg: "bg-slate-50",   border: "border-slate-200" },
-  { key: "feedback_surveys",             label: "Feedback Surveys",        description: "Pending and sent employee survey records",         icon: MessageSquare,color: "text-emerald-600",bg: "bg-emerald-50", border: "border-emerald-200" },
-  { key: "feedback_responses",           label: "Feedback Responses",      description: "Submitted star ratings and comments",              icon: MessageSquare,color: "text-emerald-600",bg: "bg-emerald-50", border: "border-emerald-200" },
-  { key: "admin_tasks",                  label: "Team Tasks",              description: "Task records, comments, and activity logs",        icon: ListTodo,     color: "text-indigo-600", bg: "bg-indigo-50",  border: "border-indigo-200" },
-  { key: "arp_company_data",             label: "Company Data",            description: "Suppliers, Cost Centers, Managers, Carriers lists",icon: Building2,    color: "text-blue-600",   bg: "bg-blue-50",    border: "border-blue-200" },
-  { key: "arp_platform_settings",        label: "Platform Settings",       description: "Branding, login page, header, and system config",  icon: Shield,       color: "text-gray-600",   bg: "bg-gray-50",    border: "border-gray-200" },
-  { key: "arp_logo_header",              label: "Header Logo",             description: "Custom header logo (base64 image data)",          icon: Shield,       color: "text-gray-600",   bg: "bg-gray-50",    border: "border-gray-200" },
-  { key: "arp_logo_login",               label: "Login Logo",              description: "Custom login page logo (base64 image data)",      icon: Shield,       color: "text-gray-600",   bg: "bg-gray-50",    border: "border-gray-200" },
-]
+// Other clearable stores (non-request) — sourced from central registry so new stores
+// added anywhere in the app automatically appear here.
+const OTHER_STORES = NON_REQUEST_STORES
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -78,7 +66,9 @@ function clearModuleRequests(moduleId: string): number {
 
 function collectBackup(): BackupManifest {
   const data: Record<string, unknown> = {}
-  ALL_BACKUP_KEYS.forEach((key) => {
+  // Discover all owned keys at runtime (registry + any present arp_*/admin_*/feedback_* keys)
+  // so newly-added stores are captured even if the developer forgot to register them.
+  discoverAllOwnedKeys().forEach((key) => {
     const raw = localStorage.getItem(key)
     if (raw) { try { data[key] = JSON.parse(raw) } catch { data[key] = raw } }
   })
@@ -93,6 +83,17 @@ function restoreBackup(manifest: BackupManifest) {
     catch { skipped.push(key) }
   })
   return { restored, skipped }
+}
+
+function clearAllOwnedKeys(): number {
+  // Clear every registered key plus every runtime-discovered owned key.
+  const keys = new Set<string>(ALL_REGISTERED_KEYS)
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i)
+    if (k && isOwnedKey(k)) keys.add(k)
+  }
+  keys.forEach((k) => localStorage.removeItem(k))
+  return keys.size
 }
 
 function fmt(iso: string) {
@@ -177,9 +178,9 @@ export default function DatabasePage() {
 
   // ── Clear All ─────────────────────────────────────────────────────────────
   function handleClearAll() {
-    ALL_BACKUP_KEYS.forEach((key) => localStorage.removeItem(key))
+    const cleared = clearAllOwnedKeys()
     setShowClearAllConfirm(false)
-    setClearAllStatus({ type: "success", message: "All data cleared. User accounts are preserved. Refresh to see the empty state." })
+    setClearAllStatus({ type: "success", message: `All data cleared — ${cleared} store${cleared !== 1 ? "s" : ""} removed. User accounts are preserved. Refresh to see the empty state.` })
   }
 
   // ── Clear Module ──────────────────────────────────────────────────────────
@@ -193,7 +194,7 @@ export default function DatabasePage() {
   // ── Clear Store ───────────────────────────────────────────────────────────
   function handleClearStore(key: string) {
     localStorage.removeItem(key)
-    const label = OTHER_STORES.find((s) => s.key === key)?.label ?? key
+    const label = STORE_BY_KEY[key]?.label ?? key
     setConfirmStore(null)
     setStoreStatus({ type: "success", message: `${label} cleared successfully. Refresh to see the updated state.` })
   }
@@ -211,7 +212,7 @@ export default function DatabasePage() {
         <Shield className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
         <div className="text-sm text-blue-800">
           <p className="font-semibold">What is included in a backup?</p>
-          <p className="mt-0.5 text-blue-700">All requests, status histories, comments, tasks, feedback surveys &amp; responses, notifications, and system configuration. Backups are downloaded as a single JSON file to your device.</p>
+          <p className="mt-0.5 text-blue-700">Every store the app owns is captured automatically — requests, tasks, feedback, notifications, viewed comments, company data, platform settings, logos, theme, and any new store added later. Backups are downloaded as a single JSON file. Restore writes back whatever the file contains.</p>
         </div>
       </div>
 
@@ -232,21 +233,15 @@ export default function DatabasePage() {
           <CardContent className="p-6 space-y-4">
             <div className="grid grid-cols-2 gap-2">
               {[
-                { label: "All Requests", sub: "All 7 modules" },
-                { label: "Team Tasks", sub: "Comments & activity" },
-                { label: "Feedback", sub: "Surveys & responses" },
-                { label: "Notifications", sub: "Log & preferences" },
-                { label: "Viewed Comments", sub: "Read state tracking" },
-                { label: "Company Data", sub: "Suppliers, managers, carriers" },
-                { label: "Platform Settings", sub: "Branding & config" },
-                { label: "Logos", sub: "Header & login images" },
-                { label: "System Config", sub: "Version markers" },
+                { label: "All Requests", sub: "All modules" },
+                ...NON_REQUEST_STORES.map((s) => ({ label: s.label, sub: s.description })),
+                { label: "Any new stores", sub: "Auto-discovered at runtime" },
               ].map(({ label, sub }) => (
                 <div key={label} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
                   <div>
                     <p className="text-xs font-medium text-gray-700">{label}</p>
-                    <p className="text-xs text-gray-400">{sub}</p>
+                    <p className="text-xs text-gray-400 line-clamp-2">{sub}</p>
                   </div>
                 </div>
               ))}

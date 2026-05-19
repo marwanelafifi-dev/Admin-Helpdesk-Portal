@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useForm, Controller } from "react-hook-form"
@@ -23,6 +23,8 @@ import {
 import { AlertCircle, Plane, Upload, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
+import { SearchableSelect } from "@/components/ui/SearchableSelect"
+import { getList } from "@/lib/companyDataStore"
 
 const BRAND = "#ec4899" // pink-500
 
@@ -58,6 +60,8 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
   const router = useRouter()
   const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const [departments, setDepartments] = useState<string[]>([])
+  useEffect(() => { setDepartments(getList("departments")) }, [])
   const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<TravelForm>({
     resolver: zodResolver(TravelPayloadSchema),
     defaultValues: { attachments: [], ccEmails: [] },
@@ -197,8 +201,20 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="department">Department <span className="text-red-500">*</span></Label>
-                <Input id="department" placeholder="e.g. Engineering, Sales" {...register("department")} className={cn(errors.department && "border-red-400")} />
+                <Label>Department <span className="text-red-500">*</span></Label>
+                <Controller
+                  name="department"
+                  control={control}
+                  render={({ field }) => (
+                    <SearchableSelect
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                      options={departments}
+                      placeholder="Select department"
+                      hasError={!!errors.department}
+                    />
+                  )}
+                />
                 <FieldError message={errors.department?.message} />
               </div>
 

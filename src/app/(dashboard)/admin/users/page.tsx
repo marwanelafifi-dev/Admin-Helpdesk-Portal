@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { SearchableSelect } from "@/components/ui/SearchableSelect"
+import { getList } from "@/lib/companyDataStore"
 import {
   Select,
   SelectContent,
@@ -112,6 +114,8 @@ export default function AdminUsersPage() {
     role: "requester",
     department: "",
   })
+  const [departments, setDepartments] = useState<string[]>([])
+  useEffect(() => { setDepartments(getList("departments")) }, [])
 
   const loadUsers = async () => {
     setLoading(true)
@@ -561,13 +565,13 @@ export default function AdminUsersPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="department">Department</Label>
-                  <Input
-                    id="department"
+                  <Label>Department</Label>
+                  <SearchableSelect
                     value={form.department}
-                    onChange={(e) =>
-                      setForm((current) => ({ ...current, department: e.target.value }))
-                    }
+                    onChange={(v) => setForm((current) => ({ ...current, department: v }))}
+                    options={departments}
+                    placeholder="Select department"
+                    allowClear
                   />
                 </div>
               </div>
@@ -647,13 +651,13 @@ export default function AdminUsersPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-department">Department</Label>
-                  <Input
-                    id="edit-department"
+                  <Label>Department</Label>
+                  <SearchableSelect
                     value={form.department}
-                    onChange={(e) =>
-                      setForm((current) => ({ ...current, department: e.target.value }))
-                    }
+                    onChange={(v) => setForm((current) => ({ ...current, department: v }))}
+                    options={departments}
+                    placeholder="Select department"
+                    allowClear
                   />
                 </div>
               </div>

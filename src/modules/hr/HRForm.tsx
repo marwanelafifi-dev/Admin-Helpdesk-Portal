@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
+import { SearchableSelect } from "@/components/ui/SearchableSelect"
 import { AlertCircle, UserPlus, UserMinus, User, Building2, Calendar, ClipboardList, Upload, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
@@ -69,11 +70,17 @@ function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCance
   const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const [managers, setManagers] = useState<string[]>([])
+  const [departments, setDepartments] = useState<string[]>([])
+  const [sectors, setSectors] = useState<string[]>([])
   const { register, control, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<OnboardingForm>({
     resolver: zodResolver(OnboardingPayloadSchema),
     defaultValues: { hrType: "onboarding", items: [], attachments: [], ccEmails: [] },
   })
-  useEffect(() => { setManagers(getList("managers")) }, [])
+  useEffect(() => {
+    setManagers(getList("managers"))
+    setDepartments(getList("departments"))
+    setSectors(getList("sectors"))
+  }, [])
 
   useEffect(() => {
     if (isEditing && editingRequest?.payload) {
@@ -197,12 +204,35 @@ function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCance
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="sector">Sector</Label>
-              <Input id="sector" placeholder="e.g. Technology" {...register("sector")} />
+              <Label>Sector</Label>
+              <Controller
+                name="sector"
+                control={control}
+                render={({ field }) => (
+                  <SearchableSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    options={sectors}
+                    placeholder="Select sector"
+                  />
+                )}
+              />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="department">Department <span className="text-red-500">*</span></Label>
-              <Input id="department" placeholder="e.g. Engineering" {...register("department")} className={cn(errors.department && "border-red-400")} />
+              <Label>Department <span className="text-red-500">*</span></Label>
+              <Controller
+                name="department"
+                control={control}
+                render={({ field }) => (
+                  <SearchableSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    options={departments}
+                    placeholder="Select department"
+                    hasError={!!errors.department}
+                  />
+                )}
+              />
               <FieldError message={errors.department?.message} />
             </div>
           </div>
@@ -213,12 +243,12 @@ function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCance
               name="directManager"
               control={control}
               render={({ field }) => (
-                <Select value={field.value ?? ""} onValueChange={field.onChange}>
-                  <SelectTrigger><SelectValue placeholder="Select direct manager" /></SelectTrigger>
-                  <SelectContent>
-                    {managers.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={field.value ?? ""}
+                  onChange={field.onChange}
+                  options={managers}
+                  placeholder="Select direct manager"
+                />
               )}
             />
           </div>
@@ -382,11 +412,17 @@ function OffboardingFormFields({ onCancel, editingRequest, isEditing }: { onCanc
   const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const [managers, setManagers] = useState<string[]>([])
+  const [departments, setDepartments] = useState<string[]>([])
+  const [sectors, setSectors] = useState<string[]>([])
   const { register, control, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<OffboardingForm>({
     resolver: zodResolver(OffboardingPayloadSchema),
     defaultValues: { hrType: "offboarding", items: [], attachments: [], ccEmails: [] },
   })
-  useEffect(() => { setManagers(getList("managers")) }, [])
+  useEffect(() => {
+    setManagers(getList("managers"))
+    setDepartments(getList("departments"))
+    setSectors(getList("sectors"))
+  }, [])
 
   useEffect(() => {
     if (isEditing && editingRequest?.payload) {
@@ -494,13 +530,37 @@ function OffboardingFormFields({ onCancel, editingRequest, isEditing }: { onCanc
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="sector">Sector <span className="text-red-500">*</span></Label>
-              <Input id="sector" placeholder="e.g. Engineering" {...register("sector")} className={cn(errors.sector && "border-red-400")} />
+              <Label>Sector <span className="text-red-500">*</span></Label>
+              <Controller
+                name="sector"
+                control={control}
+                render={({ field }) => (
+                  <SearchableSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    options={sectors}
+                    placeholder="Select sector"
+                    hasError={!!errors.sector}
+                  />
+                )}
+              />
               <FieldError message={errors.sector?.message} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="department">Department <span className="text-red-500">*</span></Label>
-              <Input id="department" placeholder="e.g. Marketing" {...register("department")} className={cn(errors.department && "border-red-400")} />
+              <Label>Department <span className="text-red-500">*</span></Label>
+              <Controller
+                name="department"
+                control={control}
+                render={({ field }) => (
+                  <SearchableSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    options={departments}
+                    placeholder="Select department"
+                    hasError={!!errors.department}
+                  />
+                )}
+              />
               <FieldError message={errors.department?.message} />
             </div>
           </div>
@@ -511,12 +571,12 @@ function OffboardingFormFields({ onCancel, editingRequest, isEditing }: { onCanc
               name="directManager"
               control={control}
               render={({ field }) => (
-                <Select value={field.value ?? ""} onValueChange={field.onChange}>
-                  <SelectTrigger><SelectValue placeholder="Select direct manager" /></SelectTrigger>
-                  <SelectContent>
-                    {managers.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={field.value ?? ""}
+                  onChange={field.onChange}
+                  options={managers}
+                  placeholder="Select direct manager"
+                />
               )}
             />
           </div>
