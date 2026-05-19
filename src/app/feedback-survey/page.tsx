@@ -87,7 +87,11 @@ function FeedbackSurveyContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="mb-6">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/siware-logo.png" alt="Si-Ware Systems" className="h-12 w-auto" />
+        </div>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading survey...</p>
@@ -98,7 +102,11 @@ function FeedbackSurveyContent() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+        <div className="mb-6">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/siware-logo.png" alt="Si-Ware Systems" className="h-12 w-auto" />
+        </div>
         <Card className="w-full max-w-md border-red-200 bg-red-50">
           <CardContent className="p-6">
             <div className="flex items-start gap-3">
@@ -121,7 +129,11 @@ function FeedbackSurveyContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+      <div className="mb-6">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/siware-logo.png" alt="Si-Ware Systems" className="h-12 w-auto" />
+      </div>
       <div className="w-full max-w-lg">
         <Card className="border-0 shadow-xl">
           <CardHeader className="bg-gradient-to-r from-slate-900 to-slate-800 text-white rounded-t-lg">
