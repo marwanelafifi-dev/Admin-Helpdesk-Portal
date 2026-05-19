@@ -145,7 +145,7 @@ export default function FeedbackReportsPage() {
       const matchDate = feedbackDate >= threshold
       return matchSearch && matchRating && matchDate
     })
-  }, [search, filterRating, dateRange])
+  }, [allFeedback, search, filterRating, dateRange])
 
   // Calculate statistics
   const stats = useMemo(() => {
