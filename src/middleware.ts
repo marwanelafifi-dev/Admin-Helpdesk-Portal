@@ -32,11 +32,23 @@ const pagePermissions: Record<string, string> = {
   "/admin/notifications": "page:admin-notifications",
 }
 
+// Build redirect URLs from the public base URL instead of request.nextUrl,
+// so Cloudflare Tunnel deployments (where the inbound Host header is the
+// internal docker hostname) don't leak "localhost:3003" into Location headers.
+function getPublicBase(request: NextRequest): URL {
+  const configured = process.env.NEXTAUTH_URL ?? process.env.AUTH_URL
+  if (configured) {
+    try { return new URL(configured) } catch { /* fall through */ }
+  }
+  return new URL(request.nextUrl.origin)
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   if (pathname.startsWith("/api/email/")) {
     return NextResponse.next()
   }
+  const publicBase = getPublicBase(request)
 
   const isPublicRoute = publicRoutes.includes(pathname)
   const token = await getToken({
@@ -46,13 +58,15 @@ export async function middleware(request: NextRequest) {
   })
 
   if (!token && !isPublicRoute) {
-    const loginUrl = new URL("/login", request.nextUrl)
-    loginUrl.searchParams.set("callbackUrl", request.nextUrl.href)
+    const loginUrl = new URL("/login", publicBase)
+    // callbackUrl uses the path only — never the full request.nextUrl.href,
+    // which would carry the wrong host through the auth round-trip.
+    loginUrl.searchParams.set("callbackUrl", pathname + request.nextUrl.search)
     return NextResponse.redirect(loginUrl)
   }
 
   if (token && pathname === "/login") {
-    return NextResponse.redirect(new URL("/dashboard", request.nextUrl))
+    return NextResponse.redirect(new URL("/dashboard", publicBase))
   }
 
   // Check permissions for protected pages
@@ -66,7 +80,7 @@ export async function middleware(request: NextRequest) {
     const hasPermission = userPermissions.includes(requiredPermission)
 
     if (!isSuperAdmin && !hasWildcard && !hasPermission) {
-      return NextResponse.redirect(new URL("/unauthorized", request.nextUrl))
+      return NextResponse.redirect(new URL("/unauthorized", publicBase))
     }
   }
 
