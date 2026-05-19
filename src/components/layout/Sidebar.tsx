@@ -99,17 +99,18 @@ export function Sidebar() {
     pathname.startsWith("/admin") && pathname !== "/admin/all-requests"
   )
   const [shippingExpanded, setShippingExpanded] = useState(pathname.startsWith("/shipping"))
+
+  const permissions = session?.user?.permissions ?? []
+  const role = session?.user?.role
+
   // Per-module "new" request counts and todo task count.
   // Drives small badges next to sidebar items so admins can see at a glance
   // which module pages have new submissions waiting.
-  const { newRequestsByModule, newTasksCount, hasNewRequests, hasNewTasks } = useNewRequestsAndTasks()
+  const { newRequestsByModule, newTasksCount } = useNewRequestsAndTasks()
   // Only Administration Team / Full Access should see the per-page badges.
   // Regular requesters submit their own requests — they don't need to be
   // notified that they themselves have items in "New" status.
   const isAdminAudience = role === "Full Access" || role === "Administration Team"
-
-  const permissions = session?.user?.permissions ?? []
-  const role = session?.user?.role
 
   const searchParams = useSearchParams()
   const source = searchParams.get("source")
