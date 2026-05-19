@@ -177,8 +177,12 @@ export default function DatabasePage() {
   }
 
   // ── Clear All ─────────────────────────────────────────────────────────────
-  function handleClearAll() {
+  async function handleClearAll() {
     const cleared = clearAllOwnedKeys()
+    // Also wipe server-side feedback (lives in data/feedback.json, not localStorage)
+    try {
+      await fetch("/api/feedback/responses", { method: "DELETE" })
+    } catch { /* best-effort */ }
     setShowClearAllConfirm(false)
     setClearAllStatus({ type: "success", message: `All data cleared — ${cleared} store${cleared !== 1 ? "s" : ""} removed. User accounts are preserved. Refresh to see the empty state.` })
   }
@@ -192,8 +196,20 @@ export default function DatabasePage() {
   }
 
   // ── Clear Store ───────────────────────────────────────────────────────────
-  function handleClearStore(key: string) {
-    localStorage.removeItem(key)
+  async function handleClearStore(key: string) {
+    // Feedback data lives server-side now (data/feedback.json); the other
+    // stores are still browser-local. Route the call accordingly.
+    if (key === "feedback_surveys" || key === "feedback_responses") {
+      try {
+        await fetch("/api/feedback/responses", { method: "DELETE" })
+      } catch (e) {
+        setStoreStatus({ type: "error", message: "Failed to clear feedback on server." })
+        setConfirmStore(null)
+        return
+      }
+    } else {
+      localStorage.removeItem(key)
+    }
     const label = STORE_BY_KEY[key]?.label ?? key
     setConfirmStore(null)
     setStoreStatus({ type: "success", message: `${label} cleared successfully. Refresh to see the updated state.` })

@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useMemo, useEffect } from "react"
-import { Search, Star, BarChart3, TrendingUp, MessageSquare, ArrowUp, ArrowDown, Trash2, AlertTriangle } from "lucide-react"
+import { Search, Star, BarChart3, TrendingUp, MessageSquare, ArrowUp, ArrowDown } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -99,7 +99,6 @@ export default function FeedbackReportsPage() {
   const [filterRating, setFilterRating] = useState<number | null>(null)
   const [dateRange, setDateRange] = useState<"7d" | "30d" | "90d" | "all">("all")
   const [allFeedback, setAllFeedback] = useState<Feedback[]>([])
-  const [showClearConfirm, setShowClearConfirm] = useState(false)
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
   useEffect(() => {
@@ -128,13 +127,6 @@ export default function FeedbackReportsPage() {
     return () => { cancelled = true }
   }, [])
 
-  async function handleClearFeedback() {
-    try {
-      await fetch("/api/feedback/responses", { method: "DELETE" })
-    } catch {}
-    setAllFeedback([])
-    setShowClearConfirm(false)
-  }
 
   // Filter feedback
   const filtered = useMemo(() => {
@@ -221,33 +213,8 @@ export default function FeedbackReportsPage() {
             {(newRequestsCount > 0 || newTasksCount > 0) && (
               <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" />
             )}
-            {allFeedback.length > 0 && !showClearConfirm && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowClearConfirm(true)}
-                className="border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400"
-              >
-                <Trash2 className="h-4 w-4 mr-1.5" />
-                Clear All Feedback
-              </Button>
-            )}
           </div>
         </div>
-
-        {showClearConfirm && (
-          <div className="mt-4 flex items-center gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-            <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
-            <p className="text-sm text-red-800 flex-1">This will permanently delete all <strong>{allFeedback.length} feedback responses</strong>. This cannot be undone.</p>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={() => setShowClearConfirm(false)} className="h-8">Cancel</Button>
-              <Button size="sm" onClick={handleClearFeedback} className="h-8 bg-red-600 hover:bg-red-700 text-white">
-                <Trash2 className="h-3.5 w-3.5 mr-1" />
-                Yes, Clear All
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Summary Stats Grid */}
