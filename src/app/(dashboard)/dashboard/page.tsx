@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
+import { useCountUp } from "@/hooks/useCountUp"
 import { cn } from "@/lib/utils"
 import { useTheme } from "next-themes"
 
@@ -122,7 +123,12 @@ function delta(current: number, prior: number): number | null {
 
 interface KPICardProps {
   title: string
-  value: number | string
+  /** Numeric value to animate. If `null`/`undefined`, falls back to `display` text. */
+  numericValue?: number | null
+  /** Optional suffix appended after the animated number (e.g. "d", "%", "★"). */
+  suffix?: string
+  /** Display fallback if numericValue is not provided or shouldn't animate. */
+  display?: string
   icon: React.ElementType
   iconColor: string
   iconBg: string
@@ -131,9 +137,15 @@ interface KPICardProps {
   /** True if a positive change (i.e. growth) is GOOD. False for metrics where lower is better (Overdue, Avg Days, Cancellation). */
   higherIsBetter: boolean
   subtitle?: string
+  /** Stagger index — multiplies a small base delay so the row fans in instead of popping all at once. */
+  index?: number
 }
 
-function KPICard({ title, value, icon: Icon, iconColor, iconBg, deltaPct, higherIsBetter, subtitle }: KPICardProps) {
+function KPICard({ title, numericValue, suffix, display, icon: Icon, iconColor, iconBg, deltaPct, higherIsBetter, subtitle, index = 0 }: KPICardProps) {
+  // Hook always runs (rules of hooks); animate value only used if numeric.
+  const animated = useCountUp(typeof numericValue === "number" ? numericValue : 0, 700)
+  const hasNumeric = typeof numericValue === "number" && Number.isFinite(numericValue)
+
   // Color & icon for the delta badge
   let badge: { icon: React.ElementType; cls: string; text: string }
   if (deltaPct === null) {
@@ -154,21 +166,28 @@ function KPICard({ title, value, icon: Icon, iconColor, iconBg, deltaPct, higher
   const BadgeIcon = badge.icon
 
   return (
-    <Card className="border border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200 transition-all">
+    <Card
+      className="border border-gray-100 shadow-sm hover:shadow-lg hover:border-gray-200 hover:-translate-y-0.5 transition-all duration-300 ease-out animate-in fade-in slide-in-from-bottom-2"
+      style={{ animationDelay: `${index * 60}ms`, animationFillMode: "backwards" }}
+    >
       <CardContent className="p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">{title}</p>
-            <p className="text-3xl xl:text-4xl font-bold mt-3 tracking-tight tabular-nums">{value}</p>
+            <p className="text-3xl xl:text-4xl font-bold mt-3 tracking-tight tabular-nums">
+              {hasNumeric
+                ? <>{Number.isInteger(numericValue) ? Math.round(animated).toLocaleString() : animated.toFixed(1)}{suffix ?? ""}</>
+                : (display ?? "—")}
+            </p>
             {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
             <div className="mt-3 flex">
-              <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold border", badge.cls)}>
+              <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold border transition-colors", badge.cls)}>
                 <BadgeIcon className="h-3.5 w-3.5" />
                 {badge.text}
               </span>
             </div>
           </div>
-          <div className={cn("h-14 w-14 rounded-xl flex items-center justify-center flex-shrink-0", iconBg)}>
+          <div className={cn("h-14 w-14 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform duration-300 group-hover:scale-105", iconBg)}>
             <Icon className={cn("h-6 w-6", iconColor)} />
           </div>
         </div>
@@ -423,8 +442,9 @@ export default function DashboardPage() {
       {/* Hero KPIs — period-over-period */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <KPICard
+          index={0}
           title="Active Requests"
-          value={stats.active}
+          numericValue={stats.active}
           subtitle="Open right now"
           icon={Activity}
           iconColor="text-blue-600"
@@ -433,8 +453,9 @@ export default function DashboardPage() {
           higherIsBetter={false}
         />
         <KPICard
+          index={1}
           title="Overdue (7d+)"
-          value={stats.overdue}
+          numericValue={stats.overdue}
           subtitle="Active for over 7 days"
           icon={AlertCircle}
           iconColor="text-red-600"
@@ -443,8 +464,11 @@ export default function DashboardPage() {
           higherIsBetter={false}
         />
         <KPICard
+          index={2}
           title="Avg Resolution"
-          value={stats.avgDays > 0 ? `${stats.avgDays}d` : "—"}
+          numericValue={stats.avgDays > 0 ? stats.avgDays : null}
+          suffix="d"
+          display="—"
           subtitle="Days from open to close"
           icon={Clock}
           iconColor="text-amber-600"
@@ -453,8 +477,11 @@ export default function DashboardPage() {
           higherIsBetter={false}
         />
         <KPICard
+          index={3}
           title="Satisfaction"
-          value={feedbackStats.count > 0 ? `${feedbackStats.avg.toFixed(1)} ★` : "—"}
+          numericValue={feedbackStats.count > 0 ? feedbackStats.avg : null}
+          suffix=" ★"
+          display="—"
           subtitle={feedbackStats.count > 0 ? `${feedbackStats.csat}% rated 4★+` : "No responses yet"}
           icon={Star}
           iconColor="text-emerald-600"
@@ -466,15 +493,18 @@ export default function DashboardPage() {
 
       {/* Secondary KPI strip — totals */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <SecondaryStat label="Total in Period"   value={stats.total}            tone="blue"    icon={FileText} />
-        <SecondaryStat label="Completed"          value={stats.completed}        tone="emerald" icon={CheckCircle2} />
-        <SecondaryStat label="Cancelled"          value={stats.cancelled}        tone="red"     icon={AlertCircle} />
-        <SecondaryStat label="Completion Rate"    value={`${stats.completionRate}%`} tone="purple" icon={TrendingUp} />
+        <SecondaryStat index={0} label="Total in Period"   numericValue={stats.total}            tone="blue"    icon={FileText} />
+        <SecondaryStat index={1} label="Completed"          numericValue={stats.completed}        tone="emerald" icon={CheckCircle2} />
+        <SecondaryStat index={2} label="Cancelled"          numericValue={stats.cancelled}        tone="red"     icon={AlertCircle} />
+        <SecondaryStat index={3} label="Completion Rate"    numericValue={stats.completionRate} suffix="%" tone="purple" icon={TrendingUp} />
       </div>
 
       {/* Charts: Status distribution + Module pie */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        <Card className="xl:col-span-2 border border-gray-100 shadow-sm">
+        <Card
+          className="xl:col-span-2 border border-gray-100 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500 ease-out"
+          style={{ animationDelay: "240ms", animationFillMode: "backwards" }}
+        >
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base text-gray-900">
               <Layers className="h-4 w-4 text-blue-600" /> Status Distribution
@@ -507,7 +537,10 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="border border-gray-100 shadow-sm">
+        <Card
+          className="border border-gray-100 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500 ease-out"
+          style={{ animationDelay: "300ms", animationFillMode: "backwards" }}
+        >
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base text-gray-900">
               <Layers className="h-4 w-4 text-purple-600" /> Requests by Module
@@ -550,7 +583,10 @@ export default function DashboardPage() {
       </div>
 
       {/* Module Workload Table */}
-      <Card className="border border-gray-100 shadow-sm">
+      <Card
+        className="border border-gray-100 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500 ease-out"
+        style={{ animationDelay: "360ms", animationFillMode: "backwards" }}
+      >
         <CardHeader className="pb-3 border-b border-gray-100">
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -605,7 +641,10 @@ export default function DashboardPage() {
       {/* Oldest Open + Recent Activity + Feedback */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
         {/* Oldest Open */}
-        <Card className="border border-gray-100 shadow-sm">
+        <Card
+          className="border border-gray-100 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500 ease-out"
+          style={{ animationDelay: "420ms", animationFillMode: "backwards" }}
+        >
           <CardHeader className="pb-3 border-b border-gray-100">
             <CardTitle className="flex items-center gap-2 text-base text-gray-900">
               <Clock className="h-4 w-4 text-red-600" /> Oldest Open Requests
@@ -642,7 +681,10 @@ export default function DashboardPage() {
         </Card>
 
         {/* Recent Activity */}
-        <Card className="border border-gray-100 shadow-sm">
+        <Card
+          className="border border-gray-100 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500 ease-out"
+          style={{ animationDelay: "480ms", animationFillMode: "backwards" }}
+        >
           <CardHeader className="pb-3 border-b border-gray-100">
             <CardTitle className="flex items-center gap-2 text-base text-gray-900">
               <Activity className="h-4 w-4 text-blue-600" /> Recent Activity
@@ -672,7 +714,10 @@ export default function DashboardPage() {
         </Card>
 
         {/* Feedback */}
-        <Card className="border border-gray-100 shadow-sm">
+        <Card
+          className="border border-gray-100 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500 ease-out"
+          style={{ animationDelay: "540ms", animationFillMode: "backwards" }}
+        >
           <CardHeader className="pb-3 border-b border-gray-100">
             <div className="flex items-center justify-between">
               <div>
@@ -732,12 +777,15 @@ export default function DashboardPage() {
 
 // ─── Small sub-components ─────────────────────────────────────────────────────
 
-function SecondaryStat({ label, value, tone, icon: Icon }: {
+function SecondaryStat({ label, numericValue, suffix, tone, icon: Icon, index = 0 }: {
   label: string
-  value: number | string
+  numericValue: number
+  suffix?: string
   tone: "blue" | "emerald" | "red" | "purple"
   icon: React.ElementType
+  index?: number
 }) {
+  const animated = useCountUp(numericValue, 600)
   const toneClasses: Record<string, string> = {
     blue: "text-blue-700 bg-blue-50",
     emerald: "text-emerald-700 bg-emerald-50",
@@ -745,13 +793,19 @@ function SecondaryStat({ label, value, tone, icon: Icon }: {
     purple: "text-purple-700 bg-purple-50",
   }
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-gray-100 bg-white px-4 py-3 shadow-sm">
-      <div className={cn("h-9 w-9 rounded-lg flex items-center justify-center", toneClasses[tone])}>
+    <div
+      className="flex items-center gap-3 rounded-lg border border-gray-100 bg-white px-4 py-3 shadow-sm hover:border-gray-200 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 ease-out animate-in fade-in slide-in-from-bottom-1"
+      style={{ animationDelay: `${index * 50 + 160}ms`, animationFillMode: "backwards" }}
+    >
+      <div className={cn("h-9 w-9 rounded-lg flex items-center justify-center transition-transform duration-300 hover:scale-105", toneClasses[tone])}>
         <Icon className="h-4 w-4" />
       </div>
       <div>
         <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-500">{label}</p>
-        <p className="text-xl font-bold text-gray-900 tabular-nums">{value}</p>
+        <p className="text-xl font-bold text-gray-900 tabular-nums">
+          {Number.isInteger(numericValue) ? Math.round(animated).toLocaleString() : animated.toFixed(1)}
+          {suffix ?? ""}
+        </p>
       </div>
     </div>
   )

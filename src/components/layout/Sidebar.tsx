@@ -31,6 +31,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { canAccessPath } from "@/lib/access"
+import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 
 interface NavItem {
   title: string
@@ -98,8 +99,14 @@ export function Sidebar() {
     pathname.startsWith("/admin") && pathname !== "/admin/all-requests"
   )
   const [shippingExpanded, setShippingExpanded] = useState(pathname.startsWith("/shipping"))
-  const [hasNewRequests, setHasNewRequests] = useState(false)
-  const [hasNewTasks, setHasNewTasks] = useState(false)
+  // Per-module "new" request counts and todo task count.
+  // Drives small badges next to sidebar items so admins can see at a glance
+  // which module pages have new submissions waiting.
+  const { newRequestsByModule, newTasksCount, hasNewRequests, hasNewTasks } = useNewRequestsAndTasks()
+  // Only Administration Team / Full Access should see the per-page badges.
+  // Regular requesters submit their own requests — they don't need to be
+  // notified that they themselves have items in "New" status.
+  const isAdminAudience = role === "Full Access" || role === "Administration Team"
 
   const permissions = session?.user?.permissions ?? []
   const role = session?.user?.role
@@ -118,35 +125,43 @@ export function Sidebar() {
     } catch {}
   }, [])
 
-  // Check for new requests and tasks
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const requestsData = localStorage.getItem("admin_requests")
-      const tasksData = localStorage.getItem("admin_tasks")
-
-      if (requestsData) {
-        try {
-          const requests = JSON.parse(requestsData)
-          const newRequests = requests.filter((r: any) => r.status === "new")
-          setHasNewRequests(newRequests.length > 0)
-        } catch (e) {
-          setHasNewRequests(false)
-        }
-      }
-
-      if (tasksData) {
-        try {
-          const tasks = JSON.parse(tasksData)
-          const newTasks = tasks.filter((t: any) => t.status === "todo")
-          setHasNewTasks(newTasks.length > 0)
-        } catch (e) {
-          setHasNewTasks(false)
-        }
-      }
-    }
-  }, [pathname])
+  // Note: new-request and new-task tracking is centralized in useNewRequestsAndTasks
+  // hook above. Storage events, focus, and a 30s interval keep it fresh.
 
   const canSee = (href: string) => status === "authenticated" && canAccessPath(href, permissions, role)
+
+  /**
+   * Map a sidebar nav href to a module key in the engine, so we can look up
+   * per-module "new" request counts. Leaf pages like /hr/new still belong to
+   * the same module. Pages with no module association return null and don't
+   * get a badge.
+   */
+  function moduleForHref(href: string): string | null {
+    if (href.startsWith("/hr")) return "hr"
+    if (href.startsWith("/shipping")) return "shipping"
+    if (href.startsWith("/maintenance")) return "maintenance"
+    if (href.startsWith("/purchase")) return "purchase"
+    if (href.startsWith("/event")) return "event"
+    if (href.startsWith("/travel")) return "travel"
+    if (href.startsWith("/general")) return "general"
+    return null
+  }
+
+  /**
+   * Total badge count for a sidebar entry. Aggregates module-specific "new"
+   * counts plus special cases (tasks for Team Tasks, all-requests for All Requests).
+   * Returns 0 when the audience shouldn't see badges (non-admin users).
+   */
+  function badgeCountForHref(href: string): number {
+    if (!isAdminAudience) return 0
+    if (href === "/tasks") return newTasksCount
+    if (href === "/admin/all-requests") {
+      return Object.values(newRequestsByModule).reduce((a, b) => a + b, 0)
+    }
+    const mod = moduleForHref(href)
+    if (mod) return newRequestsByModule[mod] ?? 0
+    return 0
+  }
 
   const visibleNavItems = navItems.reduce<NavItem[]>((items, item) => {
       const children = item.children?.filter((child) => canSee(child.href))
@@ -261,6 +276,25 @@ export function Sidebar() {
                   {!collapsed && (
                     <>
                       <span className="flex-1 text-left">{item.title}</span>
+                      {(() => {
+                        // Aggregate badge counts across all children that the user can see.
+                        // For Administration Team's parent, that means All Requests + Team Tasks.
+                        const parentBadge = (item.children ?? []).reduce(
+                          (sum, c) => sum + badgeCountForHref(c.href),
+                          0
+                        )
+                        return parentBadge > 0 ? (
+                          <span
+                            className={cn(
+                              "inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full text-[10px] font-bold animate-in zoom-in-50 duration-300",
+                              active ? "bg-white text-blue-700" : "bg-red-500 text-white"
+                            )}
+                            title={`${parentBadge} new`}
+                          >
+                            {parentBadge > 99 ? "99+" : parentBadge}
+                          </span>
+                        ) : null
+                      })()}
                       {expanded ? (
                         <ChevronDown className="h-4 w-4 text-slate-400" />
                       ) : (
@@ -273,22 +307,8 @@ export function Sidebar() {
                 {!collapsed && expanded && (
                   <div className="ml-3 mt-0.5 space-y-0.5 border-l border-slate-700 pl-3">
                     {item.children.map((child) => {
-                      let childActive = false
-                      let showAlert = false
-
-                      if (isAdministration) {
-                        childActive = pathname === child.href
-                        // Show alert for Team Tasks if new tasks exist
-                        if (child.title === "Team Tasks" && hasNewTasks) {
-                          showAlert = true
-                        }
-                        // Show alert for All Requests if new requests exist
-                        if (child.title === "All Requests" && hasNewRequests) {
-                          showAlert = true
-                        }
-                      } else {
-                        childActive = pathname === child.href
-                      }
+                      const childActive = pathname === child.href
+                      const childBadge = badgeCountForHref(child.href)
 
                       return (
                         <Link
@@ -303,11 +323,16 @@ export function Sidebar() {
                         >
                           <child.icon className="h-4 w-4 flex-shrink-0" />
                           <span className="flex-1">{child.title}</span>
-                          {showAlert && (
-                            <AlertCircle className={cn(
-                              "h-4 w-4 flex-shrink-0 animate-pulse",
-                              childActive ? "text-white" : "text-red-500"
-                            )} />
+                          {childBadge > 0 && (
+                            <span
+                              className={cn(
+                                "inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full text-[10px] font-bold animate-in zoom-in-50 duration-300",
+                                childActive ? "bg-white text-blue-700" : "bg-red-500 text-white"
+                              )}
+                              title={`${childBadge} new`}
+                            >
+                              {childBadge > 99 ? "99+" : childBadge}
+                            </span>
                           )}
                         </Link>
                       )
@@ -325,7 +350,7 @@ export function Sidebar() {
               href={item.href}
               title={collapsed ? item.title : undefined}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
+                "relative flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
                 collapsed && "justify-center",
                 active
                   ? "bg-blue-600 text-white"
@@ -333,7 +358,30 @@ export function Sidebar() {
               )}
             >
               <item.icon className="h-5 w-5 flex-shrink-0" />
-              {!collapsed && <span>{item.title}</span>}
+              {!collapsed && (
+                <>
+                  <span className="flex-1">{item.title}</span>
+                  {(() => {
+                    const count = badgeCountForHref(item.href)
+                    if (count <= 0) return null
+                    return (
+                      <span
+                        className={cn(
+                          "inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full text-[10px] font-bold animate-in zoom-in-50 duration-300",
+                          active ? "bg-white text-blue-700" : "bg-red-500 text-white"
+                        )}
+                        title={`${count} new`}
+                      >
+                        {count > 99 ? "99+" : count}
+                      </span>
+                    )
+                  })()}
+                </>
+              )}
+              {/* When collapsed, show a small dot indicator on the icon if there are new items */}
+              {collapsed && badgeCountForHref(item.href) > 0 && (
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500" />
+              )}
             </Link>
           )
         })}
