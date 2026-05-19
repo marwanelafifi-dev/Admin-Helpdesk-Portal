@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
+import { CcEmailsField } from "@/components/ui/CcEmailsField"
 import {
   FileText,
   Package,
@@ -171,7 +172,6 @@ export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel
   const router = useRouter()
   const { data: session } = useSession()
   const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([])
-  const [ccEmailInput, setCcEmailInput] = useState("")
   const [suppliers, setSuppliers] = useState<string[]>([])
   const [costCenters, setCostCenters] = useState<string[]>([])
   const [carriers, setCarriers] = useState<string[]>([])
@@ -390,35 +390,15 @@ export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel
       </Card>
 
       <Card>
-        <SectionHeader icon={Users} title="CC Notifications" subtitle="Notification contacts (informational only)" />
-        <CardContent className="space-y-4">
-          <div className="space-y-3">
-            <Label>Primary Mail (CC)</Label>
-            <div className="flex gap-2 max-w-md">
-              <Input type="email" placeholder="colleague@si-ware.com" value={ccEmailInput} onChange={(e) => setCcEmailInput(e.target.value)} />
-              <Button type="button" variant="outline" size="icon" onClick={() => {
-                const email = ccEmailInput.trim()
-                if (!email || ccEmails.includes(email)) return
-                setValue("ccEmails", [...ccEmails, email])
-                setCcEmailInput("")
-              }}>
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            {ccEmails.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {ccEmails.map((email) => (
-                  <Badge key={email} variant="secondary" className="flex items-center gap-1.5 pr-1">
-                    <Mail className="h-3 w-3" />
-                    {email}
-                    <button type="button" onClick={() => setValue("ccEmails", ccEmails.filter((e) => e !== email))}>
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
+        <SectionHeader icon={Users} title="CC Notifications" subtitle="Pick from the user directory or type any email" />
+        <CardContent>
+          <Controller
+            name="ccEmails"
+            control={control}
+            render={({ field }) => (
+              <CcEmailsField value={field.value ?? []} onChange={field.onChange} />
             )}
-          </div>
+          />
         </CardContent>
       </Card>
 
