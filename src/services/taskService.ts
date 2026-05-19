@@ -54,6 +54,15 @@ export function getTasks(): Task[] {
   return tasks ? JSON.parse(tasks) : []
 }
 
+// Single chokepoint for persisting tasks. Also broadcasts a same-tab event
+// so the Sidebar / dashboard badges refresh without a page reload — the
+// native `storage` event only fires in OTHER tabs.
+function saveTasks(tasks: Task[]): void {
+  if (typeof window === "undefined") return
+  localStorage.setItem(TASKS_KEY, JSON.stringify(tasks))
+  try { window.dispatchEvent(new Event("arp:storage")) } catch {}
+}
+
 export function createTask(task: Omit<Task, "id" | "createdAt" | "updatedAt" | "comments" | "activity"> & { attachments?: TaskAttachment[] }): Task {
   const id = `TSK-${Date.now()}`
   const now = new Date().toISOString()
@@ -79,7 +88,7 @@ export function createTask(task: Omit<Task, "id" | "createdAt" | "updatedAt" | "
   if (typeof window !== "undefined") {
     const tasks = getTasks()
     tasks.push(newTask)
-    localStorage.setItem(TASKS_KEY, JSON.stringify(tasks))
+    saveTasks(tasks)
   }
 
   return newTask
@@ -107,7 +116,7 @@ export function updateTaskStatus(taskId: string, newStatus: TaskStatus, changedB
     newValue: newStatus,
   })
 
-  localStorage.setItem(TASKS_KEY, JSON.stringify(tasks))
+  saveTasks(tasks)
   return task
 }
 
@@ -138,7 +147,7 @@ export function addTaskComment(taskId: string, author: string, content: string, 
   })
 
   task.updatedAt = now
-  localStorage.setItem(TASKS_KEY, JSON.stringify(tasks))
+  saveTasks(tasks)
   return task
 }
 
@@ -162,7 +171,7 @@ export function addTaskAttachment(taskId: string, attachment: TaskAttachment, ad
   })
 
   task.updatedAt = now
-  localStorage.setItem(TASKS_KEY, JSON.stringify(tasks))
+  saveTasks(tasks)
   return task
 }
 
@@ -175,6 +184,6 @@ export function deleteTask(taskId: string): boolean {
 
   const tasks = getTasks()
   const filtered = tasks.filter((t) => t.id !== taskId)
-  localStorage.setItem(TASKS_KEY, JSON.stringify(filtered))
+  saveTasks(filtered)
   return filtered.length < tasks.length
 }

@@ -64,12 +64,17 @@ export function useNewRequestsAndTasks() {
 
     recompute()
 
+    // `storage` only fires in OTHER tabs. `arp:storage` is the custom same-tab
+    // event dispatched by engineService / taskService whenever they persist a
+    // change, so badges update in real time without a page reload.
     window.addEventListener("storage", recompute)
+    window.addEventListener("arp:storage", recompute)
     window.addEventListener("focus", recompute)
     const intervalId = window.setInterval(recompute, 30_000)
 
     return () => {
       window.removeEventListener("storage", recompute)
+      window.removeEventListener("arp:storage", recompute)
       window.removeEventListener("focus", recompute)
       window.clearInterval(intervalId)
     }

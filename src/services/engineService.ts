@@ -112,6 +112,11 @@ function readAll(): EngineRequest[] {
 function writeAll(requests: EngineRequest[]): void {
   if (typeof window === "undefined") return
   localStorage.setItem(STORAGE_KEY, JSON.stringify(requests))
+  // Native `storage` event only fires in OTHER tabs. Broadcast a custom
+  // same-tab event so the Sidebar / dashboard hooks can refresh badges
+  // immediately when the user changes status or creates a request without
+  // requiring a page reload.
+  try { window.dispatchEvent(new Event("arp:storage")) } catch {}
 }
 
 // â”€â”€â”€ Public API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
