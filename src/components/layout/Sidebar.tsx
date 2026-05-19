@@ -267,7 +267,7 @@ export function Sidebar() {
                   onClick={() => !collapsed && setExpandedFn(!expanded)}
                   title={collapsed ? item.title : undefined}
                   className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
+                    "w-full flex items-center gap-2 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
                     active
                       ? "bg-blue-600 text-white"
                       : "text-slate-300 hover:bg-slate-800 hover:text-white"
@@ -276,7 +276,7 @@ export function Sidebar() {
                   <item.icon className="h-5 w-5 flex-shrink-0" />
                   {!collapsed && (
                     <>
-                      <span className="flex-1 text-left">{item.title}</span>
+                      <span className="flex-1 text-left whitespace-nowrap truncate">{item.title}</span>
                       {(() => {
                         // Aggregate badge counts across all children that the user can see.
                         // For Administration Team's parent, that means All Requests + Team Tasks.
@@ -323,7 +323,7 @@ export function Sidebar() {
                           )}
                         >
                           <child.icon className="h-4 w-4 flex-shrink-0" />
-                          <span className="flex-1">{child.title}</span>
+                          <span className="flex-1 whitespace-nowrap truncate">{child.title}</span>
                           {childBadge > 0 && (
                             <span
                               className={cn(
@@ -361,7 +361,7 @@ export function Sidebar() {
               <item.icon className="h-5 w-5 flex-shrink-0" />
               {!collapsed && (
                 <>
-                  <span className="flex-1">{item.title}</span>
+                  <span className="flex-1 whitespace-nowrap truncate">{item.title}</span>
                   {(() => {
                     const count = badgeCountForHref(item.href)
                     if (count <= 0) return null
