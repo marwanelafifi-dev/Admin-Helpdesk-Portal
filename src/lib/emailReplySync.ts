@@ -107,19 +107,29 @@ export async function syncInboundEmailReplies() {
           continue
         }
 
-        // Skip if the email body is an unmodified system notification (no human reply text)
+        // Skip if the email body / subject matches a system notification
+        // pattern, regardless of which account it's coming from. Notifications
+        // routinely land back in the inbox via Gmail filters, forwarding rules,
+        // or when the requester and the system share an alias — and if we
+        // treat them as comments, every status change spawns a phantom
+        // "user comment" in the request thread.
         const bodyText = (parsed.text || "").trim()
-        const isUnmodifiedNotification =
-          /^(Request updated|Request status updated|New comment added|New request added)/i.test(subject) &&
-          (bodyText.length === 0 || /^(Request|Request ID|Module|Update)\s/m.test(bodyText.split("\n")[0] || ""))
+        const NOTIFICATION_BODY_MARKERS = [
+          /NEW COMMENT ADDED/i,
+          /updated a request in the Admin Helpdesk Portal/i,
+          /\bRequest ID\s*[:#]?\s*[A-Z]{2,5}-\d{4}-\d+\b/,
+          /Open request \[https?:/i,
+        ]
+        const looksLikeNotificationBody = NOTIFICATION_BODY_MARKERS.some((re) => re.test(bodyText))
+        const looksLikeNotificationSubject = /^(Request|New comment|Status update|Feedback survey)/i.test(subject)
 
-        if (isUnmodifiedNotification) {
+        if (looksLikeNotificationBody || (looksLikeNotificationSubject && bodyText.length < 50)) {
           synced.push({
             uid,
             from: addressText(parsed.from),
             subject,
             status: "skipped",
-            reason: "Unmodified system notification",
+            reason: "Looks like a system notification",
           })
           continue
         }
