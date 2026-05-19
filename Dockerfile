@@ -19,6 +19,21 @@ RUN NODE_TLS_REJECT_UNAUTHORIZED=0 npx prisma generate
 # build inside the container in the next step.
 COPY . .
 
+# `next build` validates auth config at build time and requires AUTH_SECRET.
+# It also evaluates a few module-level reads of env vars in API routes.
+# We pass them through as build args so the in-container build succeeds.
+# These are NOT secrets at build time — they're the same values used at runtime,
+# read from .env.local via the docker-compose build args block.
+ARG AUTH_SECRET
+ARG NEXTAUTH_SECRET
+ARG AUTH_URL=http://localhost:3003
+ARG NEXTAUTH_URL=http://localhost:3003
+
+ENV AUTH_SECRET=${AUTH_SECRET} \
+    NEXTAUTH_SECRET=${NEXTAUTH_SECRET} \
+    AUTH_URL=${AUTH_URL} \
+    NEXTAUTH_URL=${NEXTAUTH_URL}
+
 # If .next-dev was NOT shipped in the build context (Linux clean clone), build now.
 # If it WAS shipped (Windows pre-built flow), skip — the existing output is used as-is.
 RUN if [ ! -f .next-dev/BUILD_ID ]; then \

@@ -28,6 +28,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # Build-time vars — required by next build for auth config validation.
+        AUTH_SECRET: ${AUTH_SECRET:-${NEXTAUTH_SECRET:-build-time-placeholder-replace-at-runtime}}
+        NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-${AUTH_SECRET:-build-time-placeholder-replace-at-runtime}}
+        AUTH_URL: ${AUTH_URL:-http://localhost:3003}
+        NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3003}
     container_name: admin-helpdesk-app
     env_file:
       - .env.local
