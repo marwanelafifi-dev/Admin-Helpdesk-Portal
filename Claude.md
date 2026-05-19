@@ -358,6 +358,79 @@ This document tracks the phased development of the Admin Request Platform, movin
 - [x] **`.gitattributes` rewritten as UTF-8 LF** with rules for `.ts/.tsx/.sh/.yml/Dockerfile`. Prevents the CRLF bug that broke `docker-entrypoint.sh` on the Linux container.
 - [x] **Pre-existing build errors in `src/app/(dashboard)/requests/page.tsx` fixed** — duplicate `STATUS_OPTIONS` block, duplicate `InlineStatusSelect` import, broken JSX paste inside unread-comment badge, duplicate `updateRequestStatus` function. Build was failing before this work; now clean.
 
+## Phase 5i: Ubuntu Deployment + Cloudflare Tunnel + Google OAuth (Completed — 19 May 2026)
+- [x] **Ubuntu server deployment** at `192.168.2.212` (user `docker-machine`):
+  - [x] `Dockerfile` made cross-platform: detects whether `.next-dev/BUILD_ID` was shipped in the build context. If yes, uses the pre-built output (Windows path, avoids gRPC EOF errors from the containerd snapshotter). If no, runs `npm run build` inside the container (Ubuntu fresh clone path).
+  - [x] Drops `--omit=dev` so `next build` has access to dev dependencies when it needs to run.
+  - [x] `Dockerfile` healthcheck switched from `wget http://localhost:3003` (which fails once redirects target the public NEXTAUTH_URL) to `nc -z localhost 3003`. Same change applied in `docker-compose.yml`.
+  - [x] `docker-entrypoint.sh` saved as LF (was CRLF, which broke `exec` on Linux). `.gitattributes` now pins `.sh text eol=lf`.
+- [x] **AUTH_SECRET / NEXTAUTH_URL plumbed as Docker build args:**
+  - [x] `next build` validates auth config at build time. Previously only available at runtime via `env_file:`, so the in-container Linux build failed with "Missing required auth secret".
+  - [x] `Dockerfile` declares `ARG`/`ENV` pairs for `AUTH_SECRET`, `NEXTAUTH_SECRET`, `AUTH_URL`, `NEXTAUTH_URL`. `docker-compose.yml` passes them via `build.args` block, reading from `.env`.
+- [x] **Cloudflare Tunnel** — public access at `https://adminhelpdesk.si-wareapps.com`:
+  - [x] `docker-compose.yml` `tunnel` service runs `cloudflare/cloudflared:latest` with the tunnel token from `.env`.
+  - [x] Command rewritten as a YAML list (`tunnel / run / --token / value`) — shell-style with the colon-rich JWT was being mangled.
+  - [x] Public hostname in Cloudflare points to `app:3003` (docker network service name, not localhost).
+- [x] **Server-side redirects build absolute URLs from `NEXTAUTH_URL` instead of `request.url`** to avoid leaking the internal docker host into `Location` headers:
+  - [x] `src/app/landing/route.ts` — uses `process.env.NEXTAUTH_URL` as base.
+  - [x] `src/middleware.ts` — `getPublicBase()` helper; `callbackUrl` query param uses `pathname + search`, never the full `nextUrl.href`.
+- [x] **Google OAuth** wired up:
+  - [x] OAuth client registered with redirect URI `https://adminhelpdesk.si-wareapps.com/api/auth/callback/google`. Localhost variants removed once production was confirmed working.
+  - [x] `.env` (in the project root) is the file `docker compose` reads for variable substitution. The runtime container reads `.env.local` via `env_file:`. Both must contain the same values; `.env.local` is the source of truth for secrets.
+- [x] **`.env` and `docker-compose.yml NEXTAUTH_URL/AUTH_URL`** are now templated as `${NEXTAUTH_URL:-http://localhost:3003}` so the same compose works for local-dev and prod deploys.
+
+## Phase 5j: Feedback Server-Side Store + Survey Reminder + Misc Fixes (Completed — 19 May 2026)
+- [x] **Feedback moved from localStorage to a server-side JSON store** (`src/lib/feedbackStore.ts` → `data/feedback.json` on disk). Previously surveys were created with browser-local IDs, so email recipients opening the link on a different device hit "Survey not found".
+  - [x] New API routes: `POST /api/feedback/send-survey` (creates server-side survey first, then emails the link), `GET /api/feedback/survey/[id]` (public lookup), `POST /api/feedback/survey/[id]/submit` (public submit), `POST /api/feedback/inline` (auth-gated in-page Submit Feedback button), `GET /api/feedback/responses` (auth-gated list), `DELETE /api/feedback/responses` (auth-gated clear).
+  - [x] One-survey-per-request enforcement: `send-survey` short-circuits if a survey already exists for the requestId. `inline` route completes a pending email survey instead of creating a duplicate.
+  - [x] `feedback-survey/page.tsx` and `feedback-reports/page.tsx` fetch from the API. `requests/[id]/page.tsx` Submit Feedback button POSTs to `/api/feedback/inline`.
+  - [x] Feedback Survey public page now shows the Si-Ware logo above the card (matches the email branding).
+- [x] **Survey reminder banner on My Requests** — amber card listing the user's completed/delivered requests that haven't been rated. Up to 5 chip links to each request; dismissible per-session.
+- [x] **My Requests inline status dropdown now uses per-module status lists** — previously rendered the generic 6-status list for every row (HR rows showed In Customs / Cancelled, which don't exist). Mirrors All Requests' `MODULE_STATUSES` / `MODULE_STATUS_LABELS` map.
+- [x] **HR module: Cancel request action removed from the three-dot menu** — HR has no Cancelled state. Hidden on the HR page and on All Requests when the row is HR, regardless of `cancel_request` permission.
+- [x] **Clear All Feedback button removed from `/feedback-reports`** — non-admins shouldn't have a destructive action there. Database admin page is now the only place to clear feedback.
+- [x] **IMAP inbound sync filter widened** — the sync was vacuuming up the app's own outbound notification emails (status updates, new-comment alerts) when they bounced back via Gmail filters or account aliasing, storing each as a phantom "user comment" on the matching request. `src/lib/emailReplySync.ts` now inspects the body for distinctive markers (`NEW COMMENT ADDED`, `updated a request in the Admin Helpdesk Portal`, `Open request [https...]`) and skips any message matching them, regardless of subject or sender. Existing phantom comments were purged by a one-off cleanup script.
+- [x] **Audit Trail task events** show the real actor — was reading `task.createdBy` / `activity.user`, which don't exist. Fixed to read `assignedBy` / `activity.changedBy`, with backward-compatible fallbacks for older records.
+
+## Phase 5k: Dashboard, Sidebar Badges, Dark Mode, Branding (Completed — 19 May 2026)
+- [x] **Dashboard professional redesign** (`src/app/(dashboard)/dashboard/page.tsx`):
+  - [x] Default time range is now Last 30 Days (was 7d), with vs-prior-period comparison built into every Hero KPI.
+  - [x] Hero KPIs: Active Requests, Overdue (7d+), Avg Resolution, Satisfaction. Each card colors its delta badge by direction-of-good (lower-is-better metrics flip the green/red logic). "no prior data" shown when the previous window had zero requests.
+  - [x] Secondary KPI strip: Total / Completed / Cancelled / Completion Rate.
+  - [x] Charts have real empty states ("No requests in this period yet").
+  - [x] **Module Workload table** — Total / Active / Overdue / Completed / Avg Days per module, with module names clickable to the module page.
+  - [x] **Oldest Open Requests** panel — top 5 longest-waiting active requests across the entire dataset.
+  - [x] **Recent Feedback** panel — pulls from `/api/feedback/responses` (server-side).
+  - [x] Custom date range inputs inline with the preset pills.
+  - [x] Subtle animations: `useCountUp` hook for KPI numbers (700ms ease-out cubic), staggered fade-in + slide-up for each card section (60ms apart), small 0.5px lift + shadow on hover. No bounce, no pulse.
+- [x] **Sidebar per-page new-request badges** — for Administration Team / Full Access users only:
+  - [x] `useNewRequestsAndTasks` hook now returns `newRequestsByModule` (per-module counts of requests with status `new`).
+  - [x] Sidebar maps each nav href to a module key and renders a small red count chip (or 99+ overflow) next to the title. Top-level "Administration Team" parent aggregates its children's counts. Collapsed sidebar shows a small red dot on the icon when items are pending.
+  - [x] Counts refresh on `storage` event (cross-tab), `focus`, and a 30s interval — plus a new custom `arp:storage` event dispatched by `engineService.writeAll()` and `taskService.saveTasks()` so same-tab status changes update badges instantly without a page reload.
+  - [x] Sidebar title spans use `whitespace-nowrap truncate` so titles don't wrap to a second line when the badge appears.
+- [x] **Dark mode coordinated palette overhaul** (`src/app/globals.css`):
+  - [x] CSS variables (`--background`, `--card`, `--popover`, etc.) repointed to a slate-blue scale (page bg `hsl(222 24% 9%)` → card `hsl(222 22% 15%)` → hover `hsl(222 22% 19%)`).
+  - [x] Hardcoded `bg-white` / `bg-gray-50` / `bg-gray-100` / `bg-gray-200` mapped to the same scale.
+  - [x] Tailwind opacity-modified variants (`bg-gray-50/40`, `bg-blue-50/30`, `hover:bg-blue-50/30`, etc.) get explicit overrides — they were being missed previously because they're separate class names from `bg-gray-50`.
+  - [x] Every `bg-<color>-50` / `bg-<color>-100` / `border-<color>-200` / `text-<color>-{600..900}` used in the app gets a same-hue dark counterpart with proper saturation/lightness. Status pills, stat cards, feedback chips all look intentional in dark mode now.
+  - [x] Slate-800 table headers pushed slightly darker so they don't visually clash with the page background.
+- [x] **CC fields refreshed** — replaced the inline email input with a searchable user-directory picker + free-typed email input, both rendered side-by-side. Backed by a new `GET /api/users/directory` endpoint (any signed-in user can read; returns `id/name/email/image/role` for active users only). Applied to per-form `CcEmailsField` (HR, Purchase, Event, Travel, General, Shipping) and the on-detail-page `CcPanel`.
+- [x] **CC Notifications card moved to the bottom of every form** (right above Cancel/Submit), matching the HR onboarding layout. Shipping and General Request previously had it before Attachments — swapped. Team Tasks "Create New Task" form also got a CC Notifications field.
+- [x] **Company Data: Departments + Sectors lookup tables added** to `companyDataStore`. Page widened to `max-w-5xl`. Defaults emptied for production; `ProductionDataWipe` marker bumped to `arp_prod_wipe_v2` to auto-wipe seeded values from existing browsers on next visit.
+- [x] **`page:dashboard` permission restricted to Administration Team / Full Access** — already correctly gated in roles.json, middleware, and Sidebar filter (via `canAccessPath`). Other roles cannot see the Dashboard nav item or navigate to `/dashboard`.
+- [x] **Favicon replaced** — `public/favicon.svg` (blue headset) deleted in favor of `public/Icon.png` (the new magnifier glyph). `layout.tsx` metadata updated.
+- [x] **My Requests filter by actual session user** — was hardcoded to `USR-001`. Now matches by `requesterId`, `requesterEmail`, or `requesterName` against the session.
+- [x] **Pre-existing TDZ crash on Sidebar fixed** — `isAdminAudience` was reading `role` before its `const` declaration ran, producing "Cannot access 'A' before initialization" once the page hydrated. Reordered the declarations.
+
+## Phase 5l: Full Backup Coverage Including Server-Side Data (Completed — 19 May 2026)
+- [x] **Backups now capture server-side files** (`data/comments.json`, `data/feedback.json`, `data/users.json`, `data/roles.json`) in addition to browser localStorage.
+  - [x] New `GET/POST/DELETE /api/admin/server-data` endpoint, auth-gated by `page:admin-database` or `manage_users`. GET returns all `user_data` files. POST writes them back (used by Restore). DELETE wipes the `clearable: true` files (comments + feedback); users + roles are intentionally preserved so admins can't lock themselves out via the Clear All button.
+  - [x] `BackupManifest` version bumped to `1.1`, adds a `serverData: Record<string, unknown>` field. Old v1.0 backups (browser-only) are still accepted by Restore.
+  - [x] `collectBackup()` and `restoreBackup()` are now async — they `await` the server-data round-trip. `handleBackup()` and the file-upload `onload` handler updated to await accordingly.
+  - [x] Clear All now hits both `clearAllOwnedKeys()` (browser) and `DELETE /api/admin/server-data` (server) and reports both counts in the success message.
+  - [x] Backup checklist UI lists the new server-side rows so the admin sees what's covered.
+  - [x] Info banner copy updated: "browser data + server-side data, downloaded as one JSON file (version 1.1)".
+
 ## Phase 6: Advanced Functionality (Pending)
 - [ ] **Email Notifications:** SMTP ports 465/587 may be blocked by corporate firewall. Use Admin → Notifications to configure Gmail App Password or switch to SendGrid/Brevo (HTTP API, not blocked).
 - [ ] **Audit Trail Enhancement:** Currently reads from localStorage. Future: persist to PostgreSQL for cross-session history.

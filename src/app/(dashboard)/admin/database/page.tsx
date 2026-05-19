@@ -18,10 +18,15 @@ import {
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface BackupManifest {
-  version: "1.0"
+  /** "1.0" backups only contain `data` (browser localStorage).
+   *  "1.1" backups also contain `serverData` (the server's /app/data files). */
+  version: "1.0" | "1.1"
   createdAt: string
   createdBy: string
+  /** Browser localStorage keys -> their parsed values. */
   data: Record<string, unknown>
+  /** Server-side /app/data files (filename -> JSON content). Only present on 1.1+. */
+  serverData?: Record<string, unknown>
 }
 
 type Status = { type: "success" | "error" | "idle"; message: string }
@@ -64,7 +69,7 @@ function clearModuleRequests(moduleId: string): number {
   return all.length - filtered.length
 }
 
-function collectBackup(): BackupManifest {
+async function collectBackup(): Promise<BackupManifest> {
   const data: Record<string, unknown> = {}
   // Discover all owned keys at runtime (registry + any present arp_*/admin_*/feedback_* keys)
   // so newly-added stores are captured even if the developer forgot to register them.
@@ -72,16 +77,54 @@ function collectBackup(): BackupManifest {
     const raw = localStorage.getItem(key)
     if (raw) { try { data[key] = JSON.parse(raw) } catch { data[key] = raw } }
   })
-  return { version: "1.0", createdAt: new Date().toISOString(), createdBy: "admin", data }
+
+  // Pull the server-side data bundle (comments, feedback, users, roles) so
+  // the backup is actually a full snapshot — not just the user's browser state.
+  let serverData: Record<string, unknown> = {}
+  try {
+    const res = await fetch("/api/admin/server-data")
+    if (res.ok) {
+      const json = await res.json()
+      serverData = (json.data ?? {}) as Record<string, unknown>
+    }
+  } catch { /* best-effort: backup still saves localStorage even if server unreachable */ }
+
+  return {
+    version: "1.1",
+    createdAt: new Date().toISOString(),
+    createdBy: "admin",
+    data,
+    serverData,
+  }
 }
 
-function restoreBackup(manifest: BackupManifest) {
+async function restoreBackup(manifest: BackupManifest) {
   const restored: string[] = []
   const skipped: string[] = []
-  Object.entries(manifest.data).forEach(([key, value]) => {
+
+  // localStorage portion
+  Object.entries(manifest.data ?? {}).forEach(([key, value]) => {
     try { localStorage.setItem(key, JSON.stringify(value)); restored.push(key) }
     catch { skipped.push(key) }
   })
+
+  // Server-side portion (v1.1 backups). Older v1.0 backups simply lack this
+  // key — fine, we just skip it and the user keeps whatever the server has.
+  if (manifest.serverData && Object.keys(manifest.serverData).length > 0) {
+    try {
+      const res = await fetch("/api/admin/server-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: manifest.serverData }),
+      })
+      if (res.ok) {
+        const json = await res.json()
+        for (const f of json.restored ?? []) restored.push(`server:${f}`)
+        for (const f of json.skipped ?? []) skipped.push(`server:${f}`)
+      }
+    } catch { skipped.push("server-data (network)") }
+  }
+
   return { restored, skipped }
 }
 
@@ -136,9 +179,9 @@ export default function DatabasePage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // ── Backup ────────────────────────────────────────────────────────────────
-  function handleBackup() {
+  async function handleBackup() {
     try {
-      const manifest = collectBackup()
+      const manifest = await collectBackup()
       const json = JSON.stringify(manifest, null, 2)
       const blob = new Blob([json], { type: "application/json" })
       const url = URL.createObjectURL(blob)
@@ -147,7 +190,14 @@ export default function DatabasePage() {
       a.href = url; a.download = filename; a.click()
       URL.revokeObjectURL(url)
       setLastBackupTime(new Date().toISOString())
-      setBackupStatus({ type: "success", message: `Backup downloaded — ${Object.keys(manifest.data).length} stores exported as ${filename}` })
+      const localCount  = Object.keys(manifest.data ?? {}).length
+      const serverCount = Object.keys(manifest.serverData ?? {}).length
+      setBackupStatus({
+        type: "success",
+        message: `Backup downloaded — ${localCount} browser store${localCount !== 1 ? "s" : ""}` +
+                 (serverCount > 0 ? ` + ${serverCount} server file${serverCount !== 1 ? "s" : ""}` : "") +
+                 ` exported as ${filename}`,
+      })
     } catch (e: any) {
       setBackupStatus({ type: "error", message: `Backup failed: ${e?.message ?? "Unknown error"}` })
     }
@@ -160,12 +210,20 @@ export default function DatabasePage() {
     setRestoring(true)
     setRestoreStatus({ type: "idle", message: "" })
     const reader = new FileReader()
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
         const manifest: BackupManifest = JSON.parse(ev.target?.result as string)
-        if (manifest.version !== "1.0" || !manifest.data) throw new Error("Invalid backup file format")
-        const { restored, skipped } = restoreBackup(manifest)
-        setRestoreStatus({ type: "success", message: `Restore complete — ${restored.length} stores restored from ${fmt(manifest.createdAt)}${skipped.length ? `. ${skipped.length} skipped.` : ""}. Refresh to see restored data.` })
+        // Accept both 1.0 (localStorage only) and 1.1 (localStorage + server data) backups
+        if ((manifest.version !== "1.0" && manifest.version !== "1.1") || !manifest.data) {
+          throw new Error("Invalid backup file format")
+        }
+        const { restored, skipped } = await restoreBackup(manifest)
+        setRestoreStatus({
+          type: "success",
+          message: `Restore complete — ${restored.length} item${restored.length !== 1 ? "s" : ""} restored from ${fmt(manifest.createdAt)}` +
+                   (skipped.length ? `. ${skipped.length} skipped.` : "") +
+                   ". Refresh to see restored data.",
+        })
       } catch (err: any) {
         setRestoreStatus({ type: "error", message: `Restore failed: ${err?.message ?? "Invalid file"}` })
       } finally {
@@ -179,12 +237,24 @@ export default function DatabasePage() {
   // ── Clear All ─────────────────────────────────────────────────────────────
   async function handleClearAll() {
     const cleared = clearAllOwnedKeys()
-    // Also wipe server-side feedback (lives in data/feedback.json, not localStorage)
+    // Also wipe server-side user data (comments.json, feedback.json).
+    // users.json / roles.json are intentionally preserved by the endpoint so
+    // admins can't lock themselves out through this button.
+    let serverCleared = 0
     try {
-      await fetch("/api/feedback/responses", { method: "DELETE" })
+      const res = await fetch("/api/admin/server-data", { method: "DELETE" })
+      if (res.ok) {
+        const json = await res.json()
+        serverCleared = Array.isArray(json.cleared) ? json.cleared.length : 0
+      }
     } catch { /* best-effort */ }
     setShowClearAllConfirm(false)
-    setClearAllStatus({ type: "success", message: `All data cleared — ${cleared} store${cleared !== 1 ? "s" : ""} removed. User accounts are preserved. Refresh to see the empty state.` })
+    setClearAllStatus({
+      type: "success",
+      message: `All data cleared — ${cleared} browser store${cleared !== 1 ? "s" : ""}` +
+               (serverCleared > 0 ? ` + ${serverCleared} server file${serverCleared !== 1 ? "s" : ""}` : "") +
+               ". User accounts and roles are preserved. Refresh to see the empty state.",
+    })
   }
 
   // ── Clear Module ──────────────────────────────────────────────────────────
@@ -228,7 +298,7 @@ export default function DatabasePage() {
         <Shield className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
         <div className="text-sm text-blue-800">
           <p className="font-semibold">What is included in a backup?</p>
-          <p className="mt-0.5 text-blue-700">Every store the app owns is captured automatically — requests, tasks, feedback, notifications, viewed comments, company data, platform settings, logos, theme, and any new store added later. Backups are downloaded as a single JSON file. Restore writes back whatever the file contains.</p>
+          <p className="mt-0.5 text-blue-700">Every store the app owns is captured automatically — browser data (requests, tasks, viewed comments, company data, platform settings, logos, theme) <strong>and</strong> server-side data (comments, feedback responses, users, roles). Backups download as one JSON file (version 1.1) and Restore writes back whatever the file contains. Old v1.0 backups (browser data only) are still accepted.</p>
         </div>
       </div>
 
@@ -252,6 +322,9 @@ export default function DatabasePage() {
                 { label: "All Requests", sub: "All modules" },
                 ...NON_REQUEST_STORES.map((s) => ({ label: s.label, sub: s.description })),
                 { label: "Any new stores", sub: "Auto-discovered at runtime" },
+                { label: "Server Comments", sub: "data/comments.json on the server" },
+                { label: "Server Feedback Responses", sub: "data/feedback.json on the server" },
+                { label: "Users & Roles", sub: "data/users.json + data/roles.json (restored only if present in backup)" },
               ].map(({ label, sub }) => (
                 <div key={label} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
