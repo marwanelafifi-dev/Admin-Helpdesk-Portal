@@ -8,8 +8,9 @@ export const metadata: Metadata = {
   title: "Admin Helpdesk Portal",
   description: "Enterprise admin helpdesk and request management portal",
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: "/Icon.png",
+    shortcut: "/Icon.png",
+    apple: "/Icon.png",
   },
 }
 
