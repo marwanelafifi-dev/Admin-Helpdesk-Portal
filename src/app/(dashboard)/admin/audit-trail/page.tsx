@@ -138,10 +138,18 @@ function buildAuditLog(): AuditEntry[] {
     const raw = localStorage.getItem("admin_tasks")
     const tasks: any[] = raw ? JSON.parse(raw) : []
     tasks.forEach((task: any) => {
+      // taskService writes `assignedBy` on the Task record and `changedBy`
+      // on each TaskActivity entry. Fall back to the first activity entry's
+      // changedBy in case an older record is missing assignedBy.
+      const creator = task.assignedBy
+        ?? task.createdBy
+        ?? task.activity?.[0]?.changedBy
+        ?? "System"
+
       entries.push({
         id: `task-${task.id}-created`,
         timestamp: task.createdAt,
-        actor: resolveActor(task.createdBy ?? "System", userMap),
+        actor: resolveActor(creator, userMap),
         actorEmail: "",
         action: "Task created",
         target: task.title,
@@ -151,17 +159,22 @@ function buildAuditLog(): AuditEntry[] {
         category: "task",
       })
       ;(task.activity ?? []).forEach((a: any, i: number) => {
-        if (a.action === "status_changed") {
+        // TaskActivity uses `type` / `changedAt` / `changedBy` (and historically
+        // a few records may have `action` / `timestamp` / `user`). Read both.
+        const aType = a.type ?? a.action
+        const aWhen = a.changedAt ?? a.timestamp
+        const aWho  = a.changedBy ?? a.user ?? "System"
+        if (aType === "status_changed") {
           entries.push({
             id: `task-${task.id}-act-${i}`,
-            timestamp: a.timestamp,
-            actor: resolveActor(a.user ?? "System", userMap),
+            timestamp: aWhen,
+            actor: resolveActor(aWho, userMap),
             actorEmail: "",
             action: "Task status changed",
             target: task.title,
             targetId: task.id,
             module: "tasks",
-            details: a.details ?? "",
+            details: a.details ?? a.description ?? "",
             category: "task",
           })
         }
