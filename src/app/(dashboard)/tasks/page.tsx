@@ -11,6 +11,7 @@ import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { cn } from "@/lib/utils"
 import { getTasks, createTask, updateTaskStatus, addTaskComment, type Task, type TaskStatus, type TaskAttachment, ADMIN_TEAM_ROLES } from "@/services/taskService"
+import { CcEmailsField } from "@/components/ui/CcEmailsField"
 
 const STATUS_COLORS: Record<TaskStatus, { bg: string; text: string; border: string }> = {
   todo: { bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200" },
@@ -56,6 +57,7 @@ export default function TasksPage() {
   })
   const [commentText, setCommentText] = useState<Record<string, string>>({})
   const [taskAttachments, setTaskAttachments] = useState<TaskAttachment[]>([])
+  const [taskCcEmails, setTaskCcEmails] = useState<string[]>([])
   const [commentAttachments, setCommentAttachments] = useState<Record<string, TaskAttachment[]>>({})
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
@@ -158,10 +160,12 @@ export default function TasksPage() {
       assignedTo: newTaskData.assignedTo,
       assignedBy: session?.user?.name || "Current User",
       attachments: taskAttachments,
+      ccEmails: taskCcEmails.length > 0 ? taskCcEmails : undefined,
     })
     setTasks([...tasks, task as ExtendedTask])
     setNewTaskData({ title: "", description: "", assignedTo: "" })
     setTaskAttachments([])
+    setTaskCcEmails([])
     setShowNewTaskForm(false)
     setRoleError(null)
   }
@@ -318,6 +322,13 @@ export default function TasksPage() {
               </select>
               <p className="text-xs text-gray-500 mt-2">Only Administration Team members can be assigned</p>
             </div>
+
+            {/* CC Notifications — last field before the action buttons */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">CC Notifications</label>
+              <CcEmailsField value={taskCcEmails} onChange={setTaskCcEmails} />
+            </div>
+
             <div className="flex gap-2">
               <Button onClick={handleCreateTask} className="bg-blue-600 hover:bg-blue-700 text-white">
                 Create Task
@@ -325,6 +336,9 @@ export default function TasksPage() {
               <Button onClick={() => {
                 setShowNewTaskForm(false)
                 setRoleError(null)
+                setTaskCcEmails([])
+                setTaskAttachments([])
+                setNewTaskData({ title: "", description: "", assignedTo: "" })
               }} variant="outline">
                 Cancel
               </Button>

@@ -42,6 +42,8 @@ export interface Task {
   attachments: TaskAttachment[]
   activity: TaskActivity[]
   priority?: "low" | "medium" | "high"
+  /** Email addresses copied on all task notifications. */
+  ccEmails?: string[]
 }
 
 const TASKS_KEY = "admin_tasks"

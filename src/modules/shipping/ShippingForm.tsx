@@ -390,19 +390,6 @@ export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel
       </Card>
 
       <Card>
-        <SectionHeader icon={Users} title="CC Notifications" subtitle="Pick from the user directory or type any email" />
-        <CardContent>
-          <Controller
-            name="ccEmails"
-            control={control}
-            render={({ field }) => (
-              <CcEmailsField value={field.value ?? []} onChange={field.onChange} />
-            )}
-          />
-        </CardContent>
-      </Card>
-
-      <Card>
         <SectionHeader icon={Receipt} title="Attachments" subtitle="AWB and Commercial Invoice are required" />
         <CardContent>
           <div className="space-y-4">
@@ -420,6 +407,20 @@ export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel
               </div>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* CC Notifications — last card before the submit footer */}
+      <Card>
+        <SectionHeader icon={Users} title="CC Notifications" subtitle="Additional recipients for email updates on this request" />
+        <CardContent>
+          <Controller
+            name="ccEmails"
+            control={control}
+            render={({ field }) => (
+              <CcEmailsField value={field.value ?? []} onChange={field.onChange} />
+            )}
+          />
         </CardContent>
       </Card>
 

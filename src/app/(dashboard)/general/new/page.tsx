@@ -156,14 +156,6 @@ export default function NewGeneralRequestPage() {
           </CardContent>
         </Card>
 
-        {/* CC Notifications */}
-        <Card>
-          <SectionHeader icon={Mail} title="CC Notifications" subtitle="Add recipients to be notified about this request" />
-          <CardContent className="pt-5">
-            <CcEmailsField value={ccEmails} onChange={setCcEmails} />
-          </CardContent>
-        </Card>
-
         {/* Attachments */}
         <Card>
           <SectionHeader icon={Upload} title="Attachments" subtitle="Upload any supporting documents or files" />
@@ -209,6 +201,14 @@ export default function NewGeneralRequestPage() {
               )}
               <p className="text-xs text-muted-foreground">Optional: Upload any supporting documents</p>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* CC Notifications — last card before the submit footer */}
+        <Card>
+          <SectionHeader icon={Mail} title="CC Notifications" subtitle="Additional recipients for email updates on this request" />
+          <CardContent className="pt-5">
+            <CcEmailsField value={ccEmails} onChange={setCcEmails} />
           </CardContent>
         </Card>
 
