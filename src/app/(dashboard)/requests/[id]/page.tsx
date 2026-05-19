@@ -916,7 +916,18 @@ export default function RequestDetailPage() {
                   disabled={!surveyRating}
                   onClick={() => {
                     if (!surveyRating || !request) return
-                    const survey = createFeedbackSurvey(request)
+                    // Override requesterName/Email with current session if the request
+                    // has stale "Unknown User" data, so the feedback row attributes
+                    // correctly to the actual employee filling out the survey.
+                    const sessionName = session?.user?.name ?? ""
+                    const sessionEmail = session?.user?.email ?? ""
+                    const requestWithUser = {
+                      ...request,
+                      requesterName: (request.requesterName && request.requesterName !== "Unknown User")
+                        ? request.requesterName : (sessionName || "Unknown User"),
+                      requesterEmail: request.requesterEmail || sessionEmail,
+                    }
+                    const survey = createFeedbackSurvey(requestWithUser)
                     submitFeedbackResponse(survey.id, surveyRating, surveyComment)
                     setSurveySubmitted(true)
                   }}

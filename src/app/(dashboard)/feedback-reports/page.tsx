@@ -97,7 +97,7 @@ function getModuleColors(module: string) {
 export default function FeedbackReportsPage() {
   const [search, setSearch] = useState("")
   const [filterRating, setFilterRating] = useState<number | null>(null)
-  const [dateRange, setDateRange] = useState<"7d" | "30d" | "90d" | "all">("30d")
+  const [dateRange, setDateRange] = useState<"7d" | "30d" | "90d" | "all">("all")
   const [allFeedback, setAllFeedback] = useState<Feedback[]>([])
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
