@@ -27,7 +27,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid_input" }, { status: 400 })
   }
 
-  const survey = feedbackStore.createSurvey({
+  const safeComment = typeof comment === "string" ? comment : ""
+
+  // If a completed response already exists for this request, refuse — one
+  // feedback per request.
+  const alreadyCompleted = feedbackStore.getResponses().find((x) => x.requestId === requestId)
+  if (alreadyCompleted) {
+    return NextResponse.json({ error: "already_submitted", response: alreadyCompleted }, { status: 409 })
+  }
+
+  // If an email survey is still pending for this request, complete THAT one
+  // (so the email link becomes invalid for re-use). Otherwise create + complete
+  // a new survey in one shot.
+  const pending = feedbackStore.findPendingForRequest(requestId)
+  const survey = pending ?? feedbackStore.createSurvey({
     requestId,
     requesterName: requesterName || session.user.name || "Unknown User",
     requesterEmail: requesterEmail || session.user.email || "",
@@ -35,6 +48,6 @@ export async function POST(req: NextRequest) {
     module: module || "general",
   })
 
-  const response = feedbackStore.submitResponse(survey.id, r, typeof comment === "string" ? comment : "")
+  const response = feedbackStore.submitResponse(survey.id, r, safeComment)
   return NextResponse.json({ response })
 }

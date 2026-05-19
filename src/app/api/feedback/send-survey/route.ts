@@ -17,6 +17,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
+    // One survey email per request. If a survey already exists for this
+    // request (pending, sent, or completed), skip — status changes that
+    // re-enter the completed state must not trigger a second email.
+    if (feedbackStore.hasSurveyForRequest(requestId)) {
+      console.log(`[feedback] Skipping survey email for ${requestId} — survey already exists`)
+      return NextResponse.json({ success: true, skipped: true, reason: "already_sent" })
+    }
+
     const survey = feedbackStore.createSurvey({
       requestId,
       requesterEmail,

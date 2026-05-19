@@ -113,6 +113,21 @@ class FeedbackStoreManager {
     return [...this.data.responses]
   }
 
+  /**
+   * Does any survey (pending, sent, or completed) already exist for this request?
+   * Used to enforce "one survey email per request" — status changes that re-enter
+   * the completed state must not re-trigger a survey email.
+   */
+  hasSurveyForRequest(requestId: string): boolean {
+    return this.data.surveys.some((s) => s.requestId === requestId)
+        || this.data.responses.some((r) => r.requestId === requestId)
+  }
+
+  /** Find an open (not yet completed) survey for a given request, if any. */
+  findPendingForRequest(requestId: string): StoredFeedbackSurvey | null {
+    return this.data.surveys.find((s) => s.requestId === requestId) ?? null
+  }
+
   /** Clear everything — for Admin Database wipe operations. */
   clearAll(): void {
     this.data = { surveys: [], responses: [] }
