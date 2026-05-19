@@ -15,6 +15,7 @@ import { hasPermission } from "@/lib/access"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { CommentsTab } from "@/components/request/CommentsTab"
 import { invalidateCommentCountCache } from "@/hooks/useCommentCounts"
+import { createFeedbackSurvey, submitFeedbackResponse, getFeedbackResponses } from "@/services/feedbackService"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -399,6 +400,14 @@ export default function RequestDetailPage() {
         }
 
         setRequest(foundRequest)
+
+        // Restore feedback state if already submitted for this request
+        const existing = getFeedbackResponses().find((r) => r.requestId === foundRequest.id)
+        if (existing) {
+          setSurveySubmitted(true)
+          setSurveyRating(existing.rating ?? 0)
+          setSurveyComment(existing.comment ?? "")
+        }
       } catch (err) {
         console.error("Failed to fetch request:", err)
         setError(err instanceof Error ? err.message : "Failed to fetch request")
@@ -906,7 +915,9 @@ export default function RequestDetailPage() {
                 <Button
                   disabled={!surveyRating}
                   onClick={() => {
-                    if (!surveyRating) return
+                    if (!surveyRating || !request) return
+                    const survey = createFeedbackSurvey(request)
+                    submitFeedbackResponse(survey.id, surveyRating, surveyComment)
                     setSurveySubmitted(true)
                   }}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"

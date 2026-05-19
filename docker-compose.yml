@@ -70,8 +70,12 @@ services:
   tunnel:
     image: cloudflare/cloudflared:latest
     container_name: admin-helpdesk-tunnel
-    restart: unless-stopped
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    restart: always
+    command:
+      - tunnel
+      - run
+      - --token
+      - ${CLOUDFLARE_TUNNEL_TOKEN:-}
     depends_on:
       app:
         condition: service_healthy
