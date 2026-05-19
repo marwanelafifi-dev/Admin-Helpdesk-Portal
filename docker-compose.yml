@@ -36,8 +36,8 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://${DB_USER:-admin}:${DB_PASSWORD:-admin_password_123}@db:5432/${DB_NAME:-admin_request_platform}
-      NEXTAUTH_URL: http://localhost:3003
-      AUTH_URL: http://localhost:3003
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3003}
+      AUTH_URL: ${AUTH_URL:-http://localhost:3003}
       AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID}
       AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET}
       ENABLE_GOOGLE_AUTH: "true"
