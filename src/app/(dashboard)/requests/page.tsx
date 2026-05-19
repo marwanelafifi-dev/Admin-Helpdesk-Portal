@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useCallback, useState } from "react"
 import Link from "next/link"
-import { Search, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
+import { Search, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle, Star, X, ArrowRight } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader } from "@/components/ui/card"
@@ -153,6 +153,11 @@ export default function RequestsPage() {
   const [sortKey, setSortKey]           = useState<SortKey>("updatedAt")
   const [sortDir, setSortDir]           = useState<"asc" | "desc">("desc")
   const [colWidths, setColWidths]       = useState<(number | null)[]>(() => COLS.map(() => null))
+  // Request IDs (across the entire server-side feedback_responses store) that
+  // already have a submitted survey — so we know which of MY completed/delivered
+  // requests still need feedback. Server-side data: works across devices.
+  const [feedbackDoneIds, setFeedbackDoneIds] = useState<Set<string>>(new Set())
+  const [reminderDismissed, setReminderDismissed] = useState(false)
   const tableRef = useRef<HTMLTableElement>(null)
 
   const commentCounts = useCommentCounts(requests.map(r => r.id))
@@ -173,6 +178,25 @@ export default function RequestsPage() {
     }
 
     fetchRequests()
+  }, [])
+
+  // Load the set of request IDs that already have a submitted feedback response,
+  // so we can detect which of the user's completed requests still need rating.
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/feedback/responses")
+      .then((res) => res.ok ? res.json() : { responses: [] })
+      .then((data) => {
+        if (cancelled) return
+        const ids = new Set<string>(
+          (Array.isArray(data.responses) ? data.responses : [])
+            .map((r: any) => r.requestId)
+            .filter(Boolean)
+        )
+        setFeedbackDoneIds(ids)
+      })
+      .catch(() => { /* feedback reminder is best-effort */ })
+    return () => { cancelled = true }
   }, [])
 
   const onResizeMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
@@ -205,6 +229,15 @@ export default function RequestsPage() {
     if (currentUserName && r.requesterName === currentUserName) return true
     return false
   }), [requests, currentUserId, currentUserEmail, currentUserName])
+
+  // User's completed/delivered requests that still don't have a submitted
+  // feedback response — these drive the "Please rate" reminder banner.
+  const pendingFeedback = useMemo(() => {
+    const isClosed = (s: string) => s === "completed" || s === "delivered"
+    return userRequests
+      .filter((r) => isClosed(r.status) && !feedbackDoneIds.has(r.id))
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+  }, [userRequests, feedbackDoneIds])
 
   function updateRequestStatus(id: string, status: string) {
     setRequests((prev) => prev.map((request) =>
@@ -250,6 +283,56 @@ export default function RequestsPage() {
           <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
         )}
       </div>
+
+      {/* Pending Feedback Reminder — shows when the user has completed requests
+          that haven't been rated yet. Dismissible per session (refresh re-shows). */}
+      {!reminderDismissed && pendingFeedback.length > 0 && (
+        <div className="rounded-xl border-2 border-amber-200 bg-amber-50 px-4 py-3">
+          <div className="flex items-start gap-3">
+            <div className="h-9 w-9 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+              <Star className="h-4.5 w-4.5 text-amber-700 fill-amber-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-amber-900">
+                  {pendingFeedback.length === 1
+                    ? "1 completed request is waiting for your feedback"
+                    : `${pendingFeedback.length} completed requests are waiting for your feedback`}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setReminderDismissed(true)}
+                  className="p-1 rounded hover:bg-amber-100 text-amber-700"
+                  aria-label="Dismiss reminder"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <p className="text-xs text-amber-700 mt-0.5">
+                Help us improve — your rating takes seconds and shapes how the team handles future requests.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                {pendingFeedback.slice(0, 5).map((r) => (
+                  <Link
+                    key={r.id}
+                    href={`/requests/${r.id}?source=my-requests#feedback`}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-white border border-amber-300 px-2.5 py-1 text-xs font-medium text-amber-900 hover:border-amber-400 hover:bg-amber-100 transition-colors"
+                  >
+                    <span className="font-semibold">{r.id}</span>
+                    <span className="text-amber-700 truncate max-w-[180px]">— {r.title}</span>
+                    <ArrowRight className="h-3 w-3 opacity-70" />
+                  </Link>
+                ))}
+                {pendingFeedback.length > 5 && (
+                  <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-amber-700">
+                    +{pendingFeedback.length - 5} more
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stat Cards */}
       <div className="grid grid-cols-4 lg:grid-cols-8 gap-3">
