@@ -636,7 +636,9 @@ export default function AllRequestsPage() {
                   <td className="py-3 px-2 text-right">
                     <RequestActionsMenu
                       requestId={req.id}
-                      showCancelOption={canCancelRequest}
+                      // HR module has no Cancelled status — hide Cancel for HR rows
+                      // regardless of permission.
+                      showCancelOption={canCancelRequest && req.module !== "hr"}
                       isExpanded={isExpanded(req.id)}
                       onViewDetails={() => toggleRow(req.id)}
                       onEdit={canEditRequest ? (id) => {

@@ -82,7 +82,6 @@ export default function HRPage() {
   const tableRef = useRef<HTMLTableElement>(null)
 
   const canUpdateStatus = ((session?.user?.permissions as string[])?.includes("update_status") || (session?.user?.permissions as string[])?.includes("*")) ?? false
-  const canCancelRequest = ((session?.user?.permissions as string[])?.includes("cancel_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canEditRequest = ((session?.user?.permissions as string[])?.includes("edit_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
 
   const commentCounts = useCommentCounts(requests.map(r => r.id))
@@ -118,12 +117,6 @@ export default function HRPage() {
         updateType: "status",
         ccEmails: getAllCcEmails(getRequestById(id) ?? { adminCc: [], payload: {} } as any),
       })
-    }
-  }
-
-  function handleCancelRequest(id: string) {
-    if (confirm("Are you sure you want to cancel this request?")) {
-      handleStatusChange(id, "completed")
     }
   }
 
@@ -449,11 +442,12 @@ export default function HRPage() {
                     <td className="py-3 px-2 text-right">
                       <RequestActionsMenu
                         requestId={req.id}
-                        showCancelOption={canCancelRequest}
+                        // HR module statuses are new / on_hold / completed only — no cancelled state.
+                        // The Cancel request action is intentionally hidden regardless of permission.
+                        showCancelOption={false}
                         isExpanded={isExpanded(req.id)}
                         onViewDetails={() => toggleRow(req.id)}
                         onEdit={canEditRequest ? (id) => window.open(`/requests/${id}?source=hr`, '_blank') : undefined}
-                        onCancel={handleCancelRequest}
                       />
                     </td>
                   </tr>
