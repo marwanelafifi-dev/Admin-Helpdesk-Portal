@@ -32,6 +32,7 @@ import {
 import { cn } from "@/lib/utils"
 import { canAccessPath } from "@/lib/access"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
+import { useMobileNav } from "./MobileNavContext"
 
 interface NavItem {
   title: string
@@ -102,6 +103,7 @@ export function Sidebar() {
 
   const permissions = session?.user?.permissions ?? []
   const role = session?.user?.role
+  const { open: mobileOpen } = useMobileNav()
 
   // Per-module "new" request counts and todo task count.
   // Drives small badges next to sidebar items so admins can see at a glance
@@ -139,6 +141,11 @@ export function Sidebar() {
    */
   function moduleForHref(href: string): string | null {
     if (href.startsWith("/hr")) return "hr"
+    // Shipping has two sub-buckets: receiving and sending. Match the leaves
+    // first so each child link gets only its own count; the parent /shipping
+    // still resolves to the aggregate.
+    if (href === "/shipping/receiving" || href.startsWith("/shipping/receiving/")) return "shipping-receiving"
+    if (href === "/shipping/sending"   || href.startsWith("/shipping/sending/"))   return "shipping-sending"
     if (href.startsWith("/shipping")) return "shipping"
     if (href.startsWith("/maintenance")) return "maintenance"
     if (href.startsWith("/purchase")) return "purchase"
@@ -157,7 +164,12 @@ export function Sidebar() {
     if (!isAdminAudience) return 0
     if (href === "/tasks") return newTasksCount
     if (href === "/admin/all-requests") {
-      return Object.values(newRequestsByModule).reduce((a, b) => a + b, 0)
+      // Sum only the real module buckets — skip the synthetic
+      // shipping-receiving / shipping-sending sub-buckets, otherwise every
+      // shipping request gets counted twice.
+      return Object.entries(newRequestsByModule)
+        .filter(([key]) => !key.includes("-"))
+        .reduce((sum, [, count]) => sum + count, 0)
     }
     const mod = moduleForHref(href)
     if (mod) return newRequestsByModule[mod] ?? 0
@@ -218,8 +230,13 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "relative flex flex-col bg-slate-900 text-white transition-all duration-300 ease-in-out flex-shrink-0",
-        collapsed ? "w-16" : "w-64"
+        // Below lg: fixed drawer that slides in from the left. Above lg: stays
+        // inline in the flex layout next to the page content.
+        "fixed inset-y-0 left-0 z-40 flex flex-col bg-slate-900 text-white",
+        "transition-transform duration-300 ease-in-out lg:transition-all lg:translate-x-0",
+        mobileOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full",
+        "lg:relative lg:flex-shrink-0",
+        collapsed ? "w-64 lg:w-16" : "w-64"
       )}
     >
       {/* Branding */}

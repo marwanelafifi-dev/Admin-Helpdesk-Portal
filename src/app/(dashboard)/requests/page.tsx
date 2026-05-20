@@ -145,6 +145,7 @@ export default function RequestsPage() {
   const currentUserId    = session?.user?.id ?? ""
   const currentUserEmail = (session?.user?.email ?? "").toLowerCase()
   const currentUserName  = session?.user?.name ?? ""
+  const canUpdateStatus = ((session?.user?.permissions as string[])?.includes("update_status") || (session?.user?.permissions as string[])?.includes("*")) ?? false
 
   const [requests, setRequests]         = useState<EngineRequest[]>([])
   const [search, setSearch]             = useState("")
@@ -504,6 +505,7 @@ export default function RequestsPage() {
                       statusDot={STATUS_DOT}
                       statusLabels={{ ...STATUS_LABELS, ...(MODULE_STATUS_LABELS[req.module] ?? {}) }}
                       onStatusChange={(nextStatus) => updateRequestStatus(req.id, nextStatus)}
+                      canUpdateStatus={canUpdateStatus}
                     />
                   </td>
                   <td className="py-3 px-3">

@@ -10,7 +10,7 @@ import {
   type ShippingRequestForm,
 } from "./shipping.schema"
 import { shippingFormDefaults } from "./shipping.mock"
-import { getList } from "@/lib/companyDataStore"
+import { getList, addItem, getManagerEmail } from "@/lib/companyDataStore"
 import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
 import { createNewRequestNotifications } from "@/lib/notificationStore"
 
@@ -91,14 +91,18 @@ function buildAttachmentPayload(files: StagedFile[]) {
 }
 
 function hasRequiredDocs(files: StagedFile[]) {
-  const hasAwb = files.some((f) => f.category === "awb")
-  const hasInvoice = files.some((f) => f.category === "invoice")
-  return hasAwb && hasInvoice
+  // Only the Commercial Invoice is required. AWB is optional.
+  return files.some((f) => f.category === "invoice")
 }
 
 function mapApprovers(approvers: ShippingRequestForm["approvers"]) {
-  // manager id is the name string from companyDataStore
-  const toPerson = (id: string) => ({ userId: id, name: id, email: "" })
+  // Resolve the manager name into {name, email} via Company Data so the
+  // stored payload carries a real email — not an empty string.
+  const toPerson = (id: string) => ({
+    userId: id,
+    name: id,
+    email: getManagerEmail(id) ?? "",
+  })
   return {
     directManager: toPerson(approvers.directManager),
     techManager: approvers.techManager.map(toPerson),
@@ -168,7 +172,7 @@ function FileUploadZone({
   )
 }
 
-export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel?: () => void; editingRequest?: EngineRequest | null; isEditing?: boolean }) {
+export function ShippingForm({ onCancel, editingRequest, isEditing, direction = "receiving" }: { onCancel?: () => void; editingRequest?: EngineRequest | null; isEditing?: boolean; direction?: "sending" | "receiving" }) {
   const router = useRouter()
   const { data: session } = useSession()
   const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([])
@@ -196,6 +200,7 @@ export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel
         title: editingRequest.title || "",
         notes: payload.notes || "",
         supplier: payload.supplier || "",
+        supplierName: payload.supplierName || "",
         poNumber: payload.poNumber || "",
         costCenter: payload.costCenter || "",
         carrier: payload.carrier || "",
@@ -217,20 +222,54 @@ export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel
 
   const ccEmails = watch("ccEmails") ?? []
   const carrier = watch("carrier")
+  const supplier = watch("supplier")
 
   const addStagedFiles = useCallback((newFiles: StagedFile[]) => setStagedFiles((prev) => [...prev, ...newFiles]), [])
   const removeStagedFile = useCallback((id: string) => setStagedFiles((prev) => prev.filter((f) => f.id !== id)), [])
 
   const onSubmit = async (data: ShippingRequestForm) => {
     if (!isEditing && !hasRequiredDocs(stagedFiles)) {
-      setError("attachments", { type: "manual", message: "AWB and Commercial Invoice are both required." })
+      setError("attachments", { type: "manual", message: "Commercial Invoice is required." })
       return
     }
     clearErrors("attachments")
 
+    // If the user picked "Other" and typed a new supplier, push the typed
+    // value into the Company Data suppliers list so it's there next time —
+    // and replace the form's `supplier` field with that name so the payload
+    // we store doesn't keep "Other" as the supplier label.
+    let resolvedSupplier = data.supplier
+    if (data.supplier === "Other") {
+      const typed = (data.supplierName ?? "").trim()
+      if (typed) {
+        addItem("suppliers", typed)
+        setSuppliers(getList("suppliers"))
+        resolvedSupplier = typed
+      }
+    }
+
+    // Auto-CC the selected Direct Manager. Looks up their email in the
+    // Company Data managers list and appends it to ccEmails (deduped, case
+    // insensitive) so they receive every email notification for this request.
+    const managerName = data.approvers?.directManager?.trim()
+    const managerEmail = managerName ? getManagerEmail(managerName) : undefined
+    const ccEmailsWithManager = (() => {
+      const existing = data.ccEmails ?? []
+      if (!managerEmail) return existing
+      const lower = new Set(existing.map((e) => e.toLowerCase()))
+      if (lower.has(managerEmail.toLowerCase())) return existing
+      return [...existing, managerEmail]
+    })()
+    data.ccEmails = ccEmailsWithManager
+
     try {
       const payload = {
         ...data,
+        supplier: resolvedSupplier,
+        // Stamp the page's direction (sending / receiving) so list pages can
+        // filter to their own bucket. When editing, keep whatever direction
+        // was already on the request.
+        direction: isEditing ? ((editingRequest?.payload as any)?.direction ?? direction) : direction,
         approvers: mapApprovers(data.approvers),
         attachments: isEditing ? (editingRequest?.payload as any)?.attachments : buildAttachmentPayload(stagedFiles),
       }
@@ -293,9 +332,21 @@ export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel
                   options={suppliers}
                   placeholder="Select supplier"
                   hasError={!!errors.supplier}
+                  pinnedOption={{
+                    value: "Other",
+                    label: "Other",
+                    caption: "Select if you need to add a new supplier",
+                  }}
                 />
               )} />
               <FieldError message={errors.supplier?.message} />
+              {supplier === "Other" && (
+                <div className="space-y-1.5 pt-1">
+                  <Label htmlFor="supplierName">Supplier Name <span className="text-red-500">*</span></Label>
+                  <Input id="supplierName" placeholder="Enter supplier name" {...register("supplierName")} className={cn(errors.supplierName && "border-red-400")} />
+                  <FieldError message={(errors as any).supplierName?.message} />
+                </div>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Cost Center <span className="text-red-500">*</span></Label>
@@ -356,7 +407,7 @@ export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel
               <FieldError message={errors.carrier?.message} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="trackingNumber">Tracking Number <span className="text-red-500">*</span></Label>
+              <Label htmlFor="trackingNumber">Tracking Number <span className="text-muted-foreground text-xs">(optional)</span></Label>
               <Input id="trackingNumber" {...register("trackingNumber")} className={cn(errors.trackingNumber && "border-red-400")} />
               <FieldError message={errors.trackingNumber?.message} />
             </div>
@@ -371,8 +422,9 @@ export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel
           )}
 
           <div className="space-y-1.5">
-            <Label htmlFor="description">Shipment Description</Label>
-            <Textarea id="description" rows={2} {...register("description")} />
+            <Label htmlFor="description">Shipment Description <span className="text-red-500">*</span></Label>
+            <Textarea id="description" rows={2} {...register("description")} className={cn(errors.description && "border-red-400")} />
+            <FieldError message={errors.description?.message} />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -390,11 +442,11 @@ export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel
       </Card>
 
       <Card>
-        <SectionHeader icon={Receipt} title="Attachments" subtitle="AWB and Commercial Invoice are required" />
+        <SectionHeader icon={Receipt} title="Attachments" subtitle="Commercial Invoice is required; AWB is optional" />
         <CardContent>
           <div className="space-y-4">
             <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-6 p-3 rounded-lg", (errors.attachments as { message?: string })?.message ? "bg-red-50 border border-red-200" : "")}>
-              <FileUploadZone category="awb" label="AWB" icon={Plane} files={stagedFiles} onAdd={addStagedFiles} onRemove={removeStagedFile} required />
+              <FileUploadZone category="awb" label="AWB" icon={Plane} files={stagedFiles} onAdd={addStagedFiles} onRemove={removeStagedFile} />
               <FileUploadZone category="invoice" label="Commercial Invoice" icon={FileText} files={stagedFiles} onAdd={addStagedFiles} onRemove={removeStagedFile} required />
             </div>
             <div className="mt-4">
@@ -424,7 +476,7 @@ export function ShippingForm({ onCancel, editingRequest, isEditing }: { onCancel
         </CardContent>
       </Card>
 
-      <div className="border-t bg-gray-50 py-4 px-1 flex items-center justify-between gap-3 -mx-1">
+      <div className="form-footer border-t bg-gray-50 py-4 px-1 flex items-center justify-between gap-3 -mx-1">
         <Button type="button" variant="ghost" onClick={() => onCancel?.()}>Cancel</Button>
         <Button type="submit" disabled={isSubmitting} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px]">
           {isSubmitting ? (isEditing ? "Updating..." : "Submitting...") : (isEditing ? "Update Request" : "Submit")}

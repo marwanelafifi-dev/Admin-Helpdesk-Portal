@@ -228,3 +228,89 @@
     animation: slide-up 0.55s ease-out both;
   }
 }
+
+/* ─── Global mobile responsiveness ──────────────────────────────────────────
+   Pages were originally written for desktop with fixed multi-column grids
+   like `grid-cols-3`, `grid-cols-5`, etc. Rather than touch every page
+   individually, these rules collapse those grids to a single column on
+   small screens and let wide tables scroll horizontally inside their card
+   instead of overflowing the viewport.
+   Apply below 768px (the `md` Tailwind breakpoint) so tablets+ keep the
+   original layout.
+*/
+@media (max-width: 767px) {
+  /* Stat-card / KPI grids: stack vertically. Captures grid-cols-2..7 unless
+     a responsive variant (sm:/md:) is already explicitly applied. We use
+     :where() to keep specificity low so component-level overrides win. */
+  :where(.grid.grid-cols-2):not([class*=":grid-cols"]),
+  :where(.grid.grid-cols-3):not([class*=":grid-cols"]),
+  :where(.grid.grid-cols-4):not([class*=":grid-cols"]),
+  :where(.grid.grid-cols-5):not([class*=":grid-cols"]),
+  :where(.grid.grid-cols-6):not([class*=":grid-cols"]),
+  :where(.grid.grid-cols-7):not([class*=":grid-cols"]) {
+    grid-template-columns: 1fr;
+  }
+
+  /* Tables: never let them break the viewport. Their parent already has
+     -mx-6 px-6 -mb-6 overflow-x-auto in module list pages; this is a
+     safety net for anything that missed the pattern. */
+  table {
+    min-width: 100%;
+  }
+
+  /* Form footers wrap their Cancel + Submit buttons in a row. Stack and
+     full-width them on mobile. Add the `form-footer` class to mark a
+     footer (or it will inherit just from the standard structure below). */
+  .form-footer {
+    flex-direction: column-reverse !important;
+    align-items: stretch !important;
+    gap: 0.5rem !important;
+  }
+  .form-footer > * {
+    width: 100% !important;
+  }
+
+  /* Page header rows that put a title left + action button right tend to
+     overflow when the button label is long. Allow them to wrap. */
+  header.h-16,
+  .flex.items-center.justify-between:has(> .flex-1 > h1),
+  .flex.items-center.justify-between:has(> div > h1) {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+  }
+
+  /* Dialog content: shadcn's Dialog defaults to max-w-lg with absolute
+     positioning. On phones we want it edge-to-edge with a small margin. */
+  [role="dialog"] {
+    max-width: calc(100vw - 1.5rem) !important;
+  }
+
+  /* Large body text + headings shrink slightly so cards don't burst. */
+  h1.text-3xl { font-size: 1.5rem; line-height: 2rem; }
+  h1.text-2xl { font-size: 1.25rem; line-height: 1.75rem; }
+
+  /* Touch targets — buttons inside tables tend to be tiny on mobile. */
+  button[class*="h-7"], button[class*="h-8"] {
+    min-height: 36px;
+  }
+
+  /* Filter pill rows: allow wrapping. */
+  .flex.flex-wrap.gap-1\.5,
+  .flex.flex-wrap.gap-2,
+  .flex.flex-wrap.gap-3 {
+    width: 100%;
+  }
+}
+
+/* Specific page-header pattern: title block + action button on the right.
+   On <md we want the action button to drop below the title and span full
+   width so it's reachable with a thumb. */
+@media (max-width: 767px) {
+  /* New-request / "Add ..." buttons in module list headers — they all use
+     the same shape. Let them go full width on mobile. */
+  header.h-16 ~ * .flex.items-center.justify-between > .ml-4,
+  .flex.items-center.justify-between > [class*="ml-4"]:not(button):not(a):not(svg) {
+    margin-left: 0;
+  }
+}
+

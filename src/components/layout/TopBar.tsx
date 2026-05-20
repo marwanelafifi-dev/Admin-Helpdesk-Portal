@@ -4,7 +4,8 @@ import { useEffect, useState } from "react"
 import Image from "next/image"
 import { signOut, useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { Bell, LogOut, Settings, Sun, Moon, User } from "lucide-react"
+import { Bell, LogOut, Menu, Settings, Sun, Moon, User } from "lucide-react"
+import { useMobileNav } from "./MobileNavContext"
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -42,6 +43,7 @@ function roleLabel(role?: string) {
 const SETTINGS_KEY = "arp_platform_settings"
 
 export function TopBar() {
+  const { toggle: toggleMobileNav } = useMobileNav()
   const { data: session } = useSession()
   const router = useRouter()
   const user = session?.user
@@ -79,28 +81,37 @@ export function TopBar() {
   }
 
   return (
-    <header className="h-16 border-b bg-background flex items-center justify-between px-6 flex-shrink-0">
-      {/* Left: Empty space */}
-      <div className="flex-1" />
+    <header className="h-16 border-b bg-background flex items-center justify-between px-3 sm:px-4 lg:px-6 flex-shrink-0 gap-2">
+      {/* Left: hamburger (mobile only) */}
+      <div className="flex items-center flex-shrink-0">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Open menu"
+          onClick={toggleMobileNav}
+          className="lg:hidden text-muted-foreground hover:text-foreground"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+      </div>
 
-      {/* Center: Logo */}
+      {/* Center: Logo (hidden on very small screens to save room) */}
       {headerShowLogo ? (
-        <div className="flex items-center justify-center px-4 relative h-12 w-64">
-          {logoSrc.startsWith("data:") ? (
-            <img src={logoSrc} alt={headerLogoAlt} className="h-full w-full object-contain" />
-          ) : (
-            <Image src={logoSrc} alt={headerLogoAlt} fill className="object-contain" priority />
-          )}
+        <div className="flex-1 flex items-center justify-center min-w-0">
+          <div className="relative h-10 w-40 sm:h-12 sm:w-56 lg:w-64">
+            {logoSrc.startsWith("data:") ? (
+              <img src={logoSrc} alt={headerLogoAlt} className="h-full w-full object-contain" />
+            ) : (
+              <Image src={logoSrc} alt={headerLogoAlt} fill className="object-contain" priority />
+            )}
+          </div>
         </div>
       ) : (
         <div className="flex-1" />
       )}
 
-      {/* Right: Empty space */}
-      <div className="flex-1" />
-
       {/* Right: actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
         {/* Theme toggle */}
         <Button
           variant="ghost"
@@ -166,14 +177,14 @@ export function TopBar() {
         {/* User Avatar + Name */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-gray-100 transition-colors">
+            <button className="flex items-center gap-2 rounded-md px-1.5 sm:px-2 py-1.5 hover:bg-gray-100 transition-colors">
               <Avatar className="h-8 w-8">
                 {user?.image && <AvatarImage src={user.image} alt={user.name ?? "User"} />}
                 <AvatarFallback className="bg-blue-600 text-white text-xs font-semibold">
                   {getInitials(user?.name, user?.email)}
                 </AvatarFallback>
               </Avatar>
-              <div className="hidden md:block text-left">
+              <div className="hidden lg:block text-left">
                 <p className="text-sm font-medium leading-tight">{user?.name ?? user?.email}</p>
                 <p className="text-xs text-muted-foreground leading-tight">
                   {roleLabel(user?.role)}

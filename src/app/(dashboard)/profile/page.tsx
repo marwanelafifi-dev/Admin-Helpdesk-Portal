@@ -10,8 +10,6 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
-const AVATAR_KEY = "arp_user_avatar"
-
 function getInitials(name?: string | null, email?: string | null) {
   const label = name || email || "U"
   return label.split(/[.\s@_-]+/).filter(Boolean).map((p) => p[0]).join("").toUpperCase().slice(0, 2)
@@ -26,7 +24,7 @@ const ROLE_COLORS: Record<string, string> = {
 }
 
 export default function ProfilePage() {
-  const { data: session, status } = useSession()
+  const { data: session, status, update } = useSession()
   const user = session?.user
 
   const [name, setName] = useState("")
@@ -38,15 +36,27 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (user?.name) setName(user.name)
-    // Load custom avatar from localStorage, fall back to session image
-    try {
-      const stored = localStorage.getItem(AVATAR_KEY)
-      if (stored) setAvatarSrc(stored)
-      else if (user?.image) setAvatarSrc(user.image)
-    } catch {
-      if (user?.image) setAvatarSrc(user.image)
-    }
+    setAvatarSrc(user?.image ?? null)
   }, [user?.name, user?.image])
+
+  async function persistImage(image: string | null) {
+    if (!user?.id) return
+    setError("")
+    try {
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || "Failed to save photo")
+      }
+      await update()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save photo")
+    }
+  }
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -59,7 +69,7 @@ export default function ProfilePage() {
     reader.onload = (ev) => {
       const dataUrl = ev.target?.result as string
       setAvatarSrc(dataUrl)
-      try { localStorage.setItem(AVATAR_KEY, dataUrl) } catch {}
+      void persistImage(dataUrl)
     }
     reader.readAsDataURL(file)
     // reset input so same file can be re-selected
@@ -67,8 +77,8 @@ export default function ProfilePage() {
   }
 
   const handleRemoveAvatar = () => {
-    try { localStorage.removeItem(AVATAR_KEY) } catch {}
-    setAvatarSrc(user?.image ?? null)
+    setAvatarSrc(null)
+    void persistImage(null)
   }
 
   const handleSave = async () => {
@@ -85,6 +95,9 @@ export default function ProfilePage() {
         const data = await res.json().catch(() => ({}))
         throw new Error(data.error || "Failed to save")
       }
+      // Trigger NextAuth to re-run the jwt + session callbacks so the new name
+      // shows in the topbar and elsewhere without requiring a full re-login.
+      await update()
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (err) {
@@ -103,7 +116,7 @@ export default function ProfilePage() {
   }
 
   const roleColor = ROLE_COLORS[user?.role ?? ""] ?? "bg-slate-100 text-slate-700 border-slate-200"
-  const hasCustomAvatar = (() => { try { return !!localStorage.getItem(AVATAR_KEY) } catch { return false } })()
+  const hasCustomAvatar = !!avatarSrc
 
   return (
     <div className="space-y-6 max-w-3xl">

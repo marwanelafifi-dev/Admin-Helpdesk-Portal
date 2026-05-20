@@ -28,7 +28,7 @@ export default function NewReceivingRequestPage() {
         </p>
       </div>
 
-      <ShippingForm onCancel={handleCancel} />
+      <ShippingForm onCancel={handleCancel} direction="receiving" />
     </div>
   )
 }

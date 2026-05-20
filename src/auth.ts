@@ -137,7 +137,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.email = stored.email
         token.role = stored.role
         token.name = stored.name
-        token.picture = stored.image ?? null
+        // image deliberately omitted — see note in refresh branch below
         token.permissions = await getPermissionsForRole(stored.role)
         return token
       }
@@ -149,16 +149,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.email = user.email
         token.role = role
         token.name = user.name
-        token.picture = user.image ?? null
         token.permissions = await getPermissionsForRole(role)
         return token
       }
 
-      // Refresh role + permissions on every session refresh
+      // Refresh role + permissions + name on every session refresh.
+      // NOTE: We deliberately do NOT put the avatar data URL on the JWT —
+      // a 2 MB data URL would blow past the 4 KB cookie size limit and the
+      // browser would drop the session. The image is read from the user
+      // store in the session callback below instead.
       if (token.email) {
         const stored = findUserByEmail(token.email as string)
         if (stored) {
           token.role = stored.role
+          token.name = stored.name
           const { getPermissionsForRole } = await import("@/lib/userRoles")
           token.permissions = await getPermissionsForRole(stored.role)
         }
@@ -171,7 +175,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.userId as string
         session.user.role = (token.role as string) || "requester"
         session.user.name = (token.name as string) ?? session.user.name
-        session.user.image = (token.picture as string) ?? session.user.image
+        // Read the avatar from the user store on each request instead of
+        // pulling it from the JWT. Keeps the cookie small even with large
+        // data-URL avatars; cost is one extra file read per request.
+        if (token.email) {
+          const stored = findUserByEmail(token.email as string)
+          session.user.image = stored?.image ?? null
+        }
         session.user.permissions = await getPermissionsForRole(session.user.role)
       }
       return session

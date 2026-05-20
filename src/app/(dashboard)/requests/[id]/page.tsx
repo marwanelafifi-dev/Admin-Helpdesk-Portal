@@ -635,16 +635,19 @@ export default function RequestDetailPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {Object.entries(request.payload).map(([key, value]) => (
-                        <div key={key} className="space-y-1">
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                            {key.replace(/([A-Z])/g, " $1").trim()}
-                          </p>
-                          <p className="text-sm font-medium text-gray-900">
-                            {typeof value === "object" ? JSON.stringify(value) : String(value)}
-                          </p>
-                        </div>
-                      ))}
+                      {Object.entries(request.payload)
+                        // ccEmails has its own panel; attachments has its own tab.
+                        // Skip empty values so the grid doesn't show 20 blank rows.
+                        .filter(([key, value]) => {
+                          if (key === "ccEmails" || key === "attachments") return false
+                          if (value == null) return false
+                          if (typeof value === "string" && value.trim() === "") return false
+                          if (Array.isArray(value) && value.length === 0) return false
+                          return true
+                        })
+                        .map(([key, value]) => (
+                          <PayloadField key={key} fieldKey={key} value={value} />
+                        ))}
                     </div>
                   </CardContent>
                 </Card>
@@ -959,4 +962,120 @@ export default function RequestDetailPage() {
       )}
     </div>
   )
+}
+
+// ─── PayloadField — pretty renderer for request.payload entries ──────────────
+// Replaces the previous JSON.stringify dump for nested values like
+// `approvers` and `attachments`. Falls back to a short summary line when
+// the structure is unfamiliar, instead of leaking raw blob: URLs and IDs.
+
+function humanizeKey(key: string): string {
+  // camelCase / snake_case → "Title Case"
+  return key
+    .replace(/([A-Z])/g, " $1")
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function PayloadField({ fieldKey, value }: { fieldKey: string; value: unknown }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        {humanizeKey(fieldKey)}
+      </p>
+      <PayloadValue fieldKey={fieldKey} value={value} />
+    </div>
+  )
+}
+
+function PayloadValue({ fieldKey, value }: { fieldKey: string; value: unknown }) {
+  // Approvers block — render Direct Manager + Tech/PM as a small named list.
+  if (fieldKey === "approvers" && value && typeof value === "object") {
+    const a = value as {
+      directManager?: { name?: string; email?: string }
+      techManager?: Array<{ name?: string; email?: string }>
+      pm?: Array<{ name?: string; email?: string }>
+    }
+    const rows: { label: string; name?: string; email?: string }[] = []
+    if (a.directManager?.name || a.directManager?.email) {
+      rows.push({ label: "Direct Manager", name: a.directManager.name, email: a.directManager.email })
+    }
+    ;(a.techManager ?? []).forEach((p, i) =>
+      rows.push({ label: `Tech Manager ${a.techManager!.length > 1 ? i + 1 : ""}`.trim(), name: p.name, email: p.email })
+    )
+    ;(a.pm ?? []).forEach((p, i) =>
+      rows.push({ label: `PM ${a.pm!.length > 1 ? i + 1 : ""}`.trim(), name: p.name, email: p.email })
+    )
+    if (rows.length === 0) {
+      return <p className="text-sm text-gray-500 italic">No approvers</p>
+    }
+    return (
+      <ul className="text-sm space-y-1">
+        {rows.map((r, idx) => (
+          <li key={idx} className="flex flex-wrap items-baseline gap-x-2">
+            <span className="text-gray-500">{r.label}:</span>
+            <span className="font-medium text-gray-900">{r.name || r.email || "—"}</span>
+            {r.email && r.email !== r.name && (
+              <span className="text-xs text-gray-400">{r.email}</span>
+            )}
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
+  // Arrays of strings → comma-separated chips.
+  if (Array.isArray(value)) {
+    if (value.length === 0) return <p className="text-sm text-gray-500 italic">None</p>
+    if (value.every((v) => typeof v === "string" || typeof v === "number")) {
+      return <p className="text-sm font-medium text-gray-900">{value.join(", ")}</p>
+    }
+    // Array of objects — try to find a readable label (name → title → id).
+    return (
+      <ul className="text-sm space-y-1">
+        {value.map((item, idx) => {
+          if (item && typeof item === "object") {
+            const obj = item as Record<string, unknown>
+            const label = (obj.name ?? obj.title ?? obj.label ?? obj.id ?? "Item") as string
+            return <li key={idx} className="font-medium text-gray-900">{String(label)}</li>
+          }
+          return <li key={idx} className="font-medium text-gray-900">{String(item)}</li>
+        })}
+      </ul>
+    )
+  }
+
+  // Plain object — render key/value lines instead of a JSON blob.
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).filter(
+      ([, v]) => v != null && v !== ""
+    )
+    if (entries.length === 0) return <p className="text-sm text-gray-500 italic">—</p>
+    return (
+      <ul className="text-sm space-y-0.5">
+        {entries.map(([k, v]) => (
+          <li key={k} className="flex flex-wrap items-baseline gap-x-2">
+            <span className="text-gray-500">{humanizeKey(k)}:</span>
+            <span className="font-medium text-gray-900">
+              {typeof v === "object" ? JSON.stringify(v) : String(v)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
+  // Boolean
+  if (typeof value === "boolean") {
+    return <p className="text-sm font-medium text-gray-900">{value ? "Yes" : "No"}</p>
+  }
+
+  // String / number — capitalize known direction values for readability.
+  const text = String(value)
+  if (fieldKey === "direction") {
+    return <p className="text-sm font-medium text-gray-900 capitalize">{text}</p>
+  }
+  return <p className="text-sm font-medium text-gray-900 break-words">{text}</p>
 }

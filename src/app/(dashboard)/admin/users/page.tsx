@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
 import { getList } from "@/lib/companyDataStore"
 import {
@@ -41,6 +41,7 @@ type PlatformUser = {
   active: boolean
   createdAt: string
   provider?: string
+  image?: string | null
 }
 
 type RoleOption = {
@@ -417,6 +418,7 @@ export default function AdminUsersPage() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-8 w-8">
+                            {user.image && <AvatarImage src={user.image} alt={displayName} />}
                             <AvatarFallback className="bg-blue-100 text-blue-700 text-xs font-semibold">
                               {getInitials(displayName)}
                             </AvatarFallback>

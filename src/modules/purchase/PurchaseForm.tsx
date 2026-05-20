@@ -25,7 +25,7 @@ import { AlertCircle, ShoppingCart, Upload, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
-import { getList } from "@/lib/companyDataStore"
+import { getList, getManagerEmail } from "@/lib/companyDataStore"
 
 const BRAND = "#22c55e" // green-500
 
@@ -62,7 +62,11 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
   const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const [departments, setDepartments] = useState<string[]>([])
-  useEffect(() => { setDepartments(getList("departments")) }, [])
+  const [managers, setManagers] = useState<string[]>([])
+  useEffect(() => {
+    setDepartments(getList("departments"))
+    setManagers(getList("managers"))
+  }, [])
   const { register, control, handleSubmit, watch, formState: { errors, isSubmitting }, reset } = useForm<PurchaseForm>({
     resolver: zodResolver(PurchasePayloadSchema),
     defaultValues: { attachments: [], ccEmails: [] },
@@ -82,6 +86,7 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
         quantity: payload.quantity || 1,
         estimatedPrice: payload.estimatedPrice || 0,
         department: payload.department || "",
+        directManager: payload.directManager || "",
         notes: payload.notes || "",
         attachments: payload.attachments || [],
       })
@@ -93,6 +98,17 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
   const handleCancel = onCancel ?? (() => router.push("/purchase"))
 
   const onSubmit = async (data: PurchaseForm) => {
+    // Auto-CC the Direct Manager. Resolves the manager name to an email via
+    // Company Data and appends it to ccEmails (case-insensitive dedupe).
+    const managerEmail = data.directManager ? getManagerEmail(data.directManager) : undefined
+    if (managerEmail) {
+      const existing = data.ccEmails ?? []
+      const lower = new Set(existing.map((e) => e.toLowerCase()))
+      if (!lower.has(managerEmail.toLowerCase())) {
+        data.ccEmails = [...existing, managerEmail]
+      }
+    }
+
     try {
       if (isEditing && editingRequest) {
         // Update existing request
@@ -216,7 +232,8 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
 
               <div className="space-y-1.5">
                 <Label htmlFor="estimatedPrice">Estimated Price (EGP) <span className="text-red-500">*</span></Label>
-                <Input id="estimatedPrice" type="number" min="0" step="0.01" placeholder="0.00" {...register("estimatedPrice", { valueAsNumber: true })} className={cn(errors.estimatedPrice && "border-red-400")} />
+                <Input id="estimatedPrice" type="number" min="0" max="3000" step="0.01" placeholder="0.00" {...register("estimatedPrice", { valueAsNumber: true })} className={cn(errors.estimatedPrice && "border-red-400")} />
+                <p className="text-xs text-muted-foreground">Maximum allowed: 3000 EGP</p>
                 <FieldError message={errors.estimatedPrice?.message} />
               </div>
             </div>
@@ -227,22 +244,42 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
         <Card>
           <SectionHeader icon={ShoppingCart} title="Business Information" subtitle="Department and justification" />
           <CardContent className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Department <span className="text-red-500">*</span></Label>
-              <Controller
-                name="department"
-                control={control}
-                render={({ field }) => (
-                  <SearchableSelect
-                    value={field.value ?? ""}
-                    onChange={field.onChange}
-                    options={departments}
-                    placeholder="Select department"
-                    hasError={!!errors.department}
-                  />
-                )}
-              />
-              <FieldError message={errors.department?.message} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Department <span className="text-red-500">*</span></Label>
+                <Controller
+                  name="department"
+                  control={control}
+                  render={({ field }) => (
+                    <SearchableSelect
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                      options={departments}
+                      placeholder="Select department"
+                      hasError={!!errors.department}
+                    />
+                  )}
+                />
+                <FieldError message={errors.department?.message} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Direct Manager <span className="text-red-500">*</span></Label>
+                <Controller
+                  name="directManager"
+                  control={control}
+                  render={({ field }) => (
+                    <SearchableSelect
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                      options={managers}
+                      placeholder="Select direct manager"
+                      hasError={!!errors.directManager}
+                    />
+                  )}
+                />
+                <FieldError message={errors.directManager?.message} />
+                <p className="text-xs text-muted-foreground">The selected manager is automatically CC&apos;d on this request.</p>
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -325,7 +362,7 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
           </CardContent>
         </Card>
 
-        <div className="border-t bg-gray-50 py-4 px-1 flex items-center justify-between gap-3">
+        <div className="form-footer border-t bg-gray-50 py-4 px-1 flex items-center justify-between gap-3">
           <Button type="button" variant="ghost" onClick={handleCancel}>Cancel</Button>
           <Button type="submit" disabled={isSubmitting} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px]">
             {isSubmitting ? (isEditing ? "Updating..." : "Submitting...") : (isEditing ? "Update Request" : "Submit Purchase Request")}

@@ -1,8 +1,7 @@
 import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 import { auth } from "@/auth"
-import { Sidebar } from "@/components/layout/Sidebar"
-import { TopBar } from "@/components/layout/TopBar"
+import { Shell } from "@/components/layout/Shell"
 import { ProductionDataWipe } from "@/components/layout/ProductionDataWipe"
 import { canAccessPath } from "@/lib/access"
 
@@ -22,13 +21,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background" suppressHydrationWarning>
+    <Shell>
       <ProductionDataWipe />
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
-      </div>
-    </div>
+      {children}
+    </Shell>
   )
 }

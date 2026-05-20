@@ -19,7 +19,7 @@ export default function NewSendingRequestPage() {
         </p>
       </div>
 
-      <ShippingForm />
+      <ShippingForm direction="sending" />
     </div>
   )
 }

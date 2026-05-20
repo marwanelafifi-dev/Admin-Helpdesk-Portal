@@ -213,7 +213,7 @@ export default function NewGeneralRequestPage() {
         </Card>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 border-t bg-gray-50 -mx-0 px-0 py-4">
+        <div className="form-footer flex items-center justify-between gap-3 border-t bg-gray-50 px-6 py-4">
           <Button type="button" variant="outline" onClick={() => router.push("/general")}>
             Cancel
           </Button>

@@ -103,7 +103,12 @@ export default function ReceivingPage() {
         // Initialize mock data if needed
         initializeMockData()
         // Get shipping requests from engineService
-        const requests = getRequestsByModule("shipping")
+        const requests = getRequestsByModule("shipping").filter((r: any) => {
+          // Show receiving requests, plus any legacy shipping rows that don't
+          // yet have a direction stamped on them — those default to receiving.
+          const d = (r.payload as any)?.direction
+          return !d || d === "receiving"
+        })
         const transformed = requests.map((req: any) => {
           return {
             id: req.id,

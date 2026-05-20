@@ -36,7 +36,15 @@ function computeRequests(): { total: number; byModule: Counts } {
     if (r?.status === "new") {
       total++
       const mod = String(r.module ?? "")
-      if (mod) byModule[mod] = (byModule[mod] ?? 0) + 1
+      if (!mod) continue
+      byModule[mod] = (byModule[mod] ?? 0) + 1
+      // Sub-bucket for shipping so the sidebar can show separate counts on
+      // Receiving and Sending instead of counting both against the parent.
+      if (mod === "shipping") {
+        const direction = String(r?.payload?.direction ?? "receiving")
+        const key = direction === "sending" ? "shipping-sending" : "shipping-receiving"
+        byModule[key] = (byModule[key] ?? 0) + 1
+      }
     }
   }
   return { total, byModule }

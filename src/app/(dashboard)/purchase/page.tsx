@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
-import { Search, Plus, ShoppingCart, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
+import { Search, Plus, ShoppingCart, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle, AlertTriangle } from "lucide-react"
 import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -207,6 +207,20 @@ export default function PurchasePage() {
             New Purchase Request
           </Button>
         </Link>
+      </div>
+
+      {/* Budget limit notice — applies to every requester */}
+      <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-4 py-3">
+        <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+        <div className="text-sm space-y-1">
+          <p className="font-semibold text-amber-900 dark:text-amber-200">Purchase budget limit</p>
+          <p className="text-amber-800 dark:text-amber-300/90">
+            In accordance with company policy, any purchase or refund request exceeding 3,000 EGP is not handled through the Administration Team.
+          </p>
+          <p className="text-amber-800 dark:text-amber-300/90">
+            For such requests, kindly coordinate directly with the Finance Team to obtain guidance on the appropriate process.
+          </p>
+        </div>
       </div>
 
       {/* Stat Cards */}
