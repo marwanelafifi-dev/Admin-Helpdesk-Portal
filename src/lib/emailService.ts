@@ -537,3 +537,121 @@ export async function sendFeedbackSurveyEmail(params: {
     } : {}),
   })
 }
+
+/**
+ * Purchase Approval Request email.
+ *
+ * Fired when a Purchase request transitions to "Awaiting Approval" status.
+ * Goes To: the selected Direct Manager (Cc: requester + Administration
+ * Team + helpdesk). Contains every field needed to decide plus two
+ * one-shot signed buttons — Approve and Reject — that the manager can
+ * click straight from their inbox.
+ */
+export async function sendPurchaseApprovalEmail(params: {
+  to: string
+  cc?: string[]
+  managerName?: string
+  requestId: string
+  requestTitle: string
+  itemTitle?: string
+  description?: string
+  category?: string
+  platform?: string
+  supplier?: string
+  productUrl?: string
+  quantity?: number
+  estimatedPrice?: number
+  department?: string
+  businessJustification?: string
+  notes?: string
+  requesterName?: string
+  requesterEmail?: string
+  approveUrl: string
+  rejectUrl: string
+}) {
+  const transporter = createTransporter()
+  const baseUrl = getBaseUrl()
+  const requestUrl = `${baseUrl}/requests/${params.requestId}`
+  const logoBuffer = getLogoBuffer()
+
+  const subject = `Approval needed: ${params.requestTitle} — ${params.requestId}`
+
+  const row = (label: string, value?: string | number | null) => {
+    const v = value == null || value === "" ? "—" : String(value)
+    return `
+      <tr>
+        <td style="padding:8px 14px;color:#475569;font-size:12px;border-bottom:1px solid #e2e8f0;width:180px;vertical-align:top;">${escapeHtml(label)}</td>
+        <td style="padding:8px 14px;color:#0f172a;font-size:13px;border-bottom:1px solid #e2e8f0;vertical-align:top;">${escapeHtml(v)}</td>
+      </tr>`
+  }
+  const linkRow = (label: string, value?: string | null) => {
+    if (!value) return ""
+    const safe = escapeHtml(value)
+    return `
+      <tr>
+        <td style="padding:8px 14px;color:#475569;font-size:12px;border-bottom:1px solid #e2e8f0;width:180px;vertical-align:top;">${escapeHtml(label)}</td>
+        <td style="padding:8px 14px;font-size:13px;border-bottom:1px solid #e2e8f0;vertical-align:top;"><a href="${safe}" style="color:#2563eb;text-decoration:none;word-break:break-all;">${safe}</a></td>
+      </tr>`
+  }
+
+  const priceDisplay = typeof params.estimatedPrice === "number"
+    ? `${params.estimatedPrice.toLocaleString()} EGP`
+    : "—"
+
+  const html = `<!doctype html>
+<html><body style="margin:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;">
+  <div style="max-width:640px;margin:0 auto;padding:32px 16px;">
+    ${logoBuffer ? `<div style="text-align:center;margin-bottom:24px;"><img src="cid:siware-logo" alt="Si-Ware" style="height:36px;"></div>` : ""}
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.04);">
+      <div style="background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;padding:24px 28px;">
+        <p style="margin:0;font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:1px;">Purchase Approval Request</p>
+        <h1 style="margin:6px 0 0;font-size:22px;font-weight:600;">${escapeHtml(params.requestTitle)}</h1>
+        <p style="margin:8px 0 0;font-size:13px;opacity:.9;">${escapeHtml(params.requestId)}</p>
+      </div>
+      <div style="padding:24px 28px 8px;">
+        <p style="margin:0 0 8px;font-size:14px;color:#334155;">${params.managerName ? `Hi ${escapeHtml(params.managerName)}, a` : "A"} purchase request requires your approval. Please review the details below and click <strong>Approve</strong> or <strong>Reject</strong>.</p>
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;background:#f8fafc;">
+        ${row("Requested by", params.requesterName)}
+        ${row("Requester email", params.requesterEmail)}
+        ${row("Department", params.department)}
+        ${row("Item", params.itemTitle)}
+        ${row("Description", params.description)}
+        ${row("Category", params.category)}
+        ${row("Platform", params.platform)}
+        ${row("Supplier", params.supplier)}
+        ${linkRow("Product URL", params.productUrl)}
+        ${row("Quantity", params.quantity)}
+        ${row("Estimated price", priceDisplay)}
+        ${row("Business justification", params.businessJustification)}
+        ${params.notes ? row("Notes", params.notes) : ""}
+      </table>
+
+      <div style="padding:28px;text-align:center;background:#fff;">
+        <a href="${params.approveUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Approve</a>
+        <a href="${params.rejectUrl}"  style="display:inline-block;background:#ef4444;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Reject</a>
+        <p style="margin:18px 0 0;font-size:12px;color:#64748b;">Or <a href="${requestUrl}" style="color:#2563eb;">open the request in the portal</a> to take action there.</p>
+        <p style="margin:8px 0 0;font-size:11px;color:#94a3b8;">These buttons are single-use links; they stop working once a decision is recorded or the request status changes.</p>
+      </div>
+    </div>
+    <p style="text-align:center;margin:18px 0 0;font-size:12px;color:#94a3b8;">Si-Ware Systems Admin Helpdesk Portal &nbsp;·&nbsp; adminhelpdesk@si-ware.com</p>
+  </div>
+</body></html>`
+
+  await sendMailWithRetry(transporter, {
+    from: `"Si-Ware Admin Helpdesk" <${process.env.SMTP_USER}>`,
+    to: params.to,
+    ...(params.cc && params.cc.length > 0 ? { cc: params.cc } : {}),
+    subject,
+    html,
+    ...(logoBuffer ? {
+      attachments: [{
+        filename: "siware-logo.png",
+        content: logoBuffer,
+        cid: "siware-logo",
+        contentType: "image/png",
+      }],
+    } : {}),
+  })
+}

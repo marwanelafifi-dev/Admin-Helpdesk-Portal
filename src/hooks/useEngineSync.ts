@@ -113,14 +113,28 @@ export function useEngineSync(intervalMs = 30_000) {
     const onVisible = () => {
       if (document.visibilityState === "visible") pull()
     }
+    // Global Clear All broadcasts via this localStorage key; the native
+    // `storage` event fires only in OTHER tabs, so this is exactly how we
+    // tell every other open tab to forget its cache and resync.
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "arp_global_clear_broadcast") {
+        try {
+          localStorage.removeItem("arp_requests")
+          localStorage.removeItem("arp_company_data")
+        } catch {}
+        pull()
+      }
+    }
     window.addEventListener("focus", pull)
     document.addEventListener("visibilitychange", onVisible)
+    window.addEventListener("storage", onStorage)
 
     return () => {
       cancelled = true
       window.clearInterval(interval)
       window.removeEventListener("focus", pull)
       document.removeEventListener("visibilitychange", onVisible)
+      window.removeEventListener("storage", onStorage)
     }
   }, [intervalMs])
 }

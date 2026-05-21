@@ -34,7 +34,8 @@ const FILES: ServerDataFile[] = [
   { filename: "comments.json",     user_data: true,  clearable: true  },
   { filename: "feedback.json",     user_data: true,  clearable: true  },
   { filename: "requests.json",     user_data: true,  clearable: true  },
-  { filename: "company-data.json", user_data: true,  clearable: false },
+  { filename: "company-data.json", user_data: true,  clearable: true  },
+  // Never clear these — admins would lock themselves out.
   { filename: "users.json",        user_data: true,  clearable: false },
   { filename: "roles.json",        user_data: true,  clearable: false },
 ]

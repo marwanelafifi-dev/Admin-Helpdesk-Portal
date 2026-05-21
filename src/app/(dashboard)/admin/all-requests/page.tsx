@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
-import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, assignRequest, type EngineRequest, type RequestStatus } from "@/services/engineService"
+import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, assignRequest, deleteRequestPermanently, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { createRequestUpdateNotifications, createAssignmentNotifications } from "@/lib/notificationStore"
 import { AssigneeSelect } from "@/components/ui/AssigneeSelect"
 import { getTasks, updateTaskStatus, type Task, type TaskStatus } from "@/services/taskService"
@@ -29,7 +29,9 @@ import { LABEL_COLORS, LABEL_DOTS, buildLabelDrivenMaps } from "@/lib/statusPale
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
-  new: "New", on_hold: "In Progress", in_progress: "In Progress", in_transit: "In Transit", in_customs: "In Customs", "In Progress": "In Progress", "In Customs": "In Customs", "In Transit": "In Transit",
+  new: "New", on_hold: "In Progress", in_progress: "In Progress", in_transit: "In Transit",
+  in_customs: "In Customs", awaiting_approval: "Awaiting Approval",
+  "In Progress": "In Progress", "In Customs": "In Customs", "In Transit": "In Transit",
   delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
 }
 
@@ -38,25 +40,27 @@ const STATUS_LABELS: Record<string, string> = {
 
 // Kept for back-compat with callers that still pass STATUS_COLORS/STATUS_DOT.
 const STATUS_COLORS: Record<string, string> = {
-  new:        LABEL_COLORS["New"],
-  on_hold:    LABEL_COLORS["In Progress"],
-  in_progress: LABEL_COLORS["In Progress"],
-  in_transit: LABEL_COLORS["In Transit"],
-  in_customs: LABEL_COLORS["In Customs"],
-  delivered:  LABEL_COLORS["Delivered"],
-  completed:  LABEL_COLORS["Completed"],
-  cancelled:  LABEL_COLORS["Cancelled"],
+  new:               LABEL_COLORS["New"],
+  on_hold:           LABEL_COLORS["In Progress"],
+  in_progress:       LABEL_COLORS["In Progress"],
+  in_transit:        LABEL_COLORS["In Transit"],
+  in_customs:        LABEL_COLORS["In Customs"],
+  awaiting_approval: LABEL_COLORS["Awaiting Approval"],
+  delivered:         LABEL_COLORS["Delivered"],
+  completed:         LABEL_COLORS["Completed"],
+  cancelled:         LABEL_COLORS["Cancelled"],
 }
 
 const STATUS_DOT: Record<string, string> = {
-  new: LABEL_DOTS["New"],
-  on_hold: LABEL_DOTS["In Progress"],
-  in_progress: LABEL_DOTS["In Progress"],
-  in_transit: LABEL_DOTS["In Transit"],
-  in_customs: LABEL_DOTS["In Customs"],
-  delivered: LABEL_DOTS["Delivered"],
-  completed: LABEL_DOTS["Completed"],
-  cancelled: LABEL_DOTS["Cancelled"],
+  new:               LABEL_DOTS["New"],
+  on_hold:           LABEL_DOTS["In Progress"],
+  in_progress:       LABEL_DOTS["In Progress"],
+  in_transit:        LABEL_DOTS["In Transit"],
+  in_customs:        LABEL_DOTS["In Customs"],
+  awaiting_approval: LABEL_DOTS["Awaiting Approval"],
+  delivered:         LABEL_DOTS["Delivered"],
+  completed:         LABEL_DOTS["Completed"],
+  cancelled:         LABEL_DOTS["Cancelled"],
 }
 
 const MODULE_COLORS: Record<string, string> = {
@@ -74,36 +78,40 @@ const MODULE_DOT: Record<string, string> = {
 const MODULES  = ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"] as const
 const STATUSES = ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"] as const
 
-// Module-specific statuses
+// Module-specific statuses — canonical code per UI label.
+// Each code maps 1:1 to exactly one UI label (see MODULE_STATUS_LABELS).
 const MODULE_STATUSES: Record<string, readonly string[]> = {
-  shipping: ["new", "in_progress", "in_customs", "delivered", "cancelled"],
-  maintenance: ["new", "on_hold", "completed", "cancelled"],
-  purchase: ["new", "in_customs", "on_hold", "delivered", "cancelled"],
-  event: ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"],
-  travel: ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"],
-  hr: ["new", "on_hold", "completed"],
-  general: ["new", "in_progress", "completed", "cancelled"],
+  shipping:    ["new", "in_progress", "in_customs", "delivered", "cancelled"],
+  maintenance: ["new", "in_progress", "completed", "cancelled"],
+  purchase:    ["new", "in_progress", "awaiting_approval", "delivered", "cancelled"],
+  event:       ["new", "in_progress", "in_transit", "delivered", "completed", "cancelled"],
+  travel:      ["new", "in_progress", "in_transit", "delivered", "completed", "cancelled"],
+  hr:          ["new", "in_progress", "completed"],
+  general:     ["new", "in_progress", "completed", "cancelled"],
 }
 
-// Module-specific status labels (overrides generic STATUS_LABELS)
+// Module-specific status labels — codes match the UI text 1:1.
 const MODULE_STATUS_LABELS: Record<string, Record<string, string>> = {
   shipping: {
     new: "New", in_progress: "In Progress", in_customs: "In Customs", delivered: "Delivered", cancelled: "Cancelled",
   },
   purchase: {
-    new: "New", on_hold: "In Progress", in_customs: "Awaiting Approval", delivered: "Delivered", cancelled: "Cancelled",
+    new: "New", in_progress: "In Progress", awaiting_approval: "Awaiting Approval", delivered: "Delivered", cancelled: "Cancelled",
   },
   maintenance: {
-    new: "New", on_hold: "In Progress", completed: "Completed", cancelled: "Cancelled",
+    new: "New", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled",
   },
   event: {
-    new: "New", on_hold: "In Progress", in_transit: "In Transit", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
+    new: "New", in_progress: "In Progress", in_transit: "In Transit", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
   },
   travel: {
-    new: "New", on_hold: "In Progress", in_transit: "In Transit", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
+    new: "New", in_progress: "In Progress", in_transit: "In Transit", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
   },
   hr: {
-    new: "New", on_hold: "In Progress", completed: "Completed",
+    new: "New", in_progress: "In Progress", completed: "Completed",
+  },
+  general: {
+    new: "New", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled",
   },
 }
 
@@ -154,6 +162,13 @@ export default function AllRequestsPage() {
   const canEditRequest = ((session?.user?.permissions as string[])?.includes("edit_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canCancelRequest = ((session?.user?.permissions as string[])?.includes("cancel_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canAssign = ((session?.user?.permissions as string[])?.includes("assign_requests") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  // Permanent-delete is admin-only. We gate the menu item here too so it
+  // doesn't appear to non-admins, mirroring the server's DELETE auth check.
+  const canPermanentDelete = (
+    session?.user?.role === "Full Access"
+    || (session?.user?.permissions as string[])?.includes("*")
+    || (session?.user?.permissions as string[])?.includes("manage_users")
+  ) ?? false
 
   // ── Column resize ──────────────────────────────────────────────────────────
   const COLS = useMemo(() => [
@@ -698,12 +713,18 @@ export default function AllRequestsPage() {
                       // HR module has no Cancelled status — hide Cancel for HR rows
                       // regardless of permission.
                       showCancelOption={canCancelRequest && req.module !== "hr"}
+                      showDeleteOption={canPermanentDelete}
                       isExpanded={isExpanded(req.id)}
                       onViewDetails={() => toggleRow(req.id)}
                       onEdit={canEditRequest ? (id) => {
                         window.open(`/requests/${id}?source=all-requests`, '_blank')
                       } : undefined}
                       onCancel={handleCancelRequest}
+                      onDelete={(id) => {
+                        if (!confirm(`Permanently delete ${id}? This cannot be undone.`)) return
+                        deleteRequestPermanently(id)
+                        setRequests((prev) => prev.filter((r) => r.id !== id))
+                      }}
                     />
                   </td>
                 </tr>

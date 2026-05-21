@@ -25,48 +25,38 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-zinc-100 text-zinc-600",
-  new: "bg-sky-100 text-sky-700",
-  on_hold: "bg-blue-100 text-blue-700",
-  in_progress: "bg-blue-100 text-blue-700",
-  in_transit: "bg-blue-100 text-blue-700",
-  in_customs: "bg-amber-100 text-amber-700",
-  delivered: "bg-green-100 text-green-700",
-  completed: "bg-emerald-100 text-emerald-700",
-  cancelled: "bg-red-100 text-red-600",
+  draft:             "bg-zinc-100 text-zinc-600",
+  new:               "bg-sky-100 text-sky-700",
+  in_progress:       "bg-blue-100 text-blue-700",
+  on_hold:           "bg-blue-100 text-blue-700", // legacy alias
+  in_transit:        "bg-blue-100 text-blue-700",
+  in_customs:        "bg-amber-100 text-amber-700",
+  awaiting_approval: "bg-amber-100 text-amber-700",
+  delivered:         "bg-green-100 text-green-700",
+  completed:         "bg-emerald-100 text-emerald-700",
+  cancelled:         "bg-red-100 text-red-600",
 }
 
 const STATUS_DOT: Record<string, string> = {
-  draft: "bg-zinc-400",
-  new: "bg-sky-500",
-  on_hold: "bg-blue-500",
-  in_progress: "bg-blue-500",
-  in_transit: "bg-blue-500",
-  in_customs: "bg-amber-500",
-  delivered: "bg-green-500",
-  completed: "bg-emerald-500",
-  cancelled: "bg-red-500",
+  draft:             "bg-zinc-400",
+  new:               "bg-sky-500",
+  in_progress:       "bg-blue-500",
+  on_hold:           "bg-blue-500",
+  in_transit:        "bg-blue-500",
+  in_customs:        "bg-amber-500",
+  awaiting_approval: "bg-amber-500",
+  delivered:         "bg-green-500",
+  completed:         "bg-emerald-500",
+  cancelled:         "bg-red-500",
 }
 
-const getStatusLabel = (status: string, module?: string): string => {
-  // Module-specific status labels
-  if (module === 'purchase') {
-    const purchaseLabels: Record<string, string> = {
-      new: 'New',
-      in_customs: 'Awaiting Approval',
-      on_hold: 'In Progress',
-      delivered: 'Delivered',
-      cancelled: 'Cancelled',
-    }
-    return purchaseLabels[status] || status.replace(/_/g, ' ').charAt(0).toUpperCase() + status.replace(/_/g, ' ').slice(1)
-  }
-
-  // Default labels — "on_hold" and "in_progress" both render as "In Progress"
-  // across every module so the badge wording matches the list-page palette.
+const getStatusLabel = (status: string, _module?: string): string => {
+  // Status codes match UI labels 1:1.
   if (status === 'new') return 'New'
   if (status === 'on_hold' || status === 'in_progress') return 'In Progress'
   if (status === 'in_transit') return 'In Transit'
   if (status === 'in_customs') return 'In Customs'
+  if (status === 'awaiting_approval') return 'Awaiting Approval'
   if (status === 'delivered') return 'Delivered'
   if (status === 'completed') return 'Completed'
   if (status === 'cancelled') return 'Cancelled'
@@ -320,18 +310,18 @@ export default function RequestDetailPage() {
 
   const getStatusesByModule = (module: string): string[] => {
     const moduleStatuses: Record<string, string[]> = {
-      shipping: ['new', 'on_hold', 'in_customs', 'delivered', 'cancelled'],
-      hr: ['new', 'on_hold', 'completed'],
-      maintenance: ['new', 'on_hold', 'completed', 'cancelled'],
-      purchase: ['new', 'in_customs', 'on_hold', 'delivered', 'cancelled'],
-      event: ['new', 'on_hold', 'in_transit', 'delivered', 'completed', 'cancelled'],
-      travel: ['new', 'on_hold', 'in_transit', 'delivered', 'completed', 'cancelled'],
-      general: ['new', 'in_progress', 'completed', 'cancelled'],
+      shipping:    ['new', 'in_progress', 'in_customs', 'delivered', 'cancelled'],
+      hr:          ['new', 'in_progress', 'completed'],
+      maintenance: ['new', 'in_progress', 'completed', 'cancelled'],
+      purchase:    ['new', 'in_progress', 'awaiting_approval', 'delivered', 'cancelled'],
+      event:       ['new', 'in_progress', 'in_transit', 'delivered', 'completed', 'cancelled'],
+      travel:      ['new', 'in_progress', 'in_transit', 'delivered', 'completed', 'cancelled'],
+      general:     ['new', 'in_progress', 'completed', 'cancelled'],
     }
-    return moduleStatuses[module] || ['new', 'on_hold', 'completed', 'cancelled']
+    return moduleStatuses[module] || ['new', 'in_progress', 'completed', 'cancelled']
   }
 
-  const STATUSES = request ? getStatusesByModule(request.module) : ['new', 'on_hold', 'completed', 'cancelled']
+  const STATUSES = request ? getStatusesByModule(request.module) : ['new', 'in_progress', 'completed', 'cancelled']
 
   useEffect(() => {
     const fetchRequest = async () => {
@@ -351,11 +341,46 @@ export default function RequestDetailPage() {
           return
         }
 
+        // Resolve user IDs in the activity log (changedBy) to actual names
+        // + emails via the user directory. Without this, the timeline just
+        // shows raw "USR-1779…" identifiers.
+        const userMap = new Map<string, { name: string; email: string }>()
+        try {
+          const dirRes = await fetch("/api/users/directory")
+          if (dirRes.ok) {
+            const dirJson = await dirRes.json()
+            const users = Array.isArray(dirJson?.data) ? dirJson.data : []
+            for (const u of users) {
+              userMap.set(u.id, { name: u.name ?? u.email ?? u.id, email: u.email ?? "" })
+            }
+          }
+        } catch {
+          // Best-effort. Fall back to raw IDs if the directory fetch fails.
+        }
+        // Always recognise the request's own requester even if they're not
+        // in the active directory list.
+        if (engineRequest.requesterId) {
+          userMap.set(engineRequest.requesterId, {
+            name: engineRequest.requesterName ?? engineRequest.requesterId,
+            email: engineRequest.requesterEmail ?? "",
+          })
+        }
+        const resolveActor = (id?: string) => {
+          if (!id) return { name: "System", email: "" }
+          const hit = userMap.get(id)
+          if (hit) return hit
+          // Pre-existing entries sometimes stored the email AS the changedBy.
+          if (id.includes("@")) return { name: id, email: id }
+          // Last-resort fallback: keep the raw id so it's at least traceable.
+          return { name: id, email: "" }
+        }
+
         // Convert EngineRequest to RequestDetail
         // Map statusHistory entries
         const statusHistoryEntries = engineRequest.statusHistory?.map((sh: any, idx: number) => {
           // Get the previous status (oldValue) from the previous entry if it exists
           const previousStatus = idx > 0 ? engineRequest.statusHistory[idx - 1]?.status : undefined
+          const actor = resolveActor(sh.changedBy)
           return {
             id: `${engineRequest.id}-${sh.changedAt}`,
             action: 'status_changed',
@@ -365,25 +390,28 @@ export default function RequestDetailPage() {
             changedByUserId: sh.changedBy,
             changedByUser: {
               id: sh.changedBy,
-              name: sh.changedBy,
-              email: '',
+              name: actor.name,
+              email: actor.email,
             },
             createdAt: sh.changedAt,
           }
         }) || []
 
         // Map commentHistory entries
-        const commentHistoryEntries = engineRequest.commentHistory?.map((ca: any) => ({
-          id: `${engineRequest.id}-${ca.changedAt}`,
-          action: 'comment_added',
-          changedByUserId: ca.changedBy,
-          changedByUser: {
-            id: ca.changedBy,
-            name: ca.changedBy,
-            email: '',
-          },
-          createdAt: ca.changedAt,
-        })) || []
+        const commentHistoryEntries = engineRequest.commentHistory?.map((ca: any) => {
+          const actor = resolveActor(ca.changedBy)
+          return {
+            id: `${engineRequest.id}-${ca.changedAt}`,
+            action: 'comment_added',
+            changedByUserId: ca.changedBy,
+            changedByUser: {
+              id: ca.changedBy,
+              name: actor.name,
+              email: actor.email,
+            },
+            createdAt: ca.changedAt,
+          }
+        }) || []
 
         // Combine and sort all history by date
         const allHistory = [...statusHistoryEntries, ...commentHistoryEntries]
@@ -749,9 +777,14 @@ export default function RequestDetailPage() {
                           )}
                         </p>
                       )}
-                      <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
-                        <span>By {item.changedByUser?.name || item.changedByUserId}</span>
-                        <span>{formatDate(item.createdAt)}</span>
+                      <div className="flex items-center justify-between mt-2 text-xs text-gray-500 gap-3">
+                        <span className="truncate">
+                          By <span className="font-medium">{item.changedByUser?.name || item.changedByUserId}</span>
+                          {item.changedByUser?.email && item.changedByUser.email !== item.changedByUser.name && (
+                            <span className="text-gray-400 ml-1">&lt;{item.changedByUser.email}&gt;</span>
+                          )}
+                        </span>
+                        <span className="flex-shrink-0">{formatDate(item.createdAt)}</span>
                       </div>
                     </div>
                   </div>

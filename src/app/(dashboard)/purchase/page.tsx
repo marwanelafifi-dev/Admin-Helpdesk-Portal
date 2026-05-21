@@ -7,7 +7,7 @@ import { Search, Plus, ShoppingCart, Clock, CheckCircle2, ChevronUp, ChevronDown
 import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, type EngineRequest, type RequestStatus } from "@/services/engineService"
+import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { cn } from "@/lib/utils"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
@@ -23,7 +23,7 @@ import { scopeRequests } from "@/lib/access"
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
-  new: "New", on_hold: "In Progress", in_customs: "Awaiting Approval",
+  new: "New", in_progress: "In Progress", awaiting_approval: "Awaiting Approval",
   delivered: "Delivered", cancelled: "Cancelled",
 }
 
@@ -37,13 +37,13 @@ const STATUS_DOT: Record<string, string> = Object.fromEntries(
 
 const STATUS_PILL_ACTIVE: Record<string, string> = {
   new: "bg-sky-500 border-sky-500 text-white",
-  on_hold: "bg-blue-600 border-blue-600 text-white",
-  in_customs: "bg-amber-600 border-amber-600 text-white",
+  in_progress: "bg-blue-600 border-blue-600 text-white",
+  awaiting_approval: "bg-amber-600 border-amber-600 text-white",
   delivered: "bg-green-600 border-green-600 text-white",
   cancelled: "bg-red-600 border-red-600 text-white",
 }
 
-const STATUSES = ["new", "in_customs", "on_hold", "delivered", "cancelled"] as const
+const STATUSES = ["new", "awaiting_approval", "in_progress", "delivered", "cancelled"] as const
 
 type SortKey = "id" | "title" | "supplier" | "estimatedPrice" | "requesterName" | "createdAt" | "status" | "updatedAt"
 
@@ -77,6 +77,11 @@ export default function PurchasePage() {
   const canUpdateStatus = ((session?.user?.permissions as string[])?.includes("update_status") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canEditRequest = ((session?.user?.permissions as string[])?.includes("edit_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canCancelRequest = ((session?.user?.permissions as string[])?.includes("cancel_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  const canPermanentDelete = (
+    session?.user?.role === "Full Access"
+    || (session?.user?.permissions as string[])?.includes("*")
+    || (session?.user?.permissions as string[])?.includes("manage_users")
+  ) ?? false
 
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
@@ -181,16 +186,16 @@ export default function PurchasePage() {
   const counts = useMemo(() => ({
     total:   requests.length,
     new:     requests.filter((r) => r.status === "new").length,
-    inProgress: requests.filter((r) => r.status === "on_hold").length,
-    awaitingApproval: requests.filter((r) => r.status === "in_customs").length,
+    inProgress: requests.filter((r) => r.status === "in_progress").length,
+    awaitingApproval: requests.filter((r) => r.status === "awaiting_approval").length,
     delivered: requests.filter((r) => r.status === "delivered").length,
   }), [requests])
 
   const statCards = [
     { key: "all",         label: "Total Orders",       value: counts.total,               icon: ShoppingCart, iconBg: "bg-blue-50",   iconColor: "text-blue-600",    activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
     { key: "new",         label: "New",                value: counts.new,                 icon: Clock,        iconBg: "bg-sky-50",    iconColor: "text-sky-600",     activeBg: "bg-sky-500",    activeBorder: "border-sky-500" },
-    { key: "in_customs",  label: "Awaiting Approval",  value: counts.awaitingApproval,   icon: Clock,        iconBg: "bg-amber-50",  iconColor: "text-amber-600",   activeBg: "bg-amber-500",  activeBorder: "border-amber-500" },
-    { key: "on_hold",     label: "In Progress",        value: counts.inProgress,          icon: Clock,        iconBg: "bg-blue-50",   iconColor: "text-blue-600",    activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
+    { key: "awaiting_approval",  label: "Awaiting Approval",  value: counts.awaitingApproval,   icon: Clock,        iconBg: "bg-amber-50",  iconColor: "text-amber-600",   activeBg: "bg-amber-500",  activeBorder: "border-amber-500" },
+    { key: "in_progress",     label: "In Progress",        value: counts.inProgress,          icon: Clock,        iconBg: "bg-blue-50",   iconColor: "text-blue-600",    activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
     { key: "delivered",   label: "Delivered",          value: counts.delivered,           icon: CheckCircle2, iconBg: "bg-green-50",  iconColor: "text-green-600",   activeBg: "bg-green-600",  activeBorder: "border-green-600" },
   ] as const
 
@@ -374,10 +379,16 @@ export default function PurchasePage() {
                     <RequestActionsMenu
                       requestId={req.id}
                       showCancelOption={canCancelRequest}
+                      showDeleteOption={canPermanentDelete}
                       isExpanded={isExpanded(req.id)}
                       onViewDetails={() => toggleRow(req.id)}
                       onEdit={canEditRequest ? (id) => window.open(`/requests/${id}?source=purchase`, '_blank') : undefined}
                       onCancel={handleCancelRequest}
+                      onDelete={(id) => {
+                        if (!confirm(`Permanently delete ${id}? This cannot be undone.`)) return
+                        deleteRequestPermanently(id)
+                        setRequests((prev) => prev.filter((r) => r.id !== id))
+                      }}
                     />
                   </td>
                 </tr>

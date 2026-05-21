@@ -14,6 +14,7 @@ export type RequestStatus =
   | "on_hold"
   | "in_customs"
   | "in_transit"
+  | "awaiting_approval"
   | "delivered"
   | "completed"
   | "cancelled"
@@ -368,6 +369,22 @@ export function updateStatus(
     })
   }
 
+  // Purchase Approval workflow: when a Purchase request enters
+  // "Awaiting Approval", fire the special approval email to the selected
+  // Direct Manager with one-click Approve / Reject buttons.
+  if (
+    typeof window !== "undefined" &&
+    updated.module === "purchase" &&
+    status === "awaiting_approval" &&
+    previousStatus !== "awaiting_approval"
+  ) {
+    fetch(`/api/requests/${encodeURIComponent(id)}/send-approval-email`, {
+      method: "POST",
+    }).catch(() => {
+      // Best-effort. The admin can resend from the UI if needed.
+    })
+  }
+
   return updated
 }
 
@@ -457,11 +474,38 @@ export function updateAdminCc(id: string, adminCc: string[]): EngineRequest | nu
  * Returns the merged CC list: payload.ccEmails (from form) + adminCc.
  */
 export function getAllCcEmails(request: EngineRequest): string[] {
-  const payloadCc = Array.isArray((request.payload as any)?.ccEmails)
-    ? ((request.payload as any).ccEmails as string[])
-    : []
+  const payload = (request.payload ?? {}) as Record<string, any>
+  const payloadCc = Array.isArray(payload.ccEmails) ? (payload.ccEmails as string[]) : []
   const adminCc = Array.isArray(request.adminCc) ? request.adminCc : []
-  return Array.from(new Set([...payloadCc, ...adminCc].filter(Boolean)))
+
+  // Direct Manager — included on the Cc list of every email for this
+  // request so they stay in the loop on status changes, comments, etc.
+  // Shipping stores it as approvers.directManager.email; Purchase / HR
+  // store the manager's NAME under payload.directManager.
+  const managerEmail: string[] = []
+  const shippingManagerEmail = payload?.approvers?.directManager?.email
+  if (typeof shippingManagerEmail === "string" && shippingManagerEmail.trim()) {
+    managerEmail.push(shippingManagerEmail.trim())
+  }
+  const otherManagerName = payload?.directManager
+  if (typeof otherManagerName === "string" && otherManagerName.trim()) {
+    // Resolve via Company Data on the client. The lookup is safe on the
+    // server too — getManagerEmail just returns undefined when window is
+    // missing, in which case we skip.
+    try {
+      // Lazy import to avoid pulling client-only code on the server side.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { getManagerEmail } = require("@/lib/companyDataStore") as typeof import("@/lib/companyDataStore")
+      const resolved = getManagerEmail(otherManagerName)
+      if (resolved) managerEmail.push(resolved)
+    } catch {
+      // server-side fallback — companyDataStore relies on localStorage
+      // which doesn't exist on the server. The /api/notifications/email
+      // route can resolve via a server-side store if needed in future.
+    }
+  }
+
+  return Array.from(new Set([...payloadCc, ...adminCc, ...managerEmail].filter(Boolean)))
 }
 
 /** Returns every request in the store. */
@@ -482,6 +526,24 @@ export function getRequestById(id: string): EngineRequest | undefined {
 /** Wipes the entire store â€” useful for testing / dev reset. */
 export function clearStore(): void {
   if (typeof window !== "undefined") localStorage.removeItem(STORAGE_KEY)
+}
+
+/**
+ * Permanently delete a single request — from localStorage, from the
+ * server's data/requests.json, and from comments.json (cascade). Returns
+ * true if the local cache changed. The server call is fire-and-forget
+ * but normally completes within the same tick.
+ */
+export function deleteRequestPermanently(id: string): boolean {
+  if (typeof window === "undefined") return false
+  const requests = readAll()
+  const next = requests.filter((r) => r.id !== id)
+  const changed = next.length !== requests.length
+  if (changed) writeAll(next)
+  // Server delete + comment cascade in parallel.
+  fetch(`/api/requests?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {})
+  fetch(`/api/requests/comments?requestId=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {})
+  return changed
 }
 
 const PROD_VERSION = "v1-prod"

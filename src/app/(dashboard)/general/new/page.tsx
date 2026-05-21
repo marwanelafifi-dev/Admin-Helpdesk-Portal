@@ -15,6 +15,7 @@ import { Upload, X, Inbox, Mail } from "lucide-react"
 import { submitRequest, getRequests, type EngineRequest } from "@/services/engineService"
 import { createRequestUpdateNotifications, createNewRequestNotifications } from "@/lib/notificationStore"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
+import { filesToAttachments } from "@/lib/attachments"
 import { cn } from "@/lib/utils"
 
 const schema = z.object({
@@ -80,18 +81,10 @@ export default function NewGeneralRequestPage() {
       return
     }
 
-    // Convert files to base64 for storage
-    const attachments: { name: string; url: string; sizeBytes: number }[] = await Promise.all(
-      uploadedFiles.map(
-        (file) =>
-          new Promise<{ name: string; url: string; sizeBytes: number }>((resolve) => {
-            const reader = new FileReader()
-            reader.onload = (e) =>
-              resolve({ name: file.name, url: e.target?.result as string, sizeBytes: file.size })
-            reader.readAsDataURL(file)
-          })
-      )
-    )
+    // Convert files to base64 with the full attachment shape (id, mimeType,
+    // sizeBytes, uploadedAt) so the detail page's preview proxy can address
+    // each attachment by its id.
+    const attachments = await filesToAttachments(uploadedFiles, "general")
 
     const saved = submitRequest(
       "general",

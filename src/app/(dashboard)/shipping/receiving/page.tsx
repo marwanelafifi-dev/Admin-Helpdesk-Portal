@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { mockShipments, mockUsers, type MockShipment } from "@/lib/mock-data"
 import { cn } from "@/lib/utils"
-import { getRequestsByModule, initializeMockData, updateStatus, getRequestById, getAllCcEmails } from "@/services/engineService"
+import { getRequestsByModule, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
@@ -85,6 +85,11 @@ export default function ReceivingPage() {
   const canUpdateStatus = ((session?.user?.permissions as string[])?.includes("update_status") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canEditRequest = ((session?.user?.permissions as string[])?.includes("edit_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canCancelRequest = ((session?.user?.permissions as string[])?.includes("cancel_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  const canPermanentDelete = (
+    session?.user?.role === "Full Access"
+    || (session?.user?.permissions as string[])?.includes("*")
+    || (session?.user?.permissions as string[])?.includes("manage_users")
+  ) ?? false
   const [error, setError] = useState<string | null>(null)
 
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
@@ -455,10 +460,16 @@ export default function ReceivingPage() {
                     <RequestActionsMenu
                       requestId={shipment.id}
                       showCancelOption={canCancelRequest}
+                      showDeleteOption={canPermanentDelete}
                       isExpanded={isExpanded(shipment.id)}
                       onViewDetails={() => toggleRow(shipment.id)}
                       onEdit={canEditRequest ? (id) => window.open(`/requests/${id}?source=shipping`, '_blank') : undefined}
                       onCancel={handleCancelRequest}
+                      onDelete={(id) => {
+                        if (!confirm(`Permanently delete ${id}? This cannot be undone.`)) return
+                        deleteRequestPermanently(id)
+                        setShipments((prev) => prev.filter((s) => s.id !== id))
+                      }}
                     />
                   </td>
                   <td />

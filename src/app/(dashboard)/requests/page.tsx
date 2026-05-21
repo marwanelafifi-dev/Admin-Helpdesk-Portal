@@ -20,54 +20,54 @@ import { LABEL_COLORS, LABEL_DOTS, buildLabelDrivenMaps } from "@/lib/statusPale
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
-  new: "New", on_hold: "In Progress", in_transit: "In Customs",
-  delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
-  "New": "New", "In Progress": "In Progress", "In Customs": "In Customs", "In Transit": "In Customs",
+  new: "New",
+  in_progress: "In Progress",
+  on_hold: "In Progress", // legacy alias
+  in_transit: "In Transit",
+  in_customs: "In Customs",
+  awaiting_approval: "Awaiting Approval",
+  delivered: "Delivered",
+  completed: "Completed",
+  cancelled: "Cancelled",
 }
 
 // Color resolution comes from the shared label-driven palette in
 // lib/statusPalette so all list pages stay consistent.
 
 const STATUS_COLORS: Record<string, string> = {
-  new: LABEL_COLORS["New"],
-  on_hold: LABEL_COLORS["In Progress"],
-  in_progress: LABEL_COLORS["In Progress"],
-  in_transit: LABEL_COLORS["In Transit"],
-  in_customs: LABEL_COLORS["In Customs"],
-  delivered: LABEL_COLORS["Delivered"],
-  completed: LABEL_COLORS["Completed"],
-  cancelled: LABEL_COLORS["Cancelled"],
+  new:               LABEL_COLORS["New"],
+  in_progress:       LABEL_COLORS["In Progress"],
+  on_hold:           LABEL_COLORS["In Progress"],
+  in_transit:        LABEL_COLORS["In Transit"],
+  in_customs:        LABEL_COLORS["In Customs"],
+  awaiting_approval: LABEL_COLORS["Awaiting Approval"],
+  delivered:         LABEL_COLORS["Delivered"],
+  completed:         LABEL_COLORS["Completed"],
+  cancelled:         LABEL_COLORS["Cancelled"],
 }
 
 const STATUS_DOT: Record<string, string> = {
-  new: LABEL_DOTS["New"],
-  on_hold: LABEL_DOTS["In Progress"],
-  in_progress: LABEL_DOTS["In Progress"],
-  in_transit: LABEL_DOTS["In Transit"],
-  in_customs: LABEL_DOTS["In Customs"],
-  delivered: LABEL_DOTS["Delivered"],
-  completed: LABEL_DOTS["Completed"],
-  cancelled: LABEL_DOTS["Cancelled"],
+  new:               LABEL_DOTS["New"],
+  in_progress:       LABEL_DOTS["In Progress"],
+  on_hold:           LABEL_DOTS["In Progress"],
+  in_transit:        LABEL_DOTS["In Transit"],
+  in_customs:        LABEL_DOTS["In Customs"],
+  awaiting_approval: LABEL_DOTS["Awaiting Approval"],
+  delivered:         LABEL_DOTS["Delivered"],
+  completed:         LABEL_DOTS["Completed"],
+  cancelled:         LABEL_DOTS["Cancelled"],
 }
 
 const STATUS_PILL_ACTIVE: Record<string, string> = {
-  new: "bg-sky-500 border-sky-500 text-white",
-  on_hold: "bg-amber-500 border-amber-500 text-white",
-  in_transit: "bg-blue-600 border-blue-600 text-white",
-  delivered: "bg-green-600 border-green-600 text-white",
-  completed: "bg-emerald-600 border-emerald-600 text-white",
-  cancelled: "bg-red-600 border-red-600 text-white",
-  "New": "bg-sky-500 border-sky-500 text-white", "In Progress": "bg-blue-600 border-blue-600 text-white", "In Customs": "bg-amber-600 border-amber-600 text-white", "In Transit": "bg-blue-600 border-blue-600 text-white",
+  new:               "bg-sky-500 border-sky-500 text-white",
+  in_progress:       "bg-blue-600 border-blue-600 text-white",
+  in_transit:        "bg-blue-600 border-blue-600 text-white",
+  in_customs:        "bg-amber-600 border-amber-600 text-white",
+  awaiting_approval: "bg-amber-600 border-amber-600 text-white",
+  delivered:         "bg-green-600 border-green-600 text-white",
+  completed:         "bg-emerald-600 border-emerald-600 text-white",
+  cancelled:         "bg-red-600 border-red-600 text-white",
 }
-
-const STATUS_OPTIONS = [
-  { value: "new", label: "New", colorClass: "bg-sky-50 text-sky-700 border-transparent", dotClass: "bg-sky-500" },
-  { value: "on_hold", label: "In Progress", colorClass: "bg-amber-50 text-amber-700 border-transparent", dotClass: "bg-amber-500" },
-  { value: "in_transit", label: "In Customs", colorClass: "bg-blue-50 text-blue-700 border-transparent", dotClass: "bg-blue-500" },
-  { value: "delivered", label: "Delivered", colorClass: "bg-green-50 text-green-700 border-transparent", dotClass: "bg-green-500" },
-  { value: "completed", label: "Completed", colorClass: "bg-emerald-50 text-emerald-700 border-transparent", dotClass: "bg-emerald-500" },
-  { value: "cancelled", label: "Cancelled", colorClass: "bg-red-50 text-red-600 border-transparent", dotClass: "bg-red-500" },
-]
 
 const MODULE_COLORS: Record<string, string> = {
   shipping: "text-blue-700", maintenance: "text-purple-700",
@@ -91,42 +91,40 @@ const MODULE_PILL_ACTIVE: Record<string, string> = {
   general: "bg-indigo-600 border-indigo-600 text-white",
 }
 
-const STATUSES = ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"] as const
+const STATUSES = ["new", "in_progress", "in_transit", "in_customs", "awaiting_approval", "delivered", "completed", "cancelled"] as const
 const MODULES  = ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"] as const
 
 // Module-specific allowed statuses — drives the inline status dropdown so each
-// row only offers statuses that make sense for its module (e.g. HR has no
-// Cancelled state; Shipping has no Completed; Purchase has Awaiting Approval).
+// row only offers statuses that make sense for its module.
 const MODULE_STATUSES: Record<string, readonly string[]> = {
-  shipping: ["new", "in_progress", "in_customs", "delivered", "cancelled"],
-  maintenance: ["new", "on_hold", "completed", "cancelled"],
-  purchase: ["new", "in_customs", "on_hold", "delivered", "cancelled"],
-  event: ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"],
-  travel: ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"],
-  hr: ["new", "on_hold", "completed"],
-  general: ["new", "in_progress", "completed", "cancelled"],
+  shipping:    ["new", "in_progress", "in_customs", "delivered", "cancelled"],
+  maintenance: ["new", "in_progress", "completed", "cancelled"],
+  purchase:    ["new", "in_progress", "awaiting_approval", "delivered", "cancelled"],
+  event:       ["new", "in_progress", "in_transit", "delivered", "completed", "cancelled"],
+  travel:      ["new", "in_progress", "in_transit", "delivered", "completed", "cancelled"],
+  hr:          ["new", "in_progress", "completed"],
+  general:     ["new", "in_progress", "completed", "cancelled"],
 }
 
-// Module-specific status labels — overrides generic STATUS_LABELS where wording
-// differs (e.g. Purchase uses "Awaiting Approval" instead of "In Customs").
+// Module-specific status labels — codes match the UI text 1:1.
 const MODULE_STATUS_LABELS: Record<string, Record<string, string>> = {
   shipping:    { new: "New", in_progress: "In Progress", in_customs: "In Customs", delivered: "Delivered", cancelled: "Cancelled" },
-  purchase:    { new: "New", on_hold: "In Progress", in_customs: "Awaiting Approval", delivered: "Delivered", cancelled: "Cancelled" },
-  maintenance: { new: "New", on_hold: "In Progress", completed: "Completed", cancelled: "Cancelled" },
-  event:       { new: "New", on_hold: "In Progress", in_transit: "In Transit", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled" },
-  travel:      { new: "New", on_hold: "In Progress", in_transit: "In Transit", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled" },
-  hr:          { new: "New", on_hold: "In Progress", completed: "Completed" },
+  purchase:    { new: "New", in_progress: "In Progress", awaiting_approval: "Awaiting Approval", delivered: "Delivered", cancelled: "Cancelled" },
+  maintenance: { new: "New", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled" },
+  event:       { new: "New", in_progress: "In Progress", in_transit: "In Transit", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled" },
+  travel:      { new: "New", in_progress: "In Progress", in_transit: "In Transit", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled" },
+  hr:          { new: "New", in_progress: "In Progress", completed: "Completed" },
   general:     { new: "New", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled" },
 }
 
 const STAT_CARDS = [
-  { key: "total",      label: "Total",      accentBg: "bg-slate-800",   accentBorder: "border-slate-800" },
-  { key: "new",        label: "New",        accentBg: "bg-sky-500",     accentBorder: "border-sky-500" },
-  { key: "on_hold",    label: "In Progress", accentBg: "bg-amber-500",   accentBorder: "border-amber-500" },
-  { key: "in_transit", label: "In Customs",  accentBg: "bg-blue-600",    accentBorder: "border-blue-600" },
-  { key: "delivered",  label: "Delivered",  accentBg: "bg-green-600",   accentBorder: "border-green-600" },
-  { key: "completed",  label: "Completed",  accentBg: "bg-emerald-600", accentBorder: "border-emerald-600" },
-  { key: "cancelled",  label: "Cancelled",  accentBg: "bg-red-600",     accentBorder: "border-red-600" },
+  { key: "total",       label: "Total",             accentBg: "bg-slate-800",   accentBorder: "border-slate-800" },
+  { key: "new",         label: "New",               accentBg: "bg-sky-500",     accentBorder: "border-sky-500" },
+  { key: "in_progress", label: "In Progress",       accentBg: "bg-blue-600",    accentBorder: "border-blue-600" },
+  { key: "in_customs",  label: "In Customs",        accentBg: "bg-amber-600",   accentBorder: "border-amber-600" },
+  { key: "delivered",   label: "Delivered",         accentBg: "bg-green-600",   accentBorder: "border-green-600" },
+  { key: "completed",   label: "Completed",         accentBg: "bg-emerald-600", accentBorder: "border-emerald-600" },
+  { key: "cancelled",   label: "Cancelled",         accentBg: "bg-red-600",     accentBorder: "border-red-600" },
 ] as const
 
 type SortKey = "id" | "title" | "module" | "status" | "createdAt" | "updatedAt"
@@ -273,13 +271,13 @@ export default function RequestsPage() {
   }, [userRequests, statusFilter, moduleFilter, search, sortKey, sortDir])
 
   const counts = useMemo(() => ({
-    total:      userRequests.length,
-    new:        userRequests.filter((r) => r.status === "new").length,
-    on_hold:    userRequests.filter((r) => r.status === "on_hold").length,
-    in_transit: userRequests.filter((r) => r.status === "in_customs").length,
-    delivered:  userRequests.filter((r) => r.status === "delivered").length,
-    completed:  userRequests.filter((r) => r.status === "completed").length,
-    cancelled:  userRequests.filter((r) => r.status === "cancelled").length,
+    total:       userRequests.length,
+    new:         userRequests.filter((r) => r.status === "new").length,
+    in_progress: userRequests.filter((r) => r.status === "in_progress" || r.status === "on_hold").length,
+    in_customs:  userRequests.filter((r) => r.status === "in_customs").length,
+    delivered:   userRequests.filter((r) => r.status === "delivered").length,
+    completed:   userRequests.filter((r) => r.status === "completed").length,
+    cancelled:   userRequests.filter((r) => r.status === "cancelled").length,
   }), [userRequests])
 
   return (

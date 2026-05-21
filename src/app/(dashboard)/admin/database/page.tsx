@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import {
   Download, Upload, CheckCircle2, AlertTriangle, Clock, Shield, Trash2,
   Package, Wrench, ShoppingCart, CalendarDays, Plane, UserCog, ChevronRight, Inbox,
+  Power, LogOut,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -170,6 +171,74 @@ export default function DatabasePage() {
   const [restoring, setRestoring]               = useState(false)
   const [lastBackupTime, setLastBackupTime]     = useState<string | null>(null)
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false)
+  const [clearAllConfirmText, setClearAllConfirmText] = useState("")
+  // Maintenance Mode + Force Sign-out state.
+  const [maintenance, setMaintenance] = useState(false)
+  const [maintenanceMessage, setMaintenanceMessage] = useState("")
+  const [maintenanceStatus, setMaintenanceStatus] = useState<Status>({ type: "idle", message: "" })
+  const [signoutStatus, setSignoutStatus] = useState<Status>({ type: "idle", message: "" })
+  const [showSignoutConfirm, setShowSignoutConfirm] = useState(false)
+
+  // Pull current maintenance flag on mount so the toggle reflects reality.
+  useEffect(() => {
+    void fetch("/api/admin/maintenance").then(async (res) => {
+      if (!res.ok) return
+      const json = await res.json()
+      setMaintenance(Boolean(json.maintenance))
+      setMaintenanceMessage(json.maintenanceMessage ?? "")
+    }).catch(() => {})
+  }, [])
+
+  async function toggleMaintenance(next: boolean) {
+    setMaintenanceStatus({ type: "idle", message: "" })
+    try {
+      const res = await fetch("/api/admin/maintenance", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ maintenance: next, maintenanceMessage }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      setMaintenance(next)
+      setMaintenanceStatus({
+        type: "success",
+        message: next
+          ? "Maintenance mode ON — non-admin users will be redirected to the maintenance page."
+          : "Maintenance mode OFF — the app is open to everyone again.",
+      })
+    } catch (e: any) {
+      setMaintenanceStatus({ type: "error", message: `Failed to update maintenance mode: ${e?.message ?? "unknown"}` })
+    }
+  }
+
+  async function saveMaintenanceMessage() {
+    setMaintenanceStatus({ type: "idle", message: "" })
+    try {
+      const res = await fetch("/api/admin/maintenance", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ maintenanceMessage }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      setMaintenanceStatus({ type: "success", message: "Message updated." })
+    } catch (e: any) {
+      setMaintenanceStatus({ type: "error", message: `Failed to save message: ${e?.message ?? "unknown"}` })
+    }
+  }
+
+  async function forceSignoutAll() {
+    setSignoutStatus({ type: "idle", message: "" })
+    try {
+      const res = await fetch("/api/admin/maintenance", { method: "POST" })
+      if (!res.ok) throw new Error(await res.text())
+      setShowSignoutConfirm(false)
+      setSignoutStatus({
+        type: "success",
+        message: "All sessions invalidated. Every user (including you) will be redirected to login on their next request.",
+      })
+    } catch (e: any) {
+      setSignoutStatus({ type: "error", message: `Failed to force sign-out: ${e?.message ?? "unknown"}` })
+    }
+  }
 
   // Per-module confirm
   const [confirmModule, setConfirmModule] = useState<string | null>(null)
@@ -237,9 +306,9 @@ export default function DatabasePage() {
   // ── Clear All ─────────────────────────────────────────────────────────────
   async function handleClearAll() {
     const cleared = clearAllOwnedKeys()
-    // Also wipe server-side user data (comments.json, feedback.json).
-    // users.json / roles.json are intentionally preserved by the endpoint so
-    // admins can't lock themselves out through this button.
+    // Wipe every clearable server-side file: requests.json, comments.json,
+    // feedback.json, company-data.json. users.json / roles.json are
+    // intentionally `clearable: false` so admins can't lock themselves out.
     let serverCleared = 0
     try {
       const res = await fetch("/api/admin/server-data", { method: "DELETE" })
@@ -248,41 +317,83 @@ export default function DatabasePage() {
         serverCleared = Array.isArray(json.cleared) ? json.cleared.length : 0
       }
     } catch { /* best-effort */ }
+    // Tell every open tab to forget its localStorage cache (engine + company
+    // data sync hooks listen for this and refetch from the now-empty server).
+    try {
+      window.dispatchEvent(new Event("arp:storage"))
+      // Also bump a broadcast key so OTHER tabs (real `storage` event only
+      // fires cross-tab when localStorage changes — toggling this key does it).
+      localStorage.setItem("arp_global_clear_broadcast", String(Date.now()))
+    } catch {}
     setShowClearAllConfirm(false)
+    setClearAllConfirmText("")
     setClearAllStatus({
       type: "success",
       message: `All data cleared — ${cleared} browser store${cleared !== 1 ? "s" : ""}` +
                (serverCleared > 0 ? ` + ${serverCleared} server file${serverCleared !== 1 ? "s" : ""}` : "") +
-               ". User accounts and roles are preserved. Refresh to see the empty state.",
+               ". User accounts and roles are preserved. Other open tabs will sync on focus.",
     })
   }
 
   // ── Clear Module ──────────────────────────────────────────────────────────
-  function handleClearModule(moduleId: string) {
-    const removed = clearModuleRequests(moduleId)
+  async function handleClearModule(moduleId: string) {
+    // Wipe both browser cache AND the server-side store so the next
+    // sync doesn't immediately repopulate the cleared rows.
+    const removedLocal = clearModuleRequests(moduleId)
+    let serverRemoved = 0
+    try {
+      const res = await fetch(`/api/requests?module=${encodeURIComponent(moduleId)}`, { method: "DELETE" })
+      if (res.ok) {
+        const json = await res.json()
+        serverRemoved = typeof json.removed === "number" ? json.removed : 0
+      }
+    } catch { /* best-effort */ }
+    // Tell every open tab to invalidate its cache and pull fresh.
+    try {
+      window.dispatchEvent(new Event("arp:storage"))
+      localStorage.setItem("arp_global_clear_broadcast", String(Date.now()))
+    } catch {}
     const label = REQUEST_MODULES.find((m) => m.id === moduleId)?.label ?? moduleId
+    const removed = Math.max(removedLocal, serverRemoved)
     setConfirmModule(null)
-    setModuleStatus({ type: "success", message: `${label} data cleared — ${removed} request${removed !== 1 ? "s" : ""} removed. Refresh to see the updated state.` })
+    setModuleStatus({ type: "success", message: `${label} data cleared — ${removed} request${removed !== 1 ? "s" : ""} removed from the server and every browser.` })
   }
 
   // ── Clear Store ───────────────────────────────────────────────────────────
   async function handleClearStore(key: string) {
-    // Feedback data lives server-side now (data/feedback.json); the other
-    // stores are still browser-local. Route the call accordingly.
-    if (key === "feedback_surveys" || key === "feedback_responses") {
-      try {
+    // Each shared store (requests, comments, feedback, company-data) needs
+    // its corresponding server file wiped — otherwise the sync hooks just
+    // repopulate the local cache from the still-full server on next tick.
+    try {
+      if (key === "arp_requests") {
+        await fetch("/api/requests", { method: "DELETE" })
+      } else if (key === "feedback_surveys" || key === "feedback_responses") {
         await fetch("/api/feedback/responses", { method: "DELETE" })
-      } catch (e) {
-        setStoreStatus({ type: "error", message: "Failed to clear feedback on server." })
-        setConfirmStore(null)
-        return
+      } else if (key === "arp_company_data") {
+        // Reset to the canonical empty shape so dropdowns just show empty.
+        await fetch("/api/company-data", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            suppliers: [], cost_centers: [], managers: [],
+            carriers: [], departments: [], sectors: [],
+          }),
+        })
       }
-    } else {
-      localStorage.removeItem(key)
+    } catch {
+      setStoreStatus({ type: "error", message: "Failed to clear server-side data." })
+      setConfirmStore(null)
+      return
     }
+    // Always wipe the local cache too, then broadcast so other tabs follow.
+    try { localStorage.removeItem(key) } catch {}
+    try {
+      window.dispatchEvent(new Event("arp:storage"))
+      localStorage.setItem("arp_global_clear_broadcast", String(Date.now()))
+    } catch {}
     const label = STORE_BY_KEY[key]?.label ?? key
     setConfirmStore(null)
-    setStoreStatus({ type: "success", message: `${label} cleared successfully. Refresh to see the updated state.` })
+    setStoreStatus({ type: "success", message: `${label} cleared on the server and in every browser.` })
   }
 
   return (
@@ -515,23 +626,116 @@ export default function DatabasePage() {
 
             {!showClearAllConfirm ? (
               <button
-                onClick={() => { setClearAllStatus({ type: "idle", message: "" }); setShowClearAllConfirm(true) }}
+                onClick={() => { setClearAllStatus({ type: "idle", message: "" }); setClearAllConfirmText(""); setShowClearAllConfirm(true) }}
                 className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white rounded-lg px-4 py-3 text-sm font-semibold transition-colors"
               >
                 <Trash2 className="h-4 w-4" />Clear All Data — All Modules &amp; Stores
               </button>
             ) : (
-              <div className="border-2 border-red-300 rounded-xl p-4 bg-red-50 space-y-3">
-                <p className="text-sm font-bold text-red-900 text-center">This will permanently wipe all requests, tasks, feedback, and notifications. Are you sure?</p>
+              <div className="border-2 border-red-300 rounded-xl p-4 bg-red-50 dark:bg-red-950/20 dark:border-red-900 space-y-3">
+                <p className="text-sm font-bold text-red-900 dark:text-red-200 text-center">
+                  This will permanently wipe all requests, comments, feedback, and company-data lookups on the server, plus every browser cache. User accounts and roles are preserved.
+                </p>
+                <p className="text-xs text-red-700 dark:text-red-300 text-center">
+                  Type <span className="font-mono font-bold bg-red-100 dark:bg-red-900/40 px-1.5 py-0.5 rounded">CLEAR</span> below to confirm.
+                </p>
+                <input
+                  type="text"
+                  value={clearAllConfirmText}
+                  onChange={(e) => setClearAllConfirmText(e.target.value)}
+                  placeholder="Type CLEAR to confirm"
+                  autoFocus
+                  className="w-full px-3 py-2 text-sm font-mono text-center rounded-md border-2 border-red-300 focus:border-red-500 focus:outline-none bg-white dark:bg-slate-900"
+                />
                 <div className="flex gap-3">
-                  <Button onClick={() => setShowClearAllConfirm(false)} variant="outline" className="flex-1 border-gray-300">Cancel</Button>
-                  <Button onClick={handleClearAll} className="flex-1 bg-red-600 hover:bg-red-700 text-white">
+                  <Button onClick={() => { setShowClearAllConfirm(false); setClearAllConfirmText("") }} variant="outline" className="flex-1 border-gray-300">Cancel</Button>
+                  <Button
+                    onClick={handleClearAll}
+                    disabled={clearAllConfirmText.trim() !== "CLEAR"}
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
                     <Trash2 className="h-4 w-4 mr-2" />Yes, Clear Everything
                   </Button>
                 </div>
               </div>
             )}
             <StatusAlert status={clearAllStatus} />
+          </div>
+
+          {/* ── Section: System Controls (Maintenance + Force sign-out) ── */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="h-px flex-1 bg-gray-100" />
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest px-2">System Controls</span>
+              <div className="h-px flex-1 bg-gray-100" />
+            </div>
+
+            {/* Maintenance mode card */}
+            <div className={`rounded-xl border-2 p-4 space-y-3 ${maintenance ? "border-amber-300 bg-amber-50/60 dark:bg-amber-950/20 dark:border-amber-900" : "border-gray-200 bg-white dark:bg-slate-900 dark:border-slate-800"}`}>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${maintenance ? "bg-amber-200 text-amber-800" : "bg-amber-100 text-amber-700"}`}>
+                    <Power className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">Maintenance Mode</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {maintenance
+                        ? "ON — all non-admin users see a maintenance page."
+                        : "OFF — the app is open to everyone."}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => toggleMaintenance(!maintenance)}
+                  className={maintenance ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-amber-600 hover:bg-amber-700 text-white"}
+                >
+                  {maintenance ? "Turn OFF" : "Turn ON"}
+                </Button>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Message shown to users</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={maintenanceMessage}
+                    onChange={(e) => setMaintenanceMessage(e.target.value)}
+                    placeholder="We're doing maintenance — we'll be right back."
+                    className="flex-1 px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                  <Button onClick={saveMaintenanceMessage} variant="outline" size="sm">Save message</Button>
+                </div>
+              </div>
+              <StatusAlert status={maintenanceStatus} />
+            </div>
+
+            {/* Force sign-out card */}
+            <div className="rounded-xl border-2 border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-red-100 dark:bg-red-950/30 flex items-center justify-center text-red-700 dark:text-red-300">
+                    <LogOut className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">Force sign-out all users</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Invalidates every existing session. Everyone (including you) will be redirected to login on their next request.
+                    </p>
+                  </div>
+                </div>
+                {!showSignoutConfirm ? (
+                  <Button onClick={() => { setSignoutStatus({ type: "idle", message: "" }); setShowSignoutConfirm(true) }} className="bg-red-600 hover:bg-red-700 text-white">
+                    Sign out everyone
+                  </Button>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button onClick={() => setShowSignoutConfirm(false)} variant="outline" size="sm">Cancel</Button>
+                    <Button onClick={forceSignoutAll} className="bg-red-600 hover:bg-red-700 text-white" size="sm">Confirm</Button>
+                  </div>
+                )}
+              </div>
+              <StatusAlert status={signoutStatus} />
+            </div>
           </div>
 
         </CardContent>

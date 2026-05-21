@@ -2,7 +2,7 @@ import { getToken } from "@auth/core/jwt"
 import { NextRequest, NextResponse } from "next/server"
 import { PAGE_PERMISSIONS_BY_PATH } from "@/lib/pageRegistry"
 
-const publicRoutes = ["/login", "/unauthorized", "/feedback-survey"]
+const publicRoutes = ["/login", "/unauthorized", "/feedback-survey", "/system-maintenance"]
 
 // Sourced from the central page registry — adding a page in pageRegistry.ts
 // auto-wires its middleware gate (and the Admin > Roles checkbox).
@@ -41,8 +41,38 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
+  // Stale session — admin force-signed-out and this token was issued
+  // before the cutoff. Bounce through NextAuth's signout flow so the
+  // cookie is cleared properly, then back to /login. Without this the
+  // user gets stuck in a loop because the cookie itself is still valid
+  // (just marked stale by us).
+  if (token && (token as any).stale === true && !isPublicRoute && pathname !== "/api/auth/signout") {
+    const signoutUrl = new URL("/api/auth/signout", publicBase)
+    signoutUrl.searchParams.set("callbackUrl", "/login")
+    return NextResponse.redirect(signoutUrl)
+  }
+
   if (token && pathname === "/login") {
+    // If the token is stale, allow them through to login so they can sign in fresh.
+    if ((token as any).stale === true) {
+      return NextResponse.next()
+    }
     return NextResponse.redirect(new URL("/dashboard", publicBase))
+  }
+
+  // Maintenance mode — block every dashboard route for non-admins. Full
+  // Access users keep access so they can flip the flag back off. The
+  // flag is stamped on the token by the auth jwt callback.
+  if (token && (token as any).maintenance === true && !isPublicRoute) {
+    const role = token.role as string | undefined
+    const userPermissions = (token.permissions as string[]) || []
+    const isAdminish =
+      role === "super_admin" ||
+      role === "Full Access" ||
+      userPermissions.includes("*")
+    if (!isAdminish) {
+      return NextResponse.redirect(new URL("/system-maintenance", publicBase))
+    }
   }
 
   // Check permissions for protected pages

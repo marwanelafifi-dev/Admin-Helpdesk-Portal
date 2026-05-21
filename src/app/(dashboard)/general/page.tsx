@@ -7,7 +7,7 @@ import { Search, Plus, Inbox, Clock, CheckCircle2, ChevronUp, ChevronDown, Chevr
 import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, type EngineRequest, type RequestStatus } from "@/services/engineService"
+import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { cn } from "@/lib/utils"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
@@ -75,6 +75,11 @@ export default function GeneralRequestPage() {
   const canUpdateStatus = ((session?.user?.permissions as string[])?.includes("update_status") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canEditRequest = ((session?.user?.permissions as string[])?.includes("edit_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canCancelRequest = ((session?.user?.permissions as string[])?.includes("cancel_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  const canPermanentDelete = (
+    session?.user?.role === "Full Access"
+    || (session?.user?.permissions as string[])?.includes("*")
+    || (session?.user?.permissions as string[])?.includes("manage_users")
+  ) ?? false
 
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
@@ -342,10 +347,16 @@ export default function GeneralRequestPage() {
                     <RequestActionsMenu
                       requestId={req.id}
                       showCancelOption={canCancelRequest}
+                      showDeleteOption={canPermanentDelete}
                       isExpanded={isExpanded(req.id)}
                       onViewDetails={() => toggleRow(req.id)}
                       onEdit={canEditRequest ? (id) => window.open(`/requests/${id}?source=general`, '_blank') : undefined}
                       onCancel={handleCancelRequest}
+                      onDelete={(id) => {
+                        if (!confirm(`Permanently delete ${id}? This cannot be undone.`)) return
+                        deleteRequestPermanently(id)
+                        setRequests((prev) => prev.filter((r) => r.id !== id))
+                      }}
                     />
                   </td>
                 </tr>

@@ -80,12 +80,35 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
+  // Permanent-delete is admin-only. Requires Full Access OR manage_users
+  // OR the `*` wildcard — same gate as the rest of the user-management API.
+  const perms = (session.user.permissions as string[] | undefined) ?? []
+  const role = session.user.role
+  const isAdmin = role === "Full Access" || perms.includes("*") || perms.includes("manage_users")
+  if (!isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
   const url = new URL(req.url)
   const id = url.searchParams.get("id")
+  const moduleId = url.searchParams.get("module")
+
+  // ?module=foo — wipe every request in that module (used by the per-module
+  // Clear buttons on Admin → Database).
+  if (moduleId) {
+    const all = requestStore.getAll()
+    const remaining = all.filter((r) => r.module !== moduleId)
+    requestStore.bulkReplace(remaining)
+    return NextResponse.json({ success: true, removed: all.length - remaining.length })
+  }
+
+  // No id and no module — wipe everything.
   if (!id) {
     requestStore.clear()
     return NextResponse.json({ success: true, cleared: "all" })
   }
+
+  // Single-id permanent delete.
   const removed = requestStore.remove(id)
   return NextResponse.json({ success: removed })
 }

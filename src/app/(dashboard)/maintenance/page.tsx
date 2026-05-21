@@ -7,7 +7,7 @@ import { Search, Plus, Wrench, Clock, CheckCircle2, ChevronUp, ChevronDown, Chev
 import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, type EngineRequest, type RequestStatus } from "@/services/engineService"
+import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { cn } from "@/lib/utils"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
@@ -23,13 +23,13 @@ import { scopeRequests } from "@/lib/access"
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
-  new: "New", on_hold: "In Progress",
+  new: "New", in_progress: "In Progress",
   completed: "Completed", cancelled: "Cancelled",
 }
 
 // Colors and dots are derived from the canonical palette via the page's
 // STATUS_LABELS map, so "In Progress" looks identical across every list page
-// regardless of which underlying status code (on_hold / in_progress) feeds it.
+// regardless of which underlying status code (in_progress / in_progress) feeds it.
 const STATUS_COLORS: Record<string, string> = Object.fromEntries(
   Object.entries(STATUS_LABELS).map(([code, label]) => [code, LABEL_COLORS[label] ?? "bg-zinc-100 text-zinc-600"])
 )
@@ -39,12 +39,12 @@ const STATUS_DOT: Record<string, string> = Object.fromEntries(
 
 const STATUS_PILL_ACTIVE: Record<string, string> = {
   new: "bg-sky-500 border-sky-500 text-white",
-  on_hold: "bg-amber-500 border-amber-500 text-white",
+  in_progress: "bg-blue-600 border-blue-600 text-white",
   completed: "bg-emerald-600 border-emerald-600 text-white",
   cancelled: "bg-red-600 border-red-600 text-white",
 }
 
-const STATUSES = ["new", "on_hold", "completed", "cancelled"] as const
+const STATUSES = ["new", "in_progress", "completed", "cancelled"] as const
 
 type SortKey = "id" | "title" | "createdAt" | "requesterName" | "priority" | "status" | "updatedAt"
 
@@ -77,6 +77,11 @@ export default function MaintenancePage() {
   const canUpdateStatus = ((session?.user?.permissions as string[])?.includes("update_status") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canEditRequest = ((session?.user?.permissions as string[])?.includes("edit_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canCancelRequest = ((session?.user?.permissions as string[])?.includes("cancel_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  const canPermanentDelete = (
+    session?.user?.role === "Full Access"
+    || (session?.user?.permissions as string[])?.includes("*")
+    || (session?.user?.permissions as string[])?.includes("manage_users")
+  ) ?? false
 
   const commentCounts = useCommentCounts(requests.map(r => r.id))
   const { viewedComments } = useViewedComments()
@@ -174,13 +179,13 @@ export default function MaintenancePage() {
   const counts = useMemo(() => ({
     total:     requests.length,
     new:       requests.filter((r) => r.status === "new").length,
-    inProgress:requests.filter((r) => r.status === "on_hold").length,
+    inProgress:requests.filter((r) => r.status === "in_progress").length,
     completed: requests.filter((r) => r.status === "completed").length,
   }), [requests])
 
   const statCards = [
     { key: "new",       label: "New",           value: counts.new,        icon: Clock,        iconBg: "bg-sky-50",    iconColor: "text-sky-600",    activeBg: "bg-sky-500",    activeBorder: "border-sky-500" },
-    { key: "on_hold",   label: "In Progress",   value: counts.inProgress, icon: Wrench,       iconBg: "bg-amber-50",  iconColor: "text-amber-600",  activeBg: "bg-amber-500",  activeBorder: "border-amber-500" },
+    { key: "in_progress",   label: "In Progress",   value: counts.inProgress, icon: Wrench,       iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
     { key: "completed", label: "Completed",     value: counts.completed,  icon: CheckCircle2, iconBg: "bg-emerald-50",iconColor: "text-emerald-600",activeBg: "bg-emerald-600",activeBorder: "border-emerald-600" },
   ] as const
 
@@ -356,10 +361,16 @@ export default function MaintenancePage() {
                     <RequestActionsMenu
                       requestId={req.id}
                       showCancelOption={canCancelRequest}
+                      showDeleteOption={canPermanentDelete}
                       isExpanded={isExpanded(req.id)}
                       onViewDetails={() => toggleRow(req.id)}
                       onEdit={canEditRequest ? (id) => window.open(`/requests/${id}?source=maintenance`, '_blank') : undefined}
                       onCancel={handleCancelRequest}
+                      onDelete={(id) => {
+                        if (!confirm(`Permanently delete ${id}? This cannot be undone.`)) return
+                        deleteRequestPermanently(id)
+                        setRequests((prev) => prev.filter((r) => r.id !== id))
+                      }}
                     />
                   </td>
                 </tr>

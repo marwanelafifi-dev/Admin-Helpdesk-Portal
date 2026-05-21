@@ -493,6 +493,50 @@ This document tracks the phased development of the Admin Request Platform, movin
 - [x] **Database admin page checklist**: shows Server Requests, Server Company Data, Server Comments, Server Feedback, plus Users & Roles (preserved on Clear All).
 - [x] **`/api/admin/server-data`** now backs up + restores `data/requests.json` and `data/company-data.json` alongside comments / feedback / users / roles.
 
+## Phase 5r: Purchase Approval Workflow (Completed — 20 May 2026)
+- [x] **`awaiting_approval` status** added to RequestStatus. Replaces `in_customs` for Purchase semantics. List page, stat card, status pill, and detail-page dropdown all use the new code. Color stays amber.
+- [x] **Status code normalisation**: every module's STATUS_LABELS / STATUSES / MODULE_STATUSES maps now use codes that match the UI label 1:1 — `in_progress` not `on_hold`, `in_transit` not collision-mapped, `awaiting_approval` for Purchase, `in_customs` only for Shipping. Legacy `on_hold` is kept in palette maps so historical data still renders as "In Progress" (blue).
+- [x] **Approval email** (`src/lib/emailService.ts` → `sendPurchaseApprovalEmail`):
+  - Fired automatically when a Purchase request moves to `awaiting_approval`.
+  - To: the selected Direct Manager. Cc: Administration Team + requester + helpdesk + form CC + admin CC.
+  - Renders every field needed to decide (item, description, category, platform, supplier, product URL, quantity, estimated price, business justification, requester info).
+  - Includes one-click Approve / Reject buttons.
+- [x] **Signed approval tokens** (`src/lib/approvalToken.ts`):
+  - HMAC-SHA256 over `{rid, act, mgr, exp}` using `AUTH_SECRET`.
+  - Token is bound to the request id AND the manager's email — the route verifies both before applying any state change.
+  - 14-day expiry.
+- [x] **API**:
+  - `POST /api/requests/:id/send-approval-email` — server-side trigger; resolves manager email from `data/company-data.json`, signs the tokens, sends the email.
+  - `GET /api/requests/:id/approve?token=…` — verifies signature + matches current Direct Manager via `resolveRequestManagerEmail` (`src/lib/approvalNotify.ts`). On success: flips status to `in_progress`, adds a system comment "Approved" authored as "Direct Manager", fans out a decision email to admin team + requester + helpdesk + manager + payload CCs.
+  - `GET /api/requests/:id/reject?token=…` — same, but → `cancelled` and comment "Rejected".
+  - Returns styled HTML pages (not JSON) since the user lands here from an email client.
+- [x] **Direct Manager auto-CC on every email** for the request: `getAllCcEmails()` now resolves both Shipping `approvers.directManager.email` and Purchase/HR `payload.directManager` (via Company Data manager lookup) and includes them in the CC list automatically. Manager stays in the loop on status changes, comments, etc.
+
+## Phase 5s: Data Hygiene + System Controls (Completed — 21 May 2026)
+- [x] **Per-page Clear All wipes the server too**:
+  - Admin → Database "Clear All Data" now requires the user to type `CLEAR` in a confirm box.
+  - Hits `DELETE /api/admin/server-data` which wipes every `clearable: true` file: `requests.json`, `comments.json`, `feedback.json`, `company-data.json`. `users.json` / `roles.json` are intentionally `clearable: false` so admins can't lock themselves out.
+  - Wipes all owned localStorage keys for the clicking user and broadcasts an `arp_global_clear_broadcast` storage event so every other open tab follows.
+- [x] **Per-module Clear** now wipes the server: `DELETE /api/requests?module=<id>` so clearing e.g. Shipping actually removes shipping rows from `data/requests.json` and the next sync doesn't re-populate.
+- [x] **Per-store Clear** hits the right server endpoint when applicable (`arp_requests` → DELETE /api/requests; `arp_company_data` → PUT empty shape; `feedback_*` → DELETE /api/feedback/responses).
+- [x] **Permanent delete per row** (`RequestActionsMenu.showDeleteOption`):
+  - Red "Delete permanently" item visible only to Full Access / `manage_users` / wildcard.
+  - Wired into All Requests + every module list (Receiving, Sending, HR, Maintenance, Purchase, Event, Travel, General).
+  - Calls `deleteRequestPermanently(id)` → wipes locally + server + comment cascade.
+- [x] **Maintenance Mode**:
+  - `data/maintenance.json` stores `{ maintenance, maintenanceMessage, sessionMinVersion }`.
+  - `GET/PUT /api/admin/maintenance` — toggle + edit message (admin-only).
+  - Auth jwt callback stamps `maintenance` flag onto every token; middleware reads it and redirects non-admins to `/system-maintenance` (a centred "We'll be right back" page).
+  - Full Access / wildcard users keep access so they can flip the flag back off.
+  - Admin → Database → "System Controls" section exposes the toggle + editable message.
+- [x] **Force sign-out all users**:
+  - `POST /api/admin/maintenance` bumps `sessionMinVersion` to the current epoch.
+  - Auth jwt callback stamps an explicit `issuedAtSec` on each fresh sign-in. When `sessionMinVersion > issuedAtSec`, the token is marked `stale: true`.
+  - Middleware sees `stale` and redirects to `/api/auth/signout?callbackUrl=/login` — NextAuth properly clears the cookie, no infinite loop on `/login`.
+  - Brand-new sign-ins always succeed because their `issuedAtSec` is current.
+  - Admin → Database → "System Controls" → "Sign out everyone" with single-click confirm-then-do.
+- [x] **Unauthorized page** rewritten: fixed full-viewport positioning, dark-mode aware card, icon, and a "Sign in with another account" button that links to `/api/auth/signout?callbackUrl=/login` so users can switch accounts without manually clearing cookies.
+
 ## Phase 6: Advanced Functionality (Pending)
 - [ ] **Email Notifications:** SMTP ports 465/587 may be blocked by corporate firewall. Use Admin → Notifications to configure Gmail App Password or switch to SendGrid/Brevo (HTTP API, not blocked).
 - [ ] **Audit Trail Enhancement:** Currently reads from localStorage. Future: persist to PostgreSQL for cross-session history.

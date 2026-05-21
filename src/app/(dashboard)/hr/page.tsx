@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, type EngineRequest, type RequestStatus } from "@/services/engineService"
+import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import type { HRPayload } from "@/modules/hr/hr.schema"
 import { cn } from "@/lib/utils"
@@ -27,10 +27,10 @@ import { scopeRequests } from "@/lib/access"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const HR_STATUSES = ["new", "on_hold", "completed"] as const
+const HR_STATUSES = ["new", "in_progress", "completed"] as const
 
 const STATUS_LABELS: Record<string, string> = {
-  new: "New", on_hold: "In Progress", completed: "Completed",
+  new: "New", in_progress: "In Progress", completed: "Completed",
 }
 
 // Derived from canonical palette via STATUS_LABELS so "In Progress" stays
@@ -44,7 +44,7 @@ const STATUS_DOT: Record<string, string> = Object.fromEntries(
 
 const STATUS_PILL_ACTIVE: Record<string, string> = {
   new:       "bg-sky-500 border-sky-500 text-white",
-  on_hold:   "bg-amber-500 border-amber-500 text-white",
+  in_progress:   "bg-blue-600 border-blue-600 text-white",
   completed: "bg-emerald-600 border-emerald-600 text-white",
 }
 
@@ -84,6 +84,11 @@ export default function HRPage() {
 
   const canUpdateStatus = ((session?.user?.permissions as string[])?.includes("update_status") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canEditRequest = ((session?.user?.permissions as string[])?.includes("edit_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  const canPermanentDelete = (
+    session?.user?.role === "Full Access"
+    || (session?.user?.permissions as string[])?.includes("*")
+    || (session?.user?.permissions as string[])?.includes("manage_users")
+  ) ?? false
 
   const commentCounts = useCommentCounts(requests.map(r => r.id))
   const { viewedComments } = useViewedComments()
@@ -312,7 +317,7 @@ export default function HRPage() {
               />
             </div>
             <div className="flex flex-wrap gap-1.5 items-center">
-              {(["all", "new", "on_hold", "completed"] as const).map((s) => {
+              {(["all", "new", "in_progress", "completed"] as const).map((s) => {
                 const activeClass = s === "all"
                   ? "bg-slate-900 border-slate-900 text-white"
                   : STATUS_PILL_ACTIVE[s]
@@ -449,12 +454,18 @@ export default function HRPage() {
                     <td className="py-3 px-2 text-right">
                       <RequestActionsMenu
                         requestId={req.id}
-                        // HR module statuses are new / on_hold / completed only — no cancelled state.
+                        // HR module statuses are new / in_progress / completed only — no cancelled state.
                         // The Cancel request action is intentionally hidden regardless of permission.
                         showCancelOption={false}
+                        showDeleteOption={canPermanentDelete}
                         isExpanded={isExpanded(req.id)}
                         onViewDetails={() => toggleRow(req.id)}
                         onEdit={canEditRequest ? (id) => window.open(`/requests/${id}?source=hr`, '_blank') : undefined}
+                        onDelete={(id) => {
+                          if (!confirm(`Permanently delete ${id}? This cannot be undone.`)) return
+                          deleteRequestPermanently(id)
+                          setRequests((prev) => prev.filter((r) => r.id !== id))
+                        }}
                       />
                     </td>
                   </tr>

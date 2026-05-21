@@ -21,37 +21,39 @@ import { useTheme } from "next-themes"
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<string, string> = {
-  new: "bg-sky-50 text-sky-700",
-  on_hold: "bg-amber-50 text-amber-700",
-  in_transit: "bg-amber-50 text-amber-700",
-  in_progress: "bg-blue-50 text-blue-700",
-  in_customs: "bg-amber-50 text-amber-700",
-  delivered: "bg-green-50 text-green-700",
-  completed: "bg-emerald-50 text-emerald-700",
-  cancelled: "bg-red-50 text-red-600",
+  new:               "bg-sky-50 text-sky-700",
+  in_progress:       "bg-blue-50 text-blue-700",
+  on_hold:           "bg-blue-50 text-blue-700", // legacy alias
+  in_transit:        "bg-blue-50 text-blue-700",
+  in_customs:        "bg-amber-50 text-amber-700",
+  awaiting_approval: "bg-amber-50 text-amber-700",
+  delivered:         "bg-green-50 text-green-700",
+  completed:         "bg-emerald-50 text-emerald-700",
+  cancelled:         "bg-red-50 text-red-600",
 }
 
 const STATUS_DOT: Record<string, string> = {
-  new: "bg-sky-500",
-  on_hold: "bg-amber-500",
-  in_transit: "bg-amber-500",
-  in_progress: "bg-blue-500",
-  in_customs: "bg-amber-500",
-  delivered: "bg-green-500",
-  completed: "bg-emerald-500",
-  cancelled: "bg-red-500",
+  new:               "bg-sky-500",
+  in_progress:       "bg-blue-500",
+  on_hold:           "bg-blue-500",
+  in_transit:        "bg-blue-500",
+  in_customs:        "bg-amber-500",
+  awaiting_approval: "bg-amber-500",
+  delivered:         "bg-green-500",
+  completed:         "bg-emerald-500",
+  cancelled:         "bg-red-500",
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  new: "New",
-  // on_hold renders as "In Progress" to match every list page's row badge.
-  on_hold: "In Progress",
-  in_transit: "In Transit",
-  in_progress: "In Progress",
-  in_customs: "In Customs",
-  delivered: "Delivered",
-  completed: "Completed",
-  cancelled: "Cancelled",
+  new:               "New",
+  in_progress:       "In Progress",
+  on_hold:           "In Progress", // legacy
+  in_transit:        "In Transit",
+  in_customs:        "In Customs",
+  awaiting_approval: "Awaiting Approval",
+  delivered:         "Delivered",
+  completed:         "Completed",
+  cancelled:         "Cancelled",
 }
 
 const MODULE_COLORS: Record<string, string> = {
@@ -66,7 +68,7 @@ const MODULE_COLORS: Record<string, string> = {
 
 const MODULES = ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"] as const
 
-const ACTIVE_STATUSES = new Set(["new", "on_hold", "in_transit", "in_progress", "in_customs"])
+const ACTIVE_STATUSES = new Set(["new", "in_progress", "on_hold", "in_transit", "in_customs", "awaiting_approval"])
 const COMPLETED_STATUSES = new Set(["completed", "delivered"])
 
 type TimeRange = "7d" | "15d" | "30d" | "90d" | "1y" | "custom"
@@ -371,7 +373,7 @@ export default function DashboardPage() {
 
   // Chart data
   const statusChartData = useMemo(() => {
-    const order = ["new", "on_hold", "in_transit", "in_progress", "in_customs", "delivered", "completed", "cancelled"]
+    const order = ["new", "in_progress", "on_hold", "in_transit", "in_customs", "awaiting_approval", "delivered", "completed", "cancelled"]
     return order
       .filter((s) => (stats.statusBreakdown[s] || 0) > 0)
       .map((s) => ({ status: STATUS_LABELS[s], count: stats.statusBreakdown[s] || 0 }))

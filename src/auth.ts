@@ -139,6 +139,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.name = stored.name
         // image deliberately omitted — see note in refresh branch below
         token.permissions = await getPermissionsForRole(stored.role)
+        // Stamp issue time explicitly so the force-signout check has a
+        // reliable comparison value. NextAuth sets `iat` internally but
+        // mixing that with our refresh path was unreliable.
+        ;(token as any).issuedAtSec = Math.floor(Date.now() / 1000)
         return token
       }
 
@@ -150,6 +154,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = role
         token.name = user.name
         token.permissions = await getPermissionsForRole(role)
+        ;(token as any).issuedAtSec = Math.floor(Date.now() / 1000)
         return token
       }
 
@@ -166,6 +171,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const { getPermissionsForRole } = await import("@/lib/userRoles")
           token.permissions = await getPermissionsForRole(stored.role)
         }
+      }
+
+      // Force-signout + maintenance flag — read the shared state file and
+      // stamp the result onto the token. Middleware reads these claims and
+      // redirects to /api/auth/signout (which clears the cookie) when the
+      // token was issued before the admin's force-signout cutoff.
+      try {
+        const { readMaintenanceState } = await import("@/lib/maintenanceMode")
+        const state = readMaintenanceState()
+        const issuedAt = typeof (token as any).issuedAtSec === "number"
+          ? (token as any).issuedAtSec
+          : (typeof token.iat === "number" ? token.iat : Math.floor(Date.now() / 1000))
+        // Only mark stale when sessionMinVersion is set (> 0) AND strictly
+        // newer than this token's issue time. Brand-new tokens issued
+        // moments after the bump will still be valid because their
+        // issuedAtSec is set in the user-branches above.
+        ;(token as any).stale = state.sessionMinVersion > 0 && state.sessionMinVersion > issuedAt
+        ;(token as any).maintenance = state.maintenance === true
+      } catch {
+        // best-effort — leave token alone on any error.
       }
 
       return token
