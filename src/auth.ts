@@ -113,18 +113,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // For Google sign-in, only allow si-ware.com domain
       if (account?.provider === "google") {
         if (!user.email.endsWith("@si-ware.com")) return "/login?error=OAuthSignin"
+        // Inactive users are blocked regardless of provider. Check the
+        // file store (the actual source of truth for the .active flag).
+        const existing = findUserByEmail(user.email)
+        if (existing && existing.active === false) {
+          return "/login?error=AccessDenied"
+        }
         return true
       }
 
-      try {
-        const { prisma } = await import("@/lib/prisma")
-        const existingUser = await prisma.user.findUnique({
-          where: { email: user.email.toLowerCase() },
-          select: { active: true },
-        })
-        if (existingUser && !existingUser.active) return false
-      } catch {
-        // DB unavailable — allow sign in
+      // Credentials provider — block inactive users by checking the file store.
+      const existing = findUserByEmail(user.email)
+      if (existing && existing.active === false) {
+        return false
       }
 
       return true
@@ -166,10 +167,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (token.email) {
         const stored = findUserByEmail(token.email as string)
         if (stored) {
+          // If the user was deactivated since their last sign-in, mark the
+          // token stale so middleware redirects them through signout on the
+          // next request. Without this, an already-logged-in user keeps
+          // browsing until their JWT expires (default: 30 days).
+          if (stored.active === false) {
+            ;(token as any).stale = true
+            ;(token as any).inactive = true
+            return token
+          }
           token.role = stored.role
           token.name = stored.name
           const { getPermissionsForRole } = await import("@/lib/userRoles")
           token.permissions = await getPermissionsForRole(stored.role)
+        } else {
+          // The user record disappeared (deleted) — also treat as stale.
+          ;(token as any).stale = true
+          ;(token as any).inactive = true
+          return token
         }
       }
 
