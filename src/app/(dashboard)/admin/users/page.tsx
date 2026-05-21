@@ -42,6 +42,7 @@ type PlatformUser = {
   createdAt: string
   provider?: string
   image?: string | null
+  defaultAssignee?: boolean
 }
 
 type RoleOption = {
@@ -106,6 +107,9 @@ export default function AdminUsersPage() {
   const [createError, setCreateError] = useState("")
   const [editingUser, setEditingUser] = useState<PlatformUser | null>(null)
   const [showEditDialog, setShowEditDialog] = useState(false)
+  // Tracks the "Default Assignee" checkbox in the Edit User dialog. Only
+  // meaningful when the chosen role is "Administration Team".
+  const [editDefaultAssignee, setEditDefaultAssignee] = useState(false)
   const [updating, setUpdating] = useState(false)
   const [updateError, setUpdateError] = useState("")
   const [form, setForm] = useState({
@@ -220,6 +224,7 @@ export default function AdminUsersPage() {
       role: user.role,
       department: user.department || "",
     })
+    setEditDefaultAssignee(Boolean((user as any).defaultAssignee))
     setUpdateError("")
     setShowEditDialog(true)
   }
@@ -256,9 +261,46 @@ export default function AdminUsersPage() {
     setUsers((current) =>
       current.map((u) => (u.id === editingUser.id ? data.user : u))
     )
+
+    // Persist the Default Assignee flag separately — it's atomic across all
+    // users (setting it on one clears it from everyone else). Only valid for
+    // Administration Team members; the API rejects other roles.
+    if (form.role === "Administration Team") {
+      const wasDefault = Boolean((editingUser as any).defaultAssignee)
+      if (editDefaultAssignee !== wasDefault) {
+        try {
+          await fetch("/api/users/default-assignee", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: editDefaultAssignee ? editingUser.id : null }),
+          })
+          // Mirror the flip locally so the UI reflects who holds the flag now.
+          setUsers((current) => current.map((u) => ({
+            ...u,
+            defaultAssignee: editDefaultAssignee ? u.id === editingUser.id : false,
+          })))
+        } catch {
+          // Best-effort. Refresh will resync.
+        }
+      }
+    } else if ((editingUser as any).defaultAssignee) {
+      // Role changed away from Administration Team — clear the flag.
+      try {
+        await fetch("/api/users/default-assignee", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: null }),
+        })
+        setUsers((current) => current.map((u) => ({ ...u, defaultAssignee: false })))
+      } catch {}
+    }
+
     setShowEditDialog(false)
     setEditingUser(null)
     setForm({ name: "", email: "", password: "", role: "requester", department: "" })
+    setEditDefaultAssignee(false)
   }
 
   const handleChangeRole = async (userId: string, newRole: string) => {
@@ -707,6 +749,27 @@ export default function AdminUsersPage() {
                   </Select>
                 </div>
               </div>
+
+              {/* Default Assignee — only meaningful for Administration Team. */}
+              {form.role === "Administration Team" && (
+                <div className="rounded-md border border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-900 px-4 py-3 space-y-1">
+                  <label className="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={editDefaultAssignee}
+                      onChange={(e) => setEditDefaultAssignee(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm">
+                      <span className="font-medium text-blue-900 dark:text-blue-200">Set as default assignee</span>
+                      <span className="block text-xs text-blue-700/80 dark:text-blue-300/80">
+                        New requests from any module will be automatically assigned to this user.
+                        Only one Administration Team member can hold this at a time.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              )}
 
               {updateError && <p className="text-sm text-destructive">{updateError}</p>}
 

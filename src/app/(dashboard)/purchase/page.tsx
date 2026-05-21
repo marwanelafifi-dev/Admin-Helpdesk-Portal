@@ -17,6 +17,8 @@ import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
+import { LABEL_COLORS, LABEL_DOTS } from "@/lib/statusPalette"
+import { scopeRequests } from "@/lib/access"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -25,16 +27,13 @@ const STATUS_LABELS: Record<string, string> = {
   delivered: "Delivered", cancelled: "Cancelled",
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  new: "bg-sky-50 text-sky-700", on_hold: "bg-blue-50 text-blue-700",
-  in_customs: "bg-amber-50 text-amber-700", delivered: "bg-green-50 text-green-700",
-  cancelled: "bg-red-50 text-red-600",
-}
-
-const STATUS_DOT: Record<string, string> = {
-  new: "bg-sky-500", on_hold: "bg-blue-500", in_customs: "bg-amber-500",
-  delivered: "bg-green-500", cancelled: "bg-red-500",
-}
+// Derived from canonical palette via STATUS_LABELS.
+const STATUS_COLORS: Record<string, string> = Object.fromEntries(
+  Object.entries(STATUS_LABELS).map(([code, label]) => [code, LABEL_COLORS[label] ?? "bg-zinc-100 text-zinc-600"])
+)
+const STATUS_DOT: Record<string, string> = Object.fromEntries(
+  Object.entries(STATUS_LABELS).map(([code, label]) => [code, LABEL_DOTS[label] ?? "bg-gray-400"])
+)
 
 const STATUS_PILL_ACTIVE: Record<string, string> = {
   new: "bg-sky-500 border-sky-500 text-white",
@@ -83,8 +82,14 @@ export default function PurchasePage() {
 
   useEffect(() => {
     initializeMockData()
-    setRequests(getRequests().filter((r) => r.module === "purchase"))
-  }, [])
+    const all = getRequests().filter((r) => r.module === "purchase")
+    setRequests(scopeRequests(
+      all,
+      { id: session?.user?.id, email: session?.user?.email, name: session?.user?.name },
+      session?.user?.role,
+      (session?.user?.permissions as string[]) ?? [],
+    ))
+  }, [session?.user?.id, session?.user?.email, session?.user?.role])
 
   function handleStatusChange(id: string, newStatus: string) {
     const request = requests.find(r => r.id === id)

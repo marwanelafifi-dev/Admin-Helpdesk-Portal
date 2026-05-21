@@ -20,7 +20,14 @@ export const MaintenancePayloadSchema = z.object({
   category: z.enum(MAINTENANCE_CATEGORIES),
   floorNumber: z.enum(FLOOR_NUMBERS),
   roomArea: z.string().min(1, "Room/Area is required"),
-  attachments: z.array(z.string()).optional(),
+  attachments: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    url: z.string(),
+    mimeType: z.string(),
+    sizeBytes: z.number(),
+    uploadedAt: z.string(),
+  })).optional(),
   notes: z.string().max(500).optional(),
   ccEmails: z.array(z.string().email()).default([]),
 })

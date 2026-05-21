@@ -431,6 +431,68 @@ This document tracks the phased development of the Admin Request Platform, movin
   - [x] Backup checklist UI lists the new server-side rows so the admin sees what's covered.
   - [x] Info banner copy updated: "browser data + server-side data, downloaded as one JSON file (version 1.1)".
 
+## Phase 5m: Multi-User Foundations (Completed — 20 May 2026)
+- [x] **Server-side request store** (`src/lib/requestStore.ts` → `data/requests.json`):
+  - [x] `GET /api/requests` — any signed-in user reads every request. `POST` — upserts one. `DELETE` — removes one or wipes all.
+  - [x] Client `engineService` keeps the existing **sync** API (`getRequests()`, `submitRequest()`, etc.) so 100+ call sites don't need refactoring. Reads stay local; writes mirror to the server via `pushToServer()`.
+  - [x] `useEngineSync` hook (mounted in the dashboard Shell) pulls server state on mount, on focus, on visibility change, and every 30s — overwriting the local cache so other users' submissions appear without a page reload.
+  - [x] **One-shot migration** on first visit pushes any pre-existing local-only requests up to the server so historical data isn't lost.
+  - [x] Auto-assignment cascade: when `POST /api/requests` sees a brand-new request with no explicit assignee, it stamps on the configured default assignee server-side, returns the populated record, and the client mirrors it back into localStorage.
+  - [x] Comment cascade-cleanup: every `submitRequest` calls `DELETE /api/requests/comments?requestId=…` so a recycled ID can't inherit ghost comments from a deleted predecessor.
+- [x] **Server-side Company Data store** (`src/lib/companyDataServerStore.ts` → `data/company-data.json`):
+  - [x] `GET /api/company-data` — any signed-in user reads (so every form's dropdowns populate for every user). `PUT` — requires `page:admin-company-data`, `settings`, `manage_users`, or Full Access.
+  - [x] Client `companyDataStore` wraps localStorage but also pushes every write up to the server and pulls on the same 30s cadence as requests.
+  - [x] One-shot backfill pushes existing localStorage values up to the server the first time.
+- [x] **Sub-pages for Shipping** with direction discriminator. `shipping.schema.ts` adds `direction: "sending" | "receiving"`. ShippingForm takes a `direction` prop, Receiving and Sending list pages each filter by their bucket. Direction badge (blue / purple) shown on every shipping row in All Requests + My Requests so users can tell them apart at a glance.
+
+## Phase 5n: Assignee Feature (Completed — 20 May 2026)
+- [x] **EngineRequest** gains `assignedToId / assignedToName / assignedToEmail` (nullable).
+- [x] **`assignRequest()` mutator** in `engineService.ts` — writes locally + pushes to server + fires the in-app + email assignment notification.
+- [x] **`assign_requests` permission** added to `access.ts` type union and `data/roles.json` (granted to Administration Team + Full Access). Surfaces as "Assign Requests" in the Admin → Roles dialog.
+- [x] **`<AssigneeSelect>` component** — searchable dropdown sourced from `/api/users/admin-team` (now includes `image` for avatar rendering). Compact pill mode for table cells, full select for the detail-page card.
+- [x] **Request detail page** has an "Assigned To" card in Details with the picker, gated by `assign_requests`.
+- [x] **All Requests page** has an "Assigned To" column with the same inline picker.
+- [x] **Default Assignee**: `StoredUser.defaultAssignee?: boolean`. Only one user holds it. New API `GET/POST /api/users/default-assignee` (read open, write admin-only). Admin → Users Edit dialog shows a blue panel with a checkbox when the chosen role is Administration Team. Auto-assignment runs server-side in `POST /api/requests` for brand-new requests that have no explicit assignee.
+- [x] **Assignment notifications** — `createAssignmentNotifications` in notificationStore fires in-app + email to the assignee. Self-assignment skips the email; default-assignment is silent (the assignee is already on the new-request To: line, so a second email would just trigger Gmail throttling).
+
+## Phase 5o: Email Delivery Reliability (Completed — 20 May 2026)
+- [x] **SMTP connection pooling**: `nodemailer.createTransport({ pool: true, maxConnections: 1, rateLimit: 1, rateDelta: 2000 })`. One persistent connection serves every request, queued by nodemailer. Eliminates the Gmail `421 Try again later (EHLO)` throttling that happened when each notification opened its own SMTP connection.
+- [x] **Singleton transporter** keyed by config — only torn down and rebuilt when Admin → Notifications changes the saved settings.
+- [x] **Smarter retry backoff**: 3 attempts; on `421` throttle responses, waits 6s then 18s instead of 2s/4s.
+- [x] **`/api/users/admin-team`** now returns only **Administration Team** members (Full Access excluded by design — it's a super-admin role, not a working queue).
+- [x] **`createNewRequestNotifications`** recipient model finalized:
+  - **To:** every Administration Team member + the requester + adminhelpdesk@si-ware.com.
+  - **Cc:** form-provided CC emails + the selected Direct Manager (resolved via Company Data managers list).
+  - De-duped case-insensitively; anyone on the To: line is dropped from Cc.
+- [x] **Managers store upgrade**: `companyDataStore` now persists managers as `Array<string | { name, email }>`. Admin → Company Data → Managers section takes both name and email fields. `getManagerEmail(name)` resolves the email for auto-CC. Every Shipping + Purchase + HR form auto-CCs the selected Direct Manager.
+- [x] **Direct Manager added to Purchase form** (required), matching the Shipping pattern.
+- [x] **Module list page bug fix**: shipping list pages were looking up the requester via `mockUsers.find(by name)` which fails for Google-auth users — now reads `requesterEmail` directly from the stored request so the requester always gets the email.
+
+## Phase 5p: Attachments — Multi-User Viewing (Completed — 20 May 2026)
+- [x] **`src/lib/attachments.ts`** — shared `filesToAttachments()` helper converts uploaded files to base64 `data:` URLs at submit time. Used by Shipping, Purchase, HR (both), Maintenance, Event, Travel, General. Replaces `URL.createObjectURL()` (`blob:` URLs only exist in the original uploader's browser tab).
+- [x] **Schemas updated** for every module to accept the attachment object shape `{ id, name, url, mimeType, sizeBytes, uploadedAt }` instead of `z.array(z.string())`.
+- [x] **Attachment-proxy route** `GET /api/requests/:id/attachments/:idOrIndex`:
+  - Decodes the base64 `data:` URL server-side and serves the bytes back with the correct `Content-Type` and `Content-Disposition: inline`.
+  - Why: Chrome blocks top-level navigation to `data:` URLs as a phishing protection — proxying lets us preview images / PDFs in a new tab with a normal HTTPS URL.
+  - Index parameter accepts either a numeric position OR the attachment's `id` field, so it disambiguates request-level attachments from comment-level attachments.
+- [x] **Detail page Attachments tab**:
+  - Click the row → **opens preview in a new tab** via the proxy URL.
+  - "Download" button → uses the original data URL so the browser saves the file with its real name.
+  - Legacy `blob:` URLs show an amber notice asking the user to re-upload.
+
+## Phase 5q: UX Polish (Completed — 20 May 2026)
+- [x] **Status label normalization**: every status code maps to a canonical label via `src/lib/statusPalette.ts`. "In Progress" is always blue, "Completed" always emerald, etc. — regardless of which module's underlying code (`on_hold`, `in_progress`, `in_transit`) feeds it. Dashboard chart and Travel stat card relabeled from "On Hold" → "In Progress" to match.
+- [x] **Direction badge** (Receiving / Sending) on shipping rows in All Requests + My Requests.
+- [x] **Mobile-first responsiveness**: globals.css collapses fixed multi-col grids to 1-col below 768px (catches every stat-card row across pages without per-page edits). `.form-footer` class on every module form stacks Cancel/Submit full-width on mobile. Dialogs clamp to viewport with `max-width: calc(100vw - 1.5rem)`. Shell adds a hamburger drawer below `lg` and slimmer padding (`p-3 sm:p-4 md:p-6`).
+- [x] **Hamburger on desktop**: TopBar hamburger toggles the sidebar between expanded (256px) and collapsed (64px) via a custom `arp:toggle-sidebar` event. Below `lg` the same button opens the mobile drawer.
+- [x] **Collapsed sidebar parent click**: clicking a parent icon expands the sidebar, opens the section's submenu, and soft-navigates (`router.push`) to the first child page. No reload, no flyout race condition.
+- [x] **Login page dark mode**: card / background / text / divider all have dark-mode variants. Matches the rest of the app.
+- [x] **General Request form footer** sits on the right (`justify-end`) matching the rest of the forms.
+- [x] **Comment cascade-cleanup**: ghost comments from a recycled request ID are evicted on each new submit (see Phase 5m).
+- [x] **Per-page request scoping**: a Requester (with only `read_own`) now sees only their own submissions on Shipping (both directions), HR, Maintenance, Purchase, Event, Travel, General. Implemented via `scopeRequests()` in `access.ts`. Administration Team and Full Access still see everything.
+- [x] **Database admin page checklist**: shows Server Requests, Server Company Data, Server Comments, Server Feedback, plus Users & Roles (preserved on Clear All).
+- [x] **`/api/admin/server-data`** now backs up + restores `data/requests.json` and `data/company-data.json` alongside comments / feedback / users / roles.
+
 ## Phase 6: Advanced Functionality (Pending)
 - [ ] **Email Notifications:** SMTP ports 465/587 may be blocked by corporate firewall. Use Admin → Notifications to configure Gmail App Password or switch to SendGrid/Brevo (HTTP API, not blocked).
 - [ ] **Audit Trail Enhancement:** Currently reads from localStorage. Future: persist to PostgreSQL for cross-session history.

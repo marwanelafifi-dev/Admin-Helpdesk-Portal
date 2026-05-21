@@ -350,6 +350,56 @@ export function createRequestUpdateNotifications(params: {
  * Notify administration team when a brand-new request is submitted.
  * Called from all module form submit handlers.
  */
+/**
+ * Notify a newly-assigned user that a request has been assigned to them.
+ * Fires both an in-app notification and an email.
+ */
+export function createAssignmentNotifications(params: {
+  requestId: string
+  requestTitle: string
+  module: string
+  assigneeId: string
+  assigneeName: string
+  assigneeEmail: string
+  actorName?: string
+  actorEmail?: string
+}) {
+  if (typeof window === "undefined") return
+  if (!params.assigneeId || !params.assigneeEmail) return
+
+  const title = `You've been assigned a request: ${params.requestTitle}`
+  const description = params.actorName ? `Assigned by ${params.actorName}` : "A request has been assigned to you."
+
+  addNotification({
+    userId: params.assigneeId,
+    type: "request_updated",
+    title,
+    description,
+    requestId: params.requestId,
+    actionUrl: `/requests/${params.requestId}`,
+  })
+
+  const actorEmail = params.actorEmail?.toLowerCase()
+  if (actorEmail && actorEmail === params.assigneeEmail.toLowerCase()) {
+    // Self-assignment — skip the email (the in-app notification is enough).
+    return
+  }
+
+  void fetch("/api/notifications/email", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      to: [params.assigneeEmail],
+      updateType: "request_updated",
+      requestId: params.requestId,
+      requestTitle: params.requestTitle,
+      module: params.module,
+      actorName: params.actorName,
+      preview: `You have been assigned this ${params.module} request${params.actorName ? ` by ${params.actorName}` : ""}.`,
+    }),
+  }).catch(() => {})
+}
+
 export function createNewRequestNotifications(params: {
   requestId: string
   requestTitle: string
@@ -357,6 +407,10 @@ export function createNewRequestNotifications(params: {
   requesterId: string
   requesterName: string
   requesterEmail: string
+  /** CC emails entered on the form (payload.ccEmails). */
+  ccEmails?: string[]
+  /** Email of the Direct Manager selected on the form, if any. */
+  managerEmail?: string
 }) {
   if (typeof window === "undefined") return
 
@@ -393,20 +447,40 @@ export function createNewRequestNotifications(params: {
     })
   })
 
-  // Email: notify all real admins + helpdesk
+  // Email recipients:
+  //   To: every Administration Team member + the requester + adminhelpdesk.
+  //   Cc: form-provided CC emails + the selected Direct Manager (if any).
+  //   Anyone already on the To: line is dropped from Cc.
   void fetchAdminUsers().then((admins) => {
-    const adminEmails = admins
-      .map((u) => u.email)
-      .filter((e) => e.toLowerCase() !== params.requesterEmail.toLowerCase())
+    const adminEmails = admins.map((u) => u.email).filter(Boolean)
 
-    const recipients = Array.from(new Set([...adminEmails, ADMIN_HELPDESK_EMAIL]))
-    if (recipients.length === 0) return
+    const toSet = new Set<string>()
+    const addTo = (e?: string) => {
+      const trimmed = (e ?? "").trim().toLowerCase()
+      if (trimmed) toSet.add(trimmed)
+    }
+    adminEmails.forEach(addTo)
+    addTo(params.requesterEmail)
+    addTo(ADMIN_HELPDESK_EMAIL)
+    const recipients = Array.from(toSet)
+
+    const ccSet = new Set<string>()
+    const addCc = (e?: string) => {
+      const trimmed = (e ?? "").trim().toLowerCase()
+      if (trimmed && !toSet.has(trimmed)) ccSet.add(trimmed)
+    }
+    for (const e of (params.ccEmails ?? [])) addCc(e)
+    addCc(params.managerEmail)
+    const ccList = Array.from(ccSet)
+
+    if (recipients.length === 0 && ccList.length === 0) return
 
     void fetch("/api/notifications/email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         to: recipients,
+        cc: ccList.length > 0 ? ccList : undefined,
         updateType: "request_updated",
         requestId: params.requestId,
         requestTitle: params.requestTitle,

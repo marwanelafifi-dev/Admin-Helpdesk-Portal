@@ -36,6 +36,31 @@ export async function GET(req: NextRequest) {
   }
 }
 
+/**
+ * DELETE /api/requests/comments?requestId=XYZ
+ * Wipes every comment for the given request. Called by the engine right
+ * after a new request is created to evict any stale comments left over
+ * from a previous request that reused the same ID — without this, the
+ * new request inherits ghost comments because request IDs reset after
+ * a Clear All and easily collide with old data.
+ */
+export async function DELETE(req: NextRequest) {
+  try {
+    const requestId = req.nextUrl.searchParams.get('requestId')
+    if (!requestId) {
+      return NextResponse.json({ error: 'requestId is required' }, { status: 400 })
+    }
+    const removed = commentsStore.clearForRequest(requestId)
+    return NextResponse.json({ requestId, removed })
+  } catch (error) {
+    console.error('DELETE /api/requests/comments error:', error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to clear comments' },
+      { status: 500 }
+    )
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()

@@ -12,6 +12,8 @@ import {
   TravelPayloadSchema,
 } from "./travel.schema"
 import { submitRequest } from "@/services/engineService"
+import { createNewRequestNotifications } from "@/lib/notificationStore"
+import { filesToAttachments } from "@/lib/attachments"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -71,11 +73,21 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
 
   const onSubmit = async (data: TravelForm) => {
     try {
-      submitRequest("travel", data, {
+      const attachments = await filesToAttachments(uploadedFiles, "travel")
+      const newReq = submitRequest("travel", { ...data, attachments } as any, {
         title: data.requestTitle,
         requesterId: session?.user?.id || "USR-001",
         requesterName: session?.user?.name || session?.user?.email || "Current User",
         requesterEmail: session?.user?.email || "user@si-ware.com",
+      })
+      createNewRequestNotifications({
+        requestId: newReq.id,
+        requestTitle: newReq.title,
+        module: "travel",
+        requesterId: newReq.requesterId,
+        requesterName: newReq.requesterName,
+        requesterEmail: newReq.requesterEmail,
+        ccEmails: data.ccEmails,
       })
       router.push("/travel")
       router.refresh()

@@ -18,7 +18,14 @@ export const EventPayloadSchema = z.object({
   budget: z.number().min(0, "Budget must be positive"),
   department: z.string().min(1, "Department is required"),
   organizer: z.string().min(1, "Organizer name is required"),
-  attachments: z.array(z.string()).optional(),
+  attachments: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    url: z.string(),
+    mimeType: z.string(),
+    sizeBytes: z.number(),
+    uploadedAt: z.string(),
+  })).optional(),
   notes: z.string().max(500).optional(),
   ccEmails: z.array(z.string().email()).default([]),
 })

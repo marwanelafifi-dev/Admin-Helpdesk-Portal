@@ -11,6 +11,13 @@ export type StoredUser = {
   createdAt: string
   provider: "google" | "credentials"
   passwordHash?: string
+  /**
+   * If true, new requests submitted via any module form are auto-assigned to
+   * this user. Only one user should carry this flag at a time — the API
+   * enforces that by clearing it from every other user when set.
+   * Only meaningful for Administration Team members.
+   */
+  defaultAssignee?: boolean
 }
 
 const STORE_PATH = path.join(process.cwd(), "data", "users.json")
@@ -81,6 +88,30 @@ export function updateUser(id: string, data: Partial<Omit<StoredUser, "id" | "cr
   users[idx] = { ...users[idx], ...data }
   writeUsers(users)
   return users[idx]
+}
+
+/**
+ * Mark a single user as the default assignee for new requests. Clears the
+ * flag from every other user — only one default at a time. Pass `null` to
+ * clear the default for everyone.
+ */
+export function setDefaultAssignee(id: string | null): StoredUser | null {
+  const users = readUsers()
+  let next: StoredUser | null = null
+  for (const u of users) {
+    if (id && u.id === id) {
+      u.defaultAssignee = true
+      next = u
+    } else if (u.defaultAssignee) {
+      u.defaultAssignee = false
+    }
+  }
+  writeUsers(users)
+  return next
+}
+
+export function getDefaultAssignee(): StoredUser | null {
+  return readUsers().find((u) => u.defaultAssignee) ?? null
 }
 
 export function deleteUser(id: string): boolean {

@@ -14,6 +14,7 @@ import {
 } from "./maintenance.schema"
 import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
 import { createNewRequestNotifications } from "@/lib/notificationStore"
+import { filesToAttachments } from "@/lib/attachments"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -95,8 +96,9 @@ export function MaintenanceForm({ onCancel, editingRequest, isEditing }: { onCan
           requesterEmail: editingRequest.requesterEmail,
         })
       } else {
-        // Create new request
-        const newReq = submitRequest("maintenance", data, {
+        // Create new request — convert files to data URLs so any user can open them.
+        const attachments = await filesToAttachments(uploadedFiles, "maintenance")
+        const newReq = submitRequest("maintenance", { ...data, attachments } as any, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",
@@ -109,6 +111,7 @@ export function MaintenanceForm({ onCancel, editingRequest, isEditing }: { onCan
           requesterId: newReq.requesterId,
           requesterName: newReq.requesterName,
           requesterEmail: newReq.requesterEmail,
+          ccEmails: data.ccEmails,
         })
       }
       router.push("/maintenance")

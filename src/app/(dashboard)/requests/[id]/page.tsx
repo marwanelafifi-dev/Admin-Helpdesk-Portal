@@ -9,10 +9,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { commentsAPI } from "@/lib/apiClient"
-import { getRequests, updateStatus, updateAdminCc, getAllCcEmails, initializeMockData, recordCommentActivity, type EngineRequest } from "@/services/engineService"
+import { getRequests, updateStatus, updateAdminCc, getAllCcEmails, initializeMockData, recordCommentActivity, assignRequest, type EngineRequest } from "@/services/engineService"
+import { AssigneeSelect } from "@/components/ui/AssigneeSelect"
+import { hasPermission as hasPerm } from "@/lib/access"
 import { cn } from "@/lib/utils"
 import { hasPermission } from "@/lib/access"
-import { createRequestUpdateNotifications } from "@/lib/notificationStore"
+import { createRequestUpdateNotifications, createAssignmentNotifications } from "@/lib/notificationStore"
 import { CommentsTab } from "@/components/request/CommentsTab"
 import { invalidateCommentCountCache } from "@/hooks/useCommentCounts"
 import {
@@ -26,6 +28,7 @@ const STATUS_COLORS: Record<string, string> = {
   draft: "bg-zinc-100 text-zinc-600",
   new: "bg-sky-100 text-sky-700",
   on_hold: "bg-blue-100 text-blue-700",
+  in_progress: "bg-blue-100 text-blue-700",
   in_transit: "bg-blue-100 text-blue-700",
   in_customs: "bg-amber-100 text-amber-700",
   delivered: "bg-green-100 text-green-700",
@@ -37,6 +40,7 @@ const STATUS_DOT: Record<string, string> = {
   draft: "bg-zinc-400",
   new: "bg-sky-500",
   on_hold: "bg-blue-500",
+  in_progress: "bg-blue-500",
   in_transit: "bg-blue-500",
   in_customs: "bg-amber-500",
   delivered: "bg-green-500",
@@ -57,8 +61,15 @@ const getStatusLabel = (status: string, module?: string): string => {
     return purchaseLabels[status] || status.replace(/_/g, ' ').charAt(0).toUpperCase() + status.replace(/_/g, ' ').slice(1)
   }
 
-  // Default labels
+  // Default labels — "on_hold" and "in_progress" both render as "In Progress"
+  // across every module so the badge wording matches the list-page palette.
   if (status === 'new') return 'New'
+  if (status === 'on_hold' || status === 'in_progress') return 'In Progress'
+  if (status === 'in_transit') return 'In Transit'
+  if (status === 'in_customs') return 'In Customs'
+  if (status === 'delivered') return 'Delivered'
+  if (status === 'completed') return 'Completed'
+  if (status === 'cancelled') return 'Cancelled'
   return status.replace(/_/g, ' ').charAt(0).toUpperCase() + status.replace(/_/g, ' ').slice(1)
 }
 
@@ -74,6 +85,9 @@ interface RequestDetail {
   updatedAt: string
   ccEmails: string[]
   adminCc: string[]
+  assignedToId?: string | null
+  assignedToName?: string | null
+  assignedToEmail?: string | null
   requester?: {
     id: string
     name: string
@@ -200,6 +214,32 @@ export default function RequestDetailPage() {
     }
   }, [activeTab, canViewActivity])
 
+  const canAssign = hasPerm(session?.user?.permissions, "assign_requests")
+
+  const handleAssign = async (assignee: { id: string; name: string; email: string } | null) => {
+    if (!request || !canAssign) return
+    const updated = assignRequest(request.id, assignee)
+    setRequest((prev) => prev ? {
+      ...prev,
+      assignedToId: updated?.assignedToId ?? null,
+      assignedToName: updated?.assignedToName ?? null,
+      assignedToEmail: updated?.assignedToEmail ?? null,
+      updatedAt: updated?.updatedAt ?? prev.updatedAt,
+    } : prev)
+    if (assignee) {
+      createAssignmentNotifications({
+        requestId: request.id,
+        requestTitle: request.title,
+        module: request.module,
+        assigneeId: assignee.id,
+        assigneeName: assignee.name,
+        assigneeEmail: assignee.email,
+        actorName: session?.user?.name ?? undefined,
+        actorEmail: session?.user?.email ?? undefined,
+      })
+    }
+  }
+
   const handleStatusChange = async (newStatus: string) => {
     if (!request || !canChangeStatus) return
     try {
@@ -286,6 +326,7 @@ export default function RequestDetailPage() {
       purchase: ['new', 'in_customs', 'on_hold', 'delivered', 'cancelled'],
       event: ['new', 'on_hold', 'in_transit', 'delivered', 'completed', 'cancelled'],
       travel: ['new', 'on_hold', 'in_transit', 'delivered', 'completed', 'cancelled'],
+      general: ['new', 'in_progress', 'completed', 'cancelled'],
     }
     return moduleStatuses[module] || ['new', 'on_hold', 'completed', 'cancelled']
   }
@@ -363,6 +404,9 @@ export default function RequestDetailPage() {
             name: engineRequest.requesterName,
             email: engineRequest.requesterEmail,
           },
+          assignedToId: engineRequest.assignedToId ?? null,
+          assignedToName: engineRequest.assignedToName ?? null,
+          assignedToEmail: engineRequest.assignedToEmail ?? null,
           createdAt: engineRequest.createdAt,
           updatedAt: engineRequest.updatedAt,
           approvals: [],
@@ -622,6 +666,26 @@ export default function RequestDetailPage() {
                     <p className="text-sm">{formatDate(request.updatedAt)}</p>
                   </CardContent>
                 </Card>
+
+                {/* Assigned To */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Assigned To
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <AssigneeSelect
+                      value={request.assignedToId ?? null}
+                      onChange={handleAssign}
+                      disabled={!canAssign}
+                    />
+                    {!canAssign && !request.assignedToId && (
+                      <p className="text-xs text-muted-foreground mt-2">No assignee yet</p>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
 
               {/* Request Payload Details */}
@@ -809,34 +873,79 @@ export default function RequestDetailPage() {
             <div className="space-y-2">
               {request.attachments && request.attachments.length > 0 ? (
                 request.attachments.map((attachment: any) => {
-                  // For data URLs, use download attribute; for regular URLs, open in new tab
-                  const isDataUrl = attachment.url.startsWith('data:')
-                  return (
-                  <a
-                    key={attachment.id}
-                    href={attachment.url}
-                    download={isDataUrl ? attachment.name : undefined}
-                    target={isDataUrl ? undefined : "_blank"}
-                    rel={isDataUrl ? undefined : "noopener noreferrer"}
-                    className="flex items-center gap-3 p-4 border rounded-lg hover:bg-gray-50 hover:border-blue-300 transition-colors group cursor-pointer"
-                  >
-                    <FileText className="h-5 w-5 text-blue-600 flex-shrink-0 group-hover:scale-110 transition-transform" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate group-hover:text-blue-600">
-                        {attachment.name}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <p className="text-xs text-gray-500">
-                          {(attachment.sizeBytes / 1024).toFixed(1)} KB
-                        </p>
-                        {attachment.source === 'comment' && (
-                          <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded">
-                            From comment by {attachment.commentAuthor}
-                          </span>
-                        )}
+                  // For inline preview we proxy data: URLs through a server
+                  // route so the browser sees a normal HTTPS URL (Chrome
+                  // blocks top-level navigation to data: URLs as a phishing
+                  // protection). The proxy decodes the data URL and serves
+                  // it with the correct Content-Type so previews render in
+                  // a new tab.
+                  //
+                  // We address attachments by their `id` field — the list
+                  // mixes request-payload attachments with comment-thread
+                  // attachments, so a positional index would be ambiguous.
+                  const isDataUrl = (attachment.url ?? "").startsWith("data:")
+                  const isBlobUrl = (attachment.url ?? "").startsWith("blob:")
+                  const previewUrl = isDataUrl
+                    ? `/api/requests/${request.id}/attachments/${encodeURIComponent(attachment.id)}`
+                    : attachment.url
+                  // Legacy blob: URLs only exist in the browser tab that
+                  // created them, so they can't be opened for anyone else.
+                  // Render them as a disabled row with a hint instead.
+                  if (isBlobUrl) {
+                    return (
+                      <div
+                        key={attachment.id}
+                        className="flex items-center gap-3 p-4 border rounded-lg bg-amber-50/40 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900"
+                      >
+                        <FileText className="h-5 w-5 text-amber-600 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{attachment.name}</p>
+                          <p className="text-xs text-amber-700 mt-1">
+                            Legacy attachment — only viewable by the original uploader. Please re-upload to share with the team.
+                          </p>
+                        </div>
                       </div>
+                    )
+                  }
+                  return (
+                    <div
+                      key={attachment.id}
+                      className="flex items-center gap-3 p-4 border rounded-lg hover:bg-gray-50 hover:border-blue-300 transition-colors"
+                    >
+                      <a
+                        href={previewUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 flex-1 min-w-0 group cursor-pointer"
+                        title="Open in new tab"
+                      >
+                        <FileText className="h-5 w-5 text-blue-600 flex-shrink-0 group-hover:scale-110 transition-transform" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate group-hover:text-blue-600">
+                            {attachment.name}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <p className="text-xs text-gray-500">
+                              {(attachment.sizeBytes / 1024).toFixed(1)} KB
+                            </p>
+                            {attachment.source === 'comment' && (
+                              <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded">
+                                From comment by {attachment.commentAuthor}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </a>
+                      <a
+                        href={attachment.url}
+                        download={attachment.name}
+                        className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded transition-colors flex-shrink-0"
+                        title={isDataUrl ? "Download file" : "Download"}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Download
+                      </a>
                     </div>
-                  </a>
                   )
                 })
               ) : (

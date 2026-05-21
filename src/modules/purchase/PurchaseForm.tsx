@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
 import { getList, getManagerEmail } from "@/lib/companyDataStore"
+import { filesToAttachments } from "@/lib/attachments"
 
 const BRAND = "#22c55e" // green-500
 
@@ -119,14 +120,24 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
           requesterEmail: editingRequest.requesterEmail,
         })
       } else {
-        // Create new request
-        const newReq = submitRequest("purchase", data, {
+        // Create new request — convert uploaded files to data URLs first.
+        const attachments = await filesToAttachments(uploadedFiles, "purchase")
+        const newReq = submitRequest("purchase", { ...data, attachments } as any, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",
           requesterEmail: session?.user?.email || "user@si-ware.com",
         })
-        createNewRequestNotifications({ requestId: newReq.id, requestTitle: newReq.title, module: "purchase", requesterId: newReq.requesterId, requesterName: newReq.requesterName, requesterEmail: newReq.requesterEmail })
+        createNewRequestNotifications({
+          requestId: newReq.id,
+          requestTitle: newReq.title,
+          module: "purchase",
+          requesterId: newReq.requesterId,
+          requesterName: newReq.requesterName,
+          requesterEmail: newReq.requesterEmail,
+          ccEmails: data.ccEmails,
+          managerEmail: managerEmail,
+        })
       }
       router.push("/purchase")
       router.refresh()

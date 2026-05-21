@@ -12,39 +12,99 @@ function getLogoBuffer(): Buffer | null {
   }
 }
 
+/**
+ * SMTP transporter cache — share a single pooled connection across all calls
+ * instead of opening a new connection per email.
+ *
+ * Why this matters: Gmail (and most SMTP servers) throttle by IP and reject
+ * with `421 4.7.0 Try again later, closing connection. (EHLO)` when a single
+ * client opens many connections in quick succession. A request submission
+ * fires 5+ notifications back-to-back; without pooling each one tried to
+ * authenticate a fresh connection and Gmail killed them all.
+ *
+ * `pool: true` keeps a small set of connections alive; nodemailer queues
+ * sends through them, throttled by `rateLimit`. The transporter is rebuilt
+ * only when the saved config changes.
+ */
+let cachedTransporter: ReturnType<typeof nodemailer.createTransport> | null = null
+let cachedTransporterKey: string | null = null
+
+function configKey(saved: ReturnType<typeof readEmailConfig>) {
+  if (saved?.method && saved?.values) {
+    return `${saved.method}|${saved.values.smtp_user ?? ""}|${saved.values.smtp_password ?? ""}`
+  }
+  return `env|${process.env.SMTP_HOST ?? ""}|${process.env.SMTP_USER ?? ""}|${process.env.SMTP_PASSWORD ?? ""}|${process.env.SMTP_PORT ?? ""}`
+}
+
+const POOL_OPTIONS = {
+  pool: true,
+  // Gmail aggressively throttles concurrent SMTP connections from the same
+  // sender. One persistent connection is the sweet spot for our volume.
+  maxConnections: 1,
+  maxMessages: 100,
+  // Two-second window with at most one message per second keeps us well
+  // under Gmail's per-connection burst limits.
+  rateDelta: 2000,
+  rateLimit: 1,
+  connectionTimeout: 15000,
+  greetingTimeout: 15000,
+  socketTimeout: 60000,
+  tls: { rejectUnauthorized: false },
+} as const
+
 function createTransporter() {
-  // Prefer saved UI config over .env.local
   const saved = readEmailConfig()
+  const key = configKey(saved)
+
+  if (cachedTransporter && cachedTransporterKey === key) {
+    return cachedTransporter
+  }
+  if (cachedTransporter) {
+    // Config changed — tear down the old pool before replacing.
+    try { cachedTransporter.close() } catch {}
+    cachedTransporter = null
+  }
+
+  let transporter: ReturnType<typeof nodemailer.createTransport>
   if (saved?.method && saved?.values) {
     const v = saved.values
     if (saved.method === "gmail_app_password") {
-      return nodemailer.createTransport({
+      transporter = nodemailer.createTransport({
         host: "smtp.gmail.com", port: 465, secure: true,
         auth: { user: v.smtp_user, pass: v.smtp_password },
-        tls: { rejectUnauthorized: false },
-        connectionTimeout: 15000, greetingTimeout: 15000, socketTimeout: 15000,
+        ...POOL_OPTIONS,
       })
-    }
-    if (saved.method === "smtp_relay") {
-      return nodemailer.createTransport({
+    } else if (saved.method === "smtp_relay") {
+      transporter = nodemailer.createTransport({
         host: "smtp-relay.gmail.com", port: 587, secure: false,
         auth: { user: v.smtp_user, pass: v.smtp_password },
-        tls: { rejectUnauthorized: false },
-        connectionTimeout: 15000, greetingTimeout: 15000, socketTimeout: 15000,
+        ...POOL_OPTIONS,
+      })
+    } else {
+      // Unknown saved method — fall through to env-based config below.
+      const port = parseInt(process.env.SMTP_PORT || "587")
+      const secure = process.env.SMTP_SECURE === "true" || port === 465
+      transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || "mail.si-ware.com",
+        port, secure,
+        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
+        ...POOL_OPTIONS,
       })
     }
+  } else {
+    const port = parseInt(process.env.SMTP_PORT || "587")
+    const secure = process.env.SMTP_SECURE === "true" || port === 465
+    transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || "mail.si-ware.com",
+      port, secure,
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
+      ...POOL_OPTIONS,
+    })
   }
-  // Fall back to .env.local
-  const port = parseInt(process.env.SMTP_PORT || "587")
-  const secure = process.env.SMTP_SECURE === "true" || port === 465
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || "mail.si-ware.com",
-    port,
-    secure,
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD },
-    tls: { rejectUnauthorized: false },
-    connectionTimeout: 15000, greetingTimeout: 15000, socketTimeout: 15000,
-  })
+
+  cachedTransporter = transporter
+  cachedTransporterKey = key
+  return transporter
 }
 
 function escapeHtml(value: string) {
@@ -96,23 +156,30 @@ export function getRequestEmailSubject(requestTitle: string, requestId: string) 
   return `${requestTitle} - ${requestId}`
 }
 
-async function sendMailWithRetry(transporter: any, mailOptions: any, maxRetries = 2) {
+async function sendMailWithRetry(transporter: any, mailOptions: any, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       return await transporter.sendMail(mailOptions)
     } catch (error) {
       const err = error as Error
-      console.error(`Email send attempt ${attempt} failed:`, err.message)
+      const msg = err.message || ""
+      // Gmail rate-limit responses always look like "421 4.7.0 ...". When we
+      // see those, wait longer than usual so the per-IP throttle has time
+      // to clear before the next attempt.
+      const isThrottle = /\b421\b/.test(msg) || msg.includes("Try again later")
+      console.error(`Email send attempt ${attempt} failed${isThrottle ? " (throttled)" : ""}:`, msg)
 
       if (attempt < maxRetries) {
-        await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000))
+        // Throttle: 6s, 18s. Other errors: 2s, 4s.
+        const baseMs = isThrottle ? 6000 * attempt : Math.pow(2, attempt) * 1000
+        await new Promise(r => setTimeout(r, baseMs))
         continue
       }
 
       console.error(`Email delivery failed after ${maxRetries} attempts:`, {
         to: mailOptions.to,
         subject: mailOptions.subject,
-        error: err.message,
+        error: msg,
       })
       throw error
     }

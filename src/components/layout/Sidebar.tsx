@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { usePathname, useSearchParams } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import {
   LayoutDashboard,
@@ -89,8 +89,18 @@ const SETTINGS_KEY = "arp_platform_settings"
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
   const { data: session, status } = useSession()
   const [collapsed, setCollapsed] = useState(false)
+
+  // Listen for the topbar hamburger toggle. On desktop the hamburger
+  // collapses/expands the sidebar; on mobile the same button opens the
+  // drawer (handled by MobileNavContext instead).
+  useEffect(() => {
+    const onToggle = () => setCollapsed((c) => !c)
+    window.addEventListener("arp:toggle-sidebar", onToggle)
+    return () => window.removeEventListener("arp:toggle-sidebar", onToggle)
+  }, [])
   const [brandName, setBrandName] = useState("Admin Portal")
   const [brandSubtitle, setBrandSubtitle] = useState("Si-Ware Systems")
   const [administrationExpanded, setAdministrationExpanded] = useState(
@@ -100,6 +110,25 @@ export function Sidebar() {
     pathname.startsWith("/admin") && pathname !== "/admin/all-requests"
   )
   const [shippingExpanded, setShippingExpanded] = useState(pathname.startsWith("/shipping"))
+  // When the sidebar is collapsed, clicking a parent opens a flyout popover
+  // anchored to that parent's row so the user can pick a child page without
+  // expanding the whole sidebar. Tracked by parent title.
+  const [flyoutOpen, setFlyoutOpen] = useState<string | null>(null)
+  // Close the flyout when the user navigates away or clicks elsewhere.
+  useEffect(() => {
+    setFlyoutOpen(null)
+  }, [pathname])
+  useEffect(() => {
+    if (!flyoutOpen) return
+    const onClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (!target.closest("[data-sidebar-flyout]") && !target.closest("[data-sidebar-flyout-trigger]")) {
+        setFlyoutOpen(null)
+      }
+    }
+    document.addEventListener("mousedown", onClick)
+    return () => document.removeEventListener("mousedown", onClick)
+  }, [flyoutOpen])
 
   const permissions = session?.user?.permissions ?? []
   const role = session?.user?.role
@@ -278,10 +307,27 @@ export function Sidebar() {
               active = pathname.startsWith("/admin/all-requests") || pathname.startsWith("/tasks") || pathname.startsWith("/feedback-reports") || pathname === "/dashboard"
             }
 
+            const isFlyoutOpen = flyoutOpen === item.title
             return (
-              <div key={item.title}>
+              <div key={item.title} className="relative">
                 <button
-                  onClick={() => !collapsed && setExpandedFn(!expanded)}
+                  data-sidebar-flyout-trigger
+                  onClick={() => {
+                    if (collapsed) {
+                      // On collapsed sidebar: expand the sidebar, open the
+                      // section, and soft-navigate to the first child.
+                      // router.push avoids the full-page reload that
+                      // window.location.href triggers.
+                      const firstChild = item.children?.[0]
+                      setCollapsed(false)
+                      setExpandedFn(true)
+                      if (firstChild) {
+                        router.push(firstChild.href)
+                      }
+                    } else {
+                      setExpandedFn(!expanded)
+                    }
+                  }}
                   title={collapsed ? item.title : undefined}
                   className={cn(
                     "w-full flex items-center gap-2 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
@@ -357,6 +403,12 @@ export function Sidebar() {
                     })}
                   </div>
                 )}
+
+                {/* Collapsed-sidebar flyout: rendered into a portal-like
+                    position via `fixed`, anchored to the trigger's bounding
+                    rect so the nav's overflow-y-auto can't clip it. */}
+                {/* Flyout removed — clicking a collapsed parent expands the
+                    sidebar and navigates to its first child instead. */}
               </div>
             )
           }
@@ -420,5 +472,123 @@ export function Sidebar() {
         </button>
       </div>
     </aside>
+  )
+}
+
+/**
+ * Floating submenu shown when a collapsed-sidebar parent is clicked.
+ * Uses `position: fixed` so it escapes the parent `<nav>`'s overflow-y-auto
+ * which would otherwise clip an absolutely-positioned panel.
+ *
+ * Positioning logic: anchors to the bounding rect of the trigger button
+ * carrying `[data-sidebar-flyout-trigger]` inside the current row, with a
+ * small left offset so it sits just outside the sidebar.
+ */
+function CollapsedFlyout({
+  title,
+  childItems,
+  pathname,
+  badgeCountForHref,
+  onClose,
+}: {
+  title: string
+  childItems: Array<{ title: string; href: string; icon: React.ElementType }>
+  pathname: string
+  badgeCountForHref: (href: string) => number
+  onClose: () => void
+}) {
+  const router = useRouter()
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+
+  useEffect(() => {
+    // Find the trigger button that opened us (its sibling parent's trigger).
+    // We tag the current row by searching the DOM for the matching title.
+    const triggers = document.querySelectorAll<HTMLElement>("[data-sidebar-flyout-trigger]")
+    let anchor: HTMLElement | null = null
+    triggers.forEach((t) => {
+      if (t.getAttribute("title") === title || t.textContent?.includes(title)) {
+        anchor = t
+      }
+    })
+    if (!anchor) return
+    const rect = (anchor as HTMLElement).getBoundingClientRect()
+    setPos({ top: rect.top, left: rect.right + 4 })
+  }, [title])
+
+  useEffect(() => {
+    // Close on outside click only — clicks on flyout children navigate
+    // programmatically via router.push, so we don't need to special-case
+    // them here. Listener is registered on the next tick so the click
+    // that opened the flyout doesn't immediately close it.
+    let active = false
+    const armId = setTimeout(() => { active = true }, 0)
+    const onClick = (e: MouseEvent) => {
+      if (!active) return
+      const target = e.target as HTMLElement
+      if (target.closest("[data-collapsed-flyout]")) return
+      if (target.closest("[data-sidebar-flyout-trigger]")) return
+      onClose()
+    }
+    document.addEventListener("click", onClick)
+    return () => {
+      clearTimeout(armId)
+      document.removeEventListener("click", onClick)
+    }
+  }, [onClose])
+
+  if (!pos) return null
+
+  return (
+    <div
+      data-collapsed-flyout
+      style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 60 }}
+      className="min-w-[220px] rounded-md border border-slate-700 bg-slate-900 shadow-2xl py-1"
+    >
+      <div className="px-3 py-2 border-b border-slate-700 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+        {title}
+      </div>
+      {childItems.map((child) => {
+        const childActive = pathname === child.href
+        const childBadge = badgeCountForHref(child.href)
+        return (
+          <button
+            key={child.title}
+            type="button"
+            // Navigate programmatically — router.push is synchronous from
+            // the caller's POV, and we close the flyout right after. No
+            // <Link> involved so there's no race with React's synthetic
+            // click delegation vs the document-level outside-click listener.
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              console.log("[Flyout] navigating to:", child.href)
+              onClose()
+              // Hard navigate via window.location to bypass any router
+              // weirdness. A full page reload is fine for sidebar clicks.
+              window.location.href = child.href
+            }}
+            className={cn(
+              "w-full flex items-center gap-3 px-3 py-2 text-sm text-left transition-colors",
+              childActive
+                ? "bg-blue-600 text-white"
+                : "text-slate-300 hover:bg-slate-800 hover:text-white"
+            )}
+          >
+            <child.icon className="h-4 w-4 flex-shrink-0" />
+            <span className="flex-1 whitespace-nowrap truncate">{child.title}</span>
+            {childBadge > 0 && (
+              <span
+                className={cn(
+                  "inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full text-[10px] font-bold",
+                  childActive ? "bg-white text-blue-700" : "bg-red-500 text-white"
+                )}
+              >
+                {childBadge > 99 ? "99+" : childBadge}
+              </span>
+            )}
+          </button>
+        )
+      })}
+    </div>
   )
 }

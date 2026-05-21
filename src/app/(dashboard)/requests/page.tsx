@@ -15,6 +15,7 @@ import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
+import { LABEL_COLORS, LABEL_DOTS, buildLabelDrivenMaps } from "@/lib/statusPalette"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -24,19 +25,29 @@ const STATUS_LABELS: Record<string, string> = {
   "New": "New", "In Progress": "In Progress", "In Customs": "In Customs", "In Transit": "In Customs",
 }
 
+// Color resolution comes from the shared label-driven palette in
+// lib/statusPalette so all list pages stay consistent.
+
 const STATUS_COLORS: Record<string, string> = {
-  new: "bg-sky-50 text-sky-700",
-  on_hold: "bg-amber-50 text-amber-700", in_transit: "bg-blue-50 text-blue-700",
-  delivered: "bg-green-50 text-green-700", completed: "bg-emerald-50 text-emerald-700",
-  cancelled: "bg-red-50 text-red-600",
-  "New": "bg-sky-50 text-sky-700", "In Progress": "bg-blue-50 text-blue-700", "In Customs": "bg-amber-50 text-amber-700", "In Transit": "bg-blue-50 text-blue-700",
+  new: LABEL_COLORS["New"],
+  on_hold: LABEL_COLORS["In Progress"],
+  in_progress: LABEL_COLORS["In Progress"],
+  in_transit: LABEL_COLORS["In Transit"],
+  in_customs: LABEL_COLORS["In Customs"],
+  delivered: LABEL_COLORS["Delivered"],
+  completed: LABEL_COLORS["Completed"],
+  cancelled: LABEL_COLORS["Cancelled"],
 }
 
 const STATUS_DOT: Record<string, string> = {
-  new: "bg-sky-500", on_hold: "bg-amber-500",
-  in_transit: "bg-blue-500", delivered: "bg-green-500",
-  completed: "bg-emerald-500", cancelled: "bg-red-500",
-  "New": "bg-sky-500", "In Progress": "bg-blue-500", "In Customs": "bg-amber-500", "In Transit": "bg-blue-500",
+  new: LABEL_DOTS["New"],
+  on_hold: LABEL_DOTS["In Progress"],
+  in_progress: LABEL_DOTS["In Progress"],
+  in_transit: LABEL_DOTS["In Transit"],
+  in_customs: LABEL_DOTS["In Customs"],
+  delivered: LABEL_DOTS["Delivered"],
+  completed: LABEL_DOTS["Completed"],
+  cancelled: LABEL_DOTS["Cancelled"],
 }
 
 const STATUS_PILL_ACTIVE: Record<string, string> = {
@@ -492,21 +503,44 @@ export default function RequestsPage() {
                     <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{formatDate(req.createdAt)}</span>
                   </td>
                   <td className="py-3 px-3">
-                    <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium", MODULE_COLORS[req.module] ?? "text-gray-600")}>
-                      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", MODULE_DOT[req.module] ?? "bg-gray-400")} />
-                      {formatModule(req.module)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium", MODULE_COLORS[req.module] ?? "text-gray-600")}>
+                        <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", MODULE_DOT[req.module] ?? "bg-gray-400")} />
+                        {formatModule(req.module)}
+                      </span>
+                      {req.module === "shipping" && (() => {
+                        const direction = (req.payload as any)?.direction
+                        const isSending = direction === "sending"
+                        return (
+                          <span className={cn(
+                            "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide",
+                            isSending
+                              ? "bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/30 dark:border-purple-900 dark:text-purple-300"
+                              : "bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/30 dark:border-blue-900 dark:text-blue-300"
+                          )}>
+                            {isSending ? "Sending" : "Receiving"}
+                          </span>
+                        )
+                      })()}
+                    </div>
                   </td>
                   <td className="py-3 px-3">
-                    <InlineStatusSelect
-                      currentStatus={req.status}
-                      statuses={MODULE_STATUSES[req.module] ?? STATUSES}
-                      statusColors={STATUS_COLORS}
-                      statusDot={STATUS_DOT}
-                      statusLabels={{ ...STATUS_LABELS, ...(MODULE_STATUS_LABELS[req.module] ?? {}) }}
-                      onStatusChange={(nextStatus) => updateRequestStatus(req.id, nextStatus)}
-                      canUpdateStatus={canUpdateStatus}
-                    />
+                    {(() => {
+                      const statuses = MODULE_STATUSES[req.module] ?? STATUSES
+                      const moduleLabels = { ...STATUS_LABELS, ...(MODULE_STATUS_LABELS[req.module] ?? {}) }
+                      const { statusColors, statusDot } = buildLabelDrivenMaps(statuses, moduleLabels)
+                      return (
+                        <InlineStatusSelect
+                          currentStatus={req.status}
+                          statuses={statuses}
+                          statusColors={statusColors}
+                          statusDot={statusDot}
+                          statusLabels={moduleLabels}
+                          onStatusChange={(nextStatus) => updateRequestStatus(req.id, nextStatus)}
+                          canUpdateStatus={canUpdateStatus}
+                        />
+                      )
+                    })()}
                   </td>
                   <td className="py-3 px-3">
                     <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{formatDate(req.updatedAt)}</span>

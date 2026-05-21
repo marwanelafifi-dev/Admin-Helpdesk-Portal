@@ -49,12 +49,16 @@ export interface EngineRequest<T = Record<string, unknown>> {
   requesterId: string
   requesterName: string
   requesterEmail: string
-  /** Module-specific fields live here â€” the "Extension" layer */
+  /** Module-specific fields live here — the "Extension" layer */
   payload: T
   statusHistory: StatusChange[]
   commentHistory: CommentActivity[]
   /** Admin-added CC recipients (editable from request detail page) */
   adminCc: string[]
+  /** Currently assigned Administration Team member, if any. */
+  assignedToId?: string | null
+  assignedToName?: string | null
+  assignedToEmail?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -119,6 +123,91 @@ function writeAll(requests: EngineRequest[]): void {
   try { window.dispatchEvent(new Event("arp:storage")) } catch {}
 }
 
+/**
+ * Server sync helpers — keep localStorage in step with the shared server
+ * store at /api/requests so users see each others' submissions.
+ *
+ * Reads stay synchronous (the existing getRequests / getRequestsByModule
+ * APIs are called from rendering paths and we don't want to refactor every
+ * caller to async). To make that work we eagerly pull the server state on
+ * dashboard mount (via useEngineSync below) and overwrite the local cache,
+ * so the next sync read returns the fresh data.
+ *
+ * Writes still hit localStorage synchronously for instant UI feedback, then
+ * fire a background POST so the change reaches the server. If the network
+ * call fails (offline, etc.) the local copy diverges until the next pull —
+ * acceptable trade-off given there's no real conflict resolution in this
+ * mock backend.
+ */
+function pushToServer(request: EngineRequest): void {
+  if (typeof window === "undefined") return
+  void (async () => {
+    try {
+      const res = await fetch("/api/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ request }),
+      })
+      if (!res.ok) return
+      const json = await res.json()
+      const saved = json?.request as EngineRequest | undefined
+      if (!saved) return
+
+      // If the server stamped on a default assignee that the local copy
+      // didn't have, mirror it back into localStorage. We deliberately
+      // DON'T fire a separate assignment email here — the default-assignee
+      // is always an Administration Team member, and they're already on
+      // the new-request notification's To: line. Sending a second email
+      // pile-on triggers Gmail rate limiting.
+      if (saved.assignedToId && saved.assignedToId !== request.assignedToId) {
+        const local = readAll()
+        const idx = local.findIndex((r) => r.id === saved.id)
+        if (idx >= 0) {
+          local[idx] = { ...local[idx], ...saved }
+          writeAll(local)
+        }
+      }
+    } catch {
+      // Best-effort. The next syncFromServer() will heal any drift.
+    }
+  })()
+}
+
+/**
+ * Evict any stored comments for a request ID. Called when a brand-new
+ * request is created, because request IDs reset to *-0001 after a clear
+ * and would otherwise inherit ghost comments from the previous request
+ * that owned the same ID.
+ */
+function clearCommentsForId(requestId: string): void {
+  if (typeof window === "undefined") return
+  fetch(`/api/requests/comments?requestId=${encodeURIComponent(requestId)}`, {
+    method: "DELETE",
+  }).catch(() => {
+    // Best-effort.
+  })
+}
+
+/**
+ * Fetch all requests from the server and overwrite the local cache.
+ * Resolves after the cache is populated. Safe to call repeatedly.
+ */
+export async function syncFromServer(): Promise<void> {
+  if (typeof window === "undefined") return
+  try {
+    const res = await fetch("/api/requests", { cache: "no-store" })
+    if (!res.ok) return
+    const json = await res.json()
+    const remote = Array.isArray(json?.data) ? (json.data as EngineRequest[]) : []
+    // Merge strategy: server is authoritative. Overwrite the cache wholesale
+    // so deleted/cancelled requests from other users disappear here too.
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(remote))
+    try { window.dispatchEvent(new Event("arp:storage")) } catch {}
+  } catch {
+    // Network errors leave the cache untouched.
+  }
+}
+
 // â”€â”€â”€ Public API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
@@ -158,6 +247,8 @@ export function submitRequest<T extends Record<string, unknown>>(
   }
 
   writeAll([...readAll(), request])
+  pushToServer(request)
+  clearCommentsForId(id)
   return request
 }
 
@@ -187,6 +278,7 @@ export function updateRequest<T extends Record<string, unknown>>(
 
   requests[index] = updated
   writeAll(requests)
+  pushToServer(updated)
   return updated
 }
 
@@ -225,6 +317,8 @@ export function saveDraft<T extends Record<string, unknown>>(
   }
 
   writeAll([...readAll(), request])
+  pushToServer(request)
+  clearCommentsForId(id)
   return request
 }
 
@@ -257,6 +351,7 @@ export function updateStatus(
 
   requests[index] = updated
   writeAll(requests)
+  pushToServer(updated)
 
   void import(EMAIL_SERVICE_PATH).then(({ simulateStatusChangeEmail }) => {
     simulateStatusChangeEmail(updated, previousStatus, status)
@@ -273,6 +368,34 @@ export function updateStatus(
     })
   }
 
+  return updated
+}
+
+/**
+ * assignRequest
+ * Sets (or clears) the assignee on an existing request. Pass `null` for
+ * assignee to clear the assignment. Returns the updated request, or null if
+ * the ID was not found.
+ */
+export function assignRequest(
+  id: string,
+  assignee: { id: string; name: string; email: string } | null,
+): EngineRequest | null {
+  const requests = readAll()
+  const index = requests.findIndex((r) => r.id === id)
+  if (index === -1) return null
+
+  const updated: EngineRequest = {
+    ...requests[index],
+    assignedToId: assignee?.id ?? null,
+    assignedToName: assignee?.name ?? null,
+    assignedToEmail: assignee?.email ?? null,
+    updatedAt: new Date().toISOString(),
+  }
+
+  requests[index] = updated
+  writeAll(requests)
+  pushToServer(updated)
   return updated
 }
 
@@ -303,6 +426,7 @@ export function recordCommentActivity(
 
   requests[index] = updated
   writeAll(requests)
+  pushToServer(updated)
 
   return updated
 }
@@ -324,6 +448,7 @@ export function updateAdminCc(id: string, adminCc: string[]): EngineRequest | nu
 
   requests[index] = updated
   writeAll(requests)
+  pushToServer(updated)
   return updated
 }
 

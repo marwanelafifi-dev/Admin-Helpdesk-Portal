@@ -28,7 +28,8 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect"
 import { AlertCircle, UserPlus, UserMinus, User, Building2, Calendar, ClipboardList, Upload, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
-import { getList } from "@/lib/companyDataStore"
+import { getList, getManagerEmail } from "@/lib/companyDataStore"
+import { filesToAttachments } from "@/lib/attachments"
 
 const BRAND = "#0F766E" // teal-700
 
@@ -115,13 +116,23 @@ function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCance
           requesterEmail: editingRequest.requesterEmail,
         })
       } else {
-        const newReq = submitRequest("hr", data, {
+        const attachments = await filesToAttachments(uploadedFiles, "hr")
+        const newReq = submitRequest("hr", { ...data, attachments }, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",
           requesterEmail: session?.user?.email || "user@si-ware.com",
         })
-        createNewRequestNotifications({ requestId: newReq.id, requestTitle: newReq.title, module: "hr", requesterId: newReq.requesterId, requesterName: newReq.requesterName, requesterEmail: newReq.requesterEmail })
+        createNewRequestNotifications({
+          requestId: newReq.id,
+          requestTitle: newReq.title,
+          module: "hr",
+          requesterId: newReq.requesterId,
+          requesterName: newReq.requesterName,
+          requesterEmail: newReq.requesterEmail,
+          ccEmails: data.ccEmails,
+          managerEmail: data.directManager ? getManagerEmail(data.directManager) : undefined,
+        })
       }
       router.push("/hr")
       router.refresh()
@@ -454,13 +465,23 @@ function OffboardingFormFields({ onCancel, editingRequest, isEditing }: { onCanc
           requesterEmail: editingRequest.requesterEmail,
         })
       } else {
-        const newReq = submitRequest("hr", data, {
+        const attachments = await filesToAttachments(uploadedFiles, "hr")
+        const newReq = submitRequest("hr", { ...data, attachments }, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",
           requesterEmail: session?.user?.email || "user@si-ware.com",
         })
-        createNewRequestNotifications({ requestId: newReq.id, requestTitle: newReq.title, module: "hr", requesterId: newReq.requesterId, requesterName: newReq.requesterName, requesterEmail: newReq.requesterEmail })
+        createNewRequestNotifications({
+          requestId: newReq.id,
+          requestTitle: newReq.title,
+          module: "hr",
+          requesterId: newReq.requesterId,
+          requesterName: newReq.requesterName,
+          requesterEmail: newReq.requesterEmail,
+          ccEmails: data.ccEmails,
+          managerEmail: data.directManager ? getManagerEmail(data.directManager) : undefined,
+        })
       }
       router.push("/hr")
       router.refresh()

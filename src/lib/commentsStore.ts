@@ -67,6 +67,22 @@ class CommentsStoreManager {
     return comment
   }
 
+  /**
+   * Remove every comment attached to a request. Returns the number of
+   * comments that were deleted. Used to keep comments in sync when a
+   * request is created with a recycled ID — without this, comments from
+   * the previous request with the same ID would surface on the new one.
+   */
+  clearForRequest(requestId: string): number {
+    const existing = this.store[requestId]
+    if (!existing || existing.length === 0) return 0
+    const count = existing.length
+    delete this.store[requestId]
+    writeToDisk(this.store)
+    console.log(`[CommentsStore] clearForRequest(${requestId}): removed ${count} comments`)
+    return count
+  }
+
   deleteComment(commentId: string): boolean {
     for (const requestId of Object.keys(this.store)) {
       const index = this.store[requestId].findIndex((c) => c.id === commentId)

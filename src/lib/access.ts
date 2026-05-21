@@ -33,6 +33,7 @@ export type RoutePermission =
   | "update_status"
   | "cancel_request"
   | "edit_request"
+  | "assign_requests"
 
 function normalizePathname(pathname: string) {
   if (pathname.length > 1 && pathname.endsWith("/")) {
@@ -93,6 +94,44 @@ export function canManageUsers(role?: string, permissions: string[] = []) {
 
 export function canManageRoles(role?: string, permissions: string[] = []) {
   return isSuperAdmin(role) || hasPermission(permissions, "manage_roles")
+}
+
+/**
+ * Returns true when the current user is allowed to see EVERY request from
+ * every requester (e.g. Administration Team, Full Access). When false, the
+ * caller should filter the visible request list down to the current user's
+ * own submissions only.
+ */
+export function canReadAllRequests(role?: string, permissions: string[] = []) {
+  if (isSuperAdmin(role)) return true
+  if (permissions.includes("*")) return true
+  if (hasPermission(permissions, "read")) return true
+  // `read_own` alone means scope-to-self.
+  return false
+}
+
+/**
+ * Filter a list of requests down to the ones the current user is allowed
+ * to see. Anyone with read_all sees everything; otherwise only requests
+ * where the user is the requester are returned.
+ */
+export function scopeRequests<T extends { requesterId?: string; requesterEmail?: string; requesterName?: string }>(
+  requests: T[],
+  session: { id?: string | null; email?: string | null; name?: string | null } | null | undefined,
+  role?: string,
+  permissions: string[] = [],
+): T[] {
+  if (canReadAllRequests(role, permissions)) return requests
+  const myId = (session?.id ?? "").trim()
+  const myEmail = (session?.email ?? "").trim().toLowerCase()
+  const myName = (session?.name ?? "").trim()
+  if (!myId && !myEmail && !myName) return []
+  return requests.filter((r) => {
+    if (myId && r.requesterId === myId) return true
+    if (myEmail && (r.requesterEmail ?? "").toLowerCase() === myEmail) return true
+    if (myName && (r.requesterName ?? "") === myName) return true
+    return false
+  })
 }
 
 export function canAccessPath(pathname: string, permissions: string[] = [], role?: string) {

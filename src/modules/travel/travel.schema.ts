@@ -22,7 +22,14 @@ export const TravelPayloadSchema = z.object({
   purpose: z.string().min(1, "Purpose of travel is required"),
   department: z.string().min(1, "Department is required"),
   approver: z.string().min(1, "Manager approval required"),
-  attachments: z.array(z.string()).optional(),
+  attachments: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    url: z.string(),
+    mimeType: z.string(),
+    sizeBytes: z.number(),
+    uploadedAt: z.string(),
+  })).optional(),
   notes: z.string().max(500).optional(),
   ccEmails: z.array(z.string().email()).default([]),
 })

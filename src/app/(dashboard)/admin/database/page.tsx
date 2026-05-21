@@ -322,8 +322,10 @@ export default function DatabasePage() {
                 { label: "All Requests", sub: "All modules" },
                 ...NON_REQUEST_STORES.map((s) => ({ label: s.label, sub: s.description })),
                 { label: "Any new stores", sub: "Auto-discovered at runtime" },
+                { label: "Server Requests", sub: "data/requests.json — every request from every user" },
                 { label: "Server Comments", sub: "data/comments.json on the server" },
                 { label: "Server Feedback Responses", sub: "data/feedback.json on the server" },
+                { label: "Server Company Data", sub: "data/company-data.json — suppliers, cost centers, managers, departments, sectors, carriers" },
                 { label: "Users & Roles", sub: "data/users.json + data/roles.json (restored only if present in backup)" },
               ].map(({ label, sub }) => (
                 <div key={label} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">

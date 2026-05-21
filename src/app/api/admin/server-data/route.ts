@@ -31,10 +31,12 @@ interface ServerDataFile {
 }
 
 const FILES: ServerDataFile[] = [
-  { filename: "comments.json", user_data: true,  clearable: true  },
-  { filename: "feedback.json", user_data: true,  clearable: true  },
-  { filename: "users.json",    user_data: true,  clearable: false },
-  { filename: "roles.json",    user_data: true,  clearable: false },
+  { filename: "comments.json",     user_data: true,  clearable: true  },
+  { filename: "feedback.json",     user_data: true,  clearable: true  },
+  { filename: "requests.json",     user_data: true,  clearable: true  },
+  { filename: "company-data.json", user_data: true,  clearable: false },
+  { filename: "users.json",        user_data: true,  clearable: false },
+  { filename: "roles.json",        user_data: true,  clearable: false },
 ]
 
 function isAuthorized(perms: string[] | undefined): boolean {
@@ -122,9 +124,16 @@ export async function DELETE() {
   for (const f of FILES) {
     if (!f.clearable) continue
     // Reset to an empty shape — comments uses {} (Record<requestId, []>),
-    // feedback uses { surveys: [], responses: [] }.
+    // feedback uses { surveys: [], responses: [] }, requests uses [] (array),
+    // company-data uses the canonical object with empty arrays per key.
     const emptyShape: unknown =
-      f.filename === "feedback.json" ? { surveys: [], responses: [] } : {}
+      f.filename === "feedback.json" ? { surveys: [], responses: [] } :
+      f.filename === "requests.json" ? [] :
+      f.filename === "company-data.json" ? {
+        suppliers: [], cost_centers: [], managers: [],
+        carriers: [], departments: [], sectors: [],
+      } :
+      {}
     if (writeFileSafe(f.filename, emptyShape)) cleared.push(f.filename)
   }
   return NextResponse.json({ cleared })

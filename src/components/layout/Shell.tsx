@@ -3,6 +3,7 @@
 import { Sidebar } from "./Sidebar"
 import { TopBar } from "./TopBar"
 import { MobileNavProvider, useMobileNav } from "./MobileNavContext"
+import { useEngineSync } from "@/hooks/useEngineSync"
 
 /**
  * Dashboard shell: sidebar (drawer on mobile) + topbar + main content area.
@@ -18,6 +19,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
 function ShellInner({ children }: { children: React.ReactNode }) {
   const { open, setOpen } = useMobileNav()
+  // Pulls /api/requests on mount + every 30s + on focus so localStorage
+  // stays in step with what other users have submitted.
+  useEngineSync()
 
   return (
     <div className="flex h-screen overflow-hidden bg-background relative" suppressHydrationWarning>

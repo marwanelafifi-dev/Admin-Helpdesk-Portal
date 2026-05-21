@@ -44,7 +44,8 @@ const STATUS_DOT: Record<string, string> = {
 
 const STATUS_LABELS: Record<string, string> = {
   new: "New",
-  on_hold: "On Hold",
+  // on_hold renders as "In Progress" to match every list page's row badge.
+  on_hold: "In Progress",
   in_transit: "In Transit",
   in_progress: "In Progress",
   in_customs: "In Customs",

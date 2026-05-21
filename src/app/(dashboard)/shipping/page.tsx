@@ -23,6 +23,7 @@ import { useExpandedRows } from "@/hooks/useExpandedRows"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { getList } from "@/lib/companyDataStore"
+import { LABEL_COLORS, LABEL_DOTS } from "@/lib/statusPalette"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -32,21 +33,13 @@ const STATUS_LABELS: Record<string, string> = {
   new: "New", in_progress: "In Progress", in_customs: "In Customs", delivered: "Delivered", cancelled: "Cancelled",
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  new:        "bg-sky-50 text-sky-700",
-  in_progress: "bg-blue-50 text-blue-700",
-  in_customs: "bg-amber-50 text-amber-700",
-  delivered:  "bg-green-50 text-green-700",
-  cancelled:  "bg-red-50 text-red-600",
-}
+const STATUS_COLORS: Record<string, string> = Object.fromEntries(
+  Object.entries(STATUS_LABELS).map(([code, label]) => [code, LABEL_COLORS[label] ?? "bg-zinc-100 text-zinc-600"])
+)
 
-const STATUS_DOT: Record<string, string> = {
-  new:        "bg-sky-500",
-  in_progress: "bg-blue-500",
-  in_customs: "bg-amber-500",
-  delivered:  "bg-green-500",
-  cancelled:  "bg-red-500",
-}
+const STATUS_DOT: Record<string, string> = Object.fromEntries(
+  Object.entries(STATUS_LABELS).map(([code, label]) => [code, LABEL_DOTS[label] ?? "bg-gray-400"])
+)
 
 const STATUS_PILL_ACTIVE: Record<string, string> = {
   new:        "bg-sky-500 border-sky-500 text-white",
@@ -105,20 +98,19 @@ export default function ShippingPage() {
 
   function handleStatusChange(id: string, newStatus: string) {
     const shipment = shipments.find(s => s.id === id)
-    const owner = mockUsers.find(user => user.name === shipment?.requester)
+    const stored = getRequestById(id)
     const currentUserId = session?.user?.id || "USR-001"
     const oldStatus = shipment?.status
     setStatusOverrides(prev => ({ ...prev, [id]: newStatus }))
     updateStatus(id, newStatus as any, currentUserId)
     if (shipment) {
-      const engineReq = getRequestById(id)
-      const ccEmails = engineReq ? getAllCcEmails(engineReq) : []
+      const ccEmails = stored ? getAllCcEmails(stored) : []
       createRequestUpdateNotifications({
         requestId: id,
         requestTitle: shipment.title || shipment.id,
         module: "shipping",
-        requestOwnerId: owner?.id || "USR-001",
-        requestOwnerEmail: owner?.email,
+        requestOwnerId: stored?.requesterId || "USR-001",
+        requestOwnerEmail: stored?.requesterEmail,
         actionUserId: currentUserId,
         actionUserName: session?.user?.name || "User",
         actionUserEmail: session?.user?.email || undefined,

@@ -56,6 +56,47 @@ function readRaw(): StoredCompanyData {
 function writeRaw(data: StoredCompanyData): void {
   if (typeof window === "undefined") return
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+  // Push to the shared server store so every user sees the same data.
+  pushToServer(data)
+}
+
+/** Fire-and-forget upload of the current state to the server. */
+function pushToServer(data: StoredCompanyData): void {
+  if (typeof window === "undefined") return
+  fetch("/api/company-data", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  }).catch(() => {
+    // Best effort. The next sync will reconcile.
+  })
+}
+
+/**
+ * Pull the latest company data from the server and overwrite the local
+ * cache. Called on app load (via useCompanyDataSync below) so users
+ * always see the team-wide lookups rather than their own empty browser.
+ */
+export async function syncCompanyDataFromServer(): Promise<void> {
+  if (typeof window === "undefined") return
+  try {
+    const res = await fetch("/api/company-data", { cache: "no-store" })
+    if (!res.ok) return
+    const json = await res.json()
+    const remote = json?.data as Partial<StoredCompanyData> | undefined
+    if (!remote) return
+    const next: StoredCompanyData = {
+      suppliers:    Array.isArray(remote.suppliers)    ? remote.suppliers    : [],
+      cost_centers: Array.isArray(remote.cost_centers) ? remote.cost_centers : [],
+      managers:     Array.isArray(remote.managers)     ? remote.managers     : [],
+      carriers:     Array.isArray(remote.carriers)     ? remote.carriers     : [],
+      departments:  Array.isArray(remote.departments)  ? remote.departments  : [],
+      sectors:      Array.isArray(remote.sectors)      ? remote.sectors      : [],
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  } catch {
+    // Offline / 401 — leave cache untouched.
+  }
 }
 
 // Public read shape: managers exposed as string[] (names only) for legacy

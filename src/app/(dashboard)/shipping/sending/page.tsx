@@ -20,6 +20,8 @@ import { animationClasses } from "@/lib/animations"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { getList } from "@/lib/companyDataStore"
+import { LABEL_COLORS, LABEL_DOTS } from "@/lib/statusPalette"
+import { scopeRequests } from "@/lib/access"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -29,21 +31,12 @@ const STATUS_LABELS: Record<string, string> = {
   new: "New", in_progress: "In Progress", in_customs: "In Customs", delivered: "Delivered", cancelled: "Cancelled",
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  new:        "bg-sky-50 text-sky-700",
-  in_progress: "bg-blue-50 text-blue-700",
-  in_customs: "bg-amber-50 text-amber-700",
-  delivered:  "bg-green-50 text-green-700",
-  cancelled:  "bg-red-50 text-red-600",
-}
-
-const STATUS_DOT: Record<string, string> = {
-  new:        "bg-sky-500",
-  in_progress: "bg-blue-500",
-  in_customs: "bg-amber-500",
-  delivered:  "bg-green-500",
-  cancelled:  "bg-red-500",
-}
+const STATUS_COLORS: Record<string, string> = Object.fromEntries(
+  Object.entries(STATUS_LABELS).map(([code, label]) => [code, LABEL_COLORS[label] ?? "bg-zinc-100 text-zinc-600"])
+)
+const STATUS_DOT: Record<string, string> = Object.fromEntries(
+  Object.entries(STATUS_LABELS).map(([code, label]) => [code, LABEL_DOTS[label] ?? "bg-gray-400"])
+)
 
 const STATUS_PILL_ACTIVE: Record<string, string> = {
   new:        "bg-sky-500 border-sky-500 text-white",
@@ -97,10 +90,16 @@ export default function SendingPage() {
       try {
         setLoading(true)
         initializeMockData()
-        const requests = getRequestsByModule("shipping").filter((r: any) => {
+        const allShipping = getRequestsByModule("shipping").filter((r: any) => {
           // Sending bucket: only requests stamped with direction === "sending".
           return (r.payload as any)?.direction === "sending"
         })
+        const requests = scopeRequests(
+          allShipping,
+          { id: session?.user?.id, email: session?.user?.email, name: session?.user?.name },
+          session?.user?.role,
+          (session?.user?.permissions as string[]) ?? [],
+        )
         const transformed = requests.map((req: any) => ({
           id: req.id,
           title: req.title || "Untitled Request",
@@ -128,11 +127,11 @@ export default function SendingPage() {
     }
 
     fetchShipments()
-  }, [])
+  }, [session?.user?.id, session?.user?.email, session?.user?.role])
 
   function handleStatusChange(id: string, newStatus: string) {
     const shipment = shipments.find(s => s.id === id)
-    const owner = mockUsers.find(user => user.name === shipment?.requester)
+    const stored = getRequestById(id)
     const currentUserId = session?.user?.id || "USR-001"
     const oldStatus = shipment?.status
     const today = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
@@ -143,8 +142,8 @@ export default function SendingPage() {
         requestId: id,
         requestTitle: shipment.title || shipment.id,
         module: "shipping",
-        requestOwnerId: owner?.id || "USR-001",
-        requestOwnerEmail: owner?.email,
+        requestOwnerId: stored?.requesterId || "USR-001",
+        requestOwnerEmail: stored?.requesterEmail,
         actionUserId: currentUserId,
         actionUserName: session?.user?.name || "User",
         actionUserEmail: session?.user?.email || undefined,

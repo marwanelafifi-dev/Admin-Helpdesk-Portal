@@ -79,15 +79,30 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
   )
 }
 
-function buildAttachmentPayload(files: StagedFile[]) {
-  return files.map((sf) => ({
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result ?? ""))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}
+
+/**
+ * Convert staged files into a serializable attachment payload.
+ * Stores each file as a base64 `data:` URL so it survives the request
+ * being viewed by another user, in another tab, or after the original
+ * upload's blob URL has been revoked.
+ */
+async function buildAttachmentPayload(files: StagedFile[]) {
+  return Promise.all(files.map(async (sf) => ({
     id: `${sf.category}-${sf.id}`,
     name: sf.file.name,
-    url: URL.createObjectURL(sf.file),
+    url: await fileToDataUrl(sf.file),
     mimeType: sf.file.type || "application/octet-stream",
     sizeBytes: sf.file.size,
     uploadedAt: new Date().toISOString(),
-  }))
+  })))
 }
 
 function hasRequiredDocs(files: StagedFile[]) {
@@ -263,6 +278,12 @@ export function ShippingForm({ onCancel, editingRequest, isEditing, direction = 
     data.ccEmails = ccEmailsWithManager
 
     try {
+      // Resolve attachments to data URLs BEFORE building the payload so the
+      // stored object is fully serializable and survives across users/tabs.
+      const attachmentsPayload = isEditing
+        ? (editingRequest?.payload as any)?.attachments
+        : await buildAttachmentPayload(stagedFiles)
+
       const payload = {
         ...data,
         supplier: resolvedSupplier,
@@ -271,7 +292,7 @@ export function ShippingForm({ onCancel, editingRequest, isEditing, direction = 
         // was already on the request.
         direction: isEditing ? ((editingRequest?.payload as any)?.direction ?? direction) : direction,
         approvers: mapApprovers(data.approvers),
-        attachments: isEditing ? (editingRequest?.payload as any)?.attachments : buildAttachmentPayload(stagedFiles),
+        attachments: attachmentsPayload,
       }
 
       if (isEditing && editingRequest) {
@@ -289,7 +310,16 @@ export function ShippingForm({ onCancel, editingRequest, isEditing, direction = 
           requesterName: session?.user?.name || session?.user?.email || "Current User",
           requesterEmail: session?.user?.email || "user@si-ware.com",
         })
-        createNewRequestNotifications({ requestId: created.id, requestTitle: created.title, module: "shipping", requesterId: created.requesterId, requesterName: created.requesterName, requesterEmail: created.requesterEmail })
+        createNewRequestNotifications({
+          requestId: created.id,
+          requestTitle: created.title,
+          module: "shipping",
+          requesterId: created.requesterId,
+          requesterName: created.requesterName,
+          requesterEmail: created.requesterEmail,
+          ccEmails: data.ccEmails,
+          managerEmail: managerEmail,
+        })
         router.push(`/requests/${created.id}`)
       }
       router.refresh()

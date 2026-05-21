@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { Upload, X, Inbox, Mail } from "lucide-react"
 import { submitRequest, getRequests, type EngineRequest } from "@/services/engineService"
-import { createRequestUpdateNotifications } from "@/lib/notificationStore"
+import { createRequestUpdateNotifications, createNewRequestNotifications } from "@/lib/notificationStore"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
 import { cn } from "@/lib/utils"
 
@@ -99,17 +99,13 @@ export default function NewGeneralRequestPage() {
       { title: values.title, requesterId: userId, requesterName: userName, requesterEmail: userEmail }
     )
 
-    createRequestUpdateNotifications({
+    createNewRequestNotifications({
       requestId: saved.id,
       requestTitle: saved.title,
       module: "general",
-      requestOwnerId: userId,
-      requestOwnerEmail: userEmail,
-      actionUserId: userId,
-      actionUserName: userName,
-      actionUserEmail: userEmail,
-      preview: "New general request submitted",
-      updateType: "request_updated",
+      requesterId: userId,
+      requesterName: userName,
+      requesterEmail: userEmail,
       ccEmails,
     })
 

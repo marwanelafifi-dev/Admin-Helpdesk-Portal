@@ -30,6 +30,7 @@ export async function GET() {
     createdAt: u.createdAt,
     image: u.image,
     provider: u.provider,
+    defaultAssignee: u.defaultAssignee ?? false,
   }))
 
   return NextResponse.json({ users })

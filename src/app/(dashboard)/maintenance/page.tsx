@@ -17,6 +17,8 @@ import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
+import { LABEL_COLORS, LABEL_DOTS } from "@/lib/statusPalette"
+import { scopeRequests } from "@/lib/access"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -25,15 +27,15 @@ const STATUS_LABELS: Record<string, string> = {
   completed: "Completed", cancelled: "Cancelled",
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  new: "bg-sky-50 text-sky-700", on_hold: "bg-amber-50 text-amber-700",
-  completed: "bg-emerald-50 text-emerald-700", cancelled: "bg-red-50 text-red-600",
-}
-
-const STATUS_DOT: Record<string, string> = {
-  new: "bg-sky-500", on_hold: "bg-amber-500",
-  completed: "bg-emerald-500", cancelled: "bg-red-500",
-}
+// Colors and dots are derived from the canonical palette via the page's
+// STATUS_LABELS map, so "In Progress" looks identical across every list page
+// regardless of which underlying status code (on_hold / in_progress) feeds it.
+const STATUS_COLORS: Record<string, string> = Object.fromEntries(
+  Object.entries(STATUS_LABELS).map(([code, label]) => [code, LABEL_COLORS[label] ?? "bg-zinc-100 text-zinc-600"])
+)
+const STATUS_DOT: Record<string, string> = Object.fromEntries(
+  Object.entries(STATUS_LABELS).map(([code, label]) => [code, LABEL_DOTS[label] ?? "bg-gray-400"])
+)
 
 const STATUS_PILL_ACTIVE: Record<string, string> = {
   new: "bg-sky-500 border-sky-500 text-white",
@@ -83,8 +85,14 @@ export default function MaintenancePage() {
 
   useEffect(() => {
     initializeMockData()
-    setRequests(getRequests().filter((r) => r.module === "maintenance"))
-  }, [])
+    const all = getRequests().filter((r) => r.module === "maintenance")
+    setRequests(scopeRequests(
+      all,
+      { id: session?.user?.id, email: session?.user?.email, name: session?.user?.name },
+      session?.user?.role,
+      (session?.user?.permissions as string[]) ?? [],
+    ))
+  }, [session?.user?.id, session?.user?.email, session?.user?.role])
 
   function handleStatusChange(id: string, newStatus: string) {
     const request = requests.find(r => r.id === id)

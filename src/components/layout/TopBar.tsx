@@ -82,14 +82,23 @@ export function TopBar() {
 
   return (
     <header className="h-16 border-b bg-background flex items-center justify-between px-3 sm:px-4 lg:px-6 flex-shrink-0 gap-2">
-      {/* Left: hamburger (mobile only) */}
+      {/* Left: hamburger — opens the drawer on mobile, collapses/expands
+          the sidebar on desktop (via the arp:toggle-sidebar event). */}
       <div className="flex items-center flex-shrink-0">
         <Button
           variant="ghost"
           size="icon"
-          aria-label="Open menu"
-          onClick={toggleMobileNav}
-          className="lg:hidden text-muted-foreground hover:text-foreground"
+          aria-label="Toggle menu"
+          onClick={() => {
+            // <lg: open the slide-in drawer. >=lg: dispatch a toggle event
+            // that the Sidebar listens for and uses to flip `collapsed`.
+            if (typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches) {
+              window.dispatchEvent(new Event("arp:toggle-sidebar"))
+            } else {
+              toggleMobileNav()
+            }
+          }}
+          className="text-muted-foreground hover:text-foreground"
         >
           <Menu className="h-5 w-5" />
         </Button>

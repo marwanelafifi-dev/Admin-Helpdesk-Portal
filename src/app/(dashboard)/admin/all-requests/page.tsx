@@ -11,8 +11,9 @@ import { Badge } from "@/components/ui/badge"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
-import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, type EngineRequest, type RequestStatus } from "@/services/engineService"
-import { createRequestUpdateNotifications } from "@/lib/notificationStore"
+import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, assignRequest, type EngineRequest, type RequestStatus } from "@/services/engineService"
+import { createRequestUpdateNotifications, createAssignmentNotifications } from "@/lib/notificationStore"
+import { AssigneeSelect } from "@/components/ui/AssigneeSelect"
 import { getTasks, updateTaskStatus, type Task, type TaskStatus } from "@/services/taskService"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
@@ -23,6 +24,7 @@ import { useViewedComments } from "@/hooks/useViewedComments"
 import { useExpandedRows } from "@/hooks/useExpandedRows"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
+import { LABEL_COLORS, LABEL_DOTS, buildLabelDrivenMaps } from "@/lib/statusPalette"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -31,25 +33,30 @@ const STATUS_LABELS: Record<string, string> = {
   delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
 }
 
+// Color resolution uses the shared label-driven palette in lib/statusPalette
+// so every list page renders the same status label in the same color.
+
+// Kept for back-compat with callers that still pass STATUS_COLORS/STATUS_DOT.
 const STATUS_COLORS: Record<string, string> = {
-  new:        "bg-sky-50 text-sky-700",
-  on_hold:    "bg-amber-50 text-amber-700",
-  in_progress: "bg-blue-50 text-blue-700",
-  in_transit: "bg-blue-50 text-blue-700",
-  in_customs: "bg-amber-50 text-amber-700",
-  "In Progress": "bg-blue-50 text-blue-700",
-  "In Customs": "bg-amber-50 text-amber-700",
-  "In Transit": "bg-blue-50 text-blue-700",
-  delivered:  "bg-green-50 text-green-700",
-  completed:  "bg-emerald-50 text-emerald-700",
-  cancelled:  "bg-red-50 text-red-600",
+  new:        LABEL_COLORS["New"],
+  on_hold:    LABEL_COLORS["In Progress"],
+  in_progress: LABEL_COLORS["In Progress"],
+  in_transit: LABEL_COLORS["In Transit"],
+  in_customs: LABEL_COLORS["In Customs"],
+  delivered:  LABEL_COLORS["Delivered"],
+  completed:  LABEL_COLORS["Completed"],
+  cancelled:  LABEL_COLORS["Cancelled"],
 }
 
 const STATUS_DOT: Record<string, string> = {
-  new: "bg-sky-500", on_hold: "bg-amber-500",
-  in_progress: "bg-blue-500", in_transit: "bg-blue-500", in_customs: "bg-amber-500", "In Progress": "bg-blue-500", "In Customs": "bg-amber-500", "In Transit": "bg-blue-500",
-  delivered: "bg-green-500",
-  completed: "bg-emerald-500", cancelled: "bg-red-500",
+  new: LABEL_DOTS["New"],
+  on_hold: LABEL_DOTS["In Progress"],
+  in_progress: LABEL_DOTS["In Progress"],
+  in_transit: LABEL_DOTS["In Transit"],
+  in_customs: LABEL_DOTS["In Customs"],
+  delivered: LABEL_DOTS["Delivered"],
+  completed: LABEL_DOTS["Completed"],
+  cancelled: LABEL_DOTS["Cancelled"],
 }
 
 const MODULE_COLORS: Record<string, string> = {
@@ -112,7 +119,7 @@ function formatDate(iso: string) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 type ModuleTab = "all" | typeof MODULES[number]
-type SortKey = "id" | "title" | "requesterName" | "createdAt" | "module" | "status" | "updatedAt"
+type SortKey = "id" | "title" | "requesterName" | "createdAt" | "module" | "status" | "assignedToName" | "updatedAt"
 type SortDir = "asc" | "desc"
 
 const TASK_STATUS_COLORS: Record<TaskStatus, { bg: string; text: string }> = {
@@ -146,6 +153,7 @@ export default function AllRequestsPage() {
   const canUpdateStatus = ((session?.user?.permissions as string[])?.includes("update_status") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canEditRequest = ((session?.user?.permissions as string[])?.includes("edit_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canCancelRequest = ((session?.user?.permissions as string[])?.includes("cancel_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  const canAssign = ((session?.user?.permissions as string[])?.includes("assign_requests") || (session?.user?.permissions as string[])?.includes("*")) ?? false
 
   // ── Column resize ──────────────────────────────────────────────────────────
   const COLS = useMemo(() => [
@@ -155,6 +163,7 @@ export default function AllRequestsPage() {
     { key: "requesterName" as SortKey, label: "Requester Name",  defaultW: 150 },
     { key: "module"        as SortKey, label: "Module",          defaultW: 110 },
     { key: "status"        as SortKey, label: "Status",          defaultW: 120 },
+    { key: "assignedToName" as SortKey, label: "Assigned To",     defaultW: 160 },
     { key: "updatedAt"     as SortKey, label: "Last Update Date",defaultW: 140 },
     { key: "actions"       as SortKey, label: "",                defaultW: 50   },
   ], [])
@@ -614,20 +623,70 @@ export default function AllRequestsPage() {
                     <div className="text-sm font-medium text-gray-600 truncate">{req.requesterEmail}</div>
                   </td>
                   <td className="py-3 px-3">
-                    <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium", MODULE_COLORS[req.module] ?? "text-gray-600")}>
-                      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", MODULE_DOT[req.module] ?? "bg-gray-400")} />
-                      {formatModule(req.module)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium", MODULE_COLORS[req.module] ?? "text-gray-600")}>
+                        <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", MODULE_DOT[req.module] ?? "bg-gray-400")} />
+                        {formatModule(req.module)}
+                      </span>
+                      {req.module === "shipping" && (() => {
+                        const direction = (req.payload as any)?.direction
+                        const isSending = direction === "sending"
+                        return (
+                          <span className={cn(
+                            "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide",
+                            isSending
+                              ? "bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/30 dark:border-purple-900 dark:text-purple-300"
+                              : "bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/30 dark:border-blue-900 dark:text-blue-300"
+                          )}>
+                            {isSending ? "Sending" : "Receiving"}
+                          </span>
+                        )
+                      })()}
+                    </div>
                   </td>
                   <td className="py-3 px-3">
-                    <InlineStatusSelect
-                      currentStatus={req.status}
-                      statuses={moduleStatuses}
-                      statusColors={STATUS_COLORS}
-                      statusDot={STATUS_DOT}
-                      statusLabels={MODULE_STATUS_LABELS[req.module] || STATUS_LABELS}
-                      onStatusChange={(newStatus) => handleStatusChange(req.id, newStatus)}
-                      canUpdateStatus={canUpdateStatus}
+                    {(() => {
+                      const moduleLabels = MODULE_STATUS_LABELS[req.module] || STATUS_LABELS
+                      const { statusColors, statusDot } = buildLabelDrivenMaps(moduleStatuses, moduleLabels)
+                      return (
+                        <InlineStatusSelect
+                          currentStatus={req.status}
+                          statuses={moduleStatuses}
+                          statusColors={statusColors}
+                          statusDot={statusDot}
+                          statusLabels={moduleLabels}
+                          onStatusChange={(newStatus) => handleStatusChange(req.id, newStatus)}
+                          canUpdateStatus={canUpdateStatus}
+                        />
+                      )
+                    })()}
+                  </td>
+                  <td className="py-3 px-3">
+                    <AssigneeSelect
+                      compact
+                      disabled={!canAssign}
+                      value={req.assignedToId ?? null}
+                      onChange={(assignee) => {
+                        assignRequest(req.id, assignee)
+                        setRequests((prev) => prev.map((r) => r.id === req.id ? {
+                          ...r,
+                          assignedToId: assignee?.id ?? null,
+                          assignedToName: assignee?.name ?? null,
+                          assignedToEmail: assignee?.email ?? null,
+                        } : r))
+                        if (assignee) {
+                          createAssignmentNotifications({
+                            requestId: req.id,
+                            requestTitle: req.title,
+                            module: req.module,
+                            assigneeId: assignee.id,
+                            assigneeName: assignee.name,
+                            assigneeEmail: assignee.email,
+                            actorName: session?.user?.name ?? undefined,
+                            actorEmail: session?.user?.email ?? undefined,
+                          })
+                        }
+                      }}
                     />
                   </td>
                   <td className="py-3 px-3">
@@ -650,7 +709,7 @@ export default function AllRequestsPage() {
                 </tr>
                 {isExpanded(req.id) && (
                   <tr className="bg-blue-50">
-                    <td colSpan={8} className="py-4 px-6">
+                    <td colSpan={9} className="py-4 px-6">
                       <div className="space-y-3 text-sm">
                         <div className="grid grid-cols-2 gap-6">
                           <div>
@@ -688,7 +747,7 @@ export default function AllRequestsPage() {
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="text-center text-gray-400 text-sm py-16">
+                  <td colSpan={9} className="text-center text-gray-400 text-sm py-16">
                     No records match the current filters
                   </td>
                 </tr>
