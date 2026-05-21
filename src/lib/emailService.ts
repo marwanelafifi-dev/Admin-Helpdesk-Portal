@@ -107,6 +107,33 @@ function createTransporter() {
   return transporter
 }
 
+/**
+ * Resolve the From address every email send should use.
+ *
+ * Order of precedence:
+ *   1. `SMTP_FROM` env var (explicit override — wins always).
+ *   2. The Admin → Notifications saved config (smtp_from_name + smtp_user).
+ *      Used when the admin configured email via the UI rather than env files.
+ *   3. `SMTP_USER` env var wrapped with the default display name.
+ *   4. Hardcoded fallback (`adminhelpdesk@si-ware.com`) so we never send a
+ *      `From: <undefined>` line — that's a hard 553 rejection from Gmail.
+ */
+function resolveFromAddress(defaultDisplayName = "Si-Ware Admin Helpdesk"): string {
+  if (process.env.SMTP_FROM && process.env.SMTP_FROM.trim()) {
+    return process.env.SMTP_FROM.trim()
+  }
+  const saved = readEmailConfig()
+  if (saved?.values?.smtp_user) {
+    const name = (saved.values.smtp_from_name ?? defaultDisplayName).trim() || defaultDisplayName
+    return `"${name}" <${saved.values.smtp_user}>`
+  }
+  if (process.env.SMTP_USER && process.env.SMTP_USER.trim()) {
+    return `"${defaultDisplayName}" <${process.env.SMTP_USER}>`
+  }
+  // Last-resort fallback so we never produce `From: <undefined>`.
+  return `"${defaultDisplayName}" <adminhelpdesk@si-ware.com>`
+}
+
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, "&amp;")
@@ -261,7 +288,7 @@ export async function sendWelcomeEmail(params: {
 `
 
   await sendMailWithRetry(transporter, {
-    from: process.env.SMTP_FROM || "Si-Ware IT Helpdesk <ithelpdesk@si-ware.com>",
+    from: resolveFromAddress("Si-Ware IT Helpdesk"),
     to: params.to,
     subject: "Si-Ware Systems Admin Portal — Your Account Credentials",
     html,
@@ -357,7 +384,7 @@ export async function sendRequestUpdateEmail(params: {
 `
 
   await sendMailWithRetry(transporter, {
-    from: process.env.SMTP_FROM || "Si-Ware IT Helpdesk <ithelpdesk@si-ware.com>",
+    from: resolveFromAddress("Si-Ware IT Helpdesk"),
     to: recipients,
     cc: params.cc?.filter(Boolean),
     replyTo,
@@ -523,7 +550,7 @@ export async function sendFeedbackSurveyEmail(params: {
 
   const surveyLogoBuffer = getLogoBuffer()
   await sendMailWithRetry(transporter, {
-    from: process.env.SMTP_FROM || `Si-Ware Admin Helpdesk <${process.env.SMTP_USER}>`,
+    from: resolveFromAddress("Si-Ware Admin Helpdesk"),
     to: params.requesterEmail,
     subject,
     html,
@@ -640,7 +667,7 @@ export async function sendPurchaseApprovalEmail(params: {
 </body></html>`
 
   await sendMailWithRetry(transporter, {
-    from: `"Si-Ware Admin Helpdesk" <${process.env.SMTP_USER}>`,
+    from: resolveFromAddress("Si-Ware Admin Helpdesk"),
     to: params.to,
     ...(params.cc && params.cc.length > 0 ? { cc: params.cc } : {}),
     subject,
