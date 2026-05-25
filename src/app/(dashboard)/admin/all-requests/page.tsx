@@ -655,6 +655,20 @@ export default function AllRequestsPage() {
                           </span>
                         )
                       })()}
+                      {req.module === "hr" && (() => {
+                        const hrType = (req.payload as any)?.hrType
+                        const isOffboarding = hrType === "offboarding"
+                        return (
+                          <span className={cn(
+                            "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide",
+                            isOffboarding
+                              ? "bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/30 dark:border-red-900 dark:text-red-300"
+                              : "bg-teal-50 text-teal-700 border border-teal-200 dark:bg-teal-950/30 dark:border-teal-900 dark:text-teal-300"
+                          )}>
+                            {isOffboarding ? "Offboarding" : "Onboarding"}
+                          </span>
+                        )
+                      })()}
                     </div>
                   </td>
                   <td className="py-3 px-3">
