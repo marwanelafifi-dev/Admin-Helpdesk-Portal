@@ -65,7 +65,7 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
   const [costCenters, setCostCenters] = useState<string[]>([])
   const [managers, setManagers] = useState<string[]>([])
   useEffect(() => {
-    setCostCenters(getList("costCenters"))
+    setCostCenters(getList("cost_centers"))
     setManagers(getList("managers"))
   }, [])
   const { register, control, handleSubmit, watch, formState: { errors, isSubmitting }, reset } = useForm<PurchaseForm>({
