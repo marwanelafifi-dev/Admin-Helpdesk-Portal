@@ -74,7 +74,7 @@ const MODULE_DOT: Record<string, string> = {
 }
 
 const MODULES  = ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"] as const
-const STATUSES = ["new", "on_hold", "delivered", "completed", "cancelled"] as const
+const STATUSES = ["new", "in_progress", "delivered", "completed", "cancelled"] as const
 
 // Module-specific statuses — canonical code per UI label.
 // Each code maps 1:1 to exactly one UI label (see MODULE_STATUS_LABELS).
@@ -265,7 +265,7 @@ export default function AllRequestsPage() {
   const stats = useMemo(() => ({
     total:     requests.length,
     new:       requests.filter((r) => r.status === "new").length,
-    onHold:    requests.filter((r) => r.status === "on_hold").length,
+    inProgress: requests.filter((r) => r.status === "in_progress").length,
     completed: requests.filter((r) => r.status === "completed").length,
   }), [requests])
 
@@ -416,7 +416,7 @@ export default function AllRequestsPage() {
       <div className="grid grid-cols-3 gap-4">
         {([
           { key: "new" as const,       label: "New",            value: stats.new,       icon: TrendingUp,   iconBg: "bg-sky-50",      iconColor: "text-sky-600",     activeBg: "bg-sky-500",     activeBorder: "border-sky-500" },
-          { key: "on_hold" as const,   label: "In Progress",    value: stats.onHold,    icon: Clock,        iconBg: "bg-amber-50",    iconColor: "text-amber-600",   activeBg: "bg-amber-500",   activeBorder: "border-amber-500" },
+          { key: "in_progress" as const, label: "In Progress",   value: stats.inProgress, icon: Clock,        iconBg: "bg-blue-50",     iconColor: "text-blue-600",    activeBg: "bg-blue-600",    activeBorder: "border-blue-600" },
           { key: "completed" as const, label: "Completed",      value: stats.completed, icon: CheckCircle2, iconBg: "bg-emerald-50",  iconColor: "text-emerald-600", activeBg: "bg-emerald-600", activeBorder: "border-emerald-600" },
         ] as const).map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }, index) => {
           const isActive = statusFilter === key
@@ -531,14 +531,11 @@ export default function AllRequestsPage() {
               {(["all", "active", ...STATUSES] as const).map((s) => {
                 const activeClass = s === "all" ? "bg-slate-900 border-slate-900 text-white"
                   : s === "active" ? "bg-indigo-600 border-indigo-600 text-white" : {
-                  new:        "bg-sky-500 border-sky-500 text-white",
-                  on_hold:    "bg-amber-500 border-amber-500 text-white",
-
-                  delivered:  "bg-green-600 border-green-600 text-white",
-                  completed:  "bg-emerald-600 border-emerald-600 text-white",
-                  cancelled:  "bg-red-600 border-red-600 text-white",
-                  "In Progress": "bg-blue-600 border-blue-600 text-white",
-                  "In Customs": "bg-amber-600 border-amber-600 text-white",
+                  new:         "bg-sky-500 border-sky-500 text-white",
+                  in_progress: "bg-blue-600 border-blue-600 text-white",
+                  delivered:   "bg-green-600 border-green-600 text-white",
+                  completed:   "bg-emerald-600 border-emerald-600 text-white",
+                  cancelled:   "bg-red-600 border-red-600 text-white",
                 }[s]
                 return (
                   <button
