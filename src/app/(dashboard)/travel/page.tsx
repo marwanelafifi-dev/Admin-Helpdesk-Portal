@@ -22,7 +22,7 @@ import { scopeRequests } from "@/lib/access"
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
-  new: "New", in_progress: "In Progress", in_transit: "In Transit",
+  new: "New", in_progress: "In Progress",
   delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
 }
 
@@ -36,13 +36,12 @@ const STATUS_DOT: Record<string, string> = Object.fromEntries(
 const STATUS_PILL_ACTIVE: Record<string, string> = {
   new: "bg-sky-500 border-sky-500 text-white",
   in_progress: "bg-blue-600 border-blue-600 text-white",
-  in_transit: "bg-blue-600 border-blue-600 text-white",
   delivered: "bg-green-600 border-green-600 text-white",
   completed: "bg-emerald-600 border-emerald-600 text-white",
   cancelled: "bg-red-600 border-red-600 text-white",
 }
 
-const STATUSES = ["new", "in_progress", "in_transit", "delivered", "completed", "cancelled"] as const
+const STATUSES = ["new", "in_progress", "delivered", "completed", "cancelled"] as const
 
 type SortKey = "id" | "title" | "createdAt" | "requesterName" | "destination" | "startDate" | "status" | "updatedAt"
 
@@ -190,7 +189,7 @@ export default function TravelPage() {
 
   const counts = useMemo(() => ({
     total:     requests.length,
-    upcoming:  requests.filter((r) => ["new", "in_transit"].includes(r.status)).length,
+    upcoming:  requests.filter((r) => r.status === "new").length,
     onHold:    requests.filter((r) => r.status === "in_progress").length,
     completed: requests.filter((r) => r.status === "completed").length,
   }), [requests])

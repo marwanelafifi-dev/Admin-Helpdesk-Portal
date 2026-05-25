@@ -62,10 +62,10 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
   const router = useRouter()
   const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
-  const [departments, setDepartments] = useState<string[]>([])
+  const [costCenters, setCostCenters] = useState<string[]>([])
   const [managers, setManagers] = useState<string[]>([])
   useEffect(() => {
-    setDepartments(getList("departments"))
+    setCostCenters(getList("costCenters"))
     setManagers(getList("managers"))
   }, [])
   const { register, control, handleSubmit, watch, formState: { errors, isSubmitting }, reset } = useForm<PurchaseForm>({
@@ -86,7 +86,7 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
         productUrl: payload.productUrl || "",
         quantity: payload.quantity || 1,
         estimatedPrice: payload.estimatedPrice || 0,
-        department: payload.department || "",
+        costCenter: payload.costCenter || "",
         directManager: payload.directManager || "",
         notes: payload.notes || "",
         attachments: payload.attachments || [],
@@ -253,25 +253,25 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
 
         {/* Business Information */}
         <Card>
-          <SectionHeader icon={ShoppingCart} title="Business Information" subtitle="Department and justification" />
+          <SectionHeader icon={ShoppingCart} title="Business Information" subtitle="Cost center and justification" />
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Department <span className="text-red-500">*</span></Label>
+                <Label>Cost Center <span className="text-red-500">*</span></Label>
                 <Controller
-                  name="department"
+                  name="costCenter"
                   control={control}
                   render={({ field }) => (
                     <SearchableSelect
                       value={field.value ?? ""}
                       onChange={field.onChange}
-                      options={departments}
-                      placeholder="Select department"
-                      hasError={!!errors.department}
+                      options={costCenters}
+                      placeholder="Select cost center"
+                      hasError={!!errors.costCenter}
                     />
                   )}
                 />
-                <FieldError message={errors.department?.message} />
+                <FieldError message={errors.costCenter?.message} />
               </div>
               <div className="space-y-1.5">
                 <Label>Direct Manager <span className="text-red-500">*</span></Label>

@@ -23,7 +23,6 @@ const STATUS_LABELS: Record<string, string> = {
   new: "New",
   in_progress: "In Progress",
   on_hold: "In Progress", // legacy alias
-  in_transit: "In Transit",
   in_customs: "In Customs",
   awaiting_approval: "Awaiting Approval",
   delivered: "Delivered",
@@ -38,7 +37,6 @@ const STATUS_COLORS: Record<string, string> = {
   new:               LABEL_COLORS["New"],
   in_progress:       LABEL_COLORS["In Progress"],
   on_hold:           LABEL_COLORS["In Progress"],
-  in_transit:        LABEL_COLORS["In Transit"],
   in_customs:        LABEL_COLORS["In Customs"],
   awaiting_approval: LABEL_COLORS["Awaiting Approval"],
   delivered:         LABEL_COLORS["Delivered"],
@@ -50,7 +48,6 @@ const STATUS_DOT: Record<string, string> = {
   new:               LABEL_DOTS["New"],
   in_progress:       LABEL_DOTS["In Progress"],
   on_hold:           LABEL_DOTS["In Progress"],
-  in_transit:        LABEL_DOTS["In Transit"],
   in_customs:        LABEL_DOTS["In Customs"],
   awaiting_approval: LABEL_DOTS["Awaiting Approval"],
   delivered:         LABEL_DOTS["Delivered"],
@@ -61,7 +58,6 @@ const STATUS_DOT: Record<string, string> = {
 const STATUS_PILL_ACTIVE: Record<string, string> = {
   new:               "bg-sky-500 border-sky-500 text-white",
   in_progress:       "bg-blue-600 border-blue-600 text-white",
-  in_transit:        "bg-blue-600 border-blue-600 text-white",
   in_customs:        "bg-amber-600 border-amber-600 text-white",
   awaiting_approval: "bg-amber-600 border-amber-600 text-white",
   delivered:         "bg-green-600 border-green-600 text-white",
@@ -91,7 +87,7 @@ const MODULE_PILL_ACTIVE: Record<string, string> = {
   general: "bg-indigo-600 border-indigo-600 text-white",
 }
 
-const STATUSES = ["new", "in_progress", "in_transit", "in_customs", "awaiting_approval", "delivered", "completed", "cancelled"] as const
+const STATUSES = ["new", "in_progress", "in_customs", "awaiting_approval", "delivered", "completed", "cancelled"] as const
 const MODULES  = ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"] as const
 
 // Module-specific allowed statuses — drives the inline status dropdown so each
@@ -100,8 +96,8 @@ const MODULE_STATUSES: Record<string, readonly string[]> = {
   shipping:    ["new", "in_progress", "in_customs", "delivered", "cancelled"],
   maintenance: ["new", "in_progress", "completed", "cancelled"],
   purchase:    ["new", "in_progress", "awaiting_approval", "delivered", "cancelled"],
-  event:       ["new", "in_progress", "in_transit", "delivered", "completed", "cancelled"],
-  travel:      ["new", "in_progress", "in_transit", "delivered", "completed", "cancelled"],
+  event:       ["new", "in_progress", "delivered", "completed", "cancelled"],
+  travel:      ["new", "in_progress", "delivered", "completed", "cancelled"],
   hr:          ["new", "in_progress", "completed"],
   general:     ["new", "in_progress", "completed", "cancelled"],
 }
@@ -111,8 +107,8 @@ const MODULE_STATUS_LABELS: Record<string, Record<string, string>> = {
   shipping:    { new: "New", in_progress: "In Progress", in_customs: "In Customs", delivered: "Delivered", cancelled: "Cancelled" },
   purchase:    { new: "New", in_progress: "In Progress", awaiting_approval: "Awaiting Approval", delivered: "Delivered", cancelled: "Cancelled" },
   maintenance: { new: "New", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled" },
-  event:       { new: "New", in_progress: "In Progress", in_transit: "In Transit", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled" },
-  travel:      { new: "New", in_progress: "In Progress", in_transit: "In Transit", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled" },
+  event:       { new: "New", in_progress: "In Progress", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled" },
+  travel:      { new: "New", in_progress: "In Progress", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled" },
   hr:          { new: "New", in_progress: "In Progress", completed: "Completed" },
   general:     { new: "New", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled" },
 }

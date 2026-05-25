@@ -45,6 +45,13 @@ function computeRequests(): { total: number; byModule: Counts } {
         const key = direction === "sending" ? "shipping-sending" : "shipping-receiving"
         byModule[key] = (byModule[key] ?? 0) + 1
       }
+      // Sub-bucket for HR so the sidebar shows separate counts on
+      // Onboarding and Offboarding.
+      if (mod === "hr") {
+        const hrType = String(r?.payload?.hrType ?? "onboarding")
+        const key = hrType === "offboarding" ? "hr-offboarding" : "hr-onboarding"
+        byModule[key] = (byModule[key] ?? 0) + 1
+      }
     }
   }
   return { total, byModule }

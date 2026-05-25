@@ -117,7 +117,7 @@ export async function POST(
       productUrl: payload.productUrl,
       quantity: typeof payload.quantity === "number" ? payload.quantity : undefined,
       estimatedPrice: typeof payload.estimatedPrice === "number" ? payload.estimatedPrice : undefined,
-      department: payload.department,
+      costCenter: payload.costCenter,
       businessJustification: payload.businessJustification,
       notes: payload.notes,
       requesterName: request.requesterName,
