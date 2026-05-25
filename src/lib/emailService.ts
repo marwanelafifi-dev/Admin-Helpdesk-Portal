@@ -625,20 +625,7 @@ export async function sendPurchaseApprovalEmail(params: {
     ? `${params.estimatedPrice.toLocaleString()} EGP`
     : "—"
 
-  const html = `<!doctype html>
-<html><body style="margin:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;">
-  <div style="max-width:640px;margin:0 auto;padding:32px 16px;">
-    ${logoBuffer ? `<div style="text-align:center;margin-bottom:24px;"><img src="cid:siware-logo" alt="Si-Ware" style="height:36px;"></div>` : ""}
-    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.04);">
-      <div style="background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;padding:24px 28px;">
-        <p style="margin:0;font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:1px;">Purchase Approval Request</p>
-        <h1 style="margin:6px 0 0;font-size:22px;font-weight:600;">${escapeHtml(params.requestTitle)}</h1>
-        <p style="margin:8px 0 0;font-size:13px;opacity:.9;">${escapeHtml(params.requestId)}</p>
-      </div>
-      <div style="padding:24px 28px 8px;">
-        <p style="margin:0 0 8px;font-size:14px;color:#334155;">${params.managerName ? `Hi ${escapeHtml(params.managerName)}, a` : "A"} purchase request requires your approval. Please review the details below and click <strong>Approve</strong> or <strong>Reject</strong>.</p>
-      </div>
-
+  const detailsTable = `
       <table style="width:100%;border-collapse:collapse;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;background:#f8fafc;">
         ${row("Requested by", params.requesterName)}
         ${row("Requester email", params.requesterEmail)}
@@ -653,32 +640,71 @@ export async function sendPurchaseApprovalEmail(params: {
         ${row("Estimated price", priceDisplay)}
         ${row("Business justification", params.businessJustification)}
         ${params.notes ? row("Notes", params.notes) : ""}
-      </table>
+      </table>`
 
-      <div style="padding:28px;text-align:center;background:#fff;">
-        <a href="${params.approveUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Approve</a>
-        <a href="${params.rejectUrl}"  style="display:inline-block;background:#ef4444;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Reject</a>
-        <p style="margin:18px 0 0;font-size:12px;color:#64748b;">Or <a href="${requestUrl}" style="color:#2563eb;">open the request in the portal</a> to take action there.</p>
-        <p style="margin:8px 0 0;font-size:11px;color:#94a3b8;">These buttons are single-use links; they stop working once a decision is recorded or the request status changes.</p>
+  const wrapper = (body: string) => `<!doctype html>
+<html><body style="margin:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;">
+  <div style="max-width:640px;margin:0 auto;padding:32px 16px;">
+    ${logoBuffer ? `<div style="text-align:center;margin-bottom:24px;"><img src="cid:siware-logo" alt="Si-Ware" style="height:36px;"></div>` : ""}
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.04);">
+      <div style="background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;padding:24px 28px;">
+        <p style="margin:0;font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:1px;">Purchase Approval Request</p>
+        <h1 style="margin:6px 0 0;font-size:22px;font-weight:600;">${escapeHtml(params.requestTitle)}</h1>
+        <p style="margin:8px 0 0;font-size:13px;opacity:.9;">${escapeHtml(params.requestId)}</p>
       </div>
+      ${body}
     </div>
     <p style="text-align:center;margin:18px 0 0;font-size:12px;color:#94a3b8;">Si-Ware Systems Admin Helpdesk Portal &nbsp;·&nbsp; adminhelpdesk@si-ware.com</p>
   </div>
 </body></html>`
 
+  // Manager email — has Approve / Reject action buttons
+  const managerHtml = wrapper(`
+      <div style="padding:24px 28px 8px;">
+        <p style="margin:0 0 8px;font-size:14px;color:#334155;">${params.managerName ? `Hi ${escapeHtml(params.managerName)}, a` : "A"} purchase request requires your approval. Please review the details below and click <strong>Approve</strong> or <strong>Reject</strong>.</p>
+      </div>
+      ${detailsTable}
+      <div style="padding:28px;text-align:center;background:#fff;">
+        <a href="${params.approveUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Approve</a>
+        <a href="${params.rejectUrl}"  style="display:inline-block;background:#ef4444;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Reject</a>
+        <p style="margin:18px 0 0;font-size:12px;color:#64748b;">Or <a href="${requestUrl}" style="color:#2563eb;">open the request in the portal</a> to take action there.</p>
+        <p style="margin:8px 0 0;font-size:11px;color:#94a3b8;">These buttons are single-use links; they stop working once a decision is recorded or the request status changes.</p>
+      </div>`)
+
+  // CC email — read-only copy, no action buttons
+  const ccHtml = wrapper(`
+      <div style="padding:24px 28px 8px;">
+        <p style="margin:0 0 8px;font-size:14px;color:#334155;">A purchase request is <strong>awaiting approval</strong> from the Direct Manager. This is an informational copy — no action is required from you.</p>
+      </div>
+      ${detailsTable}
+      <div style="padding:20px 28px;text-align:center;background:#fff;">
+        <a href="${requestUrl}" style="display:inline-block;background:#2563eb;color:#fff;font-weight:600;padding:10px 28px;border-radius:8px;text-decoration:none;font-size:14px;">View Request in Portal</a>
+      </div>`)
+
+  const attachments = logoBuffer ? [{
+    filename: "siware-logo.png",
+    content: logoBuffer,
+    cid: "siware-logo",
+    contentType: "image/png",
+  }] : []
+
+  // Send action email to manager only (no CC on this one)
   await sendMailWithRetry(transporter, {
     from: resolveFromAddress("Si-Ware Admin Helpdesk"),
     to: params.to,
-    ...(params.cc && params.cc.length > 0 ? { cc: params.cc } : {}),
     subject,
-    html,
-    ...(logoBuffer ? {
-      attachments: [{
-        filename: "siware-logo.png",
-        content: logoBuffer,
-        cid: "siware-logo",
-        contentType: "image/png",
-      }],
-    } : {}),
+    html: managerHtml,
+    attachments,
   })
+
+  // Send read-only notification to CC recipients (no action URLs exposed)
+  if (params.cc && params.cc.length > 0) {
+    await sendMailWithRetry(transporter, {
+      from: resolveFromAddress("Si-Ware Admin Helpdesk"),
+      to: params.cc,
+      subject: `[CC] ${subject}`,
+      html: ccHtml,
+      attachments,
+    })
+  }
 }
