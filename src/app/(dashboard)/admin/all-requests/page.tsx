@@ -74,7 +74,7 @@ const MODULE_DOT: Record<string, string> = {
 }
 
 const MODULES  = ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"] as const
-const STATUSES = ["new", "in_progress", "delivered", "completed", "cancelled"] as const
+const STATUSES = ["new", "in_progress", "in_customs", "awaiting_approval", "delivered", "completed", "cancelled"] as const
 
 // Module-specific statuses — canonical code per UI label.
 // Each code maps 1:1 to exactly one UI label (see MODULE_STATUS_LABELS).
@@ -531,11 +531,13 @@ export default function AllRequestsPage() {
               {(["all", "active", ...STATUSES] as const).map((s) => {
                 const activeClass = s === "all" ? "bg-slate-900 border-slate-900 text-white"
                   : s === "active" ? "bg-indigo-600 border-indigo-600 text-white" : {
-                  new:         "bg-sky-500 border-sky-500 text-white",
-                  in_progress: "bg-blue-600 border-blue-600 text-white",
-                  delivered:   "bg-green-600 border-green-600 text-white",
-                  completed:   "bg-emerald-600 border-emerald-600 text-white",
-                  cancelled:   "bg-red-600 border-red-600 text-white",
+                  new:               "bg-sky-500 border-sky-500 text-white",
+                  in_progress:       "bg-blue-600 border-blue-600 text-white",
+                  in_customs:        "bg-amber-600 border-amber-600 text-white",
+                  awaiting_approval: "bg-amber-500 border-amber-500 text-white",
+                  delivered:         "bg-green-600 border-green-600 text-white",
+                  completed:         "bg-emerald-600 border-emerald-600 text-white",
+                  cancelled:         "bg-red-600 border-red-600 text-white",
                 }[s]
                 return (
                   <button
