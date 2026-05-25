@@ -29,7 +29,6 @@ const STATUS_COLORS: Record<string, string> = {
   new:               "bg-sky-100 text-sky-700",
   in_progress:       "bg-blue-100 text-blue-700",
   on_hold:           "bg-blue-100 text-blue-700", // legacy alias
-  in_transit:        "bg-blue-100 text-blue-700",
   in_customs:        "bg-amber-100 text-amber-700",
   awaiting_approval: "bg-amber-100 text-amber-700",
   delivered:         "bg-green-100 text-green-700",
@@ -42,7 +41,6 @@ const STATUS_DOT: Record<string, string> = {
   new:               "bg-sky-500",
   in_progress:       "bg-blue-500",
   on_hold:           "bg-blue-500",
-  in_transit:        "bg-blue-500",
   in_customs:        "bg-amber-500",
   awaiting_approval: "bg-amber-500",
   delivered:         "bg-green-500",
@@ -54,7 +52,6 @@ const getStatusLabel = (status: string, _module?: string): string => {
   // Status codes match UI labels 1:1.
   if (status === 'new') return 'New'
   if (status === 'on_hold' || status === 'in_progress') return 'In Progress'
-  if (status === 'in_transit') return 'In Transit'
   if (status === 'in_customs') return 'In Customs'
   if (status === 'awaiting_approval') return 'Awaiting Approval'
   if (status === 'delivered') return 'Delivered'
@@ -314,8 +311,8 @@ export default function RequestDetailPage() {
       hr:          ['new', 'in_progress', 'completed'],
       maintenance: ['new', 'in_progress', 'completed', 'cancelled'],
       purchase:    ['new', 'in_progress', 'awaiting_approval', 'delivered', 'cancelled'],
-      event:       ['new', 'in_progress', 'in_transit', 'delivered', 'completed', 'cancelled'],
-      travel:      ['new', 'in_progress', 'in_transit', 'delivered', 'completed', 'cancelled'],
+      event:       ['new', 'in_progress', 'delivered', 'completed', 'cancelled'],
+      travel:      ['new', 'in_progress', 'delivered', 'completed', 'cancelled'],
       general:     ['new', 'in_progress', 'completed', 'cancelled'],
     }
     return moduleStatuses[module] || ['new', 'in_progress', 'completed', 'cancelled']

@@ -71,12 +71,12 @@ const COLS: { key: SortKey; label: string; defaultW: number }[] = [
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function HRPage() {
+export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
   const { data: session } = useSession()
   const [requests, setRequests]         = useState<EngineRequest[]>([])
   const [search, setSearch]             = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [activeTab, setActiveTab]       = useState<Tab>("all")
+  const [activeTab, setActiveTab]       = useState<Tab>(defaultTab)
   const [sortKey, setSortKey]           = useState<SortKey>("id")
   const [sortDir, setSortDir]           = useState<SortDir>("asc")
   const [colWidths, setColWidths]       = useState<(number | null)[]>(() => COLS.map(() => null))

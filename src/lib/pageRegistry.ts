@@ -46,6 +46,8 @@ export const PAGES: PageDefinition[] = [
   { id: "shipping-receiving", label: "Shipping Receiving",   path: "/shipping/receiving",        group: "Modules" },
   { id: "hr",                 label: "HR",                   path: "/hr",                        group: "Modules" },
   { id: "hr-new",             label: "HR New",               path: "/hr/new",                    group: "Modules" },
+  { id: "hr-onboarding",      label: "HR Onboarding",        path: "/hr/onboarding",             group: "Modules" },
+  { id: "hr-offboarding",     label: "HR Offboarding",       path: "/hr/offboarding",            group: "Modules" },
   { id: "maintenance",        label: "Maintenance",          path: "/maintenance",               group: "Modules" },
   { id: "maintenance-new",    label: "Maintenance New",      path: "/maintenance/new",           group: "Modules" },
   { id: "purchase",           label: "Purchase",             path: "/purchase",                  group: "Modules" },

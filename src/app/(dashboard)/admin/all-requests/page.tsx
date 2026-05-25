@@ -29,9 +29,9 @@ import { LABEL_COLORS, LABEL_DOTS, buildLabelDrivenMaps } from "@/lib/statusPale
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
-  new: "New", on_hold: "In Progress", in_progress: "In Progress", in_transit: "In Transit",
+  new: "New", on_hold: "In Progress", in_progress: "In Progress",
   in_customs: "In Customs", awaiting_approval: "Awaiting Approval",
-  "In Progress": "In Progress", "In Customs": "In Customs", "In Transit": "In Transit",
+  "In Progress": "In Progress", "In Customs": "In Customs",
   delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
 }
 
@@ -43,7 +43,6 @@ const STATUS_COLORS: Record<string, string> = {
   new:               LABEL_COLORS["New"],
   on_hold:           LABEL_COLORS["In Progress"],
   in_progress:       LABEL_COLORS["In Progress"],
-  in_transit:        LABEL_COLORS["In Transit"],
   in_customs:        LABEL_COLORS["In Customs"],
   awaiting_approval: LABEL_COLORS["Awaiting Approval"],
   delivered:         LABEL_COLORS["Delivered"],
@@ -55,7 +54,6 @@ const STATUS_DOT: Record<string, string> = {
   new:               LABEL_DOTS["New"],
   on_hold:           LABEL_DOTS["In Progress"],
   in_progress:       LABEL_DOTS["In Progress"],
-  in_transit:        LABEL_DOTS["In Transit"],
   in_customs:        LABEL_DOTS["In Customs"],
   awaiting_approval: LABEL_DOTS["Awaiting Approval"],
   delivered:         LABEL_DOTS["Delivered"],
@@ -76,7 +74,7 @@ const MODULE_DOT: Record<string, string> = {
 }
 
 const MODULES  = ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"] as const
-const STATUSES = ["new", "on_hold", "in_transit", "delivered", "completed", "cancelled"] as const
+const STATUSES = ["new", "on_hold", "delivered", "completed", "cancelled"] as const
 
 // Module-specific statuses — canonical code per UI label.
 // Each code maps 1:1 to exactly one UI label (see MODULE_STATUS_LABELS).
@@ -84,8 +82,8 @@ const MODULE_STATUSES: Record<string, readonly string[]> = {
   shipping:    ["new", "in_progress", "in_customs", "delivered", "cancelled"],
   maintenance: ["new", "in_progress", "completed", "cancelled"],
   purchase:    ["new", "in_progress", "awaiting_approval", "delivered", "cancelled"],
-  event:       ["new", "in_progress", "in_transit", "delivered", "completed", "cancelled"],
-  travel:      ["new", "in_progress", "in_transit", "delivered", "completed", "cancelled"],
+  event:       ["new", "in_progress", "delivered", "completed", "cancelled"],
+  travel:      ["new", "in_progress", "delivered", "completed", "cancelled"],
   hr:          ["new", "in_progress", "completed"],
   general:     ["new", "in_progress", "completed", "cancelled"],
 }
@@ -102,10 +100,10 @@ const MODULE_STATUS_LABELS: Record<string, Record<string, string>> = {
     new: "New", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled",
   },
   event: {
-    new: "New", in_progress: "In Progress", in_transit: "In Transit", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
+    new: "New", in_progress: "In Progress", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
   },
   travel: {
-    new: "New", in_progress: "In Progress", in_transit: "In Transit", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
+    new: "New", in_progress: "In Progress", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
   },
   hr: {
     new: "New", in_progress: "In Progress", completed: "Completed",
@@ -535,7 +533,7 @@ export default function AllRequestsPage() {
                   : s === "active" ? "bg-indigo-600 border-indigo-600 text-white" : {
                   new:        "bg-sky-500 border-sky-500 text-white",
                   on_hold:    "bg-amber-500 border-amber-500 text-white",
-                  in_transit: "bg-blue-600 border-blue-600 text-white",
+
                   delivered:  "bg-green-600 border-green-600 text-white",
                   completed:  "bg-emerald-600 border-emerald-600 text-white",
                   cancelled:  "bg-red-600 border-red-600 text-white",

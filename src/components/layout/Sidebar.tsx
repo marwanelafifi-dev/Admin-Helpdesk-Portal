@@ -54,7 +54,15 @@ const navItems: NavItem[] = [
     ],
   },
   { title: "My Requests", href: "/requests", icon: FileText },
-  { title: "HR", href: "/hr", icon: UserCog },
+  {
+    title: "HR",
+    href: "/hr",
+    icon: UserCog,
+    children: [
+      { title: "Onboarding", href: "/hr/onboarding", icon: UserCog },
+      { title: "Offboarding", href: "/hr/offboarding", icon: UserCog },
+    ],
+  },
   { title: "General Request", href: "/general", icon: Inbox },
   {
     title: "Shipping",
@@ -110,6 +118,7 @@ export function Sidebar() {
     pathname.startsWith("/admin") && pathname !== "/admin/all-requests"
   )
   const [shippingExpanded, setShippingExpanded] = useState(pathname.startsWith("/shipping"))
+  const [hrExpanded, setHrExpanded] = useState(pathname.startsWith("/hr"))
   // When the sidebar is collapsed, clicking a parent opens a flyout popover
   // anchored to that parent's row so the user can pick a child page without
   // expanding the whole sidebar. Tracked by parent title.
@@ -169,6 +178,8 @@ export function Sidebar() {
    * get a badge.
    */
   function moduleForHref(href: string): string | null {
+    if (href === "/hr/onboarding" || href.startsWith("/hr/onboarding/")) return "hr-onboarding"
+    if (href === "/hr/offboarding" || href.startsWith("/hr/offboarding/")) return "hr-offboarding"
     if (href.startsWith("/hr")) return "hr"
     // Shipping has two sub-buckets: receiving and sending. Match the leaves
     // first so each child link gets only its own count; the parent /shipping
@@ -287,6 +298,7 @@ export function Sidebar() {
           if (item.children) {
             const isAdmin = item.title === "Admin"
             const isShipping = item.title === "Shipping"
+            const isHR = item.title === "HR"
             const isAdministration = item.title === "Administration Team"
 
             let expanded = false
@@ -301,6 +313,10 @@ export function Sidebar() {
               expanded = shippingExpanded
               setExpandedFn = (val) => setShippingExpanded(val)
               active = pathname.startsWith("/shipping") && pathname !== "/shipping"
+            } else if (isHR) {
+              expanded = hrExpanded
+              setExpandedFn = (val) => setHrExpanded(val)
+              active = pathname.startsWith("/hr") && pathname !== "/hr"
             } else if (isAdministration) {
               expanded = administrationExpanded
               setExpandedFn = (val) => setAdministrationExpanded(val)

@@ -1,7 +1,7 @@
 import { z } from "zod"
 
 export const EVENT_TYPES = ["Conference", "Workshop", "Team Building", "Webinar", "Training", "Other"] as const
-export const EVENT_STATUSES = ["new", "on_hold", "in_transit", "completed"] as const
+export const EVENT_STATUSES = ["new", "on_hold", "completed"] as const
 
 export type EventType = (typeof EVENT_TYPES)[number]
 export type EventStatus = (typeof EVENT_STATUSES)[number]

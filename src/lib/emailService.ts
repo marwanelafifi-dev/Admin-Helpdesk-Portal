@@ -588,7 +588,7 @@ export async function sendPurchaseApprovalEmail(params: {
   productUrl?: string
   quantity?: number
   estimatedPrice?: number
-  department?: string
+  costCenter?: string
   businessJustification?: string
   notes?: string
   requesterName?: string
@@ -642,7 +642,7 @@ export async function sendPurchaseApprovalEmail(params: {
       <table style="width:100%;border-collapse:collapse;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;background:#f8fafc;">
         ${row("Requested by", params.requesterName)}
         ${row("Requester email", params.requesterEmail)}
-        ${row("Department", params.department)}
+        ${row("Cost Center", params.costCenter)}
         ${row("Item", params.itemTitle)}
         ${row("Description", params.description)}
         ${row("Category", params.category)}
