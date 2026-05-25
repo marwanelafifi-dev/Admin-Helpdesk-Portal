@@ -1,11 +1,3 @@
-/**
- * Server-side helpers for the Purchase approval workflow.
- *
- * - resolveRequestManagerEmail: reads the request's payload + company-data
- *   to figure out who the Direct Manager is (by email).
- * - notifyDecision: emails the Administration Team + requester + admin
- *   helpdesk + manager that the request was approved/rejected.
- */
 import type { EngineRequest } from "@/services/engineService"
 import { readCompanyData } from "@/lib/companyDataServerStore"
 import { readUsers } from "@/lib/userStore"
@@ -13,10 +5,7 @@ import { sendRequestUpdateEmail } from "@/lib/emailService"
 
 const ADMIN_HELPDESK_EMAIL = "adminhelpdesk@si-ware.com"
 
-/**
- * Find the Direct Manager email assigned to a Purchase / HR / Shipping
- * request. Returns lowercase or undefined when none is set.
- */
+/** Find the Direct Manager email for a Purchase / HR / Shipping request. */
 export function resolveRequestManagerEmail(request: EngineRequest): string | undefined {
   const payload = (request.payload ?? {}) as Record<string, any>
 
@@ -32,28 +21,38 @@ export function resolveRequestManagerEmail(request: EngineRequest): string | und
   const cd = readCompanyData()
   for (const m of cd.managers ?? []) {
     if (typeof m === "string") {
-      if (m.toLowerCase() === name.toLowerCase() && m.includes("@")) {
-        return m.toLowerCase()
-      }
+      if (m.toLowerCase() === name.toLowerCase() && m.includes("@")) return m.toLowerCase()
     } else if (m && typeof m === "object") {
       if ((m.name ?? "").toLowerCase() === name.toLowerCase()) {
         return ((m.email ?? "") as string).toLowerCase() || undefined
       }
     }
   }
-  // Fallback: if the name itself looks like an email
   if (name.includes("@")) return name.toLowerCase()
   return undefined
 }
 
-/**
- * Fan out a decision notification to the Administration Team, the
- * requester, the helpdesk mailbox, and the manager who made the call.
- */
+/** Find the Direct Manager display name for a request. */
+export function resolveRequestManagerName(request: EngineRequest): string | undefined {
+  const payload = (request.payload ?? {}) as Record<string, any>
+
+  // Shipping — name stored directly
+  const shippingMgrName = payload?.approvers?.directManager?.name
+  if (typeof shippingMgrName === "string" && shippingMgrName.trim()) return shippingMgrName.trim()
+
+  // Purchase / HR — payload.directManager is the name string
+  const name = typeof payload.directManager === "string" ? payload.directManager.trim() : ""
+  if (name) return name
+  return undefined
+}
+
+/** Fan out a decision notification to the team, requester, helpdesk, and manager. */
 export async function notifyDecision(params: {
   request: EngineRequest
   action: "approved" | "rejected"
   managerEmail?: string
+  managerName?: string
+  reason?: string
 }): Promise<void> {
   const adminEmails = readUsers()
     .filter((u) => u.active && u.role === "Administration Team")
@@ -69,7 +68,6 @@ export async function notifyDecision(params: {
   add(params.request.requesterEmail)
   add(ADMIN_HELPDESK_EMAIL)
   if (params.managerEmail) add(params.managerEmail)
-  // Also include CC list on the request payload so all stakeholders see it.
   const payloadCc = (params.request.payload as any)?.ccEmails
   if (Array.isArray(payloadCc)) payloadCc.forEach((e) => add(e))
   const adminCc = (params.request as any)?.adminCc
@@ -79,6 +77,10 @@ export async function notifyDecision(params: {
   if (list.length === 0) return
 
   const verbPast = params.action === "approved" ? "approved" : "rejected"
+  const actorName = params.managerName ?? (params.managerEmail ? `Manager (${params.managerEmail})` : "Manager")
+  const preview = params.reason
+    ? `The Direct Manager has ${verbPast} this purchase request. Reason: ${params.reason}`
+    : `The Direct Manager has ${verbPast} this purchase request.`
 
   try {
     await sendRequestUpdateEmail({
@@ -87,8 +89,8 @@ export async function notifyDecision(params: {
       requestId: params.request.id,
       requestTitle: params.request.title,
       module: params.request.module,
-      actorName: params.managerEmail ? `Manager (${params.managerEmail})` : "Manager",
-      preview: `The Direct Manager has ${verbPast} this purchase request.`,
+      actorName,
+      preview,
       previousStatus: "awaiting_approval",
       newStatus: params.action === "approved" ? "in_progress" : "cancelled",
     })
