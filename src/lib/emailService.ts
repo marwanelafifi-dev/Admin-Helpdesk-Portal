@@ -408,6 +408,10 @@ export async function sendRequestUpdateEmail(params: {
   })
 }
 
+function resolveTemplateVars(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? `{{${key}}}`)
+}
+
 export async function sendFeedbackSurveyEmail(params: {
   surveyId: string
   requesterName: string
@@ -415,12 +419,34 @@ export async function sendFeedbackSurveyEmail(params: {
   requestId: string
   requestTitle: string
   module: string
+  customSubject?: string
+  customBody?: string
 }) {
   const transporter = createTransporter()
   const baseUrl = getBaseUrl()
   const surveyUrl = `${baseUrl}/feedback-survey?id=${params.surveyId}`
   const moduleLabel = params.module.charAt(0).toUpperCase() + params.module.slice(1)
-  const subject = `How was your ${moduleLabel} request? — ${params.requestTitle}`
+
+  const templateVars = {
+    requesterName: params.requesterName,
+    requestTitle: params.requestTitle,
+    requestId: params.requestId,
+    module: moduleLabel,
+  }
+
+  const subject = params.customSubject
+    ? resolveTemplateVars(params.customSubject, templateVars)
+    : `How was your ${moduleLabel} request? — ${params.requestTitle}`
+
+  const greetingParagraph = params.customBody
+    ? resolveTemplateVars(params.customBody, templateVars)
+      .split("\n")
+      .map((line) => line.trim() ? `<p style="margin:10px 0 0;font-size:15px;color:#374151;line-height:1.6;">${escapeHtml(line)}</p>` : "")
+      .join("")
+    : `<p style="margin:0;font-size:15px;color:#374151;">Hi <strong>${escapeHtml(params.requesterName)}</strong>,</p>
+          <p style="margin:10px 0 0;font-size:15px;color:#374151;line-height:1.6;">
+            Your <strong>${moduleLabel}</strong> request has been completed. We'd appreciate your feedback to help us improve our services.
+          </p>`
 
   const stars = (filled: number) =>
     [1,2,3,4,5].map((s) =>
@@ -469,10 +495,7 @@ export async function sendFeedbackSurveyEmail(params: {
       <!-- Greeting -->
       <tr>
         <td style="padding:24px 40px 0;">
-          <p style="margin:0;font-size:15px;color:#374151;">Hi <strong>${escapeHtml(params.requesterName)}</strong>,</p>
-          <p style="margin:10px 0 0;font-size:15px;color:#374151;line-height:1.6;">
-            Your <strong>${moduleLabel}</strong> request has been completed. We'd appreciate your feedback to help us improve our services.
-          </p>
+          ${greetingParagraph}
         </td>
       </tr>
 
