@@ -1,117 +1,282 @@
-# Admin Request Platform
+# Admin Helpdesk Portal
 
-Enterprise admin request management platform built with Next.js 15, TypeScript, Tailwind CSS, and shadcn/ui.
+Enterprise helpdesk request management platform built with Next.js 15, TypeScript, Tailwind CSS, and shadcn/ui. Deployed via Docker on Ubuntu with Cloudflare Tunnel for public access.
+
+**Live URL:** https://adminhelpdesk.si-wareapps.com
+
+---
 
 ## Tech Stack
 
-- **Framework**: Next.js 15 (App Router)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS v3
-- **UI Components**: shadcn/ui (Radix UI primitives)
-- **Icons**: lucide-react
-- **Charts**: Recharts
-- **Font**: Inter (Google Fonts)
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 15 (App Router) |
+| Language | TypeScript |
+| Styling | Tailwind CSS v3 + shadcn/ui |
+| Icons | lucide-react |
+| Charts | Recharts |
+| Auth | NextAuth v5 (credentials + Google OAuth) |
+| Database | PostgreSQL 16 (Prisma ORM) |
+| Storage | Server-side JSON files (`/app/data/`) |
+| Deployment | Docker Compose on Ubuntu |
+| Public access | Cloudflare Tunnel |
 
-## Getting Started
+---
 
-### 1. Install dependencies
-
-```bash
-npm install
-```
-
-> If you see peer dependency warnings (recharts ↔ React 19), use:
-> ```bash
-> npm install --legacy-peer-deps
-> ```
-
-### 2. Run the development server
+## Quick Start (Development)
 
 ```bash
+npm install --legacy-peer-deps
+cp .env.example .env.local   # fill in AUTH_SECRET, NEXTAUTH_URL, SMTP_*, etc.
 npm run dev
 ```
 
-Open [http://localhost:3003](http://localhost:3003) in your browser.
+Open [http://localhost:3003](http://localhost:3003).
 
-The app redirects from `/` → `/dashboard` automatically. To see the login page, navigate to `/login`.
+---
 
-### 3. Build for production
+## Docker Deployment (Ubuntu)
 
 ```bash
-npm run build
-npm start
+git clone https://github.com/marwanelafifi-dev/Admin-Helpdesk-Portal.git
+cd Admin-Helpdesk-Portal
+cp .env.example .env.local    # configure secrets
+mkdir -p ~/admin-helpdesk-Backup
+docker compose up --build -d
 ```
+
+### With Cloudflare Tunnel
+
+```bash
+# Set CLOUDFLARE_TUNNEL_TOKEN in .env.local first
+docker compose --profile tunnel up --build -d
+```
+
+### Containers
+
+| Container | Purpose | Port |
+|-----------|---------|------|
+| `admin-helpdesk-app` | Next.js application | 3003 |
+| `admin-helpdesk-db` | PostgreSQL 16 | 5432 |
+| `admin-helpdesk-tunnel` | Cloudflare Tunnel | — |
+
+### Volumes
+
+| Volume / Mount | Purpose |
+|----------------|---------|
+| `app_data` → `/app/data` | Server-side JSON stores (requests, comments, feedback, users, roles, settings) |
+| `~/admin-helpdesk-Backup` → `/app/backups` | Automated scheduled backup files |
+| `postgres_data` | PostgreSQL data persistence |
+
+---
+
+## Environment Variables
+
+```env
+AUTH_SECRET=<random 32-char secret>
+NEXTAUTH_SECRET=<same as AUTH_SECRET>
+NEXTAUTH_URL=https://adminhelpdesk.si-wareapps.com
+AUTH_URL=https://adminhelpdesk.si-wareapps.com
+AUTH_GOOGLE_ID=<Google OAuth client ID>
+AUTH_GOOGLE_SECRET=<Google OAuth client secret>
+DB_USER=admin
+DB_PASSWORD=<password>
+DB_NAME=admin_request_platform
+CLOUDFLARE_TUNNEL_TOKEN=<token>
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=<gmail>
+SMTP_PASSWORD=<app password>
+SMTP_FROM=<display email>
+```
+
+---
+
+## Pages & Modules
+
+### Request Modules
+
+| Route | Module | Description |
+|-------|--------|-------------|
+| `/shipping/receiving` | Shipping | Incoming shipments |
+| `/shipping/sending` | Shipping | Outgoing shipments |
+| `/hr/onboarding` | HR | Employee onboarding |
+| `/hr/offboarding` | HR | Employee offboarding |
+| `/maintenance` | Maintenance | Facility & IT tickets |
+| `/purchase` | Purchase | Purchase orders with approval workflow |
+| `/event` | Event | Event planning requests |
+| `/travel` | Travel | Travel booking requests |
+| `/general` | General | General helpdesk requests |
+
+### Core Pages
+
+| Route | Description |
+|-------|-------------|
+| `/dashboard` | KPI cards, charts, module workload table, recent feedback |
+| `/requests` | My Requests — all submissions by the logged-in user |
+| `/team-requests` | Team Requests — requests where the logged-in user is Direct Manager |
+| `/admin/all-requests` | All Requests admin view — full team requests + search + filters |
+| `/tasks` | Team Tasks — Administration Team task management |
+| `/feedback-reports` | Employee feedback analytics and module ratings |
+| `/feedback-survey` | Public survey form (no auth required) |
+
+### Admin Pages
+
+| Route | Description |
+|-------|-------------|
+| `/admin/users` | User management (create, edit, reset password, assign roles) |
+| `/admin/roles` | Role management with granular page + permission checkboxes |
+| `/admin/settings` | Platform branding, login page, security, feedback survey config |
+| `/admin/notifications` | SMTP email configuration |
+| `/admin/company-data` | Lookup tables: Suppliers, Cost Centers, Managers, Carriers, Departments, Sectors |
+| `/admin/audit-trail` | System event log with category filter |
+| `/admin/database` | Backup/restore, clear data, scheduled automatic backups, maintenance mode |
+
+---
+
+## Key Architecture
+
+### Data Storage
+
+All request data is stored in server-side JSON files (no PostgreSQL for requests in v1 — Prisma is wired for future migration):
+
+```
+/app/data/
+├── requests.json        # All request records
+├── comments.json        # Per-request comment threads
+├── feedback.json        # Survey records + responses
+├── users.json           # User accounts
+├── roles.json           # Role definitions + permissions
+├── company-data.json    # Lookup tables (suppliers, managers, etc.)
+├── platform-settings.json  # Branding, feedback survey config
+├── backup-schedule.json    # Automated backup schedule
+└── email-config.json    # SMTP configuration
+```
+
+### Scheduled Backups
+
+- Configurable from Admin → Database → "Scheduled Backups" card
+- Frequencies: hourly / daily / weekly / monthly
+- Files saved to `~/admin-helpdesk-Backup` on the host
+- Retention policy: auto-prune oldest files
+- Background check every 5 minutes via `src/instrumentation.ts`
+
+### Permission System
+
+Four built-in roles:
+
+| Role | Access |
+|------|--------|
+| Full Access | Everything (super-admin) |
+| Administration Team | All modules + dashboard + team tasks |
+| People Team | Selected modules only |
+| Requester | Own requests only, selected modules |
+
+Permissions are fully customizable per-role from Admin → Roles.
+
+### Email Notifications
+
+Automatic emails on:
+- New request submitted (To: admin team + requester + helpdesk; Cc: direct manager + form CC recipients)
+- Status update
+- New comment added
+- Task assigned
+- Purchase approval request (one-click Approve / Reject links in email)
+- Feedback survey (configurable — can be disabled from Admin → Settings)
+
+---
 
 ## Project Structure
 
 ```
 src/
 ├── app/
-│   ├── (dashboard)/          # Route group — all pages share DashboardLayout
-│   │   ├── layout.tsx        # Sidebar + TopBar shell
-│   │   ├── dashboard/        # /dashboard
-│   │   ├── requests/         # /requests
-│   │   ├── shipping/         # /shipping
-│   │   ├── maintenance/      # /maintenance
-│   │   ├── purchase/         # /purchase
-│   │   ├── event/            # /event
-│   │   ├── travel/           # /travel
+│   ├── (dashboard)/
+│   │   ├── dashboard/
+│   │   ├── requests/              # My Requests
+│   │   ├── team-requests/         # Team Requests (Direct Manager view)
+│   │   ├── shipping/
+│   │   │   ├── receiving/
+│   │   │   └── sending/
+│   │   ├── hr/
+│   │   │   ├── onboarding/
+│   │   │   └── offboarding/
+│   │   ├── maintenance/
+│   │   ├── purchase/
+│   │   ├── event/
+│   │   ├── travel/
+│   │   ├── general/
+│   │   ├── tasks/
+│   │   ├── feedback-reports/
+│   │   ├── notifications/
 │   │   └── admin/
-│   │       ├── users/        # /admin/users
-│   │       ├── roles/        # /admin/roles
-│   │       └── settings/     # /admin/settings
-│   ├── login/                # /login  (no sidebar)
-│   ├── globals.css
-│   ├── layout.tsx            # Root layout
-│   └── page.tsx              # Redirects → /dashboard
+│   │       ├── all-requests/
+│   │       ├── users/
+│   │       ├── roles/
+│   │       ├── settings/
+│   │       ├── notifications/
+│   │       ├── company-data/
+│   │       ├── audit-trail/
+│   │       └── database/
+│   ├── api/
+│   │   ├── admin/
+│   │   │   ├── backup-now/        # POST — trigger immediate backup
+│   │   │   ├── backup-schedule/   # GET/POST — manage schedule
+│   │   │   ├── maintenance/       # GET/PUT/POST — maintenance mode
+│   │   │   ├── server-data/       # GET/POST/DELETE — server file bundle
+│   │   │   └── settings/          # GET/POST — platform settings
+│   │   ├── feedback/
+│   │   ├── requests/
+│   │   └── users/
+│   ├── feedback-survey/           # Public survey (no auth)
+│   └── login/
 ├── components/
 │   ├── layout/
-│   │   ├── Sidebar.tsx       # Collapsible sidebar with expandable Admin section
-│   │   └── TopBar.tsx        # Notification bell, user avatar, logout
-│   └── ui/                   # shadcn/ui components
-│       ├── avatar.tsx
-│       ├── badge.tsx
-│       ├── button.tsx
-│       ├── card.tsx
-│       ├── dropdown-menu.tsx
-│       ├── input.tsx
-│       ├── label.tsx
-│       ├── select.tsx
-│       ├── separator.tsx
-│       └── table.tsx
-└── lib/
-    ├── utils.ts              # cn() helper
-    └── mock-data.ts          # All mock data + TypeScript types
+│   │   ├── Sidebar.tsx
+│   │   └── TopBar.tsx
+│   └── ui/
+│       ├── InlineStatusSelect.tsx
+│       ├── RequestActionsMenu.tsx
+│       ├── AssigneeSelect.tsx
+│       └── SearchableSelect.tsx
+├── lib/
+│   ├── access.ts                  # Route permissions + scopeRequests()
+│   ├── backupCron.ts              # Background scheduler
+│   ├── backupRunner.ts            # Backup execution logic
+│   ├── backupScheduleStore.ts     # Schedule config store
+│   ├── companyDataStore.ts        # Company Data localStorage + server sync
+│   ├── dataStoreRegistry.ts       # Central localStorage key registry
+│   ├── emailService.ts            # All outbound email templates
+│   ├── feedbackStore.ts           # Feedback server-side store
+│   ├── pageRegistry.ts            # Page permission definitions (middleware + Roles UI)
+│   ├── requestStore.ts            # Server-side request store
+│   └── settingsServer.ts          # Platform settings server-side store
+├── modules/
+│   ├── shipping/ShippingForm.tsx
+│   ├── hr/HRForm.tsx
+│   ├── maintenance/MaintenanceForm.tsx
+│   ├── purchase/PurchaseForm.tsx
+│   ├── event/EventForm.tsx
+│   └── travel/TravelForm.tsx
+├── services/
+│   ├── engineService.ts           # Client-side request store + sync
+│   └── taskService.ts             # Team tasks store
+└── instrumentation.ts             # Next.js server startup hook (starts backup cron)
 ```
 
-## Pages Overview
+---
 
-| Route | Description |
-|-------|-------------|
-| `/login` | Two-step login: credentials → TOTP (Google Authenticator) |
-| `/dashboard` | Stat cards, requests-by-module bar chart, recent activity feed |
-| `/requests` | Filterable table (search, status filter, module filter) |
-| `/shipping` | Shipment stat cards, full shipment table with carrier/status filters, Add button |
-| `/maintenance` | Shell with stat cards (coming soon) |
-| `/purchase` | Shell with stat cards (coming soon) |
-| `/event` | Shell with stat cards (coming soon) |
-| `/travel` | Shell with stat cards (coming soon) |
-| `/admin/users` | User list table with avatar, role badge, status indicator |
-| `/admin/roles` | Role cards with permission tags |
-| `/admin/settings` | Settings form shell |
+## Adding a New Page
 
-## UI Design Decisions
+1. Create `src/app/(dashboard)/<page>/page.tsx`
+2. Add entry to `src/lib/pageRegistry.ts` (auto-wires middleware + Roles checkbox)
+3. Add permission `page:<id>` to relevant roles in `data/roles.json`
+4. Add nav item to `src/components/layout/Sidebar.tsx`
 
-- **Primary color**: Blue (`#3b82f6` / `hsl(221.2 83.2% 53.3%)`)
-- **Sidebar**: Dark slate (`bg-slate-900`), collapsible via toggle at the bottom, Admin section has expand/collapse
-- **Theme**: Light only
-- **Collapsed sidebar**: Icons only with `title` tooltip; expand with toggle button
-- **All mock data** lives in `src/lib/mock-data.ts` — replace with API calls when backend is ready
+## Adding a New Module
 
-## Next Steps (Backend Integration)
-
-1. Replace mock data in `src/lib/mock-data.ts` with API client calls
-2. Add authentication logic to `Sidebar` and route protection (Next.js middleware)
-3. Wire up the login form to your auth provider
-4. Implement TOTP verification against your 2FA backend
-5. Add real notifications via WebSocket or polling
+Follow the same 4 steps above, plus:
+5. Add module id to `RequestModule` union in `engineService.ts`
+6. Add `MODULE_PREFIX` entry in `engineService.ts`
+7. Add to All Requests and My Requests filter pills
+8. Add to Database page `REQUEST_MODULES` array

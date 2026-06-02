@@ -537,6 +537,40 @@ This document tracks the phased development of the Admin Request Platform, movin
   - Admin → Database → "System Controls" → "Sign out everyone" with single-click confirm-then-do.
 - [x] **Unauthorized page** rewritten: fixed full-viewport positioning, dark-mode aware card, icon, and a "Sign in with another account" button that links to `/api/auth/signout?callbackUrl=/login` so users can switch accounts without manually clearing cookies.
 
+## Phase 5t: Team Requests Page (Completed — 02 Jun 2026)
+- [x] **Team Requests page** at `/team-requests` — shows all requests where the logged-in user is the selected Direct Manager, regardless of who submitted the request or which module it belongs to.
+  - [x] Covers both storage formats: Shipping (`payload.approvers.directManager.{name,email}`) and HR/Purchase/others (`payload.directManager` name string, resolved to email via Company Data).
+  - [x] Feature parity with My Requests: stat cards, module + status filter pills, search, sortable/resizable dark slate table, unread comment badges, inline status editing.
+  - [x] Requester Name column added so the manager can see whose request it is.
+  - [x] `page:team-requests` added to `pageRegistry.ts`, `access.ts` (`permissionForPath`), and all roles except Requester in `data/roles.json`.
+  - [x] Sidebar entry (UsersRound icon) added after My Requests.
+
+## Phase 5u: Feedback Survey Admin Controls (Completed — 02 Jun 2026)
+- [x] **Admin → Settings → "Feedback Survey" card** — new section at the bottom of the settings page:
+  - [x] **Enable/Disable toggle** — when off, `POST /api/feedback/send-survey` skips silently (`surveys_disabled` reason). Re-enable anytime.
+  - [x] **Email Subject** field — editable, supports `{{requesterName}}`, `{{requestTitle}}`, `{{requestId}}`, `{{module}}` template variables.
+  - [x] **Email Body / greeting paragraph** textarea — replaces the default "Hi … your request has been completed" text in the survey email. Same variables apply.
+  - [x] **Reset to default text** link — restores both fields in one click.
+  - [x] Settings persisted to `data/platform-settings.json` server-side via `GET/POST /api/admin/settings` so they survive container restarts.
+  - [x] Settings page loads server values on mount (merges over localStorage so the toggle always reflects the real server state).
+  - [x] `src/lib/settingsServer.ts` — server-side read/write for `data/platform-settings.json`.
+
+## Phase 5v: Scheduled Automatic Backups (Completed — 02 Jun 2026)
+- [x] **Scheduled Backups card** in Admin → Database — full UI to configure and trigger backups:
+  - [x] Enable/Disable toggle.
+  - [x] Frequency: Hourly / Daily / Weekly / Monthly.
+  - [x] Time (24h), Day of Week (weekly), Day of Month (monthly).
+  - [x] Retention: keep last N files (0 = keep all); oldest files pruned automatically.
+  - [x] **Save Schedule** button — persists to `data/backup-schedule.json`.
+  - [x] **Run Backup Now** button — triggers an immediate server-side backup.
+  - [x] Live file list showing all backups in `~/admin-helpdesk-Backup` with filename, size, and timestamp.
+- [x] **Backup files saved to `~/admin-helpdesk-Backup`** on the Ubuntu host via Docker bind mount (`~/admin-helpdesk-Backup:/app/backups` in `docker-compose.yml`).
+- [x] **Background scheduler** — `src/instrumentation.ts` starts `backupCron.ts` on server boot. Checks every 5 minutes; runs `runBackup()` when schedule is due.
+- [x] Each backup is a full `v1.1` JSON snapshot of all `data/*.json` server files (requests, comments, feedback, users, roles, company-data, platform-settings, email-config, backup-schedule).
+- [x] New API routes: `GET/POST /api/admin/backup-schedule`, `POST /api/admin/backup-now`.
+- [x] `next.config.ts`: `experimental.instrumentationHook: true` to enable the instrumentation file.
+- [x] Database page info banner updated: clarifies Team Requests is a filtered view (no separate data — covered by All Requests backup).
+
 ## Phase 6: Advanced Functionality (Pending)
 - [ ] **Email Notifications:** SMTP ports 465/587 may be blocked by corporate firewall. Use Admin → Notifications to configure Gmail App Password or switch to SendGrid/Brevo (HTTP API, not blocked).
 - [ ] **Audit Trail Enhancement:** Currently reads from localStorage. Future: persist to PostgreSQL for cross-session history.
@@ -622,6 +656,7 @@ Status column preserves color styling with dot indicators; other columns use neu
 | File | Purpose | Key Features |
 |------|---------|--------------|
 | `src/app/(dashboard)/requests/page.tsx` | My Requests unified view | User-scoped requests, status/module filters, sortable table |
+| `src/app/(dashboard)/team-requests/page.tsx` | Team Requests — Direct Manager view | Filters all requests where session user = Direct Manager; covers Shipping approvers and HR/Purchase name-string format |
 | `src/app/(dashboard)/admin/all-requests/page.tsx` | All Requests admin view | All team requests, search, filters, team tasks integration |
 
 ### Module Pages
@@ -643,8 +678,13 @@ Status column preserves color styling with dot indicators; other columns use neu
 |------|---------|--------------|
 | `src/app/(dashboard)/tasks/page.tsx` | Team Tasks management | Administration Team role only, real assignee from API, comment attachments, activity tracking |
 | `src/app/(dashboard)/admin/audit-trail/page.tsx` | Audit Trail | Reads localStorage, resolves USR-* IDs to names, category filter + search |
-| `src/app/(dashboard)/admin/database/page.tsx` | Database Backup/Restore | Imports central registry; auto-discovers all owned keys at runtime; backup checklist + Clear-by-Data-Type generated from registry |
+| `src/app/(dashboard)/admin/database/page.tsx` | Database Backup/Restore + Scheduled Backups | Imports central registry; auto-discovers all owned keys; Scheduled Backups card with frequency/time/retention controls + Run Now + file list |
 | `src/lib/dataStoreRegistry.ts` | Central localStorage registry | Single source of truth for every owned key. Adding a `StoreDefinition` here makes it appear in Database backup/restore/clear automatically |
+| `src/lib/backupScheduleStore.ts` | Backup schedule config store | Reads/writes `data/backup-schedule.json`; `listBackupFiles()` and `pruneOldBackups()` |
+| `src/lib/backupRunner.ts` | Backup execution logic | `runBackup()` — collects all data/*.json and writes timestamped JSON to `/app/backups/`; `shouldRunNow()` schedule evaluator |
+| `src/lib/backupCron.ts` | Background backup scheduler | Started by `instrumentation.ts` on boot; `setInterval` every 5 min; calls `runBackup()` when due |
+| `src/instrumentation.ts` | Next.js server startup hook | Starts `backupCron` in Node.js runtime only |
+| `src/lib/settingsServer.ts` | Platform settings server store | Reads/writes `data/platform-settings.json`; used by feedback survey send route and admin settings API |
 | `src/app/(dashboard)/admin/company-data/page.tsx` | Company Data lookups | Manages Suppliers, Cost Centers, Managers, Carriers, Departments, Sectors — searchable + collapsible lists, CSV/XLSX import + export |
 | `src/components/ui/SearchableSelect.tsx` | Searchable dropdown | Self-contained combobox: filter input, click-outside close, used by all form dropdowns sourced from companyDataStore |
 | `src/lib/companyDataStore.ts` | Company Data store | localStorage key `arp_company_data`; `getList()`, `saveList()`; Array.isArray empty-array safe |
