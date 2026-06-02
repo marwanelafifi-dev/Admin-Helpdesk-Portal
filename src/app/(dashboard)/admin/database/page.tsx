@@ -5,6 +5,7 @@ import {
   Download, Upload, CheckCircle2, AlertTriangle, Clock, Shield, Trash2,
   Package, Wrench, ShoppingCart, CalendarDays, Plane, UserCog, ChevronRight, Inbox,
   Power, LogOut, RefreshCw, Save, CalendarClock, FolderOpen, UsersRound,
+  MessageSquare, Bell, Building2, FileText, Settings, Mail, Database,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -51,6 +52,53 @@ const REQUEST_MODULES = [
 // Other clearable stores (non-request) — sourced from central registry so new stores
 // added anywhere in the app automatically appear here.
 const OTHER_STORES = NON_REQUEST_STORES
+
+// Server-side file stores shown in Clear by Data Type.
+// These are data/*.json files on the server — not localStorage keys.
+const SERVER_FILE_STORES = [
+  {
+    key: "server:requests",
+    label: "Server Requests",
+    description: "data/requests.json — all request records from every user",
+    icon: Package, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200",
+  },
+  {
+    key: "server:comments",
+    label: "Server Comments",
+    description: "data/comments.json — all comment threads on all requests",
+    icon: MessageSquare, color: "text-slate-600", bg: "bg-slate-50", border: "border-slate-200",
+  },
+  {
+    key: "server:feedback",
+    label: "Server Feedback",
+    description: "data/feedback.json — survey records and submitted responses",
+    icon: MessageSquare, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200",
+  },
+  {
+    key: "server:company-data",
+    label: "Server Company Data",
+    description: "data/company-data.json — suppliers, cost centers, managers, carriers, departments, sectors",
+    icon: Building2, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200",
+  },
+  {
+    key: "server:platform-settings",
+    label: "Platform Settings",
+    description: "data/platform-settings.json — branding, login page, feedback survey config",
+    icon: Settings, color: "text-gray-600", bg: "bg-gray-50", border: "border-gray-200",
+  },
+  {
+    key: "server:backup-schedule",
+    label: "Backup Schedule",
+    description: "data/backup-schedule.json — scheduled backup configuration",
+    icon: CalendarClock, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-200",
+  },
+  {
+    key: "server:email-config",
+    label: "Email Configuration",
+    description: "data/email-config.json — SMTP settings",
+    icon: Mail, color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-200",
+  },
+] as const
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -317,8 +365,11 @@ export default function DatabasePage() {
 
   // Per-module confirm
   const [confirmModule, setConfirmModule] = useState<string | null>(null)
-  // Per-store confirm
+  // Per-store confirm (localStorage)
   const [confirmStore, setConfirmStore]   = useState<string | null>(null)
+  // Per server-file confirm
+  const [confirmServerStore, setConfirmServerStore] = useState<string | null>(null)
+  const [serverStoreStatus, setServerStoreStatus] = useState<Status>({ type: "idle", message: "" })
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -469,6 +520,64 @@ export default function DatabasePage() {
     const label = STORE_BY_KEY[key]?.label ?? key
     setConfirmStore(null)
     setStoreStatus({ type: "success", message: `${label} cleared on the server and in every browser.` })
+  }
+
+  // ── Clear Server File ─────────────────────────────────────────────────────
+  async function handleClearServerStore(key: string) {
+    setServerStoreStatus({ type: "idle", message: "" })
+    const store = SERVER_FILE_STORES.find((s) => s.key === key)
+    const label = store?.label ?? key
+    try {
+      if (key === "server:requests") {
+        await fetch("/api/requests", { method: "DELETE" })
+        try { localStorage.removeItem("arp_requests") } catch {}
+      } else if (key === "server:comments") {
+        await fetch("/api/admin/server-data", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data: { "comments.json": {} } }),
+        })
+      } else if (key === "server:feedback") {
+        await fetch("/api/feedback/responses", { method: "DELETE" })
+        try { localStorage.removeItem("feedback_surveys"); localStorage.removeItem("feedback_responses") } catch {}
+      } else if (key === "server:company-data") {
+        const empty = { suppliers: [], cost_centers: [], managers: [], carriers: [], departments: [], sectors: [] }
+        await fetch("/api/company-data", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(empty),
+        })
+        try { localStorage.removeItem("arp_company_data") } catch {}
+      } else if (key === "server:platform-settings") {
+        await fetch("/api/admin/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        })
+        try { localStorage.removeItem("arp_platform_settings") } catch {}
+      } else if (key === "server:backup-schedule") {
+        await fetch("/api/admin/backup-schedule", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: false, lastBackupAt: null, lastBackupFile: null }),
+        })
+      } else if (key === "server:email-config") {
+        await fetch("/api/admin/server-data", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data: { "email-config.json": {} } }),
+        })
+      }
+      try {
+        window.dispatchEvent(new Event("arp:storage"))
+        localStorage.setItem("arp_global_clear_broadcast", String(Date.now()))
+      } catch {}
+      setConfirmServerStore(null)
+      setServerStoreStatus({ type: "success", message: `${label} has been reset on the server.` })
+    } catch (e: any) {
+      setConfirmServerStore(null)
+      setServerStoreStatus({ type: "error", message: `Failed to clear ${label}: ${e?.message}` })
+    }
   }
 
   return (
@@ -689,6 +798,54 @@ export default function DatabasePage() {
               })}
             </div>
             <StatusAlert status={storeStatus} />
+          </div>
+
+          {/* ── Section: Clear Server Data ── */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="h-px flex-1 bg-gray-100" />
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest px-2">Clear Server-Side Data</span>
+              <div className="h-px flex-1 bg-gray-100" />
+            </div>
+            <p className="text-xs text-gray-500">Reset individual server-side data files in <code className="bg-gray-100 px-1 rounded text-[11px]">/app/data/</code>. These exist on the server independently of browser storage.</p>
+
+            <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 overflow-hidden">
+              {SERVER_FILE_STORES.map(({ key, label, description, icon: Icon, color, bg, border }) => {
+                const isConfirming = confirmServerStore === key
+                return (
+                  <div key={key} className={`flex items-center gap-4 px-4 py-3.5 transition-colors ${isConfirming ? "bg-red-50" : "bg-white hover:bg-gray-50"}`}>
+                    <div className={`rounded-lg p-2 ${bg} border ${border} shrink-0`}>
+                      <Icon className={`h-4 w-4 ${color}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-800">{label}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{description}</p>
+                    </div>
+                    <div className="shrink-0">
+                      {!isConfirming ? (
+                        <button
+                          onClick={() => { setConfirmServerStore(key); setServerStoreStatus({ type: "idle", message: "" }) }}
+                          className="flex items-center gap-1.5 text-xs font-medium text-red-600 hover:text-red-800 border border-red-200 hover:border-red-400 rounded-lg px-3 py-1.5 bg-white hover:bg-red-50 transition-colors whitespace-nowrap"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />Clear
+                        </button>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs text-red-700 font-semibold">Sure?</p>
+                          <button onClick={() => setConfirmServerStore(null)} className="text-xs border border-gray-300 rounded-lg px-2.5 py-1.5 bg-white hover:bg-gray-50 font-medium text-gray-600 transition-colors">
+                            No
+                          </button>
+                          <button onClick={() => handleClearServerStore(key)} className="text-xs bg-red-600 hover:bg-red-700 text-white rounded-lg px-2.5 py-1.5 font-medium transition-colors">
+                            Yes, Clear
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <StatusAlert status={serverStoreStatus} />
           </div>
 
           {/* ── Section: Clear All ── */}
