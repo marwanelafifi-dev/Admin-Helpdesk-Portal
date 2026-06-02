@@ -1,0 +1,119 @@
+import fs from "fs"
+import path from "path"
+import { BACKUP_DIR, readSchedule, writeSchedule, pruneOldBackups } from "@/lib/backupScheduleStore"
+
+const DATA_DIR = path.join(process.cwd(), "data")
+
+const SERVER_FILES = [
+  "requests.json",
+  "comments.json",
+  "feedback.json",
+  "company-data.json",
+  "users.json",
+  "roles.json",
+  "platform-settings.json",
+  "backup-schedule.json",
+  "email-config.json",
+]
+
+function readFileSafe(filename: string): unknown {
+  try {
+    const p = path.join(DATA_DIR, filename)
+    if (!fs.existsSync(p)) return null
+    return JSON.parse(fs.readFileSync(p, "utf-8"))
+  } catch {
+    return null
+  }
+}
+
+export interface BackupResult {
+  filename: string
+  sizeBytes: number
+  serverFiles: number
+  pruned: number
+}
+
+export async function runBackup(): Promise<BackupResult> {
+  if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true })
+
+  const serverData: Record<string, unknown> = {}
+  for (const f of SERVER_FILES) {
+    const data = readFileSafe(f)
+    if (data !== null) serverData[f] = data
+  }
+
+  const manifest = {
+    version: "1.1",
+    createdAt: new Date().toISOString(),
+    createdBy: "scheduled-backup",
+    data: {},
+    serverData,
+  }
+
+  const ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")
+  const filename = `backup-${ts}.json`
+  const filepath = path.join(BACKUP_DIR, filename)
+  const content = JSON.stringify(manifest, null, 2)
+  fs.writeFileSync(filepath, content, "utf-8")
+
+  const schedule = readSchedule()
+  const pruned = pruneOldBackups(schedule.retentionCount)
+
+  writeSchedule({
+    lastBackupAt: new Date().toISOString(),
+    lastBackupFile: filename,
+  })
+
+  console.log(`[backup] Saved ${filename} (${content.length} bytes), pruned ${pruned} old files`)
+
+  return {
+    filename,
+    sizeBytes: content.length,
+    serverFiles: Object.keys(serverData).length,
+    pruned,
+  }
+}
+
+/**
+ * Returns true if a scheduled backup should run right now based on the
+ * schedule config and the last backup timestamp.
+ */
+export function shouldRunNow(schedule: ReturnType<typeof readSchedule>): boolean {
+  if (!schedule.enabled) return false
+
+  const now = new Date()
+  const last = schedule.lastBackupAt ? new Date(schedule.lastBackupAt) : null
+
+  if (schedule.frequency === "hourly") {
+    if (!last) return true
+    return (now.getTime() - last.getTime()) >= 60 * 60 * 1000
+  }
+
+  // For daily/weekly/monthly we compare the wall-clock time window.
+  // A backup is due if:
+  //   • It has never run, OR
+  //   • The last run was before today's scheduled window
+  const [hh, mm] = schedule.time.split(":").map(Number)
+  const scheduledToday = new Date(now)
+  scheduledToday.setHours(hh, mm, 0, 0)
+
+  if (schedule.frequency === "daily") {
+    if (!last) return now >= scheduledToday
+    // Due if we're past today's scheduled time and last run was before scheduledToday
+    return now >= scheduledToday && last < scheduledToday
+  }
+
+  if (schedule.frequency === "weekly") {
+    if (now.getDay() !== schedule.dayOfWeek) return false
+    if (!last) return now >= scheduledToday
+    return now >= scheduledToday && last < scheduledToday
+  }
+
+  if (schedule.frequency === "monthly") {
+    if (now.getDate() !== schedule.dayOfMonth) return false
+    if (!last) return now >= scheduledToday
+    return now >= scheduledToday && last < scheduledToday
+  }
+
+  return false
+}

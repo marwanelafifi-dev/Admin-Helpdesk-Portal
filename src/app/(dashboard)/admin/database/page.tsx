@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import {
   Download, Upload, CheckCircle2, AlertTriangle, Clock, Shield, Trash2,
   Package, Wrench, ShoppingCart, CalendarDays, Plane, UserCog, ChevronRight, Inbox,
-  Power, LogOut,
+  Power, LogOut, RefreshCw, Save, CalendarClock, FolderOpen, UsersRound,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -44,6 +44,9 @@ const REQUEST_MODULES = [
   { id: "hr",          label: "HR",          icon: UserCog,       color: "text-teal-600",   bg: "bg-teal-50",   border: "border-teal-200" },
   { id: "general",     label: "General",     icon: Inbox,         color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-200" },
 ] as const
+
+// Note: Team Requests is a view (filtered by direct manager), not a module —
+// requests are stored under their original module id. No separate clear needed.
 
 // Other clearable stores (non-request) — sourced from central registry so new stores
 // added anywhere in the app automatically appear here.
@@ -179,6 +182,20 @@ export default function DatabasePage() {
   const [signoutStatus, setSignoutStatus] = useState<Status>({ type: "idle", message: "" })
   const [showSignoutConfirm, setShowSignoutConfirm] = useState(false)
 
+  // ── Scheduled Backup state ────────────────────────────────────────────────
+  const [scheduleEnabled, setScheduleEnabled]     = useState(false)
+  const [scheduleFreq, setScheduleFreq]           = useState<"hourly"|"daily"|"weekly"|"monthly">("daily")
+  const [scheduleTime, setScheduleTime]           = useState("02:00")
+  const [scheduleDayOfWeek, setScheduleDayOfWeek] = useState(0)
+  const [scheduleDayOfMonth, setScheduleDayOfMonth] = useState(1)
+  const [scheduleRetention, setScheduleRetention] = useState(30)
+  const [scheduleLastAt, setScheduleLastAt]       = useState<string | null>(null)
+  const [scheduleLastFile, setScheduleLastFile]   = useState<string | null>(null)
+  const [backupFiles, setBackupFiles]             = useState<{ filename: string; size: number; createdAt: string }[]>([])
+  const [scheduleSaveStatus, setScheduleSaveStatus] = useState<Status>({ type: "idle", message: "" })
+  const [runNowStatus, setRunNowStatus]           = useState<Status>({ type: "idle", message: "" })
+  const [runningNow, setRunningNow]               = useState(false)
+
   // Pull current maintenance flag on mount so the toggle reflects reality.
   useEffect(() => {
     void fetch("/api/admin/maintenance").then(async (res) => {
@@ -186,6 +203,23 @@ export default function DatabasePage() {
       const json = await res.json()
       setMaintenance(Boolean(json.maintenance))
       setMaintenanceMessage(json.maintenanceMessage ?? "")
+    }).catch(() => {})
+
+    void fetch("/api/admin/backup-schedule").then(async (res) => {
+      if (!res.ok) return
+      const json = await res.json()
+      const s = json.schedule
+      if (s) {
+        setScheduleEnabled(Boolean(s.enabled))
+        if (s.frequency) setScheduleFreq(s.frequency)
+        if (s.time) setScheduleTime(s.time)
+        if (typeof s.dayOfWeek === "number") setScheduleDayOfWeek(s.dayOfWeek)
+        if (typeof s.dayOfMonth === "number") setScheduleDayOfMonth(s.dayOfMonth)
+        if (typeof s.retentionCount === "number") setScheduleRetention(s.retentionCount)
+        setScheduleLastAt(s.lastBackupAt ?? null)
+        setScheduleLastFile(s.lastBackupFile ?? null)
+      }
+      if (Array.isArray(json.files)) setBackupFiles(json.files)
     }).catch(() => {})
   }, [])
 
@@ -237,6 +271,47 @@ export default function DatabasePage() {
       })
     } catch (e: any) {
       setSignoutStatus({ type: "error", message: `Failed to force sign-out: ${e?.message ?? "unknown"}` })
+    }
+  }
+
+  async function saveSchedule() {
+    setScheduleSaveStatus({ type: "idle", message: "" })
+    try {
+      const res = await fetch("/api/admin/backup-schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: scheduleEnabled,
+          frequency: scheduleFreq,
+          time: scheduleTime,
+          dayOfWeek: scheduleDayOfWeek,
+          dayOfMonth: scheduleDayOfMonth,
+          retentionCount: scheduleRetention,
+        }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      setScheduleSaveStatus({ type: "success", message: "Schedule saved. The backup runner will pick it up within 5 minutes." })
+      setTimeout(() => setScheduleSaveStatus({ type: "idle", message: "" }), 5000)
+    } catch (e: any) {
+      setScheduleSaveStatus({ type: "error", message: `Failed to save: ${e?.message}` })
+    }
+  }
+
+  async function runBackupNow() {
+    setRunNowStatus({ type: "idle", message: "" })
+    setRunningNow(true)
+    try {
+      const res = await fetch("/api/admin/backup-now", { method: "POST" })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? "Unknown error")
+      setScheduleLastAt(new Date().toISOString())
+      setScheduleLastFile(json.filename)
+      if (Array.isArray(json.files)) setBackupFiles(json.files)
+      setRunNowStatus({ type: "success", message: `Backup saved: ${json.filename} (${(json.sizeBytes / 1024).toFixed(1)} KB, ${json.serverFiles} server files)` })
+    } catch (e: any) {
+      setRunNowStatus({ type: "error", message: `Backup failed: ${e?.message}` })
+    } finally {
+      setRunningNow(false)
     }
   }
 
@@ -409,7 +484,7 @@ export default function DatabasePage() {
         <Shield className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
         <div className="text-sm text-blue-800">
           <p className="font-semibold">What is included in a backup?</p>
-          <p className="mt-0.5 text-blue-700">Every store the app owns is captured automatically — browser data (requests, tasks, viewed comments, company data, platform settings, logos, theme) <strong>and</strong> server-side data (comments, feedback responses, users, roles). Backups download as one JSON file (version 1.1) and Restore writes back whatever the file contains. Old v1.0 backups (browser data only) are still accepted.</p>
+          <p className="mt-0.5 text-blue-700">Every store the app owns is captured automatically — browser data (requests, tasks, viewed comments, company data, platform settings, logos, theme) <strong>and</strong> server-side data (comments, feedback responses, users, roles). Backups download as one JSON file (version 1.1) and Restore writes back whatever the file contains. Old v1.0 backups (browser data only) are still accepted. <strong>Team Requests</strong> is a filtered view of the request store (no separate data) — it is covered by the All Requests backup.</p>
         </div>
       </div>
 
@@ -737,6 +812,165 @@ export default function DatabasePage() {
               <StatusAlert status={signoutStatus} />
             </div>
           </div>
+
+        </CardContent>
+      </Card>
+
+      {/* ── Scheduled Backups ── */}
+      <Card className="border shadow-sm">
+        <CardHeader className="border-b bg-gray-50 rounded-t-lg">
+          <div className="flex items-center gap-3">
+            <div className="bg-blue-100 rounded-lg p-2"><CalendarClock className="h-5 w-5 text-blue-700" /></div>
+            <div>
+              <CardTitle className="text-base font-semibold text-gray-900">Scheduled Backups</CardTitle>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Automatic backups saved to <code className="bg-gray-100 px-1 rounded text-[11px]">~/admin-helpdesk-Backup</code> on the Ubuntu server
+              </p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-6 space-y-5">
+
+          {/* Enable toggle */}
+          <div className="flex items-center justify-between py-3 border-b border-gray-100">
+            <div>
+              <p className="text-sm font-semibold text-gray-800">Enable Automatic Backups</p>
+              <p className="text-xs text-gray-500 mt-0.5">The server runs a background check every 5 minutes and triggers a backup when due</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setScheduleEnabled((v) => !v)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${scheduleEnabled ? "bg-blue-600" : "bg-gray-300"}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${scheduleEnabled ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
+          </div>
+
+          {/* Schedule config — only shown when enabled */}
+          {scheduleEnabled && (
+            <div className="space-y-4">
+              {/* Frequency */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {(["hourly","daily","weekly","monthly"] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setScheduleFreq(f)}
+                    className={`rounded-lg border-2 px-4 py-3 text-sm font-medium transition-all ${scheduleFreq === f ? "bg-blue-600 border-blue-600 text-white" : "border-gray-200 bg-white text-gray-700 hover:border-blue-300"}`}
+                  >
+                    {f.charAt(0).toUpperCase() + f.slice(1)}
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Time (daily / weekly / monthly) */}
+                {scheduleFreq !== "hourly" && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-600">Time (24h)</label>
+                    <input
+                      type="time"
+                      value={scheduleTime}
+                      onChange={(e) => setScheduleTime(e.target.value)}
+                      className="h-9 w-full rounded-md border border-input bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                  </div>
+                )}
+
+                {/* Day of week (weekly only) */}
+                {scheduleFreq === "weekly" && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-600">Day of Week</label>
+                    <select
+                      value={scheduleDayOfWeek}
+                      onChange={(e) => setScheduleDayOfWeek(Number(e.target.value))}
+                      className="h-9 w-full rounded-md border border-input bg-white px-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                    >
+                      {["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].map((d, i) => (
+                        <option key={i} value={i}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Day of month (monthly only) */}
+                {scheduleFreq === "monthly" && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-600">Day of Month</label>
+                    <select
+                      value={scheduleDayOfMonth}
+                      onChange={(e) => setScheduleDayOfMonth(Number(e.target.value))}
+                      className="h-9 w-full rounded-md border border-input bg-white px-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                    >
+                      {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Retention */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-gray-600">Keep last N backups (0 = keep all)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={365}
+                    value={scheduleRetention}
+                    onChange={(e) => setScheduleRetention(Number(e.target.value))}
+                    className="h-9 w-full rounded-md border border-input bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Save schedule + Run now */}
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <Button onClick={saveSchedule} className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Save className="h-4 w-4 mr-2" />Save Schedule
+            </Button>
+            <Button onClick={runBackupNow} disabled={runningNow} variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-50">
+              {runningNow
+                ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Running...</>
+                : <><Download className="h-4 w-4 mr-2" />Run Backup Now</>}
+            </Button>
+          </div>
+          <StatusAlert status={scheduleSaveStatus} />
+          <StatusAlert status={runNowStatus} />
+
+          {/* Last backup info */}
+          {scheduleLastAt && (
+            <div className="flex items-center gap-2 text-xs text-gray-500 border-t border-gray-100 pt-3">
+              <Clock className="h-3.5 w-3.5 shrink-0" />
+              <span>Last backup: <strong>{fmt(scheduleLastAt)}</strong></span>
+              {scheduleLastFile && <span className="font-mono text-gray-400">— {scheduleLastFile}</span>}
+            </div>
+          )}
+
+          {/* Backup file list */}
+          {backupFiles.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <FolderOpen className="h-4 w-4 text-gray-400" />
+                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Saved Backup Files ({backupFiles.length})</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 divide-y divide-gray-100 overflow-hidden max-h-64 overflow-y-auto">
+                {backupFiles.map((f) => (
+                  <div key={f.filename} className="flex items-center gap-3 px-4 py-2.5 bg-white hover:bg-gray-50">
+                    <Download className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-mono text-gray-700 truncate">{f.filename}</p>
+                      <p className="text-xs text-gray-400">{(f.size / 1024).toFixed(1)} KB &bull; {fmt(f.createdAt)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {backupFiles.length === 0 && scheduleLastAt === null && (
+            <p className="text-xs text-gray-400 italic">No automated backups yet. Click "Run Backup Now" to create the first one.</p>
+          )}
 
         </CardContent>
       </Card>

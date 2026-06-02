@@ -53,6 +53,7 @@ services:
       NEXT_TELEMETRY_DISABLED: "1"
     volumes:
       - app_data:/app/data
+      - ~/admin-helpdesk-Backup:/app/backups
     ports:
       - "${APP_PORT:-3003}:3003"
     networks:
