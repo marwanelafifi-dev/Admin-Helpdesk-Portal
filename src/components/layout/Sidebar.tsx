@@ -13,6 +13,7 @@ import {
   CalendarDays,
   Plane,
   Users,
+  UsersRound,
   UserCog,
   Shield,
   Settings,
@@ -54,6 +55,7 @@ const navItems: NavItem[] = [
     ],
   },
   { title: "My Requests", href: "/requests", icon: FileText },
+  { title: "Team Requests", href: "/team-requests", icon: UsersRound },
   {
     title: "HR",
     href: "/hr",

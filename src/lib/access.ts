@@ -4,6 +4,7 @@ export type RoutePermission =
   | "page:tasks"
   | "page:all-requests"
   | "page:my-requests"
+  | "page:team-requests"
   | "page:request-detail"
   | "page:shipping"
   | "page:shipping-new"

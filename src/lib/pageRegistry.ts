@@ -36,6 +36,7 @@ export const PAGES: PageDefinition[] = [
   { id: "feedback-reports",   label: "Feedback & Reports",   path: "/feedback-reports",          group: "Core" },
   { id: "tasks",              label: "Team Tasks",           path: "/tasks",                     group: "Core" },
   { id: "my-requests",        label: "My Requests",          path: "/requests",                  group: "Core" },
+  { id: "team-requests",      label: "Team Requests",        path: "/team-requests",             group: "Core" },
   { id: "request-detail",     label: "Request Detail",       path: "/requests/[id]",             group: "Core" },
   { id: "all-requests",       label: "All Requests",         path: "/admin/all-requests",        group: "Core" },
 
