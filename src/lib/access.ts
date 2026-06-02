@@ -65,6 +65,7 @@ export function permissionForPath(pathname: string): RoutePermission | null {
   if (path === "/tasks") return "page:tasks"
   if (path === "/admin/all-requests") return "page:all-requests"
   if (path === "/requests") return "page:my-requests"
+  if (path === "/team-requests") return "page:team-requests"
   if (path.startsWith("/requests/")) return "page:request-detail"
   if (path === "/shipping") return "page:shipping"
   if (path === "/shipping/new") return "page:shipping-new"

@@ -135,7 +135,6 @@
       "view_details",
       "manage_cc",
       "page:my-requests",
-      "page:team-requests",
       "page:request-detail",
       "page:shipping",
       "page:purchase",
