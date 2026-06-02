@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import {
   Globe, Bell, Shield, Save, CheckCircle2, AlertTriangle,
   ExternalLink, Clock, Lock, RefreshCw, Key, LogIn, Layout, Monitor,
-  Upload, Trash2,
+  Upload, Trash2, Star,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -45,6 +45,10 @@ export interface PlatformSettings {
   // Header
   headerShowLogo: boolean
   headerLogoAlt: string
+  // Feedback Survey
+  feedbackSurveyEnabled: boolean
+  feedbackSurveySubject: string
+  feedbackSurveyBody: string
 }
 
 export const DEFAULTS: PlatformSettings = {
@@ -70,6 +74,9 @@ export const DEFAULTS: PlatformSettings = {
   sidebarBrandSubtitle: "Si-Ware Systems",
   headerShowLogo: true,
   headerLogoAlt: "Si-Ware Systems",
+  feedbackSurveyEnabled: true,
+  feedbackSurveySubject: "How was your {{module}} request? — {{requestTitle}}",
+  feedbackSurveyBody: "Hi {{requesterName}},\n\nYour {{module}} request \"{{requestTitle}}\" has been completed.\n\nWe'd appreciate your feedback to help us improve our services. Please take a moment to rate your experience.",
 }
 
 const TIMEZONES = [
@@ -131,6 +138,7 @@ export default function AdminSettingsPage() {
   const [loginSave, setLoginSave] = useState<SaveState>("idle")
   const [sidebarSave, setSidebarSave] = useState<SaveState>("idle")
   const [headerSave, setHeaderSave] = useState<SaveState>("idle")
+  const [feedbackSave, setFeedbackSave] = useState<SaveState>("idle")
   const [headerLogo, setHeaderLogo] = useState<string | null>(null)
   const [headerLogoSave, setHeaderLogoSave] = useState<SaveState>("idle")
   const headerLogoInputRef = useRef<HTMLInputElement>(null)
@@ -139,11 +147,26 @@ export default function AdminSettingsPage() {
   const loginLogoInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    setSettings(loadSettings())
+    const local = loadSettings()
+    setSettings(local)
     const hl = localStorage.getItem(HEADER_LOGO_KEY)
     if (hl) setHeaderLogo(hl)
     const ll = localStorage.getItem(LOGIN_LOGO_KEY)
     if (ll) setLoginLogo(ll)
+    // Merge server-side feedback settings (survive container restarts)
+    fetch("/api/admin/settings")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.settings) {
+          setSettings((prev) => ({
+            ...prev,
+            feedbackSurveyEnabled: data.settings.feedbackSurveyEnabled ?? prev.feedbackSurveyEnabled,
+            feedbackSurveySubject: data.settings.feedbackSurveySubject ?? prev.feedbackSurveySubject,
+            feedbackSurveyBody:    data.settings.feedbackSurveyBody    ?? prev.feedbackSurveyBody,
+          }))
+        }
+      })
+      .catch(() => {})
   }, [])
 
   function makeLogoUploadHandler(
@@ -199,6 +222,27 @@ export default function AdminSettingsPage() {
     setSave("saving")
     try {
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+      setTimeout(() => setSave("saved"), 400)
+      setTimeout(() => setSave("idle"), 3000)
+    } catch {
+      setSave("error")
+      setTimeout(() => setSave("idle"), 3000)
+    }
+  }
+
+  async function persistFeedback(setSave: (s: SaveState) => void) {
+    setSave("saving")
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+      await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          feedbackSurveyEnabled: settings.feedbackSurveyEnabled,
+          feedbackSurveySubject: settings.feedbackSurveySubject,
+          feedbackSurveyBody: settings.feedbackSurveyBody,
+        }),
+      })
       setTimeout(() => setSave("saved"), 400)
       setTimeout(() => setSave("idle"), 3000)
     } catch {
@@ -596,6 +640,85 @@ export default function AdminSettingsPage() {
             </div>
           </div>
           <SaveButton state={securitySave} onClick={() => persist(setSecuritySave)} label="Save Security Settings" />
+        </CardContent>
+      </Card>
+
+      {/* ── Feedback Survey ── */}
+      <Card className="border shadow-sm">
+        <CardHeader className="border-b bg-gray-50 rounded-t-lg">
+          <div className="flex items-center gap-2">
+            <div className="bg-amber-100 rounded-lg p-2"><Star className="h-4 w-4 text-amber-700" /></div>
+            <div>
+              <CardTitle className="text-base font-semibold text-gray-900">Feedback Survey</CardTitle>
+              <p className="text-xs text-gray-500 mt-0.5">Configure the automated satisfaction survey sent after a request is completed</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-6 space-y-5">
+
+          {/* Enable / Disable toggle */}
+          <div className="flex items-center justify-between py-3 border-b border-gray-100">
+            <div className="flex items-start gap-3">
+              <Bell className="h-4 w-4 text-gray-500 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-gray-800">Enable Feedback Surveys</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  When enabled, a satisfaction survey email is automatically sent to the requester when their request is marked Completed or Delivered
+                </p>
+              </div>
+            </div>
+            <Toggle checked={settings.feedbackSurveyEnabled} onChange={(v) => set("feedbackSurveyEnabled", v)} />
+          </div>
+
+          {/* Email subject */}
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium text-gray-800">Email Subject</Label>
+            <p className="text-xs text-gray-500">
+              Available variables: <code className="bg-gray-100 px-1 rounded text-[11px]">{"{{requesterName}}"}</code>{" "}
+              <code className="bg-gray-100 px-1 rounded text-[11px]">{"{{requestTitle}}"}</code>{" "}
+              <code className="bg-gray-100 px-1 rounded text-[11px]">{"{{requestId}}"}</code>{" "}
+              <code className="bg-gray-100 px-1 rounded text-[11px]">{"{{module}}"}</code>
+            </p>
+            <Input
+              value={settings.feedbackSurveySubject}
+              onChange={(e) => set("feedbackSurveySubject", e.target.value)}
+              disabled={!settings.feedbackSurveyEnabled}
+              placeholder="How was your {{module}} request? — {{requestTitle}}"
+              className="h-9 text-sm disabled:opacity-50"
+            />
+          </div>
+
+          {/* Email body */}
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium text-gray-800">Email Body (greeting paragraph)</Label>
+            <p className="text-xs text-gray-500">
+              This text appears in the greeting section of the survey email, above the star rating buttons. Same variables apply.
+            </p>
+            <textarea
+              value={settings.feedbackSurveyBody}
+              onChange={(e) => set("feedbackSurveyBody", e.target.value)}
+              disabled={!settings.feedbackSurveyEnabled}
+              rows={5}
+              placeholder="Hi {{requesterName}}, your request has been completed..."
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 resize-y"
+            />
+          </div>
+
+          {/* Reset to default link */}
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                set("feedbackSurveySubject", DEFAULTS.feedbackSurveySubject)
+                set("feedbackSurveyBody", DEFAULTS.feedbackSurveyBody)
+              }}
+              className="text-xs text-blue-600 hover:underline"
+            >
+              Reset to default text
+            </button>
+          </div>
+
+          <SaveButton state={feedbackSave} onClick={() => persistFeedback(setFeedbackSave)} label="Save Survey Settings" />
         </CardContent>
       </Card>
     </div>

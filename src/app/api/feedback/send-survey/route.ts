@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { sendFeedbackSurveyEmail } from "@/lib/emailService"
 import { feedbackStore } from "@/lib/feedbackStore"
+import { loadSettingsServer } from "@/lib/settingsServer"
 
 export const runtime = "nodejs"
 
@@ -15,6 +16,13 @@ export async function POST(req: NextRequest) {
 
     if (!requesterEmail || !requestId) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    }
+
+    // Check admin setting — surveys can be disabled from Admin → Settings
+    const platformSettings = loadSettingsServer()
+    if (!platformSettings.feedbackSurveyEnabled) {
+      console.log(`[feedback] Surveys disabled — skipping for ${requestId}`)
+      return NextResponse.json({ success: true, skipped: true, reason: "surveys_disabled" })
     }
 
     // One survey email per request. If a survey already exists for this
@@ -40,6 +48,8 @@ export async function POST(req: NextRequest) {
       requestId: survey.requestId,
       requestTitle: survey.requestTitle,
       module: survey.module,
+      customSubject: platformSettings.feedbackSurveySubject || undefined,
+      customBody: platformSettings.feedbackSurveyBody || undefined,
     })
 
     feedbackStore.markSent(survey.id)
