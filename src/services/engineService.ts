@@ -104,14 +104,23 @@ function generateId(module: string): string {
   return `${prefix}-${year}-${next}`
 }
 
-// â"€â"€â"€ localStorage helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// ─── localStorage helpers ────────────────────────────────────────────────────
+
+// In-memory read cache — avoids repeated JSON.parse of the same large string.
+// Invalidated on every write so reads always reflect current state.
+let _readCache: EngineRequest[] | null = null
+let _readCacheRaw = ""
 
 function readAll(): EngineRequest[] {
   if (typeof window === "undefined") return []
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as EngineRequest[]) : []
+    const raw = localStorage.getItem(STORAGE_KEY) ?? ""
+    if (_readCache && raw === _readCacheRaw) return _readCache
+    _readCacheRaw = raw
+    _readCache = raw ? (JSON.parse(raw) as EngineRequest[]) : []
+    return _readCache
   } catch {
+    _readCache = []
     return []
   }
 }
@@ -126,6 +135,9 @@ function stripAttachments(requests: EngineRequest[]): EngineRequest[] {
 
 function writeAll(requests: EngineRequest[]): void {
   if (typeof window === "undefined") return
+  // Invalidate read cache so the next readAll() picks up fresh data.
+  _readCache = null
+  _readCacheRaw = ""
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(requests))
   } catch (e) {

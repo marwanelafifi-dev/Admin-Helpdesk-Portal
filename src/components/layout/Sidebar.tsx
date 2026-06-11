@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
@@ -171,21 +171,15 @@ export function Sidebar() {
   // Note: new-request and new-task tracking is centralized in useNewRequestsAndTasks
   // hook above. Storage events, focus, and a 30s interval keep it fresh.
 
-  const canSee = (href: string) => status === "authenticated" && canAccessPath(href, permissions, role)
+  const canSee = useCallback(
+    (href: string) => status === "authenticated" && canAccessPath(href, permissions, role),
+    [status, permissions, role]
+  )
 
-  /**
-   * Map a sidebar nav href to a module key in the engine, so we can look up
-   * per-module "new" request counts. Leaf pages like /hr/new still belong to
-   * the same module. Pages with no module association return null and don't
-   * get a badge.
-   */
-  function moduleForHref(href: string): string | null {
+  const moduleForHref = useCallback((href: string): string | null => {
     if (href === "/hr/onboarding" || href.startsWith("/hr/onboarding/")) return "hr-onboarding"
     if (href === "/hr/offboarding" || href.startsWith("/hr/offboarding/")) return "hr-offboarding"
     if (href.startsWith("/hr")) return "hr"
-    // Shipping has two sub-buckets: receiving and sending. Match the leaves
-    // first so each child link gets only its own count; the parent /shipping
-    // still resolves to the aggregate.
     if (href === "/shipping/receiving" || href.startsWith("/shipping/receiving/")) return "shipping-receiving"
     if (href === "/shipping/sending"   || href.startsWith("/shipping/sending/"))   return "shipping-sending"
     if (href.startsWith("/shipping")) return "shipping"
@@ -195,79 +189,48 @@ export function Sidebar() {
     if (href.startsWith("/travel")) return "travel"
     if (href.startsWith("/general")) return "general"
     return null
-  }
+  }, [])
 
-  /**
-   * Total badge count for a sidebar entry. Aggregates module-specific "new"
-   * counts plus special cases (tasks for Team Tasks, all-requests for All Requests).
-   * Returns 0 when the audience shouldn't see badges (non-admin users).
-   */
-  function badgeCountForHref(href: string): number {
+  // Pre-compute the all-requests total once instead of recomputing on every call
+  const allRequestsTotal = useMemo(() =>
+    Object.entries(newRequestsByModule)
+      .filter(([key]) => !key.includes("-"))
+      .reduce((sum, [, count]) => sum + count, 0),
+    [newRequestsByModule]
+  )
+
+  const badgeCountForHref = useCallback((href: string): number => {
     if (!isAdminAudience) return 0
     if (href === "/tasks") return newTasksCount
-    if (href === "/admin/all-requests") {
-      // Sum only the real module buckets — skip the synthetic
-      // shipping-receiving / shipping-sending sub-buckets, otherwise every
-      // shipping request gets counted twice.
-      return Object.entries(newRequestsByModule)
-        .filter(([key]) => !key.includes("-"))
-        .reduce((sum, [, count]) => sum + count, 0)
-    }
+    if (href === "/admin/all-requests") return allRequestsTotal
     const mod = moduleForHref(href)
     if (mod) return newRequestsByModule[mod] ?? 0
     return 0
-  }
+  }, [isAdminAudience, newTasksCount, allRequestsTotal, newRequestsByModule, moduleForHref])
 
-  const visibleNavItems = navItems.reduce<NavItem[]>((items, item) => {
+  const visibleNavItems = useMemo(() =>
+    navItems.reduce<NavItem[]>((items, item) => {
       const children = item.children?.filter((child) => canSee(child.href))
       const itemVisible = canSee(item.href) || Boolean(children?.length)
-
-      if (!itemVisible) {
-        return items
-      }
-
-      items.push({
-        ...item,
-        children: children?.length ? children : undefined,
-      })
-
+      if (!itemVisible) return items
+      items.push({ ...item, children: children?.length ? children : undefined })
       return items
-    }, [])
+    }, []),
+    [canSee]
+  )
 
-  const isActive = (href: string) => {
-    if (href === "/dashboard") {
-      return pathname === "/dashboard"
-    }
-
+  const isActive = useCallback((href: string) => {
+    if (href === "/dashboard") return pathname === "/dashboard"
     if (pathname.startsWith("/requests/")) {
-      if (href === "/admin/all-requests") {
-        return source === "all-requests"
-      }
-      if (href === "/requests") {
-        return source === "my-requests"
-      }
+      if (href === "/admin/all-requests") return source === "all-requests"
+      if (href === "/requests") return source === "my-requests"
       return source === href.slice(1)
     }
-
-    if (href === "/admin") {
-      return pathname.startsWith("/admin") && pathname !== "/admin/all-requests"
-    }
-
-    if (href === "/admin/all-requests") {
-      return pathname === "/admin/all-requests"
-    }
-
-    if (href === "/requests") {
-      return pathname === "/requests"
-    }
-
-    // Administration Team parent (don't highlight as active, only children)
-    if (href === "/admin/all-requests" && (pathname.startsWith("/tasks") || pathname.startsWith("/feedback-reports"))) {
-      return false
-    }
-
+    if (href === "/admin") return pathname.startsWith("/admin") && pathname !== "/admin/all-requests"
+    if (href === "/admin/all-requests") return pathname === "/admin/all-requests"
+    if (href === "/requests") return pathname === "/requests"
     return pathname.startsWith(href)
-  }
+  }, [pathname, source])
 
   return (
     <aside
