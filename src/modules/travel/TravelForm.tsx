@@ -271,7 +271,7 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
                 className="w-full px-6 py-8 border-2 border-dashed border-pink-300 rounded-lg hover:border-pink-500 hover:bg-pink-50 transition-all duration-200 flex flex-col items-center justify-center gap-2 group"
               >
                 <Upload className="h-6 w-6 text-pink-600 group-hover:scale-110 transition-transform duration-200" />
-                <span className="text-sm font-medium text-gray-700">Click to upload or drag and drop</span>
+                <span className="text-sm font-medium text-gray-700">Click to browse files</span>
                 <span className="text-xs text-muted-foreground">Itinerary, hotel bookings, or supporting documents</span>
               </button>
 
