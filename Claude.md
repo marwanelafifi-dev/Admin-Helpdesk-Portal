@@ -681,6 +681,24 @@ This document tracks the phased development of the Admin Request Platform, movin
 - [x] **`useViewedComments`** (`src/hooks/useViewedComments.ts`):
   - [x] `localStorage.setItem` debounced to 1s — previously fired on every comment view, triggering `arp:storage` cascade each time.
 
+## Phase 6d: Audit Trail — Database & Maintenance Tracking (Completed — 11 Jun 2026)
+- [x] **Audit Trail — Database category**: rose-red `Database` icon filter pill; all Database admin page actions now tracked under a dedicated "Database" category.
+- [x] **Database page actions tracked** (`src/app/(dashboard)/admin/database/page.tsx`):
+  - [x] **Backup downloaded** — manual "Download Backup" button; logs filename + store counts.
+  - [x] **Scheduled backup (Run Now)** — logs filename + size.
+  - [x] **Restore from file** — logs backup date + number of stores restored/skipped.
+  - [x] **Clear All Data** — logs browser store count + server file count wiped.
+  - [x] **Clear by Module** — logs module name + request count removed.
+  - [x] **Clear by Store** (localStorage) — logs store label.
+  - [x] **Clear Server File** — logs server file label.
+  - [x] **Maintenance mode toggled ON/OFF** — logs new state + message.
+  - [x] **Maintenance message updated** — logs first 80 chars of new message.
+  - [x] **Force sign out all users** — logs session invalidation event.
+- [x] **Audit Trail actor resolution** (`/admin/audit-trail`): actor column now resolves Google OAuth numeric IDs to display names via `/api/users`; falls back to local cache.
+- [x] **Audit Trail user email in targetId**: all user API audit events (`user_created`, `user_updated`, `user_role_changed`, `user_deleted`, `user_password_reset`) now use `user.email` as `targetId` instead of raw internal IDs (e.g. `USR-1779286151583`).
+- [x] **`src/lib/auditLog.ts`** extended: new action types `database_backup`, `database_restore`, `database_clear`, `maintenance_toggled`, `maintenance_message_updated`, `force_signout_all`.
+- [x] **`useSession`** added to DatabasePage component — actor name/email stamped on every log entry.
+
 ## Phase 6: Optimization & Scaling
 - [ ] Add Redis caching for frequently accessed dashboard data.
 - [ ] Implement file upload storage service for AWB/Invoices/Receipts.
