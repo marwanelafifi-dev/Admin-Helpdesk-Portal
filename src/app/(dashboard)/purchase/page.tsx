@@ -53,7 +53,7 @@ const COLS: { key: SortKey; label: string; defaultW: number }[] = [
   { key: "createdAt",      label: "Submission Date", defaultW: 140 },
   { key: "requesterName",  label: "Requester Name",  defaultW: 160 },
   { key: "supplier",       label: "Supplier",        defaultW: 140 },
-  { key: "estimatedPrice", label: "Estimated Price", defaultW: 140 },
+  { key: "estimatedPrice", label: "Total Price",     defaultW: 150 },
   { key: "status",         label: "Status",          defaultW: 130 },
   { key: "updatedAt",      label: "Last Update Date",defaultW: 140 },
 ]
@@ -169,9 +169,8 @@ export default function PurchasePage() {
         return sortDir === "asc" ? diff : -diff
       }
       if (sortKey === "estimatedPrice") {
-        const aVal = Number((a.payload as Record<string, unknown>).estimatedPrice ?? 0)
-        const bVal = Number((b.payload as Record<string, unknown>).estimatedPrice ?? 0)
-        return sortDir === "asc" ? aVal - bVal : bVal - aVal
+        const p = (r: any) => Number(r.payload.quantity ?? 1) * Number(r.payload.estimatedPrice ?? 0)
+        return sortDir === "asc" ? p(a) - p(b) : p(b) - p(a)
       }
       if (sortKey === "supplier") return String((a.payload as Record<string, unknown>).supplier ?? "").localeCompare(String((b.payload as Record<string, unknown>).supplier ?? ""))
       av = (a[sortKey as keyof EngineRequest] as string) ?? ""
@@ -355,7 +354,7 @@ export default function PurchasePage() {
                   </td>
                   <td className="py-3 px-3">
                     <span className="text-sm font-medium text-gray-700">
-                      EGP {Number((req.payload as Record<string, unknown>).estimatedPrice ?? 0).toLocaleString()}
+                      EGP {(Number((req.payload as Record<string, unknown>).quantity ?? 1) * Number((req.payload as Record<string, unknown>).estimatedPrice ?? 0)).toLocaleString("en-EG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </td>
                   <td className="py-3 px-3">
@@ -403,8 +402,8 @@ export default function PurchasePage() {
                             <p className="text-gray-600">{String((req.payload as Record<string, unknown>).supplier ?? "—")}</p>
                           </div>
                           <div>
-                            <p className="font-semibold text-gray-700">Estimated Price</p>
-                            <p className="text-gray-600">EGP {Number((req.payload as Record<string, unknown>).estimatedPrice ?? 0).toLocaleString()}</p>
+                            <p className="font-semibold text-gray-700">Total Price</p>
+                            <p className="text-gray-600">EGP {(Number((req.payload as Record<string, unknown>).quantity ?? 1) * Number((req.payload as Record<string, unknown>).estimatedPrice ?? 0)).toLocaleString("en-EG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}<span className="text-xs text-muted-foreground ml-1">({(req.payload as Record<string, unknown>).quantity ?? 1} × {Number((req.payload as Record<string, unknown>).estimatedPrice ?? 0).toLocaleString()} EGP)</span></p>
                           </div>
                           <div>
                             <p className="font-semibold text-gray-700">Status</p>

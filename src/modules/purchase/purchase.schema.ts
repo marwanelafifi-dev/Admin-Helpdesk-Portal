@@ -19,7 +19,7 @@ export const PurchasePayloadSchema = z.object({
   supplier: z.string().optional(),
   productUrl: z.union([z.literal(""), z.string().url("Please enter a valid URL")]).optional(),
   quantity: z.number().min(1, "Quantity must be at least 1"),
-  estimatedPrice: z.number().min(0, "Price must be positive").max(3000, "Estimated price cannot exceed 3000 EGP"),
+  estimatedPrice: z.number().min(0, "Unit price must be positive"),
   costCenter: z.string().min(1, "Cost Center is required"),
   directManager: z.string().min(1, "Direct Manager is required"),
   businessJustification: z.string().min(1, "Business justification is required"),
