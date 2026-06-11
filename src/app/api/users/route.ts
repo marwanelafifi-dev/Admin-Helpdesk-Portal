@@ -92,7 +92,7 @@ export async function POST(request: Request) {
       actor: session?.user?.name ?? session?.user?.email ?? "Admin",
       actorEmail: session?.user?.email ?? "",
       action: "user_created",
-      targetId: user.id,
+      targetId: user.email,
       targetTitle: user.name,
       details: `New user created: ${user.name} <${user.email}> with role "${parsed.data.role || "requester"}"`,
       category: "user",
