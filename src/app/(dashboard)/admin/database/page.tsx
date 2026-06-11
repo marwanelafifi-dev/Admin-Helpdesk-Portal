@@ -298,6 +298,7 @@ export default function DatabasePage() {
       })
       if (!res.ok) throw new Error(await res.text())
       setMaintenance(next)
+      logAuditEvent({ actor: actorName, actorEmail, action: "maintenance_toggled", targetId: "", targetTitle: "Maintenance Mode", module: "database", details: next ? "Maintenance mode turned ON — non-admin users blocked" : "Maintenance mode turned OFF — portal open to everyone" })
       setMaintenanceStatus({
         type: "success",
         message: next
@@ -318,6 +319,7 @@ export default function DatabasePage() {
         body: JSON.stringify({ maintenanceMessage }),
       })
       if (!res.ok) throw new Error(await res.text())
+      logAuditEvent({ actor: actorName, actorEmail, action: "maintenance_message_updated", targetId: "", targetTitle: "Maintenance Message", module: "database", details: `Maintenance message updated: "${maintenanceMessage.slice(0, 80)}${maintenanceMessage.length > 80 ? "…" : ""}"` })
       setMaintenanceStatus({ type: "success", message: "Message updated." })
     } catch (e: any) {
       setMaintenanceStatus({ type: "error", message: `Failed to save message: ${e?.message ?? "unknown"}` })
@@ -330,6 +332,7 @@ export default function DatabasePage() {
       const res = await fetch("/api/admin/maintenance", { method: "POST" })
       if (!res.ok) throw new Error(await res.text())
       setShowSignoutConfirm(false)
+      logAuditEvent({ actor: actorName, actorEmail, action: "force_signout_all", targetId: "", targetTitle: "Force Sign Out All", module: "database", details: "All active sessions invalidated — every user redirected to login" })
       setSignoutStatus({
         type: "success",
         message: "All sessions invalidated. Every user (including you) will be redirected to login on their next request.",
