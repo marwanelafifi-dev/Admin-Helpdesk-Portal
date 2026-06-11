@@ -13,7 +13,7 @@ import {
 import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import type { HRPayload } from "@/modules/hr/hr.schema"
-import { cn } from "@/lib/utils"
+import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
 import { requestsAPI } from "@/lib/apiClient"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
@@ -48,9 +48,6 @@ const STATUS_PILL_ACTIVE: Record<string, string> = {
   completed: "bg-emerald-600 border-emerald-600 text-white",
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
-}
 
 type Tab = "all" | "onboarding" | "offboarding"
 type SortKey = "id" | "title" | "employeeId" | "employeeName" | "department" | "sector" | "directManager" | "hrType" | "status" | "date"
@@ -449,7 +446,7 @@ export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
                       />
                     </td>
                     <td className="py-3 px-3">
-                      <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{formatDate(req.updatedAt)}</span>
+                      <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{fmtDateTime(req.updatedAt)}</span>
                     </td>
                     <td className="py-3 px-2 text-right">
                       <RequestActionsMenu

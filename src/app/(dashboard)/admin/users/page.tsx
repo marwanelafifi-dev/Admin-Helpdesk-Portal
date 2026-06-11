@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
 import { getList } from "@/lib/companyDataStore"
+import { fmtDate } from "@/lib/utils"
 import {
   Select,
   SelectContent,
@@ -78,13 +79,6 @@ function getInitials(name: string) {
     .slice(0, 2)
 }
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(value))
-}
 
 function getDefaultRoleValue(roles: RoleOption[]) {
   const requester = roles.find((role) => role.value.toLowerCase() === "requester")
@@ -506,7 +500,7 @@ export default function AdminUsersPage() {
                         </span>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(user.createdAt)}
+                        {fmtDate(user.createdAt)}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>

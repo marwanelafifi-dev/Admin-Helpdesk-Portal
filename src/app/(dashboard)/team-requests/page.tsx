@@ -9,7 +9,7 @@ import { Card, CardHeader } from "@/components/ui/card"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
 import { getManagerEmail } from "@/lib/companyDataStore"
-import { cn } from "@/lib/utils"
+import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
 import { animationClasses } from "@/lib/animations"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
@@ -107,10 +107,6 @@ const COLS: { key: SortKey; label: string }[] = [
   { key: "status",        label: "Status" },
   { key: "updatedAt",     label: "Last Update" },
 ]
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
-}
 
 function formatModule(m: string) {
   return m.charAt(0).toUpperCase() + m.slice(1)
@@ -484,7 +480,7 @@ export default function TeamRequestsPage() {
 
                         {/* Submitted */}
                         <td className="px-4 py-3 text-sm font-medium text-gray-700 whitespace-nowrap">
-                          {formatDate(request.createdAt)}
+                          {fmtDate(request.createdAt)}
                         </td>
 
                         {/* Requester */}
@@ -526,7 +522,7 @@ export default function TeamRequestsPage() {
 
                         {/* Last Update */}
                         <td className="px-4 py-3 text-sm font-medium text-gray-700 whitespace-nowrap">
-                          {formatDate(request.updatedAt)}
+                          {fmtDateTime(request.updatedAt)}
                         </td>
 
                         <td />

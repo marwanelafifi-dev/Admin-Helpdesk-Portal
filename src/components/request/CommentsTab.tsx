@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { fmtDateTime } from "@/lib/utils"
 import { CommentForm } from "./CommentForm"
 import { CcPanel } from "./CcPanel"
 
@@ -37,16 +38,6 @@ interface CommentsTabProps {
   canEditCc?: boolean
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  })
-}
 
 export function CommentsTab({
   requestId,
@@ -104,7 +95,7 @@ export function CommentsTab({
                   )}
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-900">{comment.author?.name || "Anonymous"}</p>
-                    {isMounted && <p className="text-xs text-gray-500">{formatDate(comment.createdAt)}</p>}
+                    {isMounted && <p className="text-xs text-gray-500">{fmtDateTime(comment.createdAt)}</p>}
                   </div>
                 </div>
               </div>

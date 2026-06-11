@@ -12,7 +12,7 @@ import { commentsAPI } from "@/lib/apiClient"
 import { getRequests, updateStatus, updateAdminCc, getAllCcEmails, initializeMockData, recordCommentActivity, assignRequest, type EngineRequest } from "@/services/engineService"
 import { AssigneeSelect } from "@/components/ui/AssigneeSelect"
 import { hasPermission as hasPerm } from "@/lib/access"
-import { cn } from "@/lib/utils"
+import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
 import { hasPermission } from "@/lib/access"
 import { createRequestUpdateNotifications, createAssignmentNotifications } from "@/lib/notificationStore"
 import { CommentsTab } from "@/components/request/CommentsTab"
@@ -100,16 +100,6 @@ interface RequestDetail {
   }>
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  })
-}
 
 function getModuleIcon(module: string) {
   switch (module) {
@@ -675,7 +665,7 @@ export default function RequestDetailPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm">{formatDate(request.createdAt)}</p>
+                    <p className="text-sm">{fmtDate(request.createdAt)}</p>
                   </CardContent>
                 </Card>
 
@@ -688,7 +678,7 @@ export default function RequestDetailPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm">{formatDate(request.updatedAt)}</p>
+                    <p className="text-sm">{fmtDateTime(request.updatedAt)}</p>
                   </CardContent>
                 </Card>
 
@@ -781,7 +771,7 @@ export default function RequestDetailPage() {
                             <span className="text-gray-400 ml-1">&lt;{item.changedByUser.email}&gt;</span>
                           )}
                         </span>
-                        <span className="flex-shrink-0">{formatDate(item.createdAt)}</span>
+                        <span className="flex-shrink-0">{fmtDateTime(item.createdAt)}</span>
                       </div>
                     </div>
                   </div>

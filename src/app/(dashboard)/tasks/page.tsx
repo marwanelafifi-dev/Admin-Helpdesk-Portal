@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
-import { cn } from "@/lib/utils"
+import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
 import { getTasks, createTask, updateTaskStatus, addTaskComment, type Task, type TaskStatus, type TaskAttachment, ADMIN_TEAM_ROLES } from "@/services/taskService"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
 
@@ -501,11 +501,7 @@ export default function TasksPage() {
                                   <div className="flex items-start justify-between mb-1">
                                     <p className="font-medium text-sm text-gray-900">{comment.author}</p>
                                     <p className="text-xs text-gray-500">
-                                      {new Date(comment.createdAt).toLocaleDateString("en-US", {
-                                        day: "2-digit",
-                                        month: "short",
-                                        year: "numeric",
-                                      })}
+                                      {fmtDate(comment.createdAt)}
                                     </p>
                                   </div>
                                   <p className="text-sm text-gray-700">{comment.content}</p>
@@ -604,13 +600,7 @@ export default function TasksPage() {
                               <div key={act.id} className="text-xs bg-white rounded p-2 border border-gray-200">
                                 <p className="font-medium text-gray-900">{act.description}</p>
                                 <p className="text-gray-500 mt-0.5">
-                                  {act.changedBy} • {new Date(act.changedAt).toLocaleDateString("en-US", {
-                                    day: "2-digit",
-                                    month: "short",
-                                    year: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
+                                  {act.changedBy} • {fmtDateTime(act.changedAt)}
                                 </p>
                               </div>
                             ))}
