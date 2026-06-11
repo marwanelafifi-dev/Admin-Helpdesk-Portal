@@ -95,6 +95,9 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
   }, [editingRequest, isEditing, reset])
 
   const platformValue = watch("platform")
+  const quantity = watch("quantity")
+  const estimatedPrice = watch("estimatedPrice")
+  const totalPrice = (Number(quantity) || 0) * (Number(estimatedPrice) || 0)
 
   const handleCancel = onCancel ?? (() => router.push("/purchase"))
 
@@ -246,11 +249,34 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="estimatedPrice">Estimated Price (EGP) <span className="text-red-500">*</span></Label>
-                <Input id="estimatedPrice" type="number" min="0" max="3000" step="0.01" placeholder="0.00" {...register("estimatedPrice", { valueAsNumber: true })} className={cn(errors.estimatedPrice && "border-red-400")} />
-                <p className="text-xs text-muted-foreground">Maximum allowed: 3000 EGP</p>
+                <Label htmlFor="estimatedPrice">Unit Price (EGP) <span className="text-red-500">*</span></Label>
+                <Input id="estimatedPrice" type="number" min="0" step="0.01" placeholder="0.00" {...register("estimatedPrice", { valueAsNumber: true })} className={cn(errors.estimatedPrice && "border-red-400")} />
                 <FieldError message={errors.estimatedPrice?.message} />
               </div>
+            </div>
+
+            {/* Total Estimated Price */}
+            <div className={cn(
+              "flex items-center justify-between rounded-lg px-4 py-3 border-2 transition-colors",
+              totalPrice > 3000
+                ? "bg-red-50 border-red-300 dark:bg-red-950/30 dark:border-red-700"
+                : "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800"
+            )}>
+              <div>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Total Estimated Price</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {(Number(quantity) || 0)} × {(Number(estimatedPrice) || 0).toFixed(2)} EGP
+                  {totalPrice > 3000 && (
+                    <span className="ml-2 text-red-600 dark:text-red-400 font-medium">— exceeds 3,000 EGP limit</span>
+                  )}
+                </p>
+              </div>
+              <p className={cn(
+                "text-2xl font-bold tabular-nums",
+                totalPrice > 3000 ? "text-red-600 dark:text-red-400" : "text-green-700 dark:text-green-400"
+              )}>
+                {totalPrice.toLocaleString("en-EG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-normal">EGP</span>
+              </p>
             </div>
           </CardContent>
         </Card>
