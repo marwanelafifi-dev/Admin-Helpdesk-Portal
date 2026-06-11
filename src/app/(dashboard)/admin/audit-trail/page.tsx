@@ -374,14 +374,36 @@ export default function AuditTrailPage() {
                       <Icon className="h-3.5 w-3.5" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-semibold text-gray-900">{entry.actor || entry.actorEmail || "System"}</span>
+                      {/* Action headline */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-sm font-semibold text-gray-900">
+                          {entry.actor || entry.actorEmail || "System"}
+                        </span>
                         <span className="text-sm text-gray-500">{entry.action}</span>
-                        {entry.targetId && (
-                          <span className="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{entry.targetId}</span>
-                        )}
                       </div>
-                      <p className="text-xs text-gray-500 mt-0.5 truncate">{entry.target}</p>
+
+                      {/* Who / what was affected — only show when different from actor */}
+                      {entry.target && entry.target !== (entry.actor || entry.actorEmail) && (
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">On:</span>
+                          <span className="text-xs font-semibold text-gray-700">{entry.target}</span>
+                          {entry.targetId && (
+                            <span className="text-[10px] font-mono bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
+                              {entry.targetId}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {/* Self-action (actor == target): just show the ID */}
+                      {entry.target && entry.target === (entry.actor || entry.actorEmail) && entry.targetId && (
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[10px] font-mono bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
+                            {entry.targetId}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Details line */}
                       {entry.details && (
                         <p className="text-xs text-gray-400 mt-0.5 italic">{entry.details}</p>
                       )}
