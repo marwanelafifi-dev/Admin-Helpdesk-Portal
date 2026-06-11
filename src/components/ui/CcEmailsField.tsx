@@ -97,7 +97,7 @@ function UserPicker({
       >
         <span className="flex items-center gap-2 truncate text-left">
           <Users className="h-4 w-4 opacity-60 flex-shrink-0" />
-          Pick a user…
+          Select a portal user…
         </span>
         <ChevronDown className="h-4 w-4 opacity-50 flex-shrink-0" />
       </button>
@@ -116,9 +116,12 @@ function UserPicker({
           </div>
           <div className="max-h-64 overflow-y-auto py-1">
             {!loaded ? (
-              <div className="px-3 py-6 text-center text-xs text-muted-foreground">Loading…</div>
+              <div className="px-3 py-6 text-center text-xs text-muted-foreground">Loading portal users…</div>
             ) : filtered.length === 0 ? (
-              <div className="px-3 py-6 text-center text-xs text-muted-foreground">No users match</div>
+              <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                <p>No portal users match.</p>
+                <p className="mt-1 text-[10px] opacity-70">For external recipients, use the email field on the right.</p>
+              </div>
             ) : (
               filtered.map((u) => {
                 const already = excludedEmails.has(u.email.toLowerCase())
@@ -185,40 +188,58 @@ export function CcEmailsField({ value, onChange }: CcEmailsFieldProps) {
   }
 
   return (
-    <div className="space-y-2">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-        {/* User picker — searchable, same UX as Company Data dropdowns */}
-        <UserPicker excludedEmails={lowerValue} onPick={addEmail} />
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {/* Left — portal users */}
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5 text-blue-500" />
+            Portal Users
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            Select from users who already have an account on this portal.
+          </p>
+          <UserPicker excludedEmails={lowerValue} onPick={addEmail} />
+        </div>
 
-        {/* Free email input for external addresses */}
-        <div className="flex gap-2 min-w-0">
-          <input
-            type="email"
-            value={input}
-            onChange={(e) => { setInput(e.target.value); setError("") }}
-            onKeyDown={handleKeyDown}
-            placeholder="Or type external email…"
-            className={cn(
-              "flex-1 rounded-md border bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-0",
-              error ? "border-red-400" : "border-gray-300"
-            )}
-          />
-          <button
-            type="button"
-            onClick={handleAdd}
-            disabled={!input.trim()}
-            className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
-          >
-            <Plus className="h-4 w-4" />
-            Add
-          </button>
+        {/* Right — external emails */}
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
+            <Mail className="h-3.5 w-3.5 text-gray-400" />
+            External Recipients
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            For anyone outside the portal — type their email address directly.
+          </p>
+          <div className="flex gap-2 min-w-0">
+            <input
+              type="email"
+              value={input}
+              onChange={(e) => { setInput(e.target.value); setError("") }}
+              onKeyDown={handleKeyDown}
+              placeholder="name@company.com"
+              className={cn(
+                "flex-1 rounded-md border bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-0",
+                error ? "border-red-400" : "border-gray-300"
+              )}
+            />
+            <button
+              type="button"
+              onClick={handleAdd}
+              disabled={!input.trim()}
+              className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+            >
+              <Plus className="h-4 w-4" />
+              Add
+            </button>
+          </div>
         </div>
       </div>
 
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className="text-xs text-red-500 flex items-center gap-1"><span>⚠</span>{error}</p>}
 
       {value.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 pt-1">
           {value.map((email) => (
             <span
               key={email}
@@ -238,8 +259,8 @@ export function CcEmailsField({ value, onChange }: CcEmailsFieldProps) {
         </div>
       )}
 
-      <p className="text-xs text-gray-400">
-        These addresses will receive email notifications for all updates on this request.
+      <p className="text-xs text-muted-foreground border-t pt-2">
+        All CC'd recipients will receive email notifications for every update on this request.
       </p>
     </div>
   )
