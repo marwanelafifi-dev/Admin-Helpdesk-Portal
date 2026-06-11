@@ -114,13 +114,30 @@ function readAll(): EngineRequest[] {
   }
 }
 
+function stripAttachments(requests: EngineRequest[]): EngineRequest[] {
+  return requests.map((r) => {
+    const payload = r.payload as Record<string, unknown>
+    if (!payload?.attachments) return r
+    return { ...r, payload: { ...payload, attachments: [] } }
+  })
+}
+
 function writeAll(requests: EngineRequest[]): void {
   if (typeof window === "undefined") return
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(requests))
-  // Native `storage` event only fires in OTHER tabs. Broadcast a custom
-  // same-tab event so the Sidebar / dashboard hooks can refresh badges
-  // immediately when the user changes status or creates a request without
-  // requiring a page reload.
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(requests))
+  } catch (e) {
+    // QuotaExceededError — attachments (base64 data URLs) are the usual culprit.
+    // The server already holds the full payload via pushToServer, so it's safe
+    // to strip attachment data from the local cache and retry.
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stripAttachments(requests)))
+    } catch {
+      // Still full — wipe the cache entirely. The next syncFromServer() pull
+      // will restore all requests from the server.
+      localStorage.removeItem(STORAGE_KEY)
+    }
+  }
   try { window.dispatchEvent(new Event("arp:storage")) } catch {}
 }
 

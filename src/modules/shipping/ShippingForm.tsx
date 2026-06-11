@@ -324,11 +324,10 @@ export function ShippingForm({ onCancel, editingRequest, isEditing, direction = 
         redirectTo = `/requests/${created.id}`
       }
     } catch (error) {
-      const msg = error instanceof Error ? `${error.name}: ${error.message}` : String(error)
       console.error(isEditing ? "Failed to update request:" : "Failed to create request:", error)
       setError("title", {
         type: "manual",
-        message: `Failed to create request: ${msg}`,
+        message: isEditing ? "Failed to update request. Please try again." : "Failed to create request. Please try again.",
       })
     }
 
