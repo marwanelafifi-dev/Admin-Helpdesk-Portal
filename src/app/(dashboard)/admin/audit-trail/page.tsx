@@ -17,17 +17,16 @@ interface AuditEntry {
   targetId: string
   module: string
   details: string
-  category: "request" | "status" | "comment" | "user" | "role" | "task" | "auth" | "company_data"
+  category: "request" | "status" | "comment" | "assignment" | "user" | "role" | "company_data"
 }
 
 const CATEGORY_COLORS: Record<AuditEntry["category"], string> = {
   request:      "bg-blue-100 text-blue-700",
   status:       "bg-amber-100 text-amber-700",
   comment:      "bg-purple-100 text-purple-700",
+  assignment:   "bg-sky-100 text-sky-700",
   user:         "bg-green-100 text-green-700",
   role:         "bg-red-100 text-red-700",
-  task:         "bg-slate-100 text-slate-700",
-  auth:         "bg-emerald-100 text-emerald-700",
   company_data: "bg-indigo-100 text-indigo-700",
 }
 
@@ -35,10 +34,9 @@ const CATEGORY_ICONS: Record<AuditEntry["category"], React.ElementType> = {
   request:      FileText,
   status:       ArrowRightLeft,
   comment:      MessageSquare,
+  assignment:   User,
   user:         User,
   role:         Shield,
-  task:         Edit,
-  auth:         Clock,
   company_data: Building2,
 }
 
@@ -184,11 +182,9 @@ async function buildAuditLog(): Promise<AuditEntry[]> {
         targetId: task.id,
         module: "tasks",
         details: `Assigned to ${task.assignedTo ?? "Unassigned"}`,
-        category: "task",
+        category: "request",
       })
       ;(task.activity ?? []).forEach((a: any, i: number) => {
-        // TaskActivity uses `type` / `changedAt` / `changedBy` (and historically
-        // a few records may have `action` / `timestamp` / `user`). Read both.
         const aType = a.type ?? a.action
         const aWhen = a.changedAt ?? a.timestamp
         const aWho  = a.changedBy ?? a.user ?? "System"
@@ -203,7 +199,7 @@ async function buildAuditLog(): Promise<AuditEntry[]> {
             targetId: task.id,
             module: "tasks",
             details: a.details ?? a.description ?? "",
-            category: "task",
+            category: "status",
           })
         }
       })
@@ -221,14 +217,15 @@ async function buildAuditLog(): Promise<AuditEntry[]> {
         actor: resolveActor(ev.actor, userMap),
         actorEmail: ev.actorEmail,
         action:
-          ev.action === "request_deleted" ? "Request deleted"
-          : ev.action === "request_edited"  ? "Request edited"
+          ev.action === "request_deleted"  ? "Request deleted"
+          : ev.action === "request_edited" ? "Request edited"
+          : ev.action === "request_assigned" ? "Assigned"
           : "Submission error",
         target: ev.targetTitle,
         targetId: ev.targetId,
         module: ev.module,
         details: ev.details,
-        category: "request",
+        category: ev.action === "request_assigned" ? "assignment" : "request",
       })
     })
   } catch {}
@@ -275,7 +272,7 @@ async function buildAuditLog(): Promise<AuditEntry[]> {
 
 function fmt(iso: string) { return fmtDateTime(iso) }
 
-const ALL_CATEGORIES: AuditEntry["category"][] = ["request", "status", "comment", "user", "role", "company_data", "task", "auth"]
+const ALL_CATEGORIES: AuditEntry["category"][] = ["request", "status", "comment", "assignment", "user", "role", "company_data"]
 
 export default function AuditTrailPage() {
   const [entries, setEntries] = useState<AuditEntry[]>([])
@@ -306,7 +303,7 @@ export default function AuditTrailPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        {(["request","status","comment","company_data","task"] as const).map((cat) => {
+        {(["request","status","comment","assignment","company_data"] as const).map((cat) => {
           const Icon = CATEGORY_ICONS[cat]
           const count = entries.filter((e) => e.category === cat).length
           return (
@@ -317,7 +314,7 @@ export default function AuditTrailPage() {
                   <Icon className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 capitalize">{cat === "company_data" ? "Company Data" : cat} events</p>
+                  <p className="text-xs text-gray-500 capitalize">{cat === "company_data" ? "Company Data" : cat === "assignment" ? "Assignments" : cat} events</p>
                   <p className="text-xl font-bold text-gray-900">{count}</p>
                 </div>
               </CardContent>
@@ -346,7 +343,7 @@ export default function AuditTrailPage() {
               >All</button>
               {ALL_CATEGORIES.map((cat) => {
                 const Icon = CATEGORY_ICONS[cat]
-                const label = cat === "company_data" ? "Company Data" : cat.charAt(0).toUpperCase() + cat.slice(1)
+                const label = cat === "company_data" ? "Company Data" : cat === "assignment" ? "Assignments" : cat.charAt(0).toUpperCase() + cat.slice(1)
                 return (
                   <button key={cat}
                     onClick={() => setCategoryFilter(categoryFilter === cat ? "all" : cat)}

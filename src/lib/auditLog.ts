@@ -18,7 +18,7 @@ export interface AuditEvent {
   timestamp: string
   actor: string
   actorEmail: string
-  action: "request_deleted" | "request_edited" | "submission_error"
+  action: "request_deleted" | "request_edited" | "request_assigned" | "submission_error"
   targetId: string
   targetTitle: string
   module: string

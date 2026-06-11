@@ -445,6 +445,21 @@ export function assignRequest(
   requests[index] = updated
   writeAll(requests)
   pushToServer(updated)
+
+  try {
+    logAuditEvent({
+      actor: assignee?.name ?? "System",
+      actorEmail: assignee?.email ?? "",
+      action: "request_assigned",
+      targetId: id,
+      targetTitle: updated.title,
+      module: updated.module,
+      details: assignee
+        ? `Assigned to ${assignee.name}`
+        : "Assignment cleared",
+    })
+  } catch {}
+
   return updated
 }
 
