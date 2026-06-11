@@ -222,16 +222,19 @@ async function buildAuditLog(): Promise<AuditEntry[]> {
           ev.action === "request_deleted"   ? "Request deleted"
           : ev.action === "request_edited"  ? "Request edited"
           : ev.action === "request_assigned"? "Assigned"
-          : ev.action === "database_backup" ? "Database backup"
-          : ev.action === "database_restore"? "Database restore"
-          : ev.action === "database_clear"  ? "Database cleared"
+          : ev.action === "database_backup"             ? "Database backup"
+          : ev.action === "database_restore"            ? "Database restore"
+          : ev.action === "database_clear"              ? "Database cleared"
+          : ev.action === "maintenance_toggled"         ? "Maintenance mode toggled"
+          : ev.action === "maintenance_message_updated" ? "Maintenance message updated"
+          : ev.action === "force_signout_all"           ? "Force sign out all users"
           : "Submission error",
         target: ev.targetTitle,
         targetId: ev.targetId,
         module: ev.module,
         details: ev.details,
         category: ev.action === "request_assigned" ? "assignment"
-                : ev.action?.startsWith("database_") ? "database"
+                : (ev.action?.startsWith("database_") || ev.action?.startsWith("maintenance_") || ev.action === "force_signout_all") ? "database"
                 : "request",
       })
     })
