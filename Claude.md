@@ -655,6 +655,32 @@ This document tracks the phased development of the Admin Request Platform, movin
 - [ ] **Audit Trail Enhancement:** Server-side audit log now covers user/role/company-data changes. Future: extend to cover all request status changes server-side for cross-browser completeness.
 - [ ] **Database Backup:** Currently localStorage + data/*.json. Future: server-side PostgreSQL dump endpoint.
 
+## Phase 6b: Audit Trail & UX Improvements (Completed — 11 Jun 2026)
+- [x] **Audit Trail — Assignments category**: removed Task/Auth filter pills; added sky-blue "Assignments" category. `assignRequest()` logs `request_assigned` event showing "Assigned to [name]" or "Assignment cleared". Task created/status events folded into Request/Status categories.
+- [x] **Audit Trail — Company Data category**: indigo `Building2` icon filter pill; `company_data_updated` events now have their own category separate from User.
+- [x] **Audit Trail — Company Data tracking**: `PUT /api/company-data` diffs each list before/after and logs one entry per changed section (Added/Removed items).
+- [x] **Audit Trail — User & Role tracking** (`src/lib/serverAuditLog.ts`): all user creation, update, role-change, deletion, password-reset, and role CRUD events logged server-side to `data/audit-log.json`.
+- [x] **Users page**: "Joined" column now shows full `fmtDateTime` timestamp. "Admins" stat card replaced with "Offline" count.
+- [x] **SearchableSelect**: full UX rewrite — deduplication, highlighted matches, keyboard navigation, smart ranking, clear button, better empty state.
+- [x] **Purchase form**: live Total Estimated Price (qty × unit price), green/red budget indicator.
+- [x] **Event form**: Internal/External location toggle live; Floor Number from maintenance schema; free-text Room/Area.
+
+## Phase 6c: Performance Optimisations (Completed — 11 Jun 2026)
+- [x] **Sidebar** (`src/components/layout/Sidebar.tsx`):
+  - [x] `visibleNavItems` wrapped in `useMemo` — only recomputes when permissions/role change.
+  - [x] `badgeCountForHref`, `isActive`, `canSee`, `moduleForHref` all wrapped in `useCallback`.
+  - [x] `allRequestsTotal` memoized — badge sum computed once per state change, not per call.
+  - [x] Result: eliminates 100+ redundant function calls per sidebar render.
+- [x] **`useNewRequestsAndTasks`** (`src/hooks/useNewRequestsAndTasks.ts`):
+  - [x] Module-level raw-string cache — skips `JSON.parse` entirely when localStorage content unchanged.
+  - [x] Interval increased 30s → 60s.
+  - [x] `focus` + cross-tab `storage` events debounced 500ms; same-tab `arp:storage` still fires immediately.
+- [x] **`engineService.readAll()`** (`src/services/engineService.ts`):
+  - [x] In-memory cache keyed on raw string — repeated calls within a write cycle return cached array without re-parsing JSON.
+  - [x] `writeAll()` invalidates cache on every write.
+- [x] **`useViewedComments`** (`src/hooks/useViewedComments.ts`):
+  - [x] `localStorage.setItem` debounced to 1s — previously fired on every comment view, triggering `arp:storage` cascade each time.
+
 ## Phase 6: Optimization & Scaling
 - [ ] Add Redis caching for frequently accessed dashboard data.
 - [ ] Implement file upload storage service for AWB/Invoices/Receipts.
