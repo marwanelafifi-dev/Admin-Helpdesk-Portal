@@ -5,6 +5,7 @@ import { auth } from "@/auth"
 import { canManageUsers } from "@/lib/access"
 import { readUsers, createUser, findUserByEmail } from "@/lib/userStore"
 import { sendWelcomeEmail } from "@/lib/emailService"
+import { logServerAudit } from "@/lib/serverAuditLog"
 
 const createUserSchema = z.object({
   name: z.string().trim().min(1, "Name is required"),
@@ -86,6 +87,16 @@ export async function POST(request: Request) {
       console.error("Failed to send welcome email:", emailErr)
       // Don't fail user creation if email fails
     }
+
+    logServerAudit({
+      actor: session?.user?.name ?? session?.user?.email ?? "Admin",
+      actorEmail: session?.user?.email ?? "",
+      action: "user_created",
+      targetId: user.id,
+      targetTitle: user.name,
+      details: `New user created: ${user.name} <${user.email}> with role "${parsed.data.role || "requester"}"`,
+      category: "user",
+    })
 
     return NextResponse.json({ user }, { status: 201 })
   } catch (error) {

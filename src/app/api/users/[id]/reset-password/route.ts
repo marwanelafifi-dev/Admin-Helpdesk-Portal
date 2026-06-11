@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import bcrypt from "bcryptjs"
 import { findUserById, updateUser } from "@/lib/userStore"
+import { logServerAudit } from "@/lib/serverAuditLog"
 
 export async function POST(
   request: NextRequest,
@@ -57,6 +58,19 @@ export async function POST(
 
     const passwordHash = await bcrypt.hash(password, 12)
     updateUser(userId, { passwordHash })
+
+    const isAdminReset = session.user.id !== userId
+    logServerAudit({
+      actor: session.user.name ?? session.user.email ?? "Unknown",
+      actorEmail: session.user.email ?? "",
+      action: "user_password_reset",
+      targetId: userId,
+      targetTitle: user.name,
+      details: isAdminReset
+        ? `Admin reset password for ${user.name} <${user.email}>`
+        : `${user.name} changed their own password`,
+      category: "user",
+    })
 
     return NextResponse.json({ success: true, message: "Password updated successfully" })
   } catch (error) {

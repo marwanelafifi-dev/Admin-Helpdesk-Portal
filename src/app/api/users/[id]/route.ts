@@ -3,6 +3,7 @@ import { z } from "zod"
 import { auth } from "@/auth"
 import { canManageUsers } from "@/lib/access"
 import { findUserById, updateUser, deleteUser } from "@/lib/userStore"
+import { logServerAudit } from "@/lib/serverAuditLog"
 
 const updateUserSchema = z.object({
   name: z.string().trim().min(1).optional(),
@@ -62,6 +63,35 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     ...(isAdmin && parsed.data.active !== undefined && { active: parsed.data.active }),
   })
 
+  // Log role change separately for clarity in audit trail
+  if (isAdmin && parsed.data.role && parsed.data.role !== user.role) {
+    logServerAudit({
+      actor: session?.user?.name ?? session?.user?.email ?? "Admin",
+      actorEmail: session?.user?.email ?? "",
+      action: "user_role_changed",
+      targetId: id,
+      targetTitle: user.name,
+      details: `Role changed from "${user.role}" → "${parsed.data.role}"`,
+      category: "user",
+    })
+  } else if (isAdmin || parsed.data.name) {
+    const changes: string[] = []
+    if (parsed.data.name && parsed.data.name !== user.name) changes.push(`name: "${user.name}" → "${parsed.data.name}"`)
+    if (isAdmin && parsed.data.email && parsed.data.email !== user.email) changes.push(`email: "${user.email}" → "${parsed.data.email}"`)
+    if (isAdmin && parsed.data.active !== undefined && parsed.data.active !== user.active) changes.push(`status: ${user.active ? "Active" : "Inactive"} → ${parsed.data.active ? "Active" : "Inactive"}`)
+    if (changes.length > 0) {
+      logServerAudit({
+        actor: session?.user?.name ?? session?.user?.email ?? "Admin",
+        actorEmail: session?.user?.email ?? "",
+        action: "user_updated",
+        targetId: id,
+        targetTitle: user.name,
+        details: changes.join("; "),
+        category: "user",
+      })
+    }
+  }
+
   return NextResponse.json({ user: updated })
 }
 
@@ -73,10 +103,21 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
+  const userToDelete = findUserById(id)
   const success = deleteUser(id)
   if (!success) {
     return NextResponse.json({ error: "User not found" }, { status: 404 })
   }
+
+  logServerAudit({
+    actor: session?.user?.name ?? session?.user?.email ?? "Admin",
+    actorEmail: session?.user?.email ?? "",
+    action: "user_deleted",
+    targetId: id,
+    targetTitle: userToDelete?.name ?? id,
+    details: `User deleted: ${userToDelete?.name ?? id} <${userToDelete?.email ?? ""}>`,
+    category: "user",
+  })
 
   return NextResponse.json({ success: true })
 }
