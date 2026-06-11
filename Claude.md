@@ -627,9 +627,32 @@ This document tracks the phased development of the Admin Request Platform, movin
   - [x] `arp_audit_log` registered — backup/restore/clear now includes audit events.
   - [x] `arp_requests_server_migration_v1` and `arp_company_data_server_migration_v1` registered as system markers so Clear All wipes them.
 
+## Phase 6a: Recycle Bin, Session Tracking & Audit Completeness (Completed — 11 Jun 2026)
+- [x] **Deleted Requests recycle bin** (`Admin → Database → Deleted Requests`):
+  - [x] `src/lib/deletedRequestStore.ts` — server-side `data/deleted-requests.json`, keeps last 200 full snapshots with `deletedAt` + `deletedBy`.
+  - [x] `DELETE /api/requests` single-id path saves full snapshot before removing.
+  - [x] `engineService.deleteRequestPermanently()` also fires `POST /api/requests/deleted` immediately for belt-and-suspenders coverage.
+  - [x] `POST /api/requests/restore` — restores a deleted request back into `requestStore`, removes from bin.
+  - [x] `DELETE /api/requests/deleted` — purge one or all from bin.
+  - [x] Database page card: table with Request ID, Title, Module badge, Status at deletion, Deleted At, Deleted By. Per-row Restore (green) + Purge (red). "Purge All" with type-CLEAR confirm.
+- [x] **Online session indicator** (`Admin → Users`):
+  - [x] `src/lib/sessionStore.ts` — server-side `data/sessions.json`, tracks `lastSeen` per user; prunes records > 7 days.
+  - [x] `POST /api/session/heartbeat` — any signed-in user pings every 60s; `GET` returns online list (admin-only).
+  - [x] `src/hooks/useHeartbeat.ts` — pings every 60s while authenticated; mounted in Shell.
+  - [x] Users page: new "Online Now" stat card (pulsing green dot) + "Offline" stat card replacing "Admins". Session column: pulsing green "Online" or gray "Offline" badge per row.
+- [x] **Server-side Audit Log** (`src/lib/serverAuditLog.ts` → `data/audit-log.json`):
+  - [x] `GET /api/admin/audit-log` — admin-gated endpoint; Audit Trail page fetches and merges entries.
+  - [x] **User events logged**: `user_created` (name, email, role), `user_updated` (field-level diff), `user_role_changed` (before → after), `user_deleted`, `user_password_reset` (admin vs self-change).
+  - [x] **Role events logged**: `role_created`, `role_updated` (permission diff: +N added / −N removed), `role_deleted`.
+  - [x] **Company Data events logged**: `company_data_updated` — per-section diff showing Added/Removed items for Suppliers, Cost Centers, Managers, Carriers, Departments, Sectors.
+  - [x] Audit Trail page User + Role filter tabs now show real data from these server-side events.
+- [x] **Attachment upload zones** — removed misleading "drag and drop" hint (drag events were never wired); all 7 forms now show "Click to browse files".
+- [x] **CC Notifications field** — clear two-column layout: "Portal Users" (left, existing accounts) + "External Recipients" (right, free-type email). Empty state hints to use external field. Footer note updated.
+- [x] **Users page "Joined" column** — now shows full timestamp (`fmtDateTime`) instead of date only.
+
 ## Phase 6: Advanced Functionality (Pending)
 - [ ] **Email Notifications:** SMTP ports 465/587 may be blocked by corporate firewall. Use Admin → Notifications to configure Gmail App Password or switch to SendGrid/Brevo (HTTP API, not blocked).
-- [ ] **Audit Trail Enhancement:** Currently reads from localStorage + server requests. Future: persist audit log to server-side JSON or PostgreSQL for full cross-session history.
+- [ ] **Audit Trail Enhancement:** Server-side audit log now covers user/role/company-data changes. Future: extend to cover all request status changes server-side for cross-browser completeness.
 - [ ] **Database Backup:** Currently localStorage + data/*.json. Future: server-side PostgreSQL dump endpoint.
 
 ## Phase 6: Optimization & Scaling
