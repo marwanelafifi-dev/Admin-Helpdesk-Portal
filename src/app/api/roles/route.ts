@@ -3,6 +3,7 @@ import { z } from "zod"
 import { auth } from "@/auth"
 import { canManageRoles } from "@/lib/access"
 import { readRoles, findRoleByName, createRole } from "@/lib/rolesStore"
+import { logServerAudit } from "@/lib/serverAuditLog"
 
 const createRoleSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(50),
@@ -38,6 +39,16 @@ export async function POST(request: Request) {
     name: parsed.data.name,
     description: parsed.data.description || null,
     permissions: parsed.data.permissions,
+  })
+
+  logServerAudit({
+    actor: session?.user?.name ?? session?.user?.email ?? "Admin",
+    actorEmail: session?.user?.email ?? "",
+    action: "role_created",
+    targetId: role.id,
+    targetTitle: role.name,
+    details: `New role created: "${role.name}" with ${role.permissions.length} permissions`,
+    category: "role",
   })
 
   return NextResponse.json({ role }, { status: 201 })

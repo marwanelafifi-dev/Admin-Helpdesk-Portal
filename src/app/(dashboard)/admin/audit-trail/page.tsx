@@ -208,7 +208,7 @@ async function buildAuditLog(): Promise<AuditEntry[]> {
     })
   } catch {}
 
-  // --- Audit Events (deletions, edits, errors) ---
+  // --- Client-side Audit Events (deletions, edits from localStorage) ---
   try {
     const { getAuditEvents } = await import("@/lib/auditLog")
     const auditEvents = getAuditEvents()
@@ -229,6 +229,41 @@ async function buildAuditLog(): Promise<AuditEntry[]> {
         category: "request",
       })
     })
+  } catch {}
+
+  // --- Server-side Audit Log (user/role changes from API routes) ---
+  try {
+    const res = await fetch("/api/admin/audit-log", { cache: "no-store" })
+    if (res.ok) {
+      const json = await res.json()
+      const serverEvents: any[] = Array.isArray(json?.data) ? json.data : []
+      serverEvents.forEach((ev) => {
+        const actionLabel: Record<string, string> = {
+          user_created:        "User created",
+          user_updated:        "User updated",
+          user_deleted:        "User deleted",
+          user_role_changed:   "Role changed",
+          user_password_reset: "Password reset",
+          role_created:        "Role created",
+          role_updated:        "Role updated",
+          role_deleted:        "Role deleted",
+          request_deleted:     "Request deleted",
+          request_edited:      "Request edited",
+        }
+        entries.push({
+          id: ev.id,
+          timestamp: ev.timestamp,
+          actor: resolveActor(ev.actor, userMap),
+          actorEmail: ev.actorEmail ?? "",
+          action: actionLabel[ev.action] ?? ev.action,
+          target: ev.targetTitle,
+          targetId: ev.targetId,
+          module: ev.category === "role" ? "roles" : ev.category === "user" ? "users" : ev.module ?? "",
+          details: ev.details,
+          category: ev.category as AuditEntry["category"],
+        })
+      })
+    }
   } catch {}
 
   // Sort newest first
