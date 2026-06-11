@@ -13,7 +13,7 @@
 
 import type { LucideIcon } from "lucide-react"
 import {
-  Bell, MessageSquare, ListTodo, Building2, Shield, FileText, Package,
+  Bell, MessageSquare, ListTodo, Building2, Shield, FileText, Package, ClipboardList,
 } from "lucide-react"
 
 export interface StoreDefinition {
@@ -119,6 +119,14 @@ export const STORE_REGISTRY: StoreDefinition[] = [
     icon: FileText, color: "text-gray-600", bg: "bg-gray-50", border: "border-gray-200",
   },
 
+  // ── Audit log ──────────────────────────────────────────────────────────────
+  {
+    key: "arp_audit_log",
+    label: "Audit Log",
+    description: "Locally-tracked events: request deletions, edits, and submission errors (last 500)",
+    icon: ClipboardList, color: "text-violet-600", bg: "bg-violet-50", border: "border-violet-200",
+  },
+
   // ── System markers (hidden from UI but cleared on Clear All) ──────────────
   {
     key: "arp_prod_wipe_v2",
@@ -138,6 +146,20 @@ export const STORE_REGISTRY: StoreDefinition[] = [
     key: "arp_mock_version",
     label: "Mock Data Version",
     description: "Version marker — mock data seed",
+    icon: Shield, color: "text-gray-400", bg: "bg-gray-50", border: "border-gray-200",
+    system: true,
+  },
+  {
+    key: "arp_requests_server_migration_v1",
+    label: "Requests Migration Marker",
+    description: "One-time migration flag — local requests backfilled to server",
+    icon: Shield, color: "text-gray-400", bg: "bg-gray-50", border: "border-gray-200",
+    system: true,
+  },
+  {
+    key: "arp_company_data_server_migration_v1",
+    label: "Company Data Migration Marker",
+    description: "One-time migration flag — local company data backfilled to server",
     icon: Shield, color: "text-gray-400", bg: "bg-gray-50", border: "border-gray-200",
     system: true,
   },

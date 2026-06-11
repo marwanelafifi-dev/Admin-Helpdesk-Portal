@@ -614,6 +614,19 @@ This document tracks the phased development of the Admin Request Platform, movin
   - [x] `src/lib/auditLog.ts` — new localStorage audit event store (`arp_audit_log`), keeps last 500 events, never throws.
   - [x] Timestamps use `fmtDateTime()` format.
 
+## Phase 5z: Permissions, Purchase Total & Registry (Completed — 11 Jun 2026)
+- [x] **Missing `page:event-new` and `page:travel-new` permissions added:**
+  - [x] `pageRegistry.ts` — two new entries auto-wire middleware + Admin → Roles dialog UI.
+  - [x] `access.ts` — added to Permission union + `permissionForPath()`.
+  - [x] `roles.json` — granted to Full Access and Administration Team.
+- [x] **Purchase form — live Total Estimated Price:**
+  - [x] Watches `quantity × estimatedPrice` in real time; green box within budget, red + warning when > 3,000 EGP.
+  - [x] "Estimated Price" label renamed → "Unit Price"; hard 3,000 EGP cap removed from unit field.
+  - [x] Purchase list page "Estimated Price" column → "Total Price" (qty × unit price); sort + expanded row updated.
+- [x] **Data Store Registry updated** (`src/lib/dataStoreRegistry.ts`):
+  - [x] `arp_audit_log` registered — backup/restore/clear now includes audit events.
+  - [x] `arp_requests_server_migration_v1` and `arp_company_data_server_migration_v1` registered as system markers so Clear All wipes them.
+
 ## Phase 6: Advanced Functionality (Pending)
 - [ ] **Email Notifications:** SMTP ports 465/587 may be blocked by corporate firewall. Use Admin → Notifications to configure Gmail App Password or switch to SendGrid/Brevo (HTTP API, not blocked).
 - [ ] **Audit Trail Enhancement:** Currently reads from localStorage + server requests. Future: persist audit log to server-side JSON or PostgreSQL for full cross-session history.
