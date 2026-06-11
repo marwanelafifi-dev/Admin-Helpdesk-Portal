@@ -86,6 +86,7 @@ export function MaintenanceForm({ onCancel, editingRequest, isEditing }: { onCan
   const handleCancel = onCancel ?? (() => router.push("/maintenance"))
 
   const onSubmit = async (data: MaintenanceForm) => {
+    let redirectTo: string | null = null
     try {
       if (isEditing && editingRequest) {
         // Update existing request
@@ -114,10 +115,13 @@ export function MaintenanceForm({ onCancel, editingRequest, isEditing }: { onCan
           ccEmails: data.ccEmails,
         })
       }
-      router.push("/maintenance")
-      router.refresh()
+      redirectTo = "/maintenance"
     } catch (error) {
       console.error(isEditing ? "Failed to update request:" : "Failed to create request:", error)
+    }
+    if (redirectTo) {
+      router.push(redirectTo)
+      router.refresh()
     }
   }
 

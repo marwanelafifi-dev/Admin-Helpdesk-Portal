@@ -277,6 +277,7 @@ export function ShippingForm({ onCancel, editingRequest, isEditing, direction = 
     })()
     data.ccEmails = ccEmailsWithManager
 
+    let redirectTo: string | null = null
     try {
       // Resolve attachments to data URLs BEFORE building the payload so the
       // stored object is fully serializable and survives across users/tabs.
@@ -302,7 +303,7 @@ export function ShippingForm({ onCancel, editingRequest, isEditing, direction = 
           requesterName: editingRequest.requesterName,
           requesterEmail: editingRequest.requesterEmail,
         })
-        router.push(`/requests/${editingRequest.id}`)
+        redirectTo = `/requests/${editingRequest.id}`
       } else {
         const created = submitRequest("shipping", payload, {
           title: data.title,
@@ -320,15 +321,22 @@ export function ShippingForm({ onCancel, editingRequest, isEditing, direction = 
           ccEmails: data.ccEmails,
           managerEmail: managerEmail,
         })
-        router.push(`/requests/${created.id}`)
+        redirectTo = `/requests/${created.id}`
       }
-      router.refresh()
     } catch (error) {
+      const msg = error instanceof Error ? `${error.name}: ${error.message}` : String(error)
       console.error(isEditing ? "Failed to update request:" : "Failed to create request:", error)
       setError("title", {
         type: "manual",
-        message: isEditing ? "Failed to update request. Please try again." : "Failed to create request. Please try again.",
+        message: `Failed to create request: ${msg}`,
       })
+    }
+
+    // Navigate outside the try/catch — router.push() in Next.js 15 can throw
+    // a navigation signal internally that would otherwise be swallowed as an error.
+    if (redirectTo) {
+      router.push(redirectTo)
+      router.refresh()
     }
   }
 

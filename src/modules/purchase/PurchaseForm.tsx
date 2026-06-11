@@ -110,6 +110,7 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
       }
     }
 
+    let redirectTo: string | null = null
     try {
       if (isEditing && editingRequest) {
         // Update existing request
@@ -139,10 +140,13 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
           managerEmail: managerEmail,
         })
       }
-      router.push("/purchase")
-      router.refresh()
+      redirectTo = "/purchase"
     } catch (error) {
       console.error(isEditing ? "Failed to update request:" : "Failed to create request:", error)
+    }
+    if (redirectTo) {
+      router.push(redirectTo)
+      router.refresh()
     }
   }
 
