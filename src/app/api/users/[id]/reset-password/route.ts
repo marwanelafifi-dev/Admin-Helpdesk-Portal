@@ -64,7 +64,7 @@ export async function POST(
       actor: session.user.name ?? session.user.email ?? "Unknown",
       actorEmail: session.user.email ?? "",
       action: "user_password_reset",
-      targetId: userId,
+      targetId: user.email,
       targetTitle: user.name,
       details: isAdminReset
         ? `Admin reset password for ${user.name} <${user.email}>`
