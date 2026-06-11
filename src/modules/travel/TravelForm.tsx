@@ -72,6 +72,7 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
   const handleCancel = onCancel ?? (() => router.push("/travel"))
 
   const onSubmit = async (data: TravelForm) => {
+    let redirectTo: string | null = null
     try {
       const attachments = await filesToAttachments(uploadedFiles, "travel")
       const newReq = submitRequest("travel", { ...data, attachments } as any, {
@@ -89,10 +90,13 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
         requesterEmail: newReq.requesterEmail,
         ccEmails: data.ccEmails,
       })
-      router.push("/travel")
-      router.refresh()
+      redirectTo = "/travel"
     } catch (error) {
       console.error("Failed to create request:", error)
+    }
+    if (redirectTo) {
+      router.push(redirectTo)
+      router.refresh()
     }
   }
 

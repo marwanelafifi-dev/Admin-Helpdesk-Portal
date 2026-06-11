@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Search, Plus, CalendarDays, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
 import { Card, CardHeader } from "@/components/ui/card"
@@ -63,6 +64,7 @@ function formatDate(iso: string) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function EventPage() {
+  const router = useRouter()
   const { data: session } = useSession()
   const [requests, setRequests]           = useState<EngineRequest[]>([])
   const [search, setSearch]               = useState("")
@@ -210,7 +212,7 @@ export default function EventPage() {
         {(newRequestsCount > 0 || newTasksCount > 0) && (
           <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
         )}
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white ml-4" disabled>
+        <Button className="bg-blue-600 hover:bg-blue-700 text-white ml-4" onClick={() => router.push("/event/new")}>
           <Plus className="h-4 w-4 mr-2" />
           New Event Request
         </Button>
@@ -420,13 +422,6 @@ export default function EventPage() {
               )}
             </tbody>
           </table>
-
-          {/* Coming soon message */}
-          <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground border-t border-gray-100">
-            <CalendarDays className="h-10 w-10 mb-3 text-slate-300" />
-            <p className="font-medium text-sm">Event module coming soon</p>
-            <p className="text-xs mt-1">Event planning, venue booking, and budget tracking will appear here</p>
-          </div>
 
           {filtered.length > 0 && (
             <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-[11px] text-gray-400 text-right">

@@ -107,6 +107,7 @@ function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCance
   }, [editingRequest, isEditing, reset])
 
   const onSubmit = async (data: OnboardingForm) => {
+    let redirectTo: string | null = null
     try {
       if (isEditing && editingRequest) {
         updateRequest(editingRequest.id, data, {
@@ -134,10 +135,13 @@ function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCance
           managerEmail: data.directManager ? getManagerEmail(data.directManager) : undefined,
         })
       }
-      router.push("/hr")
-      router.refresh()
+      redirectTo = "/hr"
     } catch (error) {
       console.error(isEditing ? "Failed to update request:" : "Failed to create request:", error)
+    }
+    if (redirectTo) {
+      router.push(redirectTo)
+      router.refresh()
     }
   }
 
@@ -456,6 +460,7 @@ function OffboardingFormFields({ onCancel, editingRequest, isEditing }: { onCanc
   }, [editingRequest, isEditing, reset])
 
   const onSubmit = async (data: OffboardingForm) => {
+    let redirectTo: string | null = null
     try {
       if (isEditing && editingRequest) {
         updateRequest(editingRequest.id, data, {
@@ -483,10 +488,13 @@ function OffboardingFormFields({ onCancel, editingRequest, isEditing }: { onCanc
           managerEmail: data.directManager ? getManagerEmail(data.directManager) : undefined,
         })
       }
-      router.push("/hr")
-      router.refresh()
+      redirectTo = "/hr"
     } catch (error) {
       console.error(isEditing ? "Failed to update request:" : "Failed to create request:", error)
+    }
+    if (redirectTo) {
+      router.push(redirectTo)
+      router.refresh()
     }
   }
 
