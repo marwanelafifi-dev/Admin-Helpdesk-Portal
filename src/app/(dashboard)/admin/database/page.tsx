@@ -5,7 +5,7 @@ import {
   Download, Upload, CheckCircle2, AlertTriangle, Clock, Shield, Trash2,
   Package, Wrench, ShoppingCart, CalendarDays, Plane, UserCog, ChevronRight, Inbox,
   Power, LogOut, RefreshCw, Save, CalendarClock, FolderOpen, UsersRound,
-  MessageSquare, Bell, Building2, FileText, Settings, Mail, Database,
+  MessageSquare, Bell, Building2, FileText, Settings, Mail, Database, RotateCcw,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,8 @@ import {
   isOwnedKey,
   STORE_BY_KEY,
 } from "@/lib/dataStoreRegistry"
+import { fmtDateTime } from "@/lib/utils"
+import type { DeletedRequest } from "@/lib/deletedRequestStore"
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -244,6 +246,15 @@ export default function DatabasePage() {
   const [runNowStatus, setRunNowStatus]           = useState<Status>({ type: "idle", message: "" })
   const [runningNow, setRunningNow]               = useState(false)
 
+  // Pull deleted requests on mount.
+  useEffect(() => {
+    void fetch("/api/requests/deleted").then(async (res) => {
+      if (!res.ok) return
+      const json = await res.json()
+      if (Array.isArray(json.data)) setDeletedRequests(json.data)
+    }).catch(() => {})
+  }, [])
+
   // Pull current maintenance flag on mount so the toggle reflects reality.
   useEffect(() => {
     void fetch("/api/admin/maintenance").then(async (res) => {
@@ -371,7 +382,60 @@ export default function DatabasePage() {
   const [confirmServerStore, setConfirmServerStore] = useState<string | null>(null)
   const [serverStoreStatus, setServerStoreStatus] = useState<Status>({ type: "idle", message: "" })
 
+  // ── Deleted Requests (Recycle Bin) state ──────────────────────────────────
+  const [deletedRequests, setDeletedRequests] = useState<DeletedRequest[]>([])
+  const [deletedStatus, setDeletedStatus] = useState<Status>({ type: "idle", message: "" })
+  const [showPurgeAllConfirm, setShowPurgeAllConfirm] = useState(false)
+  const [purgeAllConfirmText, setPurgeAllConfirmText] = useState("")
+  const [confirmPurgeId, setConfirmPurgeId] = useState<string | null>(null)
+
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // ── Recycle Bin: Restore ──────────────────────────────────────────────────
+  async function handleRestore(id: string) {
+    setDeletedStatus({ type: "idle", message: "" })
+    try {
+      const res = await fetch("/api/requests/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      setDeletedRequests((prev) => prev.filter((d) => d.request.id !== id))
+      setDeletedStatus({ type: "success", message: `Request ${id} has been restored and is live again.` })
+    } catch (e: any) {
+      setDeletedStatus({ type: "error", message: `Restore failed: ${e?.message ?? "Unknown error"}` })
+    }
+  }
+
+  // ── Recycle Bin: Purge one ────────────────────────────────────────────────
+  async function handlePurgeOne(id: string) {
+    setDeletedStatus({ type: "idle", message: "" })
+    setConfirmPurgeId(null)
+    try {
+      const res = await fetch(`/api/requests/deleted?id=${encodeURIComponent(id)}`, { method: "DELETE" })
+      if (!res.ok) throw new Error(await res.text())
+      setDeletedRequests((prev) => prev.filter((d) => d.request.id !== id))
+      setDeletedStatus({ type: "success", message: `Request ${id} permanently purged from the recycle bin.` })
+    } catch (e: any) {
+      setDeletedStatus({ type: "error", message: `Purge failed: ${e?.message ?? "Unknown error"}` })
+    }
+  }
+
+  // ── Recycle Bin: Purge all ────────────────────────────────────────────────
+  async function handlePurgeAll() {
+    setDeletedStatus({ type: "idle", message: "" })
+    setShowPurgeAllConfirm(false)
+    setPurgeAllConfirmText("")
+    try {
+      const res = await fetch("/api/requests/deleted", { method: "DELETE" })
+      if (!res.ok) throw new Error(await res.text())
+      setDeletedRequests([])
+      setDeletedStatus({ type: "success", message: "Recycle bin emptied — all deleted requests permanently purged." })
+    } catch (e: any) {
+      setDeletedStatus({ type: "error", message: `Purge all failed: ${e?.message ?? "Unknown error"}` })
+    }
+  }
 
   // ── Backup ────────────────────────────────────────────────────────────────
   async function handleBackup() {
@@ -676,6 +740,143 @@ export default function DatabasePage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Deleted Requests (Recycle Bin) ── */}
+      <Card className="border border-green-200 shadow-sm">
+        <CardHeader className="border-b bg-green-50 rounded-t-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-green-100 rounded-lg p-2"><RotateCcw className="h-5 w-5 text-green-700" /></div>
+              <div>
+                <CardTitle className="text-base font-semibold text-green-900">Deleted Requests</CardTitle>
+                <p className="text-xs text-green-600 mt-0.5">Restore accidentally deleted requests or purge them permanently — up to 200 entries kept</p>
+              </div>
+            </div>
+            {deletedRequests.length > 0 && (
+              !showPurgeAllConfirm ? (
+                <Button
+                  onClick={() => { setDeletedStatus({ type: "idle", message: "" }); setPurgeAllConfirmText(""); setShowPurgeAllConfirm(true) }}
+                  className="bg-red-600 hover:bg-red-700 text-white text-xs"
+                  size="sm"
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1.5" />Purge All ({deletedRequests.length})
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Button onClick={() => { setShowPurgeAllConfirm(false); setPurgeAllConfirmText("") }} variant="outline" size="sm">Cancel</Button>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={purgeAllConfirmText}
+                      onChange={(e) => setPurgeAllConfirmText(e.target.value)}
+                      placeholder="Type CLEAR"
+                      className="w-28 px-2 py-1 text-xs font-mono text-center rounded-md border-2 border-red-300 focus:border-red-500 focus:outline-none bg-white"
+                    />
+                    <Button
+                      onClick={handlePurgeAll}
+                      disabled={purgeAllConfirmText.trim() !== "CLEAR"}
+                      className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                      size="sm"
+                    >
+                      Purge All
+                    </Button>
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="p-6 space-y-4">
+
+          {deletedRequests.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 gap-3 text-gray-400">
+              <CheckCircle2 className="h-10 w-10 text-green-300" />
+              <p className="text-sm font-medium">No deleted requests</p>
+              <p className="text-xs text-gray-400">Requests you delete will appear here for recovery</p>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-gray-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-800 text-white">
+                  <tr>
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider">Request ID</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider">Title</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider">Module</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider">Status at Deletion</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider">Deleted At</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider">Deleted By</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider bg-slate-800">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {deletedRequests.map((entry, idx) => {
+                    const mod = REQUEST_MODULES.find((m) => m.id === entry.request.module)
+                    const isPurgingThis = confirmPurgeId === entry.request.id
+                    return (
+                      <tr key={entry.request.id} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50/60"}>
+                        <td className="px-4 py-3 font-mono text-xs text-gray-600 whitespace-nowrap">{entry.request.id}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-800 max-w-[200px] truncate" title={entry.request.title}>
+                          {entry.request.title}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {mod ? (
+                            <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${mod.bg} ${mod.color} ${mod.border}`}>
+                              <mod.icon className="h-3 w-3" />{mod.label}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">{entry.request.module}</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="text-xs text-gray-600 capitalize">{entry.request.status.replace(/_/g, " ")}</span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{fmtDateTime(entry.deletedAt)}</td>
+                        <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{entry.deletedBy}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {!isPurgingThis ? (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleRestore(entry.request.id)}
+                                className="text-xs font-medium bg-green-600 hover:bg-green-700 text-white rounded-lg px-2.5 py-1.5 transition-colors"
+                              >
+                                Restore
+                              </button>
+                              <button
+                                onClick={() => { setConfirmPurgeId(entry.request.id); setDeletedStatus({ type: "idle", message: "" }) }}
+                                className="text-xs font-medium border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-400 rounded-lg px-2.5 py-1.5 transition-colors"
+                              >
+                                Purge
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-red-700 font-semibold">Permanently delete?</span>
+                              <button
+                                onClick={() => setConfirmPurgeId(null)}
+                                className="text-xs border border-gray-300 rounded-lg px-2.5 py-1.5 bg-white hover:bg-gray-50 font-medium text-gray-600 transition-colors"
+                              >
+                                No
+                              </button>
+                              <button
+                                onClick={() => handlePurgeOne(entry.request.id)}
+                                className="text-xs bg-red-600 hover:bg-red-700 text-white rounded-lg px-2.5 py-1.5 font-medium transition-colors"
+                              >
+                                Yes, Purge
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <StatusAlert status={deletedStatus} />
+        </CardContent>
+      </Card>
 
       {/* ── Clear Data ── */}
       <Card className="border border-red-200 shadow-sm">

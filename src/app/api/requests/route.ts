@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { requestStore } from "@/lib/requestStore"
+import { deletedRequestStore } from "@/lib/deletedRequestStore"
 import { getDefaultAssignee } from "@/lib/userStore"
 import type { EngineRequest } from "@/services/engineService"
 
@@ -108,7 +109,15 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ success: true, cleared: "all" })
   }
 
-  // Single-id permanent delete.
+  // Single-id permanent delete — save a snapshot to the recycle bin first
+  // so the admin can restore it if deleted by mistake.
+  const allRequests = requestStore.getAll()
+  const toDelete = allRequests.find((r) => r.id === id)
+  if (toDelete) {
+    const actor = session.user.name ?? session.user.email ?? "Admin"
+    deletedRequestStore.save(toDelete, actor)
+  }
+
   const removed = requestStore.remove(id)
   return NextResponse.json({ success: removed })
 }
