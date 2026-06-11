@@ -239,16 +239,17 @@ async function buildAuditLog(): Promise<AuditEntry[]> {
       const serverEvents: any[] = Array.isArray(json?.data) ? json.data : []
       serverEvents.forEach((ev) => {
         const actionLabel: Record<string, string> = {
-          user_created:        "User created",
-          user_updated:        "User updated",
-          user_deleted:        "User deleted",
-          user_role_changed:   "Role changed",
-          user_password_reset: "Password reset",
-          role_created:        "Role created",
-          role_updated:        "Role updated",
-          role_deleted:        "Role deleted",
-          request_deleted:     "Request deleted",
-          request_edited:      "Request edited",
+          user_created:          "User created",
+          user_updated:          "User updated",
+          user_deleted:          "User deleted",
+          user_role_changed:     "Role changed",
+          user_password_reset:   "Password reset",
+          role_created:          "Role created",
+          role_updated:          "Role updated",
+          role_deleted:          "Role deleted",
+          company_data_updated:  "Company Data updated",
+          request_deleted:       "Request deleted",
+          request_edited:        "Request edited",
         }
         entries.push({
           id: ev.id,

@@ -21,6 +21,7 @@ export type ServerAuditAction =
   | "role_created"
   | "role_updated"
   | "role_deleted"
+  | "company_data_updated"
   | "request_deleted"
   | "request_edited"
 
