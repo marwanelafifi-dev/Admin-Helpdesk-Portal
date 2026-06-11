@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
 import { getList } from "@/lib/companyDataStore"
-import { fmtDate } from "@/lib/utils"
+import { fmtDateTime } from "@/lib/utils"
 import {
   Select,
   SelectContent,
@@ -542,7 +542,7 @@ export default function AdminUsersPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {fmtDate(user.createdAt)}
+                        {fmtDateTime(user.createdAt)}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
