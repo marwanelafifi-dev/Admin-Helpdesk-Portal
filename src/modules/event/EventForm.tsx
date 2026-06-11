@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react"
 import { useForm, Controller, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { EventPayloadSchema } from "./event.schema"
+import { EventPayloadSchema, FLOOR_NUMBERS } from "./event.schema"
 import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
 import { createNewRequestNotifications } from "@/lib/notificationStore"
 import { filesToAttachments } from "@/lib/attachments"
@@ -23,15 +23,6 @@ import { getList } from "@/lib/companyDataStore"
 
 const BRAND = "#ea580c" // orange-600
 
-const FLOOR_OPTIONS = [
-  "Ground Floor", "1st Floor", "2nd Floor", "3rd Floor", "4th Floor",
-  "5th Floor", "6th Floor", "7th Floor", "8th Floor", "9th Floor", "10th Floor",
-]
-
-const AREA_OPTIONS = [
-  "Conference Room A", "Conference Room B", "Meeting Room 1", "Meeting Room 2",
-  "Open Space", "Cafeteria", "Training Room", "Board Room",
-]
 
 type EventForm = z.infer<typeof EventPayloadSchema>
 
@@ -83,14 +74,12 @@ export function EventForm({ onCancel, editingRequest, isEditing }: { onCancel?: 
         description: payload.description || "",
         eventLocationType: payload.eventLocationType || undefined,
         floorNumber: payload.floorNumber || "",
-        area: payload.area || "",
+        roomArea: payload.roomArea || "",
         addressOrUrl: payload.addressOrUrl || "",
         eventDate: payload.eventDate || "",
         eventTime: payload.eventTime || "",
         expectedAttendees: payload.expectedAttendees || 1,
         department: payload.department || "",
-        organizer: payload.organizer || "",
-        budget: payload.budget || 0,
         notes: payload.notes || "",
         ccEmails: payload.ccEmails || [],
       })
@@ -209,7 +198,7 @@ export function EventForm({ onCancel, editingRequest, isEditing }: { onCancel?: 
               <FieldError message={errors.eventLocationType?.message} />
             </div>
 
-            {/* Internal Event — Floor + Area */}
+            {/* Internal Event — Floor + Room/Area */}
             {eventLocationType === "internal" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                 <div className="space-y-1.5">
@@ -227,7 +216,7 @@ export function EventForm({ onCancel, editingRequest, isEditing }: { onCancel?: 
                         )}
                       >
                         <option value="">Select floor</option>
-                        {FLOOR_OPTIONS.map((f) => (
+                        {FLOOR_NUMBERS.map((f) => (
                           <option key={f} value={f}>{f}</option>
                         ))}
                       </select>
@@ -236,27 +225,14 @@ export function EventForm({ onCancel, editingRequest, isEditing }: { onCancel?: 
                   <FieldError message={errors.floorNumber?.message} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="area">Area <span className="text-red-500">*</span></Label>
-                  <Controller
-                    name="area"
-                    control={control}
-                    render={({ field }) => (
-                      <select
-                        {...field}
-                        id="area"
-                        className={cn(
-                          "w-full h-10 rounded-md border bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-                          errors.area ? "border-red-400" : "border-input"
-                        )}
-                      >
-                        <option value="">Select area</option>
-                        {AREA_OPTIONS.map((a) => (
-                          <option key={a} value={a}>{a}</option>
-                        ))}
-                      </select>
-                    )}
+                  <Label htmlFor="roomArea">Room/Area <span className="text-red-500">*</span></Label>
+                  <Input
+                    id="roomArea"
+                    placeholder="e.g. Conference Room A"
+                    {...register("roomArea")}
+                    className={cn(errors.roomArea && "border-red-400")}
                   />
-                  <FieldError message={errors.area?.message} />
+                  <FieldError message={errors.roomArea?.message} />
                 </div>
               </div>
             )}
@@ -279,7 +255,7 @@ export function EventForm({ onCancel, editingRequest, isEditing }: { onCancel?: 
 
         {/* Card 3 — Event Details */}
         <Card>
-          <SectionHeader icon={MapPin} title="Event Details" subtitle="Date, attendees, department, and budget" />
+          <SectionHeader icon={MapPin} title="Event Details" subtitle="Date, attendees, and department" />
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -330,31 +306,6 @@ export function EventForm({ onCancel, editingRequest, isEditing }: { onCancel?: 
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="organizer">Organizer Name <span className="text-red-500">*</span></Label>
-                <Input
-                  id="organizer"
-                  placeholder="Primary contact for this event"
-                  {...register("organizer")}
-                  className={cn(errors.organizer && "border-red-400")}
-                />
-                <FieldError message={errors.organizer?.message} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="budget">Budget (EGP) <span className="text-red-500">*</span></Label>
-                <Input
-                  id="budget"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  {...register("budget", { valueAsNumber: true })}
-                  className={cn(errors.budget && "border-red-400")}
-                />
-                <FieldError message={errors.budget?.message} />
-              </div>
-            </div>
           </CardContent>
         </Card>
 
