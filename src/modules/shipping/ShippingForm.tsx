@@ -165,7 +165,7 @@ function FileUploadZone({
       <label className="flex flex-col items-center justify-center gap-2 w-full h-28 border-2 border-dashed rounded-lg cursor-pointer border-gray-200 bg-gray-50 hover:border-blue-300 hover:bg-blue-50/50">
         <input type="file" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
         <Upload className="h-6 w-6 text-gray-400" />
-        <p className="text-xs font-medium text-gray-600">Drop files here or browse</p>
+        <p className="text-xs font-medium text-gray-600">Click to browse files</p>
       </label>
       {categoryFiles.length > 0 && (
         <ul className="space-y-1.5">

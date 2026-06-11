@@ -165,7 +165,7 @@ export default function NewGeneralRequestPage() {
                 className="w-full px-6 py-8 border-2 border-dashed border-indigo-300 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all duration-200 flex flex-col items-center justify-center gap-2 group"
               >
                 <Upload className="h-6 w-6 text-indigo-600 group-hover:scale-110 transition-transform duration-200" />
-                <span className="text-sm font-medium text-gray-700">Click to upload or drag and drop</span>
+                <span className="text-sm font-medium text-gray-700">Click to browse files</span>
                 <span className="text-xs text-muted-foreground">Any supporting documents or files</span>
               </button>
 
