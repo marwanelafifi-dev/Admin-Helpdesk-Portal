@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { Shield, Search, Filter, Clock, User, FileText, ArrowRightLeft, MessageSquare, Trash2, Edit, Plus, Building2 } from "lucide-react"
+import { Shield, Search, Filter, Clock, User, FileText, ArrowRightLeft, MessageSquare, Trash2, Edit, Plus, Building2, Database } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -17,7 +17,7 @@ interface AuditEntry {
   targetId: string
   module: string
   details: string
-  category: "request" | "status" | "comment" | "assignment" | "user" | "role" | "company_data"
+  category: "request" | "status" | "comment" | "assignment" | "user" | "role" | "company_data" | "database"
 }
 
 const CATEGORY_COLORS: Record<AuditEntry["category"], string> = {
@@ -28,6 +28,7 @@ const CATEGORY_COLORS: Record<AuditEntry["category"], string> = {
   user:         "bg-green-100 text-green-700",
   role:         "bg-red-100 text-red-700",
   company_data: "bg-indigo-100 text-indigo-700",
+  database:     "bg-rose-100 text-rose-700",
 }
 
 const CATEGORY_ICONS: Record<AuditEntry["category"], React.ElementType> = {
@@ -38,6 +39,7 @@ const CATEGORY_ICONS: Record<AuditEntry["category"], React.ElementType> = {
   user:         User,
   role:         Shield,
   company_data: Building2,
+  database:     Database,
 }
 
 async function buildUserMap(): Promise<Record<string, string>> {
@@ -217,15 +219,20 @@ async function buildAuditLog(): Promise<AuditEntry[]> {
         actor: resolveActor(ev.actor, userMap),
         actorEmail: ev.actorEmail,
         action:
-          ev.action === "request_deleted"  ? "Request deleted"
-          : ev.action === "request_edited" ? "Request edited"
-          : ev.action === "request_assigned" ? "Assigned"
+          ev.action === "request_deleted"   ? "Request deleted"
+          : ev.action === "request_edited"  ? "Request edited"
+          : ev.action === "request_assigned"? "Assigned"
+          : ev.action === "database_backup" ? "Database backup"
+          : ev.action === "database_restore"? "Database restore"
+          : ev.action === "database_clear"  ? "Database cleared"
           : "Submission error",
         target: ev.targetTitle,
         targetId: ev.targetId,
         module: ev.module,
         details: ev.details,
-        category: ev.action === "request_assigned" ? "assignment" : "request",
+        category: ev.action === "request_assigned" ? "assignment"
+                : ev.action?.startsWith("database_") ? "database"
+                : "request",
       })
     })
   } catch {}
@@ -272,7 +279,7 @@ async function buildAuditLog(): Promise<AuditEntry[]> {
 
 function fmt(iso: string) { return fmtDateTime(iso) }
 
-const ALL_CATEGORIES: AuditEntry["category"][] = ["request", "status", "comment", "assignment", "user", "role", "company_data"]
+const ALL_CATEGORIES: AuditEntry["category"][] = ["request", "status", "comment", "assignment", "user", "role", "company_data", "database"]
 
 export default function AuditTrailPage() {
   const [entries, setEntries] = useState<AuditEntry[]>([])
@@ -303,7 +310,7 @@ export default function AuditTrailPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        {(["request","status","comment","assignment","company_data"] as const).map((cat) => {
+        {(["request","status","comment","assignment","database"] as const).map((cat) => {
           const Icon = CATEGORY_ICONS[cat]
           const count = entries.filter((e) => e.category === cat).length
           return (
@@ -314,7 +321,7 @@ export default function AuditTrailPage() {
                   <Icon className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 capitalize">{cat === "company_data" ? "Company Data" : cat === "assignment" ? "Assignments" : cat} events</p>
+                  <p className="text-xs text-gray-500 capitalize">{cat === "company_data" ? "Company Data" : cat === "assignment" ? "Assignments" : cat === "database" ? "Database" : cat} events</p>
                   <p className="text-xl font-bold text-gray-900">{count}</p>
                 </div>
               </CardContent>
@@ -343,7 +350,7 @@ export default function AuditTrailPage() {
               >All</button>
               {ALL_CATEGORIES.map((cat) => {
                 const Icon = CATEGORY_ICONS[cat]
-                const label = cat === "company_data" ? "Company Data" : cat === "assignment" ? "Assignments" : cat.charAt(0).toUpperCase() + cat.slice(1)
+                const label = cat === "company_data" ? "Company Data" : cat === "assignment" ? "Assignments" : cat === "database" ? "Database" : cat.charAt(0).toUpperCase() + cat.slice(1)
                 return (
                   <button key={cat}
                     onClick={() => setCategoryFilter(categoryFilter === cat ? "all" : cat)}
