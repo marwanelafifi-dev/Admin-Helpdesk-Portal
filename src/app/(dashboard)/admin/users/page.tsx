@@ -93,6 +93,7 @@ function getDefaultRoleValue(roles: RoleOption[]) {
 export default function AdminUsersPage() {
   const [search, setSearch] = useState("")
   const [users, setUsers] = useState<PlatformUser[]>([])
+  const [onlineIds, setOnlineIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState("")
   const [roles, setRoles] = useState<RoleOption[]>(fallbackRoles)
@@ -120,16 +121,28 @@ export default function AdminUsersPage() {
     setLoading(true)
     setLoadError("")
 
-    const response = await fetch("/api/users", { credentials: "include" })
+    const [usersRes, onlineRes] = await Promise.all([
+      fetch("/api/users", { credentials: "include" }),
+      fetch("/api/session/heartbeat", { credentials: "include" }),
+    ])
 
-    if (!response.ok) {
-      setLoadError(response.status === 403 ? "You do not have access to manage users." : "Users could not be loaded.")
+    if (!usersRes.ok) {
+      setLoadError(usersRes.status === 403 ? "You do not have access to manage users." : "Users could not be loaded.")
       setLoading(false)
       return
     }
 
-    const data = await response.json()
+    const data = await usersRes.json()
     setUsers(data.users ?? [])
+
+    if (onlineRes.ok) {
+      const onlineData = await onlineRes.json()
+      const ids = new Set<string>(
+        (onlineData.online ?? []).flatMap((s: { userId: string; email: string }) => [s.userId, s.email])
+      )
+      setOnlineIds(ids)
+    }
+
     setLoading(false)
   }
 
@@ -396,17 +409,26 @@ export default function AdminUsersPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         {[
           { label: "Total Users", value: users.length },
           { label: "Active", value: users.filter((u) => u.active).length },
           { label: "Inactive", value: users.filter((u) => !u.active).length },
           { label: "Admins", value: users.filter((u) => u.role.includes("admin")).length },
+          { label: "Online Now", value: onlineIds.size > 0 ? users.filter((u) => onlineIds.has(u.id) || onlineIds.has(u.email)).length : 0, online: true },
         ].map((s) => (
-          <Card key={s.label}>
+          <Card key={s.label} className={(s as any).online ? "border-emerald-200 bg-emerald-50/40" : ""}>
             <CardContent className="p-4">
-              <p className="text-sm text-muted-foreground">{s.label}</p>
-              <p className="text-2xl font-bold mt-0.5">{s.value}</p>
+              <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                {(s as any).online && (
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                  </span>
+                )}
+                {s.label}
+              </p>
+              <p className={`text-2xl font-bold mt-0.5 ${(s as any).online ? "text-emerald-600" : ""}`}>{s.value}</p>
             </CardContent>
           </Card>
         ))}
@@ -442,6 +464,7 @@ export default function AdminUsersPage() {
                   <TableHead>Role</TableHead>
                   <TableHead>Auth Type</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Session</TableHead>
                   <TableHead>Joined</TableHead>
                   <TableHead className="w-[60px]"></TableHead>
                 </TableRow>
@@ -498,6 +521,19 @@ export default function AdminUsersPage() {
                           />
                           {user.active ? "Active" : "Inactive"}
                         </span>
+                      </TableCell>
+                      <TableCell>
+                        {onlineIds.has(user.id) || onlineIds.has(user.email) ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                            </span>
+                            Online
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {fmtDate(user.createdAt)}
