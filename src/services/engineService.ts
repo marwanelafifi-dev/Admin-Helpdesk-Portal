@@ -588,6 +588,17 @@ export function deleteRequestPermanently(id: string): boolean {
       } catch {}
     }
   }
+  // Save a snapshot to the recycle bin before the server deletes it.
+  // Fire-and-forget — the server DELETE handler also saves the snapshot,
+  // but this client-side call ensures the snapshot exists even if the
+  // server DELETE races ahead.
+  if (req) {
+    fetch("/api/requests/deleted", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ request: req, deletedBy: "User" }),
+    }).catch(() => {})
+  }
   // Server delete + comment cascade in parallel.
   fetch(`/api/requests?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {})
   fetch(`/api/requests/comments?requestId=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {})
