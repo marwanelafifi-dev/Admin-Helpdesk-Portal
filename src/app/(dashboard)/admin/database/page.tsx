@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
+import { useSession } from "next-auth/react"
 import {
   Download, Upload, CheckCircle2, AlertTriangle, Clock, Shield, Trash2,
   Package, Wrench, ShoppingCart, CalendarDays, Plane, UserCog, ChevronRight, Inbox,
@@ -18,6 +19,7 @@ import {
 } from "@/lib/dataStoreRegistry"
 import { fmtDateTime } from "@/lib/utils"
 import type { DeletedRequest } from "@/lib/deletedRequestStore"
+import { logAuditEvent } from "@/lib/auditLog"
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -215,6 +217,10 @@ function StatusAlert({ status }: { status: Status }) {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DatabasePage() {
+  const { data: session } = useSession()
+  const actorName  = session?.user?.name  ?? session?.user?.email ?? "Admin"
+  const actorEmail = session?.user?.email ?? ""
+
   const [backupStatus, setBackupStatus]     = useState<Status>({ type: "idle", message: "" })
   const [restoreStatus, setRestoreStatus]   = useState<Status>({ type: "idle", message: "" })
   const [clearAllStatus, setClearAllStatus] = useState<Status>({ type: "idle", message: "" })
@@ -366,6 +372,7 @@ export default function DatabasePage() {
       setScheduleLastAt(new Date().toISOString())
       setScheduleLastFile(json.filename)
       if (Array.isArray(json.files)) setBackupFiles(json.files)
+      logAuditEvent({ actor: actorName, actorEmail, action: "database_backup", targetId: "", targetTitle: "Scheduled Backup (Run Now)", module: "database", details: `Server backup saved as ${json.filename} (${(json.sizeBytes / 1024).toFixed(1)} KB)` })
       setRunNowStatus({ type: "success", message: `Backup saved: ${json.filename} (${(json.sizeBytes / 1024).toFixed(1)} KB, ${json.serverFiles} server files)` })
     } catch (e: any) {
       setRunNowStatus({ type: "error", message: `Backup failed: ${e?.message}` })
@@ -451,6 +458,7 @@ export default function DatabasePage() {
       setLastBackupTime(new Date().toISOString())
       const localCount  = Object.keys(manifest.data ?? {}).length
       const serverCount = Object.keys(manifest.serverData ?? {}).length
+      logAuditEvent({ actor: actorName, actorEmail, action: "database_backup", targetId: "", targetTitle: "Database Backup", module: "database", details: `Downloaded ${filename} (${localCount} browser + ${serverCount} server stores)` })
       setBackupStatus({
         type: "success",
         message: `Backup downloaded — ${localCount} browser store${localCount !== 1 ? "s" : ""}` +
@@ -477,6 +485,7 @@ export default function DatabasePage() {
           throw new Error("Invalid backup file format")
         }
         const { restored, skipped } = await restoreBackup(manifest)
+        logAuditEvent({ actor: actorName, actorEmail, action: "database_restore", targetId: "", targetTitle: "Database Restore", module: "database", details: `Restored from backup dated ${fmt(manifest.createdAt)} — ${restored.length} stores restored${skipped.length ? `, ${skipped.length} skipped` : ""}` })
         setRestoreStatus({
           type: "success",
           message: `Restore complete — ${restored.length} item${restored.length !== 1 ? "s" : ""} restored from ${fmt(manifest.createdAt)}` +
@@ -515,6 +524,7 @@ export default function DatabasePage() {
       // fires cross-tab when localStorage changes — toggling this key does it).
       localStorage.setItem("arp_global_clear_broadcast", String(Date.now()))
     } catch {}
+    logAuditEvent({ actor: actorName, actorEmail, action: "database_clear", targetId: "", targetTitle: "Clear All Data", module: "database", details: `Wiped all data — ${cleared} browser stores + ${serverCleared} server files cleared` })
     setShowClearAllConfirm(false)
     setClearAllConfirmText("")
     setClearAllStatus({
@@ -545,6 +555,7 @@ export default function DatabasePage() {
     } catch {}
     const label = REQUEST_MODULES.find((m) => m.id === moduleId)?.label ?? moduleId
     const removed = Math.max(removedLocal, serverRemoved)
+    logAuditEvent({ actor: actorName, actorEmail, action: "database_clear", targetId: moduleId, targetTitle: `Clear Module: ${label}`, module: "database", details: `${removed} ${label} request${removed !== 1 ? "s" : ""} permanently deleted` })
     setConfirmModule(null)
     setModuleStatus({ type: "success", message: `${label} data cleared — ${removed} request${removed !== 1 ? "s" : ""} removed from the server and every browser.` })
   }
@@ -582,6 +593,7 @@ export default function DatabasePage() {
       localStorage.setItem("arp_global_clear_broadcast", String(Date.now()))
     } catch {}
     const label = STORE_BY_KEY[key]?.label ?? key
+    logAuditEvent({ actor: actorName, actorEmail, action: "database_clear", targetId: key, targetTitle: `Clear Store: ${label}`, module: "database", details: `"${label}" store cleared (browser + server)` })
     setConfirmStore(null)
     setStoreStatus({ type: "success", message: `${label} cleared on the server and in every browser.` })
   }
@@ -636,6 +648,7 @@ export default function DatabasePage() {
         window.dispatchEvent(new Event("arp:storage"))
         localStorage.setItem("arp_global_clear_broadcast", String(Date.now()))
       } catch {}
+      logAuditEvent({ actor: actorName, actorEmail, action: "database_clear", targetId: key, targetTitle: `Clear Server File: ${label}`, module: "database", details: `Server file "${label}" cleared` })
       setConfirmServerStore(null)
       setServerStoreStatus({ type: "success", message: `${label} has been reset on the server.` })
     } catch (e: any) {

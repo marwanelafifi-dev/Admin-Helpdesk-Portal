@@ -19,6 +19,7 @@ export interface AuditEvent {
   actor: string
   actorEmail: string
   action: "request_deleted" | "request_edited" | "request_assigned" | "submission_error"
+    | "database_backup" | "database_restore" | "database_clear"
   targetId: string
   targetTitle: string
   module: string
