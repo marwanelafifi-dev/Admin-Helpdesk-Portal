@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { Shield, Search, Filter, Clock, User, FileText, ArrowRightLeft, MessageSquare, Trash2, Edit, Plus } from "lucide-react"
+import { Shield, Search, Filter, Clock, User, FileText, ArrowRightLeft, MessageSquare, Trash2, Edit, Plus, Building2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -17,27 +17,29 @@ interface AuditEntry {
   targetId: string
   module: string
   details: string
-  category: "request" | "status" | "comment" | "user" | "role" | "task" | "auth"
+  category: "request" | "status" | "comment" | "user" | "role" | "task" | "auth" | "company_data"
 }
 
 const CATEGORY_COLORS: Record<AuditEntry["category"], string> = {
-  request: "bg-blue-100 text-blue-700",
-  status:  "bg-amber-100 text-amber-700",
-  comment: "bg-purple-100 text-purple-700",
-  user:    "bg-green-100 text-green-700",
-  role:    "bg-red-100 text-red-700",
-  task:    "bg-slate-100 text-slate-700",
-  auth:    "bg-emerald-100 text-emerald-700",
+  request:      "bg-blue-100 text-blue-700",
+  status:       "bg-amber-100 text-amber-700",
+  comment:      "bg-purple-100 text-purple-700",
+  user:         "bg-green-100 text-green-700",
+  role:         "bg-red-100 text-red-700",
+  task:         "bg-slate-100 text-slate-700",
+  auth:         "bg-emerald-100 text-emerald-700",
+  company_data: "bg-indigo-100 text-indigo-700",
 }
 
 const CATEGORY_ICONS: Record<AuditEntry["category"], React.ElementType> = {
-  request: FileText,
-  status:  ArrowRightLeft,
-  comment: MessageSquare,
-  user:    User,
-  role:    Shield,
-  task:    Edit,
-  auth:    Clock,
+  request:      FileText,
+  status:       ArrowRightLeft,
+  comment:      MessageSquare,
+  user:         User,
+  role:         Shield,
+  task:         Edit,
+  auth:         Clock,
+  company_data: Building2,
 }
 
 async function buildUserMap(): Promise<Record<string, string>> {
@@ -259,9 +261,9 @@ async function buildAuditLog(): Promise<AuditEntry[]> {
           action: actionLabel[ev.action] ?? ev.action,
           target: ev.targetTitle,
           targetId: ev.targetId,
-          module: ev.category === "role" ? "roles" : ev.category === "user" ? "users" : ev.module ?? "",
+          module: ev.category === "role" ? "roles" : ev.category === "user" ? "users" : ev.action === "company_data_updated" ? "company data" : ev.module ?? "",
           details: ev.details,
-          category: ev.category as AuditEntry["category"],
+          category: (ev.action === "company_data_updated" ? "company_data" : ev.category) as AuditEntry["category"],
         })
       })
     }
@@ -273,7 +275,7 @@ async function buildAuditLog(): Promise<AuditEntry[]> {
 
 function fmt(iso: string) { return fmtDateTime(iso) }
 
-const ALL_CATEGORIES: AuditEntry["category"][] = ["request", "status", "comment", "user", "role", "task", "auth"]
+const ALL_CATEGORIES: AuditEntry["category"][] = ["request", "status", "comment", "user", "role", "company_data", "task", "auth"]
 
 export default function AuditTrailPage() {
   const [entries, setEntries] = useState<AuditEntry[]>([])
@@ -303,8 +305,8 @@ export default function AuditTrailPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {(["request","status","comment","task"] as const).map((cat) => {
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {(["request","status","comment","company_data","task"] as const).map((cat) => {
           const Icon = CATEGORY_ICONS[cat]
           const count = entries.filter((e) => e.category === cat).length
           return (
@@ -315,7 +317,7 @@ export default function AuditTrailPage() {
                   <Icon className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500 capitalize">{cat} events</p>
+                  <p className="text-xs text-gray-500 capitalize">{cat === "company_data" ? "Company Data" : cat} events</p>
                   <p className="text-xl font-bold text-gray-900">{count}</p>
                 </div>
               </CardContent>
@@ -342,12 +344,19 @@ export default function AuditTrailPage() {
                 onClick={() => setCategoryFilter("all")}
                 className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${categoryFilter === "all" ? "bg-slate-800 text-white border-slate-800" : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"}`}
               >All</button>
-              {ALL_CATEGORIES.map((cat) => (
-                <button key={cat}
-                  onClick={() => setCategoryFilter(categoryFilter === cat ? "all" : cat)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium border capitalize transition-colors ${categoryFilter === cat ? "bg-slate-800 text-white border-slate-800" : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"}`}
-                >{cat}</button>
-              ))}
+              {ALL_CATEGORIES.map((cat) => {
+                const Icon = CATEGORY_ICONS[cat]
+                const label = cat === "company_data" ? "Company Data" : cat.charAt(0).toUpperCase() + cat.slice(1)
+                return (
+                  <button key={cat}
+                    onClick={() => setCategoryFilter(categoryFilter === cat ? "all" : cat)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-colors ${categoryFilter === cat ? "bg-slate-800 text-white border-slate-800" : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"}`}
+                  >
+                    <Icon className="h-3 w-3" />
+                    {label}
+                  </button>
+                )
+              })}
             </div>
           </div>
         </CardHeader>
