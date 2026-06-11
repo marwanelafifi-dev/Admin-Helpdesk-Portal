@@ -4,6 +4,7 @@ import { Sidebar } from "./Sidebar"
 import { TopBar } from "./TopBar"
 import { MobileNavProvider, useMobileNav } from "./MobileNavContext"
 import { useEngineSync } from "@/hooks/useEngineSync"
+import { useHeartbeat } from "@/hooks/useHeartbeat"
 
 /**
  * Dashboard shell: sidebar (drawer on mobile) + topbar + main content area.
@@ -22,6 +23,7 @@ function ShellInner({ children }: { children: React.ReactNode }) {
   // Pulls /api/requests on mount + every 30s + on focus so localStorage
   // stays in step with what other users have submitted.
   useEngineSync()
+  useHeartbeat()
 
   return (
     <div className="flex h-screen overflow-hidden bg-background relative" suppressHydrationWarning>
