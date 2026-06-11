@@ -54,7 +54,9 @@ export const PAGES: PageDefinition[] = [
   { id: "purchase",           label: "Purchase",             path: "/purchase",                  group: "Modules" },
   { id: "purchase-new",       label: "Purchase New",         path: "/purchase/new",              group: "Modules" },
   { id: "event",              label: "Event",                path: "/event",                     group: "Modules" },
+  { id: "event-new",          label: "Event New",            path: "/event/new",                 group: "Modules" },
   { id: "travel",             label: "Travel",               path: "/travel",                    group: "Modules" },
+  { id: "travel-new",         label: "Travel New",           path: "/travel/new",                group: "Modules" },
   { id: "general",            label: "General Request",      path: "/general",                   group: "Modules" },
   { id: "general-new",        label: "General Request New",  path: "/general/new",               group: "Modules" },
 
