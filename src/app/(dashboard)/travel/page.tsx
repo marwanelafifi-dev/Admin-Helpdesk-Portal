@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
-import { cn } from "@/lib/utils"
+import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { useExpandedRows } from "@/hooks/useExpandedRows"
@@ -56,9 +56,6 @@ const COLS: { key: SortKey; label: string; defaultW: number }[] = [
   { key: "updatedAt",     label: "Last Update Date",defaultW: 140 },
 ]
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
-}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -332,7 +329,7 @@ export default function TravelPage() {
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.title}</span>
                   </td>
                   <td className="py-3 px-3 overflow-hidden">
-                    <span className="text-sm font-medium text-gray-700 truncate block">{formatDate(req.createdAt)}</span>
+                    <span className="text-sm font-medium text-gray-700 truncate block">{fmtDate(req.createdAt)}</span>
                   </td>
                   <td className="py-3 px-3 overflow-hidden">
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.requesterName}</span>
@@ -345,7 +342,7 @@ export default function TravelPage() {
                   <td className="py-3 px-3">
                     <span className="text-sm font-medium text-gray-700">
                       {(req.payload as Record<string, unknown>).startDate
-                        ? formatDate(String((req.payload as Record<string, unknown>).startDate))
+                        ? fmtDate(String((req.payload as Record<string, unknown>).startDate))
                         : "—"}
                     </span>
                   </td>
@@ -361,7 +358,7 @@ export default function TravelPage() {
                     />
                   </td>
                   <td className="py-3 px-3">
-                    <span className="text-sm font-medium text-gray-700">{formatDate(req.updatedAt)}</span>
+                    <span className="text-sm font-medium text-gray-700">{fmtDateTime(req.updatedAt)}</span>
                   </td>
                   <td className="py-3 px-2 text-right">
                     <RequestActionsMenu
@@ -395,7 +392,7 @@ export default function TravelPage() {
                           </div>
                           <div>
                             <p className="font-semibold text-gray-700">Travel Date</p>
-                            <p className="text-gray-600">{(req.payload as Record<string, unknown>).startDate ? formatDate(String((req.payload as Record<string, unknown>).startDate)) : "—"}</p>
+                            <p className="text-gray-600">{(req.payload as Record<string, unknown>).startDate ? fmtDate(String((req.payload as Record<string, unknown>).startDate)) : "—"}</p>
                           </div>
                           <div>
                             <p className="font-semibold text-gray-700">Status</p>

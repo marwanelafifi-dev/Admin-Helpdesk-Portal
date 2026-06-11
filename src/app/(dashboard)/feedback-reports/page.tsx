@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { getRequests, initializeMockData } from "@/services/engineService"
 import type { FeedbackSurvey } from "@/services/feedbackService"
-import { cn } from "@/lib/utils"
+import { cn, fmtDate } from "@/lib/utils"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 
@@ -178,10 +178,6 @@ export default function FeedbackReportsPage() {
       moduleStats,
     }
   }, [allFeedback])
-
-  const formatDate = (iso: string) => {
-    return new Date(iso).toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" })
-  }
 
   const renderStars = (rating: number, size: "sm" | "md" = "sm") => {
     const sizeClass = size === "md" ? "h-5 w-5" : "h-4 w-4"
@@ -437,7 +433,7 @@ export default function FeedbackReportsPage() {
 
                   <div className="flex items-center justify-between text-xs text-gray-500">
                     <span>Submitted by <span className="font-medium text-gray-700">{feedback.requesterName}</span></span>
-                    <span>{formatDate(feedback.submittedAt)}</span>
+                    <span>{fmtDate(feedback.submittedAt)}</span>
                   </div>
                 </div>
               ))}

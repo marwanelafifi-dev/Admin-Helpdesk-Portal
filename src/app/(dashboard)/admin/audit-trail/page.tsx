@@ -5,6 +5,7 @@ import { Shield, Search, Filter, Clock, User, FileText, ArrowRightLeft, MessageS
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { fmtDateTime } from "@/lib/utils"
 
 interface AuditEntry {
   id: string
@@ -39,18 +40,33 @@ const CATEGORY_ICONS: Record<AuditEntry["category"], React.ElementType> = {
   auth:    Clock,
 }
 
-function buildUserMap(): Record<string, string> {
-  // Build a map of userId → display name from all requests in localStorage
+async function buildUserMap(): Promise<Record<string, string>> {
   const map: Record<string, string> = {}
+
+  // Primary source: /api/users — has every user with their real ID (Google sub or USR-*)
+  try {
+    const res = await fetch("/api/users", { cache: "no-store" })
+    if (res.ok) {
+      const json = await res.json()
+      const users: any[] = Array.isArray(json) ? json : (json.users ?? [])
+      users.forEach((u: any) => {
+        if (u.id && u.name) map[u.id] = u.name
+        if (u.email && u.name) map[u.email] = u.name
+      })
+    }
+  } catch {}
+
+  // Secondary: requests in localStorage (requester name by ID)
   try {
     const raw = localStorage.getItem("arp_requests")
     const requests: any[] = raw ? JSON.parse(raw) : []
     requests.forEach((req: any) => {
-      if (req.requesterId && req.requesterName) {
-        map[req.requesterId] = req.requesterName
-      }
+      if (req.requesterId && req.requesterName) map[req.requesterId] = req.requesterName
+      if (req.requesterEmail && req.requesterName) map[req.requesterEmail] = req.requesterName
     })
   } catch {}
+
+  // Tertiary: tasks
   try {
     const raw = localStorage.getItem("admin_tasks")
     const tasks: any[] = raw ? JSON.parse(raw) : []
@@ -61,29 +77,39 @@ function buildUserMap(): Record<string, string> {
       })
     })
   } catch {}
+
   return map
 }
 
 function resolveActor(changedBy: string, userMap: Record<string, string>): string {
   if (!changedBy) return "System"
-  // If it looks like a user ID, try to resolve it
-  if (/^USR-/.test(changedBy)) {
-    return userMap[changedBy] || changedBy
-  }
-  return changedBy
+  return userMap[changedBy] || userMap[changedBy.toLowerCase()] || changedBy
 }
 
-function buildAuditLog(): AuditEntry[] {
+async function buildAuditLog(): Promise<AuditEntry[]> {
   if (typeof window === "undefined") return []
 
   const entries: AuditEntry[] = []
-  const userMap = buildUserMap()
+  const userMap = await buildUserMap()
+
+  // Fetch requests from server (authoritative) and fall back to localStorage
+  let requests: any[] = []
+  try {
+    const res = await fetch("/api/requests", { cache: "no-store" })
+    if (res.ok) {
+      const json = await res.json()
+      requests = Array.isArray(json?.data) ? json.data : []
+    }
+  } catch {}
+  if (requests.length === 0) {
+    try {
+      const raw = localStorage.getItem("arp_requests")
+      requests = raw ? JSON.parse(raw) : []
+    } catch {}
+  }
 
   // --- Requests ---
   try {
-    const raw = localStorage.getItem("arp_requests")
-    const requests: any[] = raw ? JSON.parse(raw) : []
-
     requests.forEach((req: any) => {
       // Creation
       entries.push({
@@ -182,18 +208,34 @@ function buildAuditLog(): AuditEntry[] {
     })
   } catch {}
 
+  // --- Audit Events (deletions, edits, errors) ---
+  try {
+    const { getAuditEvents } = await import("@/lib/auditLog")
+    const auditEvents = getAuditEvents()
+    auditEvents.forEach((ev) => {
+      entries.push({
+        id: ev.id,
+        timestamp: ev.timestamp,
+        actor: resolveActor(ev.actor, userMap),
+        actorEmail: ev.actorEmail,
+        action:
+          ev.action === "request_deleted" ? "Request deleted"
+          : ev.action === "request_edited"  ? "Request edited"
+          : "Submission error",
+        target: ev.targetTitle,
+        targetId: ev.targetId,
+        module: ev.module,
+        details: ev.details,
+        category: "request",
+      })
+    })
+  } catch {}
+
   // Sort newest first
   return entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 }
 
-function fmt(iso: string) {
-  try {
-    return new Date(iso).toLocaleString("en-GB", {
-      day: "2-digit", month: "short", year: "numeric",
-      hour: "2-digit", minute: "2-digit",
-    })
-  } catch { return iso }
-}
+function fmt(iso: string) { return fmtDateTime(iso) }
 
 const ALL_CATEGORIES: AuditEntry["category"][] = ["request", "status", "comment", "user", "role", "task", "auth"]
 
@@ -203,7 +245,7 @@ export default function AuditTrailPage() {
   const [categoryFilter, setCategoryFilter] = useState<AuditEntry["category"] | "all">("all")
 
   useEffect(() => {
-    setEntries(buildAuditLog())
+    void buildAuditLog().then(setEntries)
   }, [])
 
   const filtered = useMemo(() => {

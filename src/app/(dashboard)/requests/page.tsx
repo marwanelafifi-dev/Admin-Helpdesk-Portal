@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardHeader } from "@/components/ui/card"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
-import { cn } from "@/lib/utils"
+import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
 import { animationClasses } from "@/lib/animations"
 import { requestsAPI } from "@/lib/apiClient"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
@@ -135,9 +135,6 @@ const COLS: { key: SortKey; label: string; defaultW: number }[] = [
 ]
 
 function formatModule(m: string) { return m.charAt(0).toUpperCase() + m.slice(1) }
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
-}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -494,7 +491,7 @@ export default function RequestsPage() {
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.title}</span>
                   </td>
                   <td className="py-3 px-3">
-                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{formatDate(req.createdAt)}</span>
+                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{fmtDate(req.createdAt)}</span>
                   </td>
                   <td className="py-3 px-3">
                     <div className="flex items-center gap-2">
@@ -551,7 +548,7 @@ export default function RequestsPage() {
                     })()}
                   </td>
                   <td className="py-3 px-3">
-                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{formatDate(req.updatedAt)}</span>
+                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{fmtDateTime(req.updatedAt)}</span>
                   </td>
                 </tr>
                 )

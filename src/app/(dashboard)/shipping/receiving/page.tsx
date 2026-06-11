@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { mockShipments, mockUsers, type MockShipment } from "@/lib/mock-data"
-import { cn } from "@/lib/utils"
+import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
 import { getRequestsByModule, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
@@ -123,12 +123,12 @@ export default function ReceivingPage() {
             origin: req.payload?.origin || "N/A",
             destination: req.payload?.destination || "N/A",
             status: req.status || "new",
-            expectedDelivery: new Date(req.updatedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+            expectedDelivery: fmtDate(req.updatedAt),
             requester: req.requesterName || req.requesterId || "Unknown",
-            pickupDate: new Date(req.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+            pickupDate: fmtDate(req.createdAt),
             poNumber: req.payload?.poNumber || "",
             costCenter: req.payload?.costCenter || "",
-            lastUpdate: new Date(req.updatedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+            lastUpdate: fmtDateTime(req.updatedAt),
           }
         })
         setShipments(transformed)
@@ -152,8 +152,8 @@ export default function ReceivingPage() {
     const stored = getRequestById(id)
     const currentUserId = session?.user?.id || "USR-001"
     const oldStatus = shipment?.status
-    const today = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
-    setShipments(prev => prev.map(s => s.id === id ? { ...s, status: newStatus as any, lastUpdate: today } : s))
+    const today = new Date().toISOString()
+    setShipments(prev => prev.map(s => s.id === id ? { ...s, status: newStatus as any, lastUpdate: fmtDateTime(today) } : s))
     updateStatus(id, newStatus as any, currentUserId)
     if (shipment) {
       createRequestUpdateNotifications({

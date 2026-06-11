@@ -1,12 +1,14 @@
-﻿/**
- * Core Request Engine â€” localStorage mock
+/**
+ * Core Request Engine â€" localStorage mock
  *
  * Simulates the backend "requests" table.
  * All writes go to localStorage under `arp_requests`.
  * Swap localStorage calls for Firestore writes when the backend is ready.
  */
 
-// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+import { logAuditEvent } from "@/lib/auditLog"
+
+// â"€â"€â"€ Types â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 export type RequestStatus =
   | "draft"
@@ -71,7 +73,7 @@ export interface SubmitMeta {
   requesterEmail?: string
 }
 
-// â”€â”€â”€ Internal constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€â"€ Internal constants â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 const STORAGE_KEY = "arp_requests"
 const EMAIL_SERVICE_PATH = "./emailService.js"
@@ -86,7 +88,7 @@ const MODULE_PREFIX: Record<string, string> = {
   general:     "GEN",
 }
 
-// â”€â”€â”€ ID generation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€â"€ ID generation â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 function generateId(module: string): string {
   const prefix = MODULE_PREFIX[module] ?? "REQ"
@@ -102,7 +104,7 @@ function generateId(module: string): string {
   return `${prefix}-${year}-${next}`
 }
 
-// â”€â”€â”€ localStorage helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€â"€ localStorage helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 function readAll(): EngineRequest[] {
   if (typeof window === "undefined") return []
@@ -226,7 +228,7 @@ export async function syncFromServer(): Promise<void> {
   }
 }
 
-// â”€â”€â”€ Public API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€â"€ Public API â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 /**
  * submitRequest
@@ -297,12 +299,25 @@ export function updateRequest<T extends Record<string, unknown>>(
   requests[index] = updated
   writeAll(requests)
   pushToServer(updated)
+
+  try {
+    logAuditEvent({
+      actor: meta.requesterName ?? "Unknown",
+      actorEmail: meta.requesterEmail ?? "",
+      action: "request_edited",
+      targetId: id,
+      targetTitle: meta.title ?? updated.title,
+      module: updated.module,
+      details: "Request fields updated",
+    })
+  } catch {}
+
   return updated
 }
 
 /**
  * saveDraft
- * Saves an incomplete request as "draft" â€” does not trigger the approval flow.
+ * Saves an incomplete request as "draft" â€" does not trigger the approval flow.
  */
 export function saveDraft<T extends Record<string, unknown>>(
   module: RequestModule | string,
@@ -540,7 +555,7 @@ export function getRequestById(id: string): EngineRequest | undefined {
   return readAll().find((r) => r.id === id)
 }
 
-/** Wipes the entire store â€” useful for testing / dev reset. */
+/** Wipes the entire store â€" useful for testing / dev reset. */
 export function clearStore(): void {
   if (typeof window !== "undefined") localStorage.removeItem(STORAGE_KEY)
 }
@@ -554,9 +569,25 @@ export function clearStore(): void {
 export function deleteRequestPermanently(id: string): boolean {
   if (typeof window === "undefined") return false
   const requests = readAll()
+  const req = requests.find((r) => r.id === id)
   const next = requests.filter((r) => r.id !== id)
   const changed = next.length !== requests.length
-  if (changed) writeAll(next)
+  if (changed) {
+    writeAll(next)
+    if (req) {
+      try {
+        logAuditEvent({
+          actor: "System",
+          actorEmail: "",
+          action: "request_deleted",
+          targetId: id,
+          targetTitle: req.title,
+          module: req.module,
+          details: `Request permanently deleted (was ${req.status})`,
+        })
+      } catch {}
+    }
+  }
   // Server delete + comment cascade in parallel.
   fetch(`/api/requests?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {})
   fetch(`/api/requests/comments?requestId=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {})

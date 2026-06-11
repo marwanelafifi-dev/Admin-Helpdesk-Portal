@@ -17,7 +17,7 @@ import { AssigneeSelect } from "@/components/ui/AssigneeSelect"
 import { getTasks, updateTaskStatus, type Task, type TaskStatus } from "@/services/taskService"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
-import { cn } from "@/lib/utils"
+import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
 import { animationClasses } from "@/lib/animations"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
@@ -118,9 +118,6 @@ function getStatusLabel(status: string, module: string): string {
 }
 
 function formatModule(m: string) { return m.charAt(0).toUpperCase() + m.slice(1) }
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
-}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -322,12 +319,12 @@ export default function AllRequestsPage() {
     const rows = filtered.map((r) => [
       r.id,
       r.title,
-      formatDate(r.createdAt),
+      fmtDate(r.createdAt),
       r.requesterName,
       r.requesterEmail,
       formatModule(r.module),
       getStatusLabel(r.status, r.module),
-      formatDate(r.updatedAt),
+      fmtDateTime(r.updatedAt),
     ])
     return [headers, ...rows]
   }
@@ -628,7 +625,7 @@ export default function AllRequestsPage() {
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.title}</span>
                   </td>
                   <td className="py-3 px-3">
-                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{formatDate(req.createdAt)}</span>
+                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{fmtDate(req.createdAt)}</span>
                   </td>
                   <td className="py-3 px-3 overflow-hidden">
                     <div className="text-sm font-medium text-gray-700 truncate">{req.requesterName}</div>
@@ -716,7 +713,7 @@ export default function AllRequestsPage() {
                     />
                   </td>
                   <td className="py-3 px-3">
-                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{formatDate(req.updatedAt)}</span>
+                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{fmtDateTime(req.updatedAt)}</span>
                   </td>
                   <td className="py-3 px-2 text-right">
                     <RequestActionsMenu
@@ -762,11 +759,11 @@ export default function AllRequestsPage() {
                           </div>
                           <div>
                             <p className="font-semibold text-gray-700">Submission Date</p>
-                            <p className="text-gray-600">{formatDate(req.createdAt)}</p>
+                            <p className="text-gray-600">{fmtDate(req.createdAt)}</p>
                           </div>
                           <div>
                             <p className="font-semibold text-gray-700">Last Update</p>
-                            <p className="text-gray-600">{formatDate(req.updatedAt)}</p>
+                            <p className="text-gray-600">{fmtDateTime(req.updatedAt)}</p>
                           </div>
                         </div>
                       </div>
