@@ -414,10 +414,10 @@ export default function AdminUsersPage() {
           { label: "Total Users", value: users.length },
           { label: "Active", value: users.filter((u) => u.active).length },
           { label: "Inactive", value: users.filter((u) => !u.active).length },
-          { label: "Admins", value: users.filter((u) => u.role.includes("admin")).length },
-          { label: "Online Now", value: onlineIds.size > 0 ? users.filter((u) => onlineIds.has(u.id) || onlineIds.has(u.email)).length : 0, online: true },
+          { label: "Online Now", value: users.filter((u) => onlineIds.has(u.id) || onlineIds.has(u.email)).length, online: true },
+          { label: "Offline", value: users.filter((u) => !onlineIds.has(u.id) && !onlineIds.has(u.email)).length, offline: true },
         ].map((s) => (
-          <Card key={s.label} className={(s as any).online ? "border-emerald-200 bg-emerald-50/40" : ""}>
+          <Card key={s.label} className={(s as any).online ? "border-emerald-200 bg-emerald-50/40" : (s as any).offline ? "border-gray-200 bg-gray-50/40" : ""}>
             <CardContent className="p-4">
               <p className="text-sm text-muted-foreground flex items-center gap-1.5">
                 {(s as any).online && (
@@ -426,9 +426,12 @@ export default function AdminUsersPage() {
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
                   </span>
                 )}
+                {(s as any).offline && (
+                  <span className="h-2 w-2 rounded-full bg-gray-400 inline-flex flex-shrink-0" />
+                )}
                 {s.label}
               </p>
-              <p className={`text-2xl font-bold mt-0.5 ${(s as any).online ? "text-emerald-600" : ""}`}>{s.value}</p>
+              <p className={`text-2xl font-bold mt-0.5 ${(s as any).online ? "text-emerald-600" : (s as any).offline ? "text-gray-500" : ""}`}>{s.value}</p>
             </CardContent>
           </Card>
         ))}
@@ -532,7 +535,10 @@ export default function AdminUsersPage() {
                             Online
                           </span>
                         ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
+                          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400">
+                            <span className="h-2 w-2 rounded-full bg-gray-300 inline-flex flex-shrink-0" />
+                            Offline
+                          </span>
                         )}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
