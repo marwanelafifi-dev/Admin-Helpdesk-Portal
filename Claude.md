@@ -571,10 +571,53 @@ This document tracks the phased development of the Admin Request Platform, movin
 - [x] `next.config.ts`: `experimental.instrumentationHook: true` to enable the instrumentation file.
 - [x] Database page info banner updated: clarifies Team Requests is a filtered view (no separate data — covered by All Requests backup).
 
+## Phase 5w: Event Module — Live Form (Completed — 11 Jun 2026)
+- [x] **Event Request module fully live** (was "Coming Soon"):
+  - [x] Removed Coming Soon button/banner from event list page and form footer.
+  - [x] `event.schema.ts` rewritten: removed `eventName`, `eventType`, `location`; added `eventLocationType: "internal" | "external"`, `floorNumber`, `roomArea`, `addressOrUrl`. `superRefine` enforces location fields based on type.
+  - [x] `EventForm.tsx` rewritten: Internal/External mutually-exclusive styled checkbox toggle. Internal → Floor Number (from `FLOOR_NUMBERS` in maintenance schema) + free-text Room/Area input. External → Address / Location URL text input.
+  - [x] Removed Organizer Name and Budget (EGP) fields.
+  - [x] `event/new/page.tsx` replaced Coming Soon placeholder with real `<EventForm>`.
+
+## Phase 5x: Bug Fixes & Performance (Completed — 11 Jun 2026)
+- [x] **Form submission error fixed (all 6 module forms):**
+  - [x] `router.push()` / `router.refresh()` moved outside try/catch in ShippingForm, HRForm, PurchaseForm, MaintenanceForm, TravelForm, EventForm.
+  - [x] Root cause: Next.js 15 `router.push()` throws a navigation signal internally that was being caught and shown as "Failed to create request".
+- [x] **QuotaExceededError fixed** (`engineService.ts` `writeAll()`):
+  - [x] On `QuotaExceededError`, strips base64 attachment data from local cache and retries. Attachments are already on the server via `pushToServer()`.
+  - [x] If still full after stripping, clears cache entirely — `syncFromServer()` restores on next load.
+- [x] **Navigation performance** (`useEngineSync`):
+  - [x] Polling interval increased from 30s → 60s.
+  - [x] Module-level dedup guard: only one pull in-flight at a time.
+  - [x] 20s minimum gap between pulls — rapid tab-switching no longer stacks concurrent fetches.
+  - [x] `syncFromServer` + `syncCompanyDataFromServer` run in parallel (`Promise.all`) instead of sequentially.
+- [x] **SearchableSelect — full UX overhaul** (`src/components/ui/SearchableSelect.tsx`):
+  - [x] Deduplicates options case-insensitively (fixes duplicate entries like "Administration × 2").
+  - [x] Highlights matching text in results (bold orange mark via `<Highlight>` component).
+  - [x] Smart ranking: starts-with matches ranked above contains matches.
+  - [x] Full keyboard navigation: `↑`/`↓` to move, `Enter` to select, `Escape` to close; active item auto-scrolls.
+  - [x] Chevron rotates on open; trigger shows ring focus state.
+  - [x] Clear query button (X) inside search input.
+  - [x] Better empty state: icon + "No results for '…'" message.
+  - [x] Footer shows result count with query context + currently selected value.
+
+## Phase 5y: Timestamps & Audit Trail (Completed — 11 Jun 2026)
+- [x] **Shared date utilities** (`src/lib/utils.ts`):
+  - [x] `fmtDate(iso)` → `"10 Jun 2026"` — used for Submission Date / createdAt columns.
+  - [x] `fmtDateTime(iso)` → `"10 Jun 2026 — 11:05 AM"` — used for Last Update Date / updatedAt columns.
+  - [x] All 17 pages/components migrated from inline `toLocaleDateString()` to `fmtDate`/`fmtDateTime`.
+- [x] **Audit Trail enhancements** (`/admin/audit-trail`):
+  - [x] Actor IDs resolved to real names: `buildUserMap()` now fetches `/api/users` first, covering Google OAuth long numeric IDs. Falls back to localStorage requests + tasks.
+  - [x] `buildAuditLog()` fetches requests from `/api/requests` (server-side) so all users' activity appears, not just the current browser's local cache.
+  - [x] **Deletions tracked**: `deleteRequestPermanently()` logs a `request_deleted` audit event via `src/lib/auditLog.ts`.
+  - [x] **Edits tracked**: `updateRequest()` logs a `request_edited` audit event.
+  - [x] `src/lib/auditLog.ts` — new localStorage audit event store (`arp_audit_log`), keeps last 500 events, never throws.
+  - [x] Timestamps use `fmtDateTime()` format.
+
 ## Phase 6: Advanced Functionality (Pending)
 - [ ] **Email Notifications:** SMTP ports 465/587 may be blocked by corporate firewall. Use Admin → Notifications to configure Gmail App Password or switch to SendGrid/Brevo (HTTP API, not blocked).
-- [ ] **Audit Trail Enhancement:** Currently reads from localStorage. Future: persist to PostgreSQL for cross-session history.
-- [ ] **Database Backup:** Currently localStorage-only. Future: server-side PostgreSQL dump endpoint.
+- [ ] **Audit Trail Enhancement:** Currently reads from localStorage + server requests. Future: persist audit log to server-side JSON or PostgreSQL for full cross-session history.
+- [ ] **Database Backup:** Currently localStorage + data/*.json. Future: server-side PostgreSQL dump endpoint.
 
 ## Phase 6: Optimization & Scaling
 - [ ] Add Redis caching for frequently accessed dashboard data.
