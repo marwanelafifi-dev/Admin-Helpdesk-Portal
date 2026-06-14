@@ -191,6 +191,10 @@ function savePending(): void {
   } catch {}
 }
 
+// Load pending pushes immediately on module init (client-side) so syncFromServer
+// knows to prefer local versions before retryPendingPushes() is called.
+if (typeof window !== "undefined") { loadPending() }
+
 // Retry any requests that failed to push in a previous session.
 export async function retryPendingPushes(): Promise<void> {
   if (typeof window === "undefined") return
