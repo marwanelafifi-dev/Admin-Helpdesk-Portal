@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { useSession } from "next-auth/react"
 import { syncFromServer, getRequests, retryPendingPushes } from "@/services/engineService"
 import { syncCompanyDataFromServer } from "@/lib/companyDataStore"
 
@@ -85,15 +86,21 @@ async function pull() {
  * - Deduplicates: only one in-flight pull at a time.
  */
 export function useEngineSync(intervalMs = 60_000) {
-  useEffect(() => {
-    let cancelled = false
+  const { status } = useSession()
 
+  useEffect(() => {
+    // Only run when the user is authenticated — skip if loading or unauthenticated.
+    // This effect re-fires whenever status changes (e.g. unauthenticated → authenticated
+    // after a cookie-clear + re-login), so the sync always runs on a fresh session.
+    if (status !== "authenticated") return
+
+    let cancelled = false
     const guardedPull = () => { if (!cancelled) void pull() }
 
-    // Always pull from server on mount — regardless of migration state.
+    // Force immediate pull — reset dedup guard so cookies-cleared + re-login
+    // always gets fresh data right away instead of waiting up to 60s.
     lastPullAt = 0
-    // Retry any requests that failed to push in a previous session first,
-    // then pull the authoritative server state.
+
     void retryPendingPushes().then(() =>
       Promise.all([
         backfillLocalToServer(),
@@ -113,7 +120,7 @@ export function useEngineSync(intervalMs = 60_000) {
           localStorage.removeItem("arp_requests")
           localStorage.removeItem("arp_company_data")
         } catch {}
-        lastPullAt = 0 // force immediate re-pull after a clear
+        lastPullAt = 0
         guardedPull()
       }
     }
@@ -129,5 +136,5 @@ export function useEngineSync(intervalMs = 60_000) {
       document.removeEventListener("visibilitychange", onVisible)
       window.removeEventListener("storage", onStorage)
     }
-  }, [intervalMs])
+  }, [status, intervalMs])
 }
