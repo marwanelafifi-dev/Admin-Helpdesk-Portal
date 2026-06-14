@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import {
   Download, Upload, CheckCircle2, AlertTriangle, Clock, Shield, Trash2,
   Package, Wrench, ShoppingCart, CalendarDays, Plane, UserCog, ChevronRight, Inbox,
-  Power, LogOut, RefreshCw, Save, CalendarClock, FolderOpen, UsersRound,
-  MessageSquare, Bell, Building2, FileText, Settings, Mail, Database, RotateCcw,
+  Power, LogOut, RefreshCw, Save, CalendarClock, FolderOpen,
+  MessageSquare, Building2, Settings, Mail, RotateCcw,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -479,7 +479,16 @@ export default function DatabasePage() {
       const blob = new Blob([json], { type: "application/json" })
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
-      const filename = `admin-portal-backup-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")}.json`
+      const now  = new Date()
+      const dd   = String(now.getDate()).padStart(2, "0")
+      const mo   = String(now.getMonth() + 1).padStart(2, "0")
+      const yyyy = now.getFullYear()
+      let   h    = now.getHours()
+      const min  = String(now.getMinutes()).padStart(2, "0")
+      const sec  = String(now.getSeconds()).padStart(2, "0")
+      const ampm = h >= 12 ? "PM" : "AM"
+      h = h % 12 || 12
+      const filename = `Backup-${dd}-${mo}-${yyyy} - ${String(h).padStart(2, "0")}.${min}.${sec} ${ampm}.json`
       a.href = url; a.download = filename; a.click()
       URL.revokeObjectURL(url)
       setLastBackupTime(new Date().toISOString())
