@@ -171,26 +171,62 @@ function writeAll(requests: EngineRequest[]): void {
  * acceptable trade-off given there's no real conflict resolution in this
  * mock backend.
  */
-function pushToServer(request: EngineRequest): void {
+// IDs queued for retry when pushToServer fails transiently.
+// Also persisted to localStorage so a page reload can retry failed pushes.
+const _pendingPush = new Map<string, EngineRequest>()
+const PENDING_KEY = "arp_pending_push"
+
+function loadPending(): void {
+  try {
+    const raw = localStorage.getItem(PENDING_KEY)
+    if (!raw) return
+    const entries: [string, EngineRequest][] = JSON.parse(raw)
+    entries.forEach(([id, req]) => _pendingPush.set(id, req))
+  } catch {}
+}
+
+function savePending(): void {
+  try {
+    localStorage.setItem(PENDING_KEY, JSON.stringify([..._pendingPush.entries()]))
+  } catch {}
+}
+
+// Retry any requests that failed to push in a previous session.
+export async function retryPendingPushes(): Promise<void> {
   if (typeof window === "undefined") return
-  void (async () => {
+  loadPending()
+  if (_pendingPush.size === 0) return
+  const entries = [..._pendingPush.entries()]
+  for (const [, req] of entries) {
+    await pushToServer(req)
+  }
+  savePending()
+}
+
+async function pushToServer(request: EngineRequest): Promise<void> {
+  if (typeof window === "undefined") return
+  // Track as pending so syncFromServer preserves it and retries survive page reloads.
+  _pendingPush.set(request.id, request)
+  savePending()
+  const ATTEMPTS = 3
+  for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     try {
       const res = await fetch("/api/requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ request }),
       })
-      if (!res.ok) return
+      if (!res.ok) {
+        if (attempt < ATTEMPTS - 1) { await new Promise(r => setTimeout(r, (attempt + 1) * 2000)); continue }
+        return
+      }
       const json = await res.json()
       const saved = json?.request as EngineRequest | undefined
+      _pendingPush.delete(request.id)
+      savePending()
       if (!saved) return
 
-      // If the server stamped on a default assignee that the local copy
-      // didn't have, mirror it back into localStorage. We deliberately
-      // DON'T fire a separate assignment email here — the default-assignee
-      // is always an Administration Team member, and they're already on
-      // the new-request notification's To: line. Sending a second email
-      // pile-on triggers Gmail rate limiting.
+      // Mirror server-stamped assignee back to localStorage.
       if (saved.assignedToId && saved.assignedToId !== request.assignedToId) {
         const local = readAll()
         const idx = local.findIndex((r) => r.id === saved.id)
@@ -199,10 +235,12 @@ function pushToServer(request: EngineRequest): void {
           writeAll(local)
         }
       }
+      return
     } catch {
-      // Best-effort. The next syncFromServer() will heal any drift.
+      if (attempt < ATTEMPTS - 1) await new Promise(r => setTimeout(r, (attempt + 1) * 2000))
     }
-  })()
+  }
+  // Push failed after all retries — leave in _pendingPush so syncFromServer preserves it.
 }
 
 /**
@@ -231,9 +269,16 @@ export async function syncFromServer(): Promise<void> {
     if (!res.ok) return
     const json = await res.json()
     const remote = Array.isArray(json?.data) ? (json.data as EngineRequest[]) : []
-    // Merge strategy: server is authoritative. Overwrite the cache wholesale
-    // so deleted/cancelled requests from other users disappear here too.
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(remote))
+
+    // Merge strategy: server is authoritative for everything it knows about.
+    // Preserve any local records that are still pending a push (not yet on server)
+    // so a slow network doesn't cause a user to lose their own just-submitted request.
+    const remoteIds = new Set(remote.map((r) => r.id))
+    const localOnly = readAll().filter(
+      (r) => !remoteIds.has(r.id) && _pendingPush.has(r.id)
+    )
+    const merged = [...remote, ...localOnly]
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged))
     try { window.dispatchEvent(new Event("arp:storage")) } catch {}
   } catch {
     // Network errors leave the cache untouched.

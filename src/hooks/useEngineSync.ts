@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import { syncFromServer, getRequests } from "@/services/engineService"
+import { syncFromServer, getRequests, retryPendingPushes } from "@/services/engineService"
 import { syncCompanyDataFromServer } from "@/lib/companyDataStore"
 
 const MIGRATION_KEY = "arp_requests_server_migration_v1"
@@ -91,13 +91,15 @@ export function useEngineSync(intervalMs = 60_000) {
     const guardedPull = () => { if (!cancelled) void pull() }
 
     // Always pull from server on mount — regardless of migration state.
-    // This ensures a fresh browser (cleared cookies/localStorage) immediately
-    // sees all server data without waiting for the 60s interval.
     lastPullAt = 0
-    void Promise.all([
-      backfillLocalToServer(),
-      backfillCompanyDataToServer(),
-    ]).then(() => { if (!cancelled) void pull() })
+    // Retry any requests that failed to push in a previous session first,
+    // then pull the authoritative server state.
+    void retryPendingPushes().then(() =>
+      Promise.all([
+        backfillLocalToServer(),
+        backfillCompanyDataToServer(),
+      ])
+    ).then(() => { if (!cancelled) void pull() })
 
     const interval = window.setInterval(guardedPull, intervalMs)
 

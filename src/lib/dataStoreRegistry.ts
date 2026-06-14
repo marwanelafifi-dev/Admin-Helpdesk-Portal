@@ -150,6 +150,13 @@ export const STORE_REGISTRY: StoreDefinition[] = [
     system: true,
   },
   {
+    key: "arp_pending_push",
+    label: "Pending Server Push",
+    description: "Requests queued for retry after a failed server push",
+    icon: Shield, color: "text-amber-500", bg: "bg-amber-50", border: "border-amber-200",
+    system: true,
+  },
+  {
     key: "arp_requests_server_migration_v1",
     label: "Requests Migration Marker",
     description: "One-time migration flag — local requests backfilled to server",
