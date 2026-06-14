@@ -47,7 +47,7 @@ export interface BackupResult {
   pruned: number
 }
 
-export async function runBackup(filenameDate?: Date): Promise<BackupResult> {
+export async function runBackup(): Promise<BackupResult> {
   if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true })
 
   const serverData: Record<string, unknown> = {}
@@ -64,7 +64,7 @@ export async function runBackup(filenameDate?: Date): Promise<BackupResult> {
     serverData,
   }
 
-  const filename = makeBackupFilename(filenameDate ?? new Date())
+  const filename = makeBackupFilename(new Date())
   const filepath = path.join(BACKUP_DIR, filename)
   const content = JSON.stringify(manifest, null, 2)
   fs.writeFileSync(filepath, content, "utf-8")
