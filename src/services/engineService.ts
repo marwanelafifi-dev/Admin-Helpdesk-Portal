@@ -270,14 +270,21 @@ export async function syncFromServer(): Promise<void> {
     const json = await res.json()
     const remote = Array.isArray(json?.data) ? (json.data as EngineRequest[]) : []
 
-    // Merge strategy: server is authoritative for everything it knows about.
-    // Preserve any local records that are still pending a push (not yet on server)
-    // so a slow network doesn't cause a user to lose their own just-submitted request.
+    // Merge strategy: server is authoritative for everything it knows about,
+    // EXCEPT records that are still pending a push — those may be newer than
+    // what the server has (e.g. an assignment just made, push not yet complete).
+    // For pending records: use the local (newer) version instead of the server version.
+    const local = readAll()
+    const merged = remote.map((serverRecord) => {
+      const pending = _pendingPush.get(serverRecord.id)
+      // If local has a pending push for this id, prefer the local version
+      // (it has the latest field changes like assignedToId/Name/Email).
+      return pending ?? serverRecord
+    })
+    // Also add any local-only records not yet on the server at all.
     const remoteIds = new Set(remote.map((r) => r.id))
-    const localOnly = readAll().filter(
-      (r) => !remoteIds.has(r.id) && _pendingPush.has(r.id)
-    )
-    const merged = [...remote, ...localOnly]
+    const localOnly = local.filter((r) => !remoteIds.has(r.id) && _pendingPush.has(r.id))
+    merged.push(...localOnly)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(merged))
     try { window.dispatchEvent(new Event("arp:storage")) } catch {}
   } catch {
