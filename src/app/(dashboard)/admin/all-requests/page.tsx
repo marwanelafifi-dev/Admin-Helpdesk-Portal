@@ -210,32 +210,26 @@ export default function AllRequestsPage() {
   }
 
   useEffect(() => {
-    const load = () => {
-      initializeMockData()
-      setRequests(getRequests())
-      setTasks(getTasks())
+    const fetchFromServer = () => {
+      void fetch("/api/requests", { cache: "no-store" })
+        .then((r) => r.ok ? r.json() : null)
+        .then((json) => {
+          if (!Array.isArray(json?.data)) return
+          try { localStorage.setItem("arp_requests", JSON.stringify(json.data)) } catch {}
+          setRequests(json.data)
+          setTasks(getTasks())
+        })
+        .catch(() => {})
     }
 
-    // Load from localStorage immediately (fast, works when cache is warm).
-    load()
+    fetchFromServer()
 
-    // Pull directly from server and set state immediately — bypasses localStorage
-    // cache entirely so a fresh browser always renders real data on mount.
-    void fetch("/api/requests", { cache: "no-store" })
-      .then((r) => r.ok ? r.json() : null)
-      .then((json) => {
-        if (!Array.isArray(json?.data)) return
-        try { localStorage.setItem("arp_requests", JSON.stringify(json.data)) } catch {}
-        setRequests(json.data)
-        setTasks(getTasks())
-      })
-      .catch(() => {})
-
-    window.addEventListener("storage", load)
-    window.addEventListener("arp:storage", load)
+    // Re-fetch from server on storage events — avoids stale localStorage cache
+    window.addEventListener("storage", fetchFromServer)
+    window.addEventListener("arp:storage", fetchFromServer)
     return () => {
-      window.removeEventListener("storage", load)
-      window.removeEventListener("arp:storage", load)
+      window.removeEventListener("storage", fetchFromServer)
+      window.removeEventListener("arp:storage", fetchFromServer)
     }
   }, [])
 

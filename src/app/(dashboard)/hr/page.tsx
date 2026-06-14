@@ -104,23 +104,25 @@ export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
   }, [session?.user?.id, session?.user?.email, session?.user?.role])
 
   useEffect(() => {
-    loadRequests()
-    void fetch("/api/requests", { cache: "no-store" })
-      .then((r) => r.ok ? r.json() : null)
-      .then((json) => {
-        if (!Array.isArray(json?.data)) return
-        try { localStorage.setItem("arp_requests", JSON.stringify(json.data)) } catch {}
-        const all = (json.data as EngineRequest[]).filter((r) => r.module === "hr")
-        setRequests(scopeRequests(all, { id: session?.user?.id, email: session?.user?.email, name: session?.user?.name }, session?.user?.role, (session?.user?.permissions as string[]) ?? []))
-      })
-      .catch(() => {})
-    window.addEventListener("storage", loadRequests)
-    window.addEventListener("arp:storage", loadRequests)
-    return () => {
-      window.removeEventListener("storage", loadRequests)
-      window.removeEventListener("arp:storage", loadRequests)
+    const fetchFromServer = () => {
+      void fetch("/api/requests", { cache: "no-store" })
+        .then((r) => r.ok ? r.json() : null)
+        .then((json) => {
+          if (!Array.isArray(json?.data)) return
+          try { localStorage.setItem("arp_requests", JSON.stringify(json.data)) } catch {}
+          const all = (json.data as EngineRequest[]).filter((r) => r.module === "hr")
+          setRequests(scopeRequests(all, { id: session?.user?.id, email: session?.user?.email, name: session?.user?.name }, session?.user?.role, (session?.user?.permissions as string[]) ?? []))
+        })
+        .catch(() => {})
     }
-  }, [loadRequests])
+    fetchFromServer()
+    window.addEventListener("storage", fetchFromServer)
+    window.addEventListener("arp:storage", fetchFromServer)
+    return () => {
+      window.removeEventListener("storage", fetchFromServer)
+      window.removeEventListener("arp:storage", fetchFromServer)
+    }
+  }, [session?.user?.id, session?.user?.email, session?.user?.role])
 
   function handleStatusChange(id: string, newStatus: string) {
     const request = requests.find(r => r.id === id)
