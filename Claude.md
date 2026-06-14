@@ -737,6 +737,22 @@ This document tracks the phased development of the Admin Request Platform, movin
 - [x] **Dependencies added**: `react-markdown`, `@tailwindcss/typography` — typography plugin registered in `tailwind.config.ts`.
 - [x] **Backward compatible** — existing plain-text descriptions render unchanged (plain text is valid markdown).
 
+## Phase 6h: Multi-Device Sync & Missing Requests Fix (Completed — 14 Jun 2026)
+- [x] **All pages re-render when server sync completes** — fixes mobile/fresh-browser showing 0 requests:
+  - [x] Root cause: pages called `setRequests(getRequests())` once on mount with no listener for `arp:storage` event that `useEngineSync` dispatches after pulling from the server.
+  - [x] Fix: added `storage` + `arp:storage` event listeners to all 10 affected pages: All Requests, My Requests, HR, Maintenance, Purchase, General, Shipping Receiving, Dashboard, Event, Travel.
+  - [x] HR, Maintenance, Purchase, General, Shipping Receiving: load logic converted to `useCallback` so the same function is reused as the storage listener.
+- [x] **`useEngineSync` re-syncs immediately after login** — fixes cookie-clear showing 0 requests:
+  - [x] Root cause: sync hook depended only on `[intervalMs]`, never re-fired when session changed from unauthenticated → authenticated.
+  - [x] Fix: `useSession()` added to `useEngineSync`; effect now depends on `status`. Skips while unauthenticated; re-runs + resets `lastPullAt = 0` the moment session becomes `authenticated`.
+- [x] **Missing requests fix — `pushToServer` reliability**:
+  - [x] Root cause: `pushToServer()` was fire-and-forget (`void async`). Silent failures left requests only in the submitter's localStorage; other users never saw them via server sync.
+  - [x] Fix: 3 retries with exponential backoff (2s, 4s). Failed requests tracked in `_pendingPush` Map.
+  - [x] Pending pushes persisted to `arp_pending_push` in localStorage — survive page reloads.
+  - [x] `retryPendingPushes()` called by `useEngineSync` on every mount — failed pushes from previous sessions are retried automatically.
+  - [x] `syncFromServer()` changed from wholesale overwrite to merge — preserves local-only pending records so a slow network doesn't cause a user to lose their own just-submitted request during sync.
+  - [x] `arp_pending_push` registered in `dataStoreRegistry.ts` (system: true).
+
 ## Phase 6: Optimization & Scaling
 - [ ] Add Redis caching for frequently accessed dashboard data.
 - [ ] Implement file upload storage service for AWB/Invoices/Receipts.
