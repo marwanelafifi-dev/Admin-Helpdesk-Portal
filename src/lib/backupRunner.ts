@@ -4,6 +4,19 @@ import { BACKUP_DIR, readSchedule, writeSchedule, pruneOldBackups } from "@/lib/
 
 const DATA_DIR = path.join(process.cwd(), "data")
 
+/** Backup-09-06-2026 - 10.06.45 AM.json  (filesystem-safe, spaces & dots only) */
+export function makeBackupFilename(date: Date): string {
+  const dd   = String(date.getDate()).padStart(2, "0")
+  const mm   = String(date.getMonth() + 1).padStart(2, "0")
+  const yyyy = date.getFullYear()
+  let   h    = date.getHours()
+  const min  = String(date.getMinutes()).padStart(2, "0")
+  const sec  = String(date.getSeconds()).padStart(2, "0")
+  const ampm = h >= 12 ? "PM" : "AM"
+  h = h % 12 || 12
+  return `Backup-${dd}-${mm}-${yyyy} - ${String(h).padStart(2, "0")}.${min}.${sec} ${ampm}.json`
+}
+
 const SERVER_FILES = [
   "requests.json",
   "comments.json",
@@ -51,8 +64,7 @@ export async function runBackup(): Promise<BackupResult> {
     serverData,
   }
 
-  const ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")
-  const filename = `backup-${ts}.json`
+  const filename = makeBackupFilename(new Date())
   const filepath = path.join(BACKUP_DIR, filename)
   const content = JSON.stringify(manifest, null, 2)
   fs.writeFileSync(filepath, content, "utf-8")
