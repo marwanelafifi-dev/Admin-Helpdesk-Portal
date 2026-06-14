@@ -121,7 +121,7 @@ export default function MaintenancePage() {
     const currentUserId = session?.user?.id || "USR-001"
     const oldStatus = request?.status
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status: newStatus as RequestStatus, updatedAt: new Date().toISOString() } : r))
-    updateStatus(id, newStatus as RequestStatus, currentUserId)
+    void updateStatus(id, newStatus as RequestStatus, currentUserId)
 
     if (request) {
       createRequestUpdateNotifications({
