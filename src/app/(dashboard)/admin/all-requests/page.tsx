@@ -210,16 +210,18 @@ export default function AllRequestsPage() {
   }
 
   useEffect(() => {
-    const fetchRequests = async () => {
-      try {
-        initializeMockData()
-        setRequests(getRequests())
-        setTasks(getTasks())
-      } catch (error) {
-        console.error("Failed to fetch requests:", error)
-      }
+    const load = () => {
+      initializeMockData()
+      setRequests(getRequests())
+      setTasks(getTasks())
     }
-    fetchRequests()
+    load()
+    window.addEventListener("storage", load)
+    window.addEventListener("arp:storage", load)
+    return () => {
+      window.removeEventListener("storage", load)
+      window.removeEventListener("arp:storage", load)
+    }
   }, [])
 
   useEffect(() => {
