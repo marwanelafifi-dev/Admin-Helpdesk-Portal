@@ -168,24 +168,22 @@ export default function RequestsPage() {
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
   useEffect(() => {
-    const load = () => {
-      initializeMockData()
-      setRequests(getRequests())
+    const fetchFromServer = () => {
+      void fetch("/api/requests", { cache: "no-store" })
+        .then((r) => r.ok ? r.json() : null)
+        .then((json) => {
+          if (!Array.isArray(json?.data)) return
+          try { localStorage.setItem("arp_requests", JSON.stringify(json.data)) } catch {}
+          setRequests(json.data)
+        })
+        .catch(() => {})
     }
-    load()
-    void fetch("/api/requests", { cache: "no-store" })
-      .then((r) => r.ok ? r.json() : null)
-      .then((json) => {
-        if (!Array.isArray(json?.data)) return
-        try { localStorage.setItem("arp_requests", JSON.stringify(json.data)) } catch {}
-        setRequests(json.data)
-      })
-      .catch(() => {})
-    window.addEventListener("storage", load)
-    window.addEventListener("arp:storage", load)
+    fetchFromServer()
+    window.addEventListener("storage", fetchFromServer)
+    window.addEventListener("arp:storage", fetchFromServer)
     return () => {
-      window.removeEventListener("storage", load)
-      window.removeEventListener("arp:storage", load)
+      window.removeEventListener("storage", fetchFromServer)
+      window.removeEventListener("arp:storage", fetchFromServer)
     }
   }, [])
 
