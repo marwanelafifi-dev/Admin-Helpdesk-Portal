@@ -134,8 +134,18 @@ async function collectBackup(): Promise<BackupManifest> {
     if (raw) { try { data[key] = JSON.parse(raw) } catch { data[key] = raw } }
   })
 
-  // Pull the server-side data bundle (comments, feedback, users, roles) so
-  // the backup is actually a full snapshot — not just the user's browser state.
+  // Push browser localStorage snapshot to the server so scheduled/server-side
+  // backups (Run Backup Now) also capture the full picture.
+  try {
+    await fetch("/api/admin/browser-data", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data }),
+    })
+  } catch { /* best-effort */ }
+
+  // Pull the server-side data bundle (comments, feedback, users, roles, + the
+  // browser-data.json we just pushed) so the download is a complete snapshot.
   let serverData: Record<string, unknown> = {}
   try {
     const res = await fetch("/api/admin/server-data")
@@ -369,6 +379,19 @@ export default function DatabasePage() {
     setRunNowStatus({ type: "idle", message: "" })
     setRunningNow(true)
     try {
+      // Push current browser localStorage to server first so the server-side
+      // backup file includes browser data (tasks, notifications, audit log, etc.)
+      const browserData: Record<string, unknown> = {}
+      discoverAllOwnedKeys().forEach((key) => {
+        const raw = localStorage.getItem(key)
+        if (raw) { try { browserData[key] = JSON.parse(raw) } catch { browserData[key] = raw } }
+      })
+      await fetch("/api/admin/browser-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: browserData }),
+      }).catch(() => {})
+
       const res = await fetch("/api/admin/backup-now", { method: "POST" })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? "Unknown error")
@@ -673,7 +696,7 @@ export default function DatabasePage() {
         <Shield className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
         <div className="text-sm text-blue-800">
           <p className="font-semibold">What is included in a backup?</p>
-          <p className="mt-0.5 text-blue-700">Every store the app owns is captured automatically — browser data (requests, tasks, viewed comments, company data, platform settings, logos, theme) <strong>and</strong> server-side data (comments, feedback responses, users, roles). Backups download as one JSON file (version 1.1) and Restore writes back whatever the file contains. Old v1.0 backups (browser data only) are still accepted. <strong>Team Requests</strong> is a filtered view of the request store (no separate data) — it is covered by the All Requests backup.</p>
+          <p className="mt-0.5 text-blue-700">Every store the app owns is captured automatically — browser data (requests, tasks, viewed comments, company data, platform settings, logos, theme) <strong>and</strong> server-side data (comments, feedback responses, users, roles). Browser data is synced to the server on every backup so <strong>Run Backup Now</strong> and scheduled backups capture the full picture too. Backups download as one JSON file (version 1.1) and Restore writes back whatever the file contains. Old v1.0 backups (browser data only) are still accepted. <strong>Team Requests</strong> is a filtered view of the request store (no separate data) — it is covered by the All Requests backup.</p>
         </div>
       </div>
 
@@ -697,6 +720,7 @@ export default function DatabasePage() {
                 { label: "All Requests", sub: "All modules" },
                 ...NON_REQUEST_STORES.map((s) => ({ label: s.label, sub: s.description })),
                 { label: "Any new stores", sub: "Auto-discovered at runtime" },
+                { label: "Browser Data Snapshot", sub: "data/browser-data.json — tasks, notifications, audit log, logos, theme, viewed comments (synced on every backup)" },
                 { label: "Server Requests", sub: "data/requests.json — every request from every user" },
                 { label: "Server Comments", sub: "data/comments.json on the server" },
                 { label: "Server Feedback Responses", sub: "data/feedback.json on the server" },
