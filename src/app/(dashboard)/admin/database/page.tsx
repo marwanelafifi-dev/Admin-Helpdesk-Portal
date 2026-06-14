@@ -393,7 +393,11 @@ export default function DatabasePage() {
         body: JSON.stringify({ data: browserData }),
       }).catch(() => {})
 
-      const res = await fetch("/api/admin/backup-now", { method: "POST" })
+      const res = await fetch("/api/admin/backup-now", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ localTime: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString() }),
+      })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? "Unknown error")
       setScheduleLastAt(new Date().toISOString())
