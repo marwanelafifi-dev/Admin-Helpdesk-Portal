@@ -717,6 +717,26 @@ This document tracks the phased development of the Admin Request Platform, movin
   - [x] New: `Backup-14-06-2026 - 07.04.24 AM.json`
   - [x] `makeBackupFilename(date)` helper exported from `backupRunner.ts` — used by both server-side scheduler and browser download handler.
 
+## Phase 6f: Data Loss Protection & Fresh-Browser Sync (Completed — 14 Jun 2026)
+- [x] **`restart: always`** in `docker-compose.yml` (was `unless-stopped`) — containers now auto-start after a power cut or VM reboot.
+- [x] **Bind-mount `data/` to host filesystem** — `~/admin-helpdesk-data:/app/data` replaces opaque Docker named volume `app_data`. Data survives container recreation and is directly visible/copyable on the host.
+- [x] **Removed unused `app_data` named volume** from `docker-compose.yml`.
+- [x] **`TZ: Africa/Cairo`** added to app service environment — server `new Date()` always returns Cairo time; fixes backup filename timezone mismatch (was 3 hours behind).
+- [x] **`useEngineSync` always pulls on mount** — `lastPullAt` reset to 0 on every mount so a fresh browser (cleared cookies/localStorage) immediately syncs all requests from the server without waiting for the 60s interval.
+
+## Phase 6g: Markdown Description Fields (Completed — 14 Jun 2026)
+- [x] **`MarkdownEditor` component** (`src/components/ui/MarkdownEditor.tsx`):
+  - [x] Toolbar: Bold, Italic, Heading, Bullet list, Numbered list, Link, Divider buttons.
+  - [x] **Preview toggle** — click "Preview" to see rendered markdown before submitting; click "Edit" to go back.
+  - [x] Uses `react-hook-form` `Controller` so Zod validation still applies.
+  - [x] Applied to description fields in: **Maintenance**, **Purchase**, **Event**, **Shipping**, **General** forms.
+- [x] **`MarkdownDisplay` component** (`src/components/ui/MarkdownDisplay.tsx`):
+  - [x] Renders markdown via `react-markdown` + `@tailwindcss/typography` prose classes.
+  - [x] Dark-mode aware (prose color overrides for dark palette).
+  - [x] Applied to: **Request detail page** (`requests/[id]`) description section; **inline row expansions** on General, Maintenance, Purchase list pages.
+- [x] **Dependencies added**: `react-markdown`, `@tailwindcss/typography` — typography plugin registered in `tailwind.config.ts`.
+- [x] **Backward compatible** — existing plain-text descriptions render unchanged (plain text is valid markdown).
+
 ## Phase 6: Optimization & Scaling
 - [ ] Add Redis caching for frequently accessed dashboard data.
 - [ ] Implement file upload storage service for AWB/Invoices/Receipts.
