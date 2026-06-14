@@ -173,6 +173,10 @@ export default function RequestsPage() {
       setRequests(getRequests())
     }
     load()
+    void fetch("/api/requests", { cache: "no-store" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((json) => { if (json?.data) { try { localStorage.setItem("arp_requests", JSON.stringify(json.data)) } catch {} load() } })
+      .catch(() => {})
     window.addEventListener("storage", load)
     window.addEventListener("arp:storage", load)
     return () => {

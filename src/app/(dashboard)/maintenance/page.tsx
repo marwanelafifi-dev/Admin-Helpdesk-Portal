@@ -99,6 +99,10 @@ export default function MaintenancePage() {
 
   useEffect(() => {
     loadRequests()
+    void fetch("/api/requests", { cache: "no-store" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((json) => { if (json?.data) { try { localStorage.setItem("arp_requests", JSON.stringify(json.data)) } catch {} loadRequests() } })
+      .catch(() => {})
     window.addEventListener("storage", loadRequests)
     window.addEventListener("arp:storage", loadRequests)
     return () => {
