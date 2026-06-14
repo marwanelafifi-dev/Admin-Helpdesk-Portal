@@ -315,11 +315,24 @@ export default function RequestDetailPage() {
     const fetchRequest = async () => {
       try {
         setLoading(true)
-        // Initialize mock data if needed
         initializeMockData()
 
-        // Get all requests from localStorage
-        const allRequests = getRequests()
+        // Try localStorage first (fast path)
+        let allRequests = getRequests()
+
+        // If localStorage is empty (fresh browser), fetch from server directly
+        if (allRequests.length === 0) {
+          try {
+            const r = await fetch("/api/requests", { cache: "no-store" })
+            if (r.ok) {
+              const json = await r.json()
+              if (Array.isArray(json?.data)) {
+                try { localStorage.setItem("arp_requests", JSON.stringify(json.data)) } catch {}
+                allRequests = json.data
+              }
+            }
+          } catch { /* fall through to not-found */ }
+        }
 
         // Find the request by ID
         const engineRequest = allRequests.find(req => req.id === id)
