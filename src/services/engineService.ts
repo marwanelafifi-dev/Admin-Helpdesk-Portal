@@ -152,7 +152,13 @@ function writeAll(requests: EngineRequest[]): void {
       localStorage.removeItem(STORAGE_KEY)
     }
   }
-  try { window.dispatchEvent(new Event("arp:storage")) } catch {}
+  // Only notify listeners if there are no pending pushes in flight.
+  // If pushes are pending, the server data is stale — listeners that fetch
+  // from the server would get old values and overwrite local changes.
+  // pushToServer() dispatches arp:storage itself after the push succeeds.
+  if (_pendingPush.size === 0) {
+    try { window.dispatchEvent(new Event("arp:storage")) } catch {}
+  }
 }
 
 /**
@@ -228,7 +234,11 @@ async function pushToServer(request: EngineRequest): Promise<void> {
       const saved = json?.request as EngineRequest | undefined
       _pendingPush.delete(request.id)
       savePending()
-      if (!saved) return
+      if (!saved) {
+        // Push succeeded but no body — notify listeners now that pending is clear
+        if (_pendingPush.size === 0) try { window.dispatchEvent(new Event("arp:storage")) } catch {}
+        return
+      }
 
       // Mirror server-stamped assignee back to localStorage.
       if (saved.assignedToId && saved.assignedToId !== request.assignedToId) {
@@ -238,6 +248,11 @@ async function pushToServer(request: EngineRequest): Promise<void> {
           local[idx] = { ...local[idx], ...saved }
           writeAll(local)
         }
+      }
+
+      // Notify listeners now that the push is complete and server has latest data
+      if (_pendingPush.size === 0) {
+        try { window.dispatchEvent(new Event("arp:storage")) } catch {}
       }
       return
     } catch {
