@@ -90,6 +90,10 @@ export function useEngineSync(intervalMs = 60_000) {
 
     const guardedPull = () => { if (!cancelled) void pull() }
 
+    // Always pull from server on mount — regardless of migration state.
+    // This ensures a fresh browser (cleared cookies/localStorage) immediately
+    // sees all server data without waiting for the 60s interval.
+    lastPullAt = 0
     void Promise.all([
       backfillLocalToServer(),
       backfillCompanyDataToServer(),
