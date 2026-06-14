@@ -1,11 +1,20 @@
 "use client"
 
 import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
 
 interface Props {
   content: string
   className?: string
+}
+
+// Convert bare URLs in text to markdown links before rendering.
+// This avoids needing remark-gfm (ESM-only, causes Next.js transpile issues).
+function autoLinkUrls(text: string): string {
+  // Don't double-link already-linked URLs (inside [](...))
+  return text.replace(
+    /(?<!\]\()(?<!["`])(https?:\/\/[^\s<>"')\]]+)/g,
+    "[$1]($1)"
+  )
 }
 
 export function MarkdownDisplay({ content, className = "" }: Props) {
@@ -21,7 +30,6 @@ export function MarkdownDisplay({ content, className = "" }: Props) {
       ${className}`}
     >
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
         components={{
           a: ({ href, children }) => (
             <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800 break-all">
@@ -30,7 +38,7 @@ export function MarkdownDisplay({ content, className = "" }: Props) {
           ),
         }}
       >
-        {content}
+        {autoLinkUrls(content)}
       </ReactMarkdown>
     </div>
   )
