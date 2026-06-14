@@ -14,6 +14,7 @@ const SERVER_FILES = [
   "platform-settings.json",
   "backup-schedule.json",
   "email-config.json",
+  "browser-data.json",   // browser localStorage snapshot pushed by the client before each backup
 ]
 
 function readFileSafe(filename: string): unknown {
