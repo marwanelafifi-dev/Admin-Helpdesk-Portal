@@ -753,6 +753,24 @@ This document tracks the phased development of the Admin Request Platform, movin
   - [x] `syncFromServer()` changed from wholesale overwrite to merge — preserves local-only pending records so a slow network doesn't cause a user to lose their own just-submitted request during sync.
   - [x] `arp_pending_push` registered in `dataStoreRegistry.ts` (system: true).
 
+## Phase 6i: Critical Bug Fixes — Sync, Crashes & URL Linking (Completed — 14 Jun 2026)
+- [x] **All pages fetch directly from server on mount** (no localStorage dependency):
+  - [x] All Requests, My Requests, HR, Maintenance, Purchase, General: `setRequests(json.data)` directly from `fetch("/api/requests")` response — bypasses `getRequests()` and in-memory cache entirely.
+  - [x] Dashboard: same direct fetch in `sync()` function.
+  - [x] Shipping Receiving: same direct fetch, transforms and sets shipments state directly.
+  - [x] Request detail page (`requests/[id]`): fetches from server if localStorage is empty — fixes "Request not found" on fresh browser.
+- [x] **HR onboarding/offboarding crash fixed** (`useCallback is not defined`):
+  - [x] `useCallback` was used in `loadRequests` but missing from React import in `hr/page.tsx`.
+  - [x] `react-markdown` ESM crash fixed: added all ESM-only deps to `transpilePackages` in `next.config.ts`.
+  - [x] Replaced `remark-gfm` (ESM-only, caused persistent crash) with a regex-based URL auto-linker in `MarkdownDisplay.tsx` — no extra package needed.
+- [x] **Assignment reverts to "Unassigned" after sync — fixed**:
+  - [x] Root cause: `syncFromServer()` treated server as absolute authority for existing records. If the 60s sync fired before `pushToServer()` completed, it pulled the server's stale version (no assignee) and overwrote the local optimistic update.
+  - [x] Fix: during merge, any record in `_pendingPush` keeps its **local** version (guaranteed newer). Once push completes, record removed from pending and future syncs use server version normally.
+- [x] **Bare URLs auto-linked in description fields** (all pages):
+  - [x] `MarkdownDisplay.tsx`: `autoLinkUrls()` regex pre-processor converts bare `https://...` URLs to markdown links before rendering.
+  - [x] All links open in new tab (`target="_blank"`, `rel="noopener noreferrer"`) with `break-all` for long URLs.
+  - [x] Applies everywhere `MarkdownDisplay` is used: request detail page, inline row expansions.
+
 ## Phase 6: Optimization & Scaling
 - [ ] Add Redis caching for frequently accessed dashboard data.
 - [ ] Implement file upload storage service for AWB/Invoices/Receipts.
