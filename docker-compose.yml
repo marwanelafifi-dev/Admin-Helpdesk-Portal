@@ -22,7 +22,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
+    restart: always
 
   app:
     build:
@@ -53,7 +53,7 @@ services:
       DISABLE_TLS_CERT_CHECK: "true"
       NEXT_TELEMETRY_DISABLED: "1"
     volumes:
-      - app_data:/app/data
+      - ~/admin-helpdesk-data:/app/data
       - ~/admin-helpdesk-Backup:/app/backups
     ports:
       - "${APP_PORT:-3003}:3003"
@@ -68,7 +68,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 90s
-    restart: unless-stopped
+    restart: always
 
   # Cloudflare Tunnel — makes app accessible from anywhere
   # To activate: set CLOUDFLARE_TUNNEL_TOKEN in .env.local
@@ -91,8 +91,6 @@ services:
 
 volumes:
   postgres_data:
-    driver: local
-  app_data:
     driver: local
 
 networks:
