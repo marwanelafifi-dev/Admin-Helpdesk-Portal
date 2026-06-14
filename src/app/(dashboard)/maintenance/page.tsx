@@ -86,7 +86,7 @@ export default function MaintenancePage() {
   const { expandedRows, toggleRow, isExpanded } = useExpandedRows()
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
-  useEffect(() => {
+  const loadRequests = useCallback(() => {
     initializeMockData()
     const all = getRequests().filter((r) => r.module === "maintenance")
     setRequests(scopeRequests(
@@ -96,6 +96,16 @@ export default function MaintenancePage() {
       (session?.user?.permissions as string[]) ?? [],
     ))
   }, [session?.user?.id, session?.user?.email, session?.user?.role])
+
+  useEffect(() => {
+    loadRequests()
+    window.addEventListener("storage", loadRequests)
+    window.addEventListener("arp:storage", loadRequests)
+    return () => {
+      window.removeEventListener("storage", loadRequests)
+      window.removeEventListener("arp:storage", loadRequests)
+    }
+  }, [loadRequests])
 
   function handleStatusChange(id: string, newStatus: string) {
     const request = requests.find(r => r.id === id)

@@ -81,7 +81,7 @@ export default function GeneralRequestPage() {
 
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
-  useEffect(() => {
+  const loadRequests = useCallback(() => {
     initializeMockData()
     const all = getRequests().filter((r) => r.module === "general")
     setRequests(scopeRequests(
@@ -91,6 +91,16 @@ export default function GeneralRequestPage() {
       (session?.user?.permissions as string[]) ?? [],
     ))
   }, [session?.user?.id, session?.user?.email, session?.user?.role])
+
+  useEffect(() => {
+    loadRequests()
+    window.addEventListener("storage", loadRequests)
+    window.addEventListener("arp:storage", loadRequests)
+    return () => {
+      window.removeEventListener("storage", loadRequests)
+      window.removeEventListener("arp:storage", loadRequests)
+    }
+  }, [loadRequests])
 
   function handleStatusChange(id: string, newStatus: string) {
     const request = requests.find(r => r.id === id)

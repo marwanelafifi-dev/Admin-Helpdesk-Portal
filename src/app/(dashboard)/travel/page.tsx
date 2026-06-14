@@ -94,7 +94,8 @@ export default function TravelPage() {
     sync()
     window.addEventListener("focus", sync)
     window.addEventListener("storage", sync)
-    return () => { window.removeEventListener("focus", sync); window.removeEventListener("storage", sync) }
+    window.addEventListener("arp:storage", sync)
+    return () => { window.removeEventListener("focus", sync); window.removeEventListener("storage", sync); window.removeEventListener("arp:storage", sync) }
   }, [session?.user?.id, session?.user?.email, session?.user?.role])
 
   function handleStatusChange(id: string, newStatus: string) {

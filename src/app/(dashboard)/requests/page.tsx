@@ -168,19 +168,17 @@ export default function RequestsPage() {
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
   useEffect(() => {
-    const fetchRequests = async () => {
-      try {
-        initializeMockData()
-        const allRequests = getRequests()
-        setRequests(allRequests)
-      } catch (error) {
-        console.error("Failed to fetch requests:", error)
-        initializeMockData()
-        setRequests(getRequests())
-      }
+    const load = () => {
+      initializeMockData()
+      setRequests(getRequests())
     }
-
-    fetchRequests()
+    load()
+    window.addEventListener("storage", load)
+    window.addEventListener("arp:storage", load)
+    return () => {
+      window.removeEventListener("storage", load)
+      window.removeEventListener("arp:storage", load)
+    }
   }, [])
 
   // Load the set of request IDs that already have a submitted feedback response,

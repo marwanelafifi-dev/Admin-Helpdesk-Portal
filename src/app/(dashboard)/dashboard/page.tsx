@@ -232,9 +232,11 @@ export default function DashboardPage() {
     sync()
     window.addEventListener("focus", sync)
     window.addEventListener("storage", sync)
+    window.addEventListener("arp:storage", sync)
     return () => {
       window.removeEventListener("focus", sync)
       window.removeEventListener("storage", sync)
+      window.removeEventListener("arp:storage", sync)
     }
   }, [])
 

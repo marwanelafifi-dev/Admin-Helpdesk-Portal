@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useMemo, useEffect, useRef } from "react"
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import { Search, Plus, Package, Truck, CheckCircle2, Clock, MoreHorizontal, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
 import Link from "next/link"
@@ -94,56 +94,55 @@ export default function ReceivingPage() {
 
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
-  useEffect(() => {
-    const fetchShipments = () => {
-      try {
-        setLoading(true)
-        // Initialize mock data if needed
-        initializeMockData()
-        // Get shipping requests from engineService
-        const allShipping = getRequestsByModule("shipping").filter((r: any) => {
-          // Show receiving requests, plus any legacy shipping rows that don't
-          // yet have a direction stamped on them — those default to receiving.
-          const d = (r.payload as any)?.direction
-          return !d || d === "receiving"
-        })
-        // Scope to the current user when they lack read-all permission.
-        const requests = scopeRequests(
-          allShipping,
-          { id: session?.user?.id, email: session?.user?.email, name: session?.user?.name },
-          session?.user?.role,
-          (session?.user?.permissions as string[]) ?? [],
-        )
-        const transformed = requests.map((req: any) => {
-          return {
-            id: req.id,
-            title: req.title || "Untitled Request",
-            trackingNumber: req.payload?.trackingNumber || "",
-            carrier: req.payload?.carrier || "",
-            origin: req.payload?.origin || "N/A",
-            destination: req.payload?.destination || "N/A",
-            status: req.status || "new",
-            expectedDelivery: fmtDate(req.updatedAt),
-            requester: req.requesterName || req.requesterId || "Unknown",
-            pickupDate: fmtDate(req.createdAt),
-            poNumber: req.payload?.poNumber || "",
-            costCenter: req.payload?.costCenter || "",
-            lastUpdate: fmtDateTime(req.updatedAt),
-          }
-        })
-        setShipments(transformed)
-        setError(null)
-      } catch (err) {
-        console.error("Failed to fetch shipments:", err)
-        setError(err instanceof Error ? err.message : "Failed to fetch shipments")
-        setShipments(mockShipments)
-      } finally {
-        setLoading(false)
-      }
+  const loadShipments = useCallback(() => {
+    try {
+      setLoading(true)
+      initializeMockData()
+      const allShipping = getRequestsByModule("shipping").filter((r: any) => {
+        const d = (r.payload as any)?.direction
+        return !d || d === "receiving"
+      })
+      const requests = scopeRequests(
+        allShipping,
+        { id: session?.user?.id, email: session?.user?.email, name: session?.user?.name },
+        session?.user?.role,
+        (session?.user?.permissions as string[]) ?? [],
+      )
+      const transformed = requests.map((req: any) => ({
+        id: req.id,
+        title: req.title || "Untitled Request",
+        trackingNumber: req.payload?.trackingNumber || "",
+        carrier: req.payload?.carrier || "",
+        origin: req.payload?.origin || "N/A",
+        destination: req.payload?.destination || "N/A",
+        status: req.status || "new",
+        expectedDelivery: fmtDate(req.updatedAt),
+        requester: req.requesterName || req.requesterId || "Unknown",
+        pickupDate: fmtDate(req.createdAt),
+        poNumber: req.payload?.poNumber || "",
+        costCenter: req.payload?.costCenter || "",
+        lastUpdate: fmtDateTime(req.updatedAt),
+      }))
+      setShipments(transformed)
+      setError(null)
+    } catch (err) {
+      console.error("Failed to fetch shipments:", err)
+      setError(err instanceof Error ? err.message : "Failed to fetch shipments")
+      setShipments(mockShipments)
+    } finally {
+      setLoading(false)
     }
-
-    fetchShipments()
   }, [session?.user?.id, session?.user?.email, session?.user?.role])
+
+  useEffect(() => {
+    loadShipments()
+    window.addEventListener("storage", loadShipments)
+    window.addEventListener("arp:storage", loadShipments)
+    return () => {
+      window.removeEventListener("storage", loadShipments)
+      window.removeEventListener("arp:storage", loadShipments)
+    }
+  }, [loadShipments])
 
   function handleStatusChange(id: string, newStatus: string) {
     const shipment = shipments.find(s => s.id === id)
