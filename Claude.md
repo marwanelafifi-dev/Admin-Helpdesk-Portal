@@ -771,6 +771,13 @@ This document tracks the phased development of the Admin Request Platform, movin
   - [x] All links open in new tab (`target="_blank"`, `rel="noopener noreferrer"`) with `break-all` for long URLs.
   - [x] Applies everywhere `MarkdownDisplay` is used: request detail page, inline row expansions.
 
+## Phase 6j: Assignment & Status Persistence Fix (Completed — 14 Jun 2026)
+- [x] **`assignRequest()` and `updateStatus()` made async** — both now `await pushToServer()` so the server is guaranteed to have the latest data before the function returns. All 11 call sites updated with `void` prefix.
+- [x] **`_pendingPush` loaded on module init** — `loadPending()` called immediately when `engineService` module loads (client-side) so `syncFromServer()` merge logic has the pending map populated from the first render.
+- [x] **`syncFromServer()` merge prefers local pending version** — for any record in `_pendingPush` (including updates like assignments), the local version wins over the server version during merge, since local is guaranteed newer. Only removed from pending after push succeeds.
+- [x] **All pages use `fetchFromServer()` as storage listener** — replaced `load()` (which read stale localStorage/in-memory cache) with `fetchFromServer()` that always hits `/api/requests` directly. Applied to All Requests, My Requests, HR, Maintenance, Purchase, General.
+- [x] **`writeAll()` suppresses `arp:storage` while pushes are in flight** — prevents pages from fetching stale server data before `pushToServer()` completes. `pushToServer()` dispatches `arp:storage` itself after the push succeeds and `_pendingPush` is cleared — guaranteeing server has latest data before any listener refetches.
+
 ## Phase 6: Optimization & Scaling
 - [ ] Add Redis caching for frequently accessed dashboard data.
 - [ ] Implement file upload storage service for AWB/Invoices/Receipts.
