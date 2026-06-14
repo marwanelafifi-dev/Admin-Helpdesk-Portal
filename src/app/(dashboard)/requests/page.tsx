@@ -175,7 +175,11 @@ export default function RequestsPage() {
     load()
     void fetch("/api/requests", { cache: "no-store" })
       .then((r) => r.ok ? r.json() : null)
-      .then((json) => { if (json?.data) { try { localStorage.setItem("arp_requests", JSON.stringify(json.data)) } catch {} load() } })
+      .then((json) => {
+        if (!Array.isArray(json?.data)) return
+        try { localStorage.setItem("arp_requests", JSON.stringify(json.data)) } catch {}
+        setRequests(json.data)
+      })
       .catch(() => {})
     window.addEventListener("storage", load)
     window.addEventListener("arp:storage", load)

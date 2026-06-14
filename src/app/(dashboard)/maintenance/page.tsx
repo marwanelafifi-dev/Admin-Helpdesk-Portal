@@ -101,7 +101,12 @@ export default function MaintenancePage() {
     loadRequests()
     void fetch("/api/requests", { cache: "no-store" })
       .then((r) => r.ok ? r.json() : null)
-      .then((json) => { if (json?.data) { try { localStorage.setItem("arp_requests", JSON.stringify(json.data)) } catch {} loadRequests() } })
+      .then((json) => {
+        if (!Array.isArray(json?.data)) return
+        try { localStorage.setItem("arp_requests", JSON.stringify(json.data)) } catch {}
+        const all = (json.data as EngineRequest[]).filter((r) => r.module === "maintenance")
+        setRequests(scopeRequests(all, { id: session?.user?.id, email: session?.user?.email, name: session?.user?.name }, session?.user?.role, (session?.user?.permissions as string[]) ?? []))
+      })
       .catch(() => {})
     window.addEventListener("storage", loadRequests)
     window.addEventListener("arp:storage", loadRequests)
