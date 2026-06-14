@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { MarkdownEditor } from "@/components/ui/MarkdownEditor"
 import { AlertCircle, Calendar, Upload, X, MapPin, Building2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
@@ -146,12 +147,9 @@ export function EventForm({ onCancel, editingRequest, isEditing }: { onCancel?: 
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                placeholder="Provide details about your request..."
-                rows={4}
-                {...register("description")}
-              />
+              <Controller name="description" control={control} render={({ field }) => (
+                <MarkdownEditor id="description" value={field.value ?? ""} onChange={field.onChange} placeholder="Provide details about your request..." rows={4} />
+              )} />
             </div>
           </CardContent>
         </Card>

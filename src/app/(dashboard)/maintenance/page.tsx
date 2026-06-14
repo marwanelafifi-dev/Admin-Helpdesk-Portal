@@ -19,6 +19,7 @@ import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { LABEL_COLORS, LABEL_DOTS } from "@/lib/statusPalette"
 import { scopeRequests } from "@/lib/access"
+import { MarkdownDisplay } from "@/components/ui/MarkdownDisplay"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -400,7 +401,7 @@ export default function MaintenancePage() {
                           {!!(req.payload as Record<string, unknown>).description && (
                             <div className="col-span-2">
                               <p className="font-semibold text-gray-700">Description</p>
-                              <p className="text-gray-600">{String((req.payload as Record<string, unknown>).description)}</p>
+                              <MarkdownDisplay content={String((req.payload as Record<string, unknown>).description)} />
                             </div>
                           )}
                         </div>
