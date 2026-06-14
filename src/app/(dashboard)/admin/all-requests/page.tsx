@@ -219,14 +219,15 @@ export default function AllRequestsPage() {
     // Load from localStorage immediately (fast, works when cache is warm).
     load()
 
-    // Also pull directly from the server on mount so a fresh browser
-    // (empty localStorage) gets data without waiting for Shell's sync cycle.
+    // Pull directly from server and set state immediately — bypasses localStorage
+    // cache entirely so a fresh browser always renders real data on mount.
     void fetch("/api/requests", { cache: "no-store" })
       .then((r) => r.ok ? r.json() : null)
       .then((json) => {
-        if (!json?.data) return
+        if (!Array.isArray(json?.data)) return
         try { localStorage.setItem("arp_requests", JSON.stringify(json.data)) } catch {}
-        load()
+        setRequests(json.data)
+        setTasks(getTasks())
       })
       .catch(() => {})
 
