@@ -304,7 +304,7 @@ export default function AllRequestsPage() {
     setRequests(prev => prev.map(r =>
       r.id === id ? { ...r, status: newStatus as RequestStatus, updatedAt: new Date().toISOString() } : r
     ))
-    updateStatus(id, newStatus as RequestStatus, currentUserId)
+    void updateStatus(id, newStatus as RequestStatus, currentUserId)
     if (request) {
       createRequestUpdateNotifications({
         requestId: id,
@@ -707,7 +707,7 @@ export default function AllRequestsPage() {
                       disabled={!canAssign}
                       value={req.assignedToId ?? null}
                       onChange={(assignee) => {
-                        assignRequest(req.id, assignee)
+                        void assignRequest(req.id, assignee)
                         setRequests((prev) => prev.map((r) => r.id === req.id ? {
                           ...r,
                           assignedToId: assignee?.id ?? null,

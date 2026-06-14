@@ -196,7 +196,7 @@ export default function RequestDetailPage() {
 
   const handleAssign = async (assignee: { id: string; name: string; email: string } | null) => {
     if (!request || !canAssign) return
-    const updated = assignRequest(request.id, assignee)
+    const updated = await assignRequest(request.id, assignee)
     setRequest((prev) => prev ? {
       ...prev,
       assignedToId: updated?.assignedToId ?? null,
@@ -225,7 +225,7 @@ export default function RequestDetailPage() {
       const oldStatus = request.status
 
       // Update in engineService
-      updateStatus(request.id, newStatus as any, currentUserId)
+      void updateStatus(request.id, newStatus as any, currentUserId)
 
       // Create new activity entry for status change
       const newStatusActivity = {

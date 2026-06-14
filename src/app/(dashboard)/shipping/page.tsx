@@ -102,7 +102,7 @@ export default function ShippingPage() {
     const currentUserId = session?.user?.id || "USR-001"
     const oldStatus = shipment?.status
     setStatusOverrides(prev => ({ ...prev, [id]: newStatus }))
-    updateStatus(id, newStatus as any, currentUserId)
+    void updateStatus(id, newStatus as any, currentUserId)
     if (shipment) {
       const ccEmails = stored ? getAllCcEmails(stored) : []
       createRequestUpdateNotifications({

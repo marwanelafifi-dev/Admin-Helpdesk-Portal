@@ -424,12 +424,12 @@ export function saveDraft<T extends Record<string, unknown>>(
  * Records a status transition on an existing request.
  * Returns the updated request, or null if the ID was not found.
  */
-export function updateStatus(
+export async function updateStatus(
   id: string,
   status: RequestStatus,
   changedBy: string,
   comment?: string
-): EngineRequest | null {
+): Promise<EngineRequest | null> {
   const requests = readAll()
   const index    = requests.findIndex((r) => r.id === id)
   if (index === -1) return null
@@ -448,7 +448,7 @@ export function updateStatus(
 
   requests[index] = updated
   writeAll(requests)
-  pushToServer(updated)
+  await pushToServer(updated)
 
   void import(EMAIL_SERVICE_PATH).then(({ simulateStatusChangeEmail }) => {
     simulateStatusChangeEmail(updated, previousStatus, status)
@@ -490,10 +490,10 @@ export function updateStatus(
  * assignee to clear the assignment. Returns the updated request, or null if
  * the ID was not found.
  */
-export function assignRequest(
+export async function assignRequest(
   id: string,
   assignee: { id: string; name: string; email: string } | null,
-): EngineRequest | null {
+): Promise<EngineRequest | null> {
   const requests = readAll()
   const index = requests.findIndex((r) => r.id === id)
   if (index === -1) return null
@@ -508,7 +508,7 @@ export function assignRequest(
 
   requests[index] = updated
   writeAll(requests)
-  pushToServer(updated)
+  await pushToServer(updated)  // await so server is updated before UI confirms
 
   try {
     logAuditEvent({

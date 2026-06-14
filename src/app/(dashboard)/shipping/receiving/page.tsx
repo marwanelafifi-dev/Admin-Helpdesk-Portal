@@ -179,7 +179,7 @@ export default function ReceivingPage() {
     const oldStatus = shipment?.status
     const today = new Date().toISOString()
     setShipments(prev => prev.map(s => s.id === id ? { ...s, status: newStatus as any, lastUpdate: fmtDateTime(today) } : s))
-    updateStatus(id, newStatus as any, currentUserId)
+    void updateStatus(id, newStatus as any, currentUserId)
     if (shipment) {
       createRequestUpdateNotifications({
         requestId: id,
