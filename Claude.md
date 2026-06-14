@@ -699,6 +699,24 @@ This document tracks the phased development of the Admin Request Platform, movin
 - [x] **`src/lib/auditLog.ts`** extended: new action types `database_backup`, `database_restore`, `database_clear`, `maintenance_toggled`, `maintenance_message_updated`, `force_signout_all`.
 - [x] **`useSession`** added to DatabasePage component — actor name/email stamped on every log entry.
 
+## Phase 6e: Backup Improvements (Completed — 14 Jun 2026)
+- [x] **Scheduled & Run Now backups now capture full browser data (~11 MB parity with Download Backup):**
+  - [x] New `POST /api/admin/browser-data` route — accepts browser localStorage snapshot, writes to `data/browser-data.json`.
+  - [x] `collectBackup()` pushes browser data to server before downloading — keeps server in sync on every manual backup.
+  - [x] `runBackupNow()` pushes browser data to server first, then triggers `/api/admin/backup-now` — server backup includes tasks, notifications, audit log, logos, theme, viewed comments.
+  - [x] `backupRunner.ts` includes `browser-data.json` in `SERVER_FILES` list.
+  - [x] Backup checklist UI shows new "Browser Data Snapshot" row.
+  - [x] Info banner updated to explain the sync behaviour.
+- [x] **Multi-frequency scheduled backups** — previously only one frequency active at a time:
+  - [x] `BackupSchedule.frequencies: BackupFrequency[]` replaces single `frequency` field; old saved schedules auto-migrated on first read.
+  - [x] `shouldRunNow()` fires if ANY active frequency is due.
+  - [x] UI frequency buttons are now multi-select toggles (e.g. Hourly + Daily simultaneously).
+  - [x] Time / Day of Week / Day of Month fields shown when any non-hourly frequency is active.
+- [x] **Backup filename format** — human-readable 12-hour format with seconds:
+  - [x] Old: `backup-2026-06-14-07-04-24.json`
+  - [x] New: `Backup-14-06-2026 - 07.04.24 AM.json`
+  - [x] `makeBackupFilename(date)` helper exported from `backupRunner.ts` — used by both server-side scheduler and browser download handler.
+
 ## Phase 6: Optimization & Scaling
 - [ ] Add Redis caching for frequently accessed dashboard data.
 - [ ] Implement file upload storage service for AWB/Invoices/Receipts.
