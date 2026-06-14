@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { useForm } from "react-hook-form"
+import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { MarkdownEditor } from "@/components/ui/MarkdownEditor"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { Upload, X, Inbox, Mail } from "lucide-react"
@@ -51,6 +52,7 @@ export default function NewGeneralRequestPage() {
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
@@ -135,12 +137,9 @@ export default function NewGeneralRequestPage() {
 
             <div className="space-y-1.5">
               <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                placeholder="Provide details about your request…"
-                rows={6}
-                {...register("description")}
-              />
+              <Controller name="description" control={control} render={({ field }) => (
+                <MarkdownEditor id="description" value={field.value ?? ""} onChange={field.onChange} placeholder="Provide details about your request…" rows={6} />
+              )} />
             </div>
           </CardContent>
         </Card>

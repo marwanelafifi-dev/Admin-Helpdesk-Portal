@@ -23,6 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { MarkdownDisplay } from "@/components/ui/MarkdownDisplay"
 
 const STATUS_COLORS: Record<string, string> = {
   draft:             "bg-zinc-100 text-zinc-600",
@@ -604,7 +605,7 @@ export default function RequestDetailPage() {
 
             {request.description && (
               <div className="pt-4 border-t">
-                <p className="text-sm text-gray-600">{request.description}</p>
+                <MarkdownDisplay content={request.description} />
               </div>
             )}
           </div>

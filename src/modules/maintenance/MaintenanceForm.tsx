@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { MarkdownEditor } from "@/components/ui/MarkdownEditor"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
@@ -151,7 +152,9 @@ export function MaintenanceForm({ onCancel, editingRequest, isEditing }: { onCan
 
             <div className="space-y-1.5">
               <Label htmlFor="description">Description <span className="text-red-500">*</span></Label>
-              <Textarea id="description" placeholder="Provide detailed description of the issue..." rows={4} {...register("description")} className={cn(errors.description && "border-red-400")} />
+              <Controller name="description" control={control} render={({ field }) => (
+                <MarkdownEditor id="description" value={field.value ?? ""} onChange={field.onChange} placeholder="Provide detailed description of the issue..." rows={4} />
+              )} />
               <FieldError message={errors.description?.message} />
             </div>
 
