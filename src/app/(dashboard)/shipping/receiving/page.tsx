@@ -136,6 +136,32 @@ export default function ReceivingPage() {
 
   useEffect(() => {
     loadShipments()
+    // Also fetch directly from server so fresh browser gets data without waiting for sync
+    void fetch("/api/requests", { cache: "no-store" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((json) => {
+        if (!Array.isArray(json?.data)) return
+        try { localStorage.setItem("arp_requests", JSON.stringify(json.data)) } catch {}
+        const allShipping = (json.data as any[]).filter((r) => {
+          if (r.module !== "shipping") return false
+          const d = r.payload?.direction
+          return !d || d === "receiving"
+        })
+        const scoped = scopeRequests(allShipping, { id: session?.user?.id, email: session?.user?.email, name: session?.user?.name }, session?.user?.role, (session?.user?.permissions as string[]) ?? [])
+        const transformed = scoped.map((req: any) => ({
+          id: req.id, title: req.title || "Untitled Request",
+          trackingNumber: req.payload?.trackingNumber || "", carrier: req.payload?.carrier || "",
+          origin: req.payload?.origin || "N/A", destination: req.payload?.destination || "N/A",
+          status: req.status || "new", expectedDelivery: fmtDate(req.updatedAt),
+          requester: req.requesterName || req.requesterId || "Unknown", pickupDate: fmtDate(req.createdAt),
+          poNumber: req.payload?.poNumber || "", costCenter: req.payload?.costCenter || "",
+          lastUpdate: fmtDateTime(req.updatedAt),
+        }))
+        setShipments(transformed)
+        setError(null)
+        setLoading(false)
+      })
+      .catch(() => {})
     window.addEventListener("storage", loadShipments)
     window.addEventListener("arp:storage", loadShipments)
     return () => {
