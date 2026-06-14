@@ -19,16 +19,8 @@ export async function POST(req: NextRequest) {
   })
   if (!token || !isAdmin(token)) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
-  // Accept an optional localTime from the browser so the filename reflects
-  // the user's local clock rather than the server's UTC time.
-  let localDate: Date | undefined
   try {
-    const body = await req.json().catch(() => ({}))
-    if (body?.localTime) localDate = new Date(body.localTime)
-  } catch {}
-
-  try {
-    const result = await runBackup(localDate)
+    const result = await runBackup()
     const files = listBackupFiles()
     return NextResponse.json({ success: true, ...result, files })
   } catch (e: any) {

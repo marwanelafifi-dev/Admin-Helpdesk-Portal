@@ -48,6 +48,7 @@ services:
       AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET}
       ENABLE_GOOGLE_AUTH: "true"
       NODE_ENV: production
+      TZ: Africa/Cairo
       NODE_TLS_REJECT_UNAUTHORIZED: "0"
       DISABLE_TLS_CERT_CHECK: "true"
       NEXT_TELEMETRY_DISABLED: "1"
