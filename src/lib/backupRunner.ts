@@ -79,42 +79,45 @@ export async function runBackup(): Promise<BackupResult> {
  * Returns true if a scheduled backup should run right now based on the
  * schedule config and the last backup timestamp.
  */
-export function shouldRunNow(schedule: ReturnType<typeof readSchedule>): boolean {
-  if (!schedule.enabled) return false
-
-  const now = new Date()
-  const last = schedule.lastBackupAt ? new Date(schedule.lastBackupAt) : null
-
-  if (schedule.frequency === "hourly") {
+function isDueForFrequency(
+  freq: string,
+  now: Date,
+  last: Date | null,
+  schedule: ReturnType<typeof readSchedule>,
+): boolean {
+  if (freq === "hourly") {
     if (!last) return true
     return (now.getTime() - last.getTime()) >= 60 * 60 * 1000
   }
 
-  // For daily/weekly/monthly we compare the wall-clock time window.
-  // A backup is due if:
-  //   • It has never run, OR
-  //   • The last run was before today's scheduled window
   const [hh, mm] = schedule.time.split(":").map(Number)
   const scheduledToday = new Date(now)
   scheduledToday.setHours(hh, mm, 0, 0)
 
-  if (schedule.frequency === "daily") {
+  if (freq === "daily") {
     if (!last) return now >= scheduledToday
-    // Due if we're past today's scheduled time and last run was before scheduledToday
     return now >= scheduledToday && last < scheduledToday
   }
 
-  if (schedule.frequency === "weekly") {
+  if (freq === "weekly") {
     if (now.getDay() !== schedule.dayOfWeek) return false
     if (!last) return now >= scheduledToday
     return now >= scheduledToday && last < scheduledToday
   }
 
-  if (schedule.frequency === "monthly") {
+  if (freq === "monthly") {
     if (now.getDate() !== schedule.dayOfMonth) return false
     if (!last) return now >= scheduledToday
     return now >= scheduledToday && last < scheduledToday
   }
 
   return false
+}
+
+export function shouldRunNow(schedule: ReturnType<typeof readSchedule>): boolean {
+  if (!schedule.enabled) return false
+  const now  = new Date()
+  const last = schedule.lastBackupAt ? new Date(schedule.lastBackupAt) : null
+  // True if ANY of the active frequencies is due
+  return schedule.frequencies.some((f) => isDueForFrequency(f, now, last, schedule))
 }
