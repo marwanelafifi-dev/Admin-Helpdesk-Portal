@@ -4,10 +4,14 @@ import path from "path"
 const SCHEDULE_PATH = path.join(process.cwd(), "data", "backup-schedule.json")
 export const BACKUP_DIR = path.join(process.cwd(), "backups")
 
+export type BackupFrequency = "hourly" | "daily" | "weekly" | "monthly"
+
 export interface BackupSchedule {
   enabled: boolean
-  /** "daily" | "weekly" | "monthly" | "hourly" */
-  frequency: "hourly" | "daily" | "weekly" | "monthly"
+  /** Multi-select: one or more active frequencies. Replaces legacy `frequency`. */
+  frequencies: BackupFrequency[]
+  /** @deprecated use frequencies[] — kept for backward-compat with old saved schedules */
+  frequency?: BackupFrequency
   /** HH:MM in 24h, used for daily/weekly/monthly */
   time: string
   /** Day of week 0-6 for weekly (0=Sunday) */
@@ -24,7 +28,7 @@ export interface BackupSchedule {
 
 export const SCHEDULE_DEFAULTS: BackupSchedule = {
   enabled: false,
-  frequency: "daily",
+  frequencies: ["daily"],
   time: "02:00",
   dayOfWeek: 0,
   dayOfMonth: 1,
@@ -36,7 +40,13 @@ export const SCHEDULE_DEFAULTS: BackupSchedule = {
 export function readSchedule(): BackupSchedule {
   try {
     if (!fs.existsSync(SCHEDULE_PATH)) return SCHEDULE_DEFAULTS
-    return { ...SCHEDULE_DEFAULTS, ...JSON.parse(fs.readFileSync(SCHEDULE_PATH, "utf-8")) }
+    const saved = JSON.parse(fs.readFileSync(SCHEDULE_PATH, "utf-8"))
+    const merged = { ...SCHEDULE_DEFAULTS, ...saved }
+    // Migrate legacy single-frequency field to the new array
+    if (!Array.isArray(merged.frequencies) || merged.frequencies.length === 0) {
+      merged.frequencies = merged.frequency ? [merged.frequency] : ["daily"]
+    }
+    return merged
   } catch {
     return SCHEDULE_DEFAULTS
   }

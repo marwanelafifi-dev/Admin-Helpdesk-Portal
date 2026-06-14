@@ -250,7 +250,7 @@ export default function DatabasePage() {
 
   // ── Scheduled Backup state ────────────────────────────────────────────────
   const [scheduleEnabled, setScheduleEnabled]     = useState(false)
-  const [scheduleFreq, setScheduleFreq]           = useState<"hourly"|"daily"|"weekly"|"monthly">("daily")
+  const [scheduleFreqs, setScheduleFreqs]         = useState<("hourly"|"daily"|"weekly"|"monthly")[]>(["daily"])
   const [scheduleTime, setScheduleTime]           = useState("02:00")
   const [scheduleDayOfWeek, setScheduleDayOfWeek] = useState(0)
   const [scheduleDayOfMonth, setScheduleDayOfMonth] = useState(1)
@@ -286,7 +286,8 @@ export default function DatabasePage() {
       const s = json.schedule
       if (s) {
         setScheduleEnabled(Boolean(s.enabled))
-        if (s.frequency) setScheduleFreq(s.frequency)
+        if (Array.isArray(s.frequencies) && s.frequencies.length > 0) setScheduleFreqs(s.frequencies)
+        else if (s.frequency) setScheduleFreqs([s.frequency])
         if (s.time) setScheduleTime(s.time)
         if (typeof s.dayOfWeek === "number") setScheduleDayOfWeek(s.dayOfWeek)
         if (typeof s.dayOfMonth === "number") setScheduleDayOfMonth(s.dayOfMonth)
@@ -360,7 +361,7 @@ export default function DatabasePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           enabled: scheduleEnabled,
-          frequency: scheduleFreq,
+          frequencies: scheduleFreqs,
           time: scheduleTime,
           dayOfWeek: scheduleDayOfWeek,
           dayOfMonth: scheduleDayOfMonth,
@@ -1247,22 +1248,30 @@ export default function DatabasePage() {
           {/* Schedule config — only shown when enabled */}
           {scheduleEnabled && (
             <div className="space-y-4">
-              {/* Frequency */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {(["hourly","daily","weekly","monthly"] as const).map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setScheduleFreq(f)}
-                    className={`rounded-lg border-2 px-4 py-3 text-sm font-medium transition-all ${scheduleFreq === f ? "bg-blue-600 border-blue-600 text-white" : "border-gray-200 bg-white text-gray-700 hover:border-blue-300"}`}
-                  >
-                    {f.charAt(0).toUpperCase() + f.slice(1)}
-                  </button>
-                ))}
+              {/* Frequency — multi-select: click to toggle each on/off */}
+              <div>
+                <p className="text-xs font-medium text-gray-600 mb-2">Frequency <span className="text-gray-400 font-normal">(select one or more)</span></p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {(["hourly","daily","weekly","monthly"] as const).map((f) => {
+                    const active = scheduleFreqs.includes(f)
+                    return (
+                      <button
+                        key={f}
+                        onClick={() => setScheduleFreqs((prev) =>
+                          active ? prev.filter((x) => x !== f) : [...prev, f]
+                        )}
+                        className={`rounded-lg border-2 px-4 py-3 text-sm font-medium transition-all ${active ? "bg-blue-600 border-blue-600 text-white" : "border-gray-200 bg-white text-gray-700 hover:border-blue-300"}`}
+                      >
+                        {f.charAt(0).toUpperCase() + f.slice(1)}
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Time (daily / weekly / monthly) */}
-                {scheduleFreq !== "hourly" && (
+                {/* Time (shown when any non-hourly frequency is active) */}
+                {scheduleFreqs.some((f) => f !== "hourly") && (
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-gray-600">Time (24h)</label>
                     <input
@@ -1275,7 +1284,7 @@ export default function DatabasePage() {
                 )}
 
                 {/* Day of week (weekly only) */}
-                {scheduleFreq === "weekly" && (
+                {scheduleFreqs.includes("weekly") && (
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-gray-600">Day of Week</label>
                     <select
@@ -1291,7 +1300,7 @@ export default function DatabasePage() {
                 )}
 
                 {/* Day of month (monthly only) */}
-                {scheduleFreq === "monthly" && (
+                {scheduleFreqs.includes("monthly") && (
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-gray-600">Day of Month</label>
                     <select
