@@ -127,7 +127,7 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
       } else {
         // Create new request — convert uploaded files to data URLs first.
         const attachments = await filesToAttachments(uploadedFiles, "purchase")
-        const newReq = submitRequest("purchase", { ...data, attachments } as any, {
+        const newReq = await submitRequest("purchase", { ...data, attachments } as any, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",

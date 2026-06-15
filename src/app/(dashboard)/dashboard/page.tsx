@@ -220,19 +220,7 @@ export default function DashboardPage() {
   useEffect(() => {
     initializeMockData()
     const sync = async () => {
-      // Fetch directly from server so fresh browser gets real data immediately
-      try {
-        const r = await fetch("/api/requests", { cache: "no-store" })
-        if (r.ok) {
-          const json = await r.json()
-          if (Array.isArray(json?.data)) {
-            try { localStorage.setItem("arp_requests", JSON.stringify(json.data)) } catch {}
-            setRequests(json.data)
-          }
-        } else {
-          setRequests(getRequests())
-        }
-      } catch { setRequests(getRequests()) }
+      setRequests(getRequests())
       try {
         const res = await fetch("/api/feedback/responses")
         if (res.ok) {

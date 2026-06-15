@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import {
   Download, Upload, CheckCircle2, AlertTriangle, Clock, Shield, Trash2,
@@ -112,10 +112,6 @@ function getRequests(): Array<{ module: string }> {
     const raw = localStorage.getItem("arp_requests")
     return raw ? JSON.parse(raw) : []
   } catch { return [] }
-}
-
-function countByModule(moduleId: string): number {
-  return getRequests().filter((r) => r.module === moduleId).length
 }
 
 function clearModuleRequests(moduleId: string): number {
@@ -236,6 +232,8 @@ export default function DatabasePage() {
   const [clearAllStatus, setClearAllStatus] = useState<Status>({ type: "idle", message: "" })
   const [storeStatus, setStoreStatus]       = useState<Status>({ type: "idle", message: "" })
   const [moduleStatus, setModuleStatus]     = useState<Status>({ type: "idle", message: "" })
+  const [moduleCounts, setModuleCounts]     = useState<Record<string, number>>({})
+  const [moduleCountsLoading, setModuleCountsLoading] = useState(true)
 
   const [restoring, setRestoring]               = useState(false)
   const [lastBackupTime, setLastBackupTime]     = useState<string | null>(null)
@@ -261,6 +259,41 @@ export default function DatabasePage() {
   const [scheduleSaveStatus, setScheduleSaveStatus] = useState<Status>({ type: "idle", message: "" })
   const [runNowStatus, setRunNowStatus]           = useState<Status>({ type: "idle", message: "" })
   const [runningNow, setRunningNow]               = useState(false)
+
+  const refreshModuleCounts = useCallback(async () => {
+    setModuleCountsLoading(true)
+    let requests = getRequests()
+
+    try {
+      const res = await fetch("/api/requests", { cache: "no-store" })
+      if (res.ok) {
+        const json = await res.json()
+        if (Array.isArray(json?.data)) requests = json.data
+      }
+    } catch {
+      // Fall back to the browser cache when the server is unavailable.
+    }
+
+    const counts: Record<string, number> = {}
+    REQUEST_MODULES.forEach(({ id }) => {
+      counts[id] = requests.filter((request) => request.module === id).length
+    })
+    setModuleCounts(counts)
+    setModuleCountsLoading(false)
+  }, [])
+
+  useEffect(() => {
+    void refreshModuleCounts()
+    const refresh = () => { void refreshModuleCounts() }
+    window.addEventListener("focus", refresh)
+    window.addEventListener("storage", refresh)
+    window.addEventListener("arp:storage", refresh)
+    return () => {
+      window.removeEventListener("focus", refresh)
+      window.removeEventListener("storage", refresh)
+      window.removeEventListener("arp:storage", refresh)
+    }
+  }, [refreshModuleCounts])
 
   // Pull deleted requests on mount.
   useEffect(() => {
@@ -437,6 +470,7 @@ export default function DatabasePage() {
       if (!res.ok) throw new Error(await res.text())
       setDeletedRequests((prev) => prev.filter((d) => d.request.id !== id))
       setDeletedStatus({ type: "success", message: `Request ${id} has been restored and is live again.` })
+      await refreshModuleCounts()
     } catch (e: any) {
       setDeletedStatus({ type: "error", message: `Restore failed: ${e?.message ?? "Unknown error"}` })
     }
@@ -526,8 +560,9 @@ export default function DatabasePage() {
           type: "success",
           message: `Restore complete — ${restored.length} item${restored.length !== 1 ? "s" : ""} restored from ${fmt(manifest.createdAt)}` +
                    (skipped.length ? `. ${skipped.length} skipped.` : "") +
-                   ". Refresh to see restored data.",
+                   ". Module counts have been refreshed.",
         })
+        await refreshModuleCounts()
       } catch (err: any) {
         setRestoreStatus({ type: "error", message: `Restore failed: ${err?.message ?? "Invalid file"}` })
       } finally {
@@ -563,6 +598,7 @@ export default function DatabasePage() {
     logAuditEvent({ actor: actorName, actorEmail, action: "database_clear", targetId: "", targetTitle: "Clear All Data", module: "database", details: `Wiped all data — ${cleared} browser stores + ${serverCleared} server files cleared` })
     setShowClearAllConfirm(false)
     setClearAllConfirmText("")
+    setModuleCounts(Object.fromEntries(REQUEST_MODULES.map(({ id }) => [id, 0])))
     setClearAllStatus({
       type: "success",
       message: `All data cleared — ${cleared} browser store${cleared !== 1 ? "s" : ""}` +
@@ -591,6 +627,7 @@ export default function DatabasePage() {
     } catch {}
     const label = REQUEST_MODULES.find((m) => m.id === moduleId)?.label ?? moduleId
     const removed = Math.max(removedLocal, serverRemoved)
+    setModuleCounts((previous) => ({ ...previous, [moduleId]: 0 }))
     logAuditEvent({ actor: actorName, actorEmail, action: "database_clear", targetId: moduleId, targetTitle: `Clear Module: ${label}`, module: "database", details: `${removed} ${label} request${removed !== 1 ? "s" : ""} permanently deleted` })
     setConfirmModule(null)
     setModuleStatus({ type: "success", message: `${label} data cleared — ${removed} request${removed !== 1 ? "s" : ""} removed from the server and every browser.` })
@@ -629,6 +666,9 @@ export default function DatabasePage() {
       localStorage.setItem("arp_global_clear_broadcast", String(Date.now()))
     } catch {}
     const label = STORE_BY_KEY[key]?.label ?? key
+    if (key === "arp_requests") {
+      setModuleCounts(Object.fromEntries(REQUEST_MODULES.map(({ id }) => [id, 0])))
+    }
     logAuditEvent({ actor: actorName, actorEmail, action: "database_clear", targetId: key, targetTitle: `Clear Store: ${label}`, module: "database", details: `"${label}" store cleared (browser + server)` })
     setConfirmStore(null)
     setStoreStatus({ type: "success", message: `${label} cleared on the server and in every browser.` })
@@ -643,6 +683,7 @@ export default function DatabasePage() {
       if (key === "server:requests") {
         await fetch("/api/requests", { method: "DELETE" })
         try { localStorage.removeItem("arp_requests") } catch {}
+        setModuleCounts(Object.fromEntries(REQUEST_MODULES.map(({ id }) => [id, 0])))
       } else if (key === "server:comments") {
         await fetch("/api/admin/server-data", {
           method: "POST",
@@ -960,7 +1001,7 @@ export default function DatabasePage() {
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {REQUEST_MODULES.map(({ id, label, icon: Icon, color, bg, border }) => {
-                const count = countByModule(id)
+                const count = moduleCounts[id] ?? 0
                 const isConfirming = confirmModule === id
                 return (
                   <div key={id} className={`rounded-xl border-2 p-4 transition-all ${isConfirming ? "border-red-400 bg-red-50" : `${border} ${bg}`}`}>
@@ -970,7 +1011,9 @@ export default function DatabasePage() {
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-gray-800">{label}</p>
-                        <p className="text-xs text-gray-400">{count} record{count !== 1 ? "s" : ""}</p>
+                        <p className="text-xs text-gray-400">
+                          {moduleCountsLoading ? "Loading..." : `${count} record${count !== 1 ? "s" : ""}`}
+                        </p>
                       </div>
                     </div>
 

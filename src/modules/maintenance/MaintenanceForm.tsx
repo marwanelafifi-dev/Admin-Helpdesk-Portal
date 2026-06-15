@@ -100,7 +100,7 @@ export function MaintenanceForm({ onCancel, editingRequest, isEditing }: { onCan
       } else {
         // Create new request — convert files to data URLs so any user can open them.
         const attachments = await filesToAttachments(uploadedFiles, "maintenance")
-        const newReq = submitRequest("maintenance", { ...data, attachments } as any, {
+        const newReq = await submitRequest("maintenance", { ...data, attachments } as any, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",

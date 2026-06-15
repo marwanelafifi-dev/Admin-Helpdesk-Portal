@@ -46,6 +46,8 @@ export interface CommentActivity {
 
 export interface EngineRequest<T = Record<string, unknown>> {
   id: string
+  /** Stable key used to make retried create requests idempotent. */
+  clientRequestId?: string
   module: RequestModule | string
   title: string
   status: RequestStatus
@@ -184,6 +186,7 @@ const PENDING_KEY = "arp_pending_push"
 
 function loadPending(): void {
   try {
+    _pendingPush.clear()
     const raw = localStorage.getItem(PENDING_KEY)
     if (!raw) return
     const entries: [string, EngineRequest][] = JSON.parse(raw)
@@ -195,6 +198,11 @@ function savePending(): void {
   try {
     localStorage.setItem(PENDING_KEY, JSON.stringify([..._pendingPush.entries()]))
   } catch {}
+}
+
+function markPending(request: EngineRequest): void {
+  _pendingPush.set(request.id, request)
+  savePending()
 }
 
 // Load pending pushes immediately on module init (client-side) so syncFromServer
@@ -215,9 +223,9 @@ export async function retryPendingPushes(): Promise<void> {
 
 async function pushToServer(request: EngineRequest): Promise<void> {
   if (typeof window === "undefined") return
-  // Track as pending so syncFromServer preserves it and retries survive page reloads.
-  _pendingPush.set(request.id, request)
-  savePending()
+  // Callers mark pending before writing locally. Keep this as a fallback for
+  // retries and older call paths.
+  if (!_pendingPush.has(request.id)) markPending(request)
   const ATTEMPTS = 3
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     try {
@@ -232,16 +240,20 @@ async function pushToServer(request: EngineRequest): Promise<void> {
       }
       const json = await res.json()
       const saved = json?.request as EngineRequest | undefined
-      _pendingPush.delete(request.id)
-      savePending()
+      const isLatestPush = _pendingPush.get(request.id) === request
+      if (isLatestPush) {
+        _pendingPush.delete(request.id)
+        savePending()
+      }
       if (!saved) {
         // Push succeeded but no body — notify listeners now that pending is clear
         if (_pendingPush.size === 0) try { window.dispatchEvent(new Event("arp:storage")) } catch {}
         return
       }
 
-      // Mirror server-stamped assignee back to localStorage.
-      if (saved.assignedToId && saved.assignedToId !== request.assignedToId) {
+      // Only mirror this response if no newer update for the same request was
+      // queued while the network call was in flight.
+      if (isLatestPush) {
         const local = readAll()
         const idx = local.findIndex((r) => r.id === saved.id)
         if (idx >= 0) {
@@ -260,6 +272,39 @@ async function pushToServer(request: EngineRequest): Promise<void> {
     }
   }
   // Push failed after all retries — leave in _pendingPush so syncFromServer preserves it.
+}
+
+async function createOnServer<T extends Record<string, unknown>>(
+  request: EngineRequest<T>
+): Promise<EngineRequest<T>> {
+  const ATTEMPTS = 3
+  let lastError: Error | null = null
+
+  for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch("/api/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ operation: "create", request }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.error ?? `Request creation failed (${res.status})`)
+      }
+
+      const json = await res.json()
+      const saved = json?.request as EngineRequest<T> | undefined
+      if (!saved?.id) throw new Error("Server did not return the created request")
+      return saved
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error("Request creation failed")
+      if (attempt < ATTEMPTS - 1) {
+        await new Promise((resolve) => setTimeout(resolve, (attempt + 1) * 1000))
+      }
+    }
+  }
+
+  throw lastError ?? new Error("Request creation failed")
 }
 
 /**
@@ -284,6 +329,7 @@ function clearCommentsForId(requestId: string): void {
 export async function syncFromServer(): Promise<void> {
   if (typeof window === "undefined") return
   try {
+    loadPending()
     const res = await fetch("/api/requests", { cache: "no-store" })
     if (!res.ok) return
     const json = await res.json()
@@ -304,8 +350,7 @@ export async function syncFromServer(): Promise<void> {
     const remoteIds = new Set(remote.map((r) => r.id))
     const localOnly = local.filter((r) => !remoteIds.has(r.id) && _pendingPush.has(r.id))
     merged.push(...localOnly)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged))
-    try { window.dispatchEvent(new Event("arp:storage")) } catch {}
+    writeAll(merged)
   } catch {
     // Network errors leave the cache untouched.
   }
@@ -318,16 +363,19 @@ export async function syncFromServer(): Promise<void> {
  * Creates a new request in "pending_approval" status and persists it.
  * Returns the full saved request (including the generated ID).
  */
-export function submitRequest<T extends Record<string, unknown>>(
+export async function submitRequest<T extends Record<string, unknown>>(
   module: RequestModule | string,
   payload: T,
   meta: SubmitMeta
-): EngineRequest<T> {
-  const id  = generateId(module)
+): Promise<EngineRequest<T>> {
   const now = new Date().toISOString()
+  const clientRequestId = typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${now}-${Math.random().toString(36).slice(2)}`
 
   const request: EngineRequest<T> = {
-    id,
+    id: `PENDING-${clientRequestId}`,
+    clientRequestId,
     module,
     title:          meta.title,
     status:         "new",
@@ -349,10 +397,11 @@ export function submitRequest<T extends Record<string, unknown>>(
     updatedAt: now,
   }
 
-  writeAll([...readAll(), request])
-  pushToServer(request)
-  clearCommentsForId(id)
-  return request
+  const saved = await createOnServer(request)
+  const local = readAll().filter((existing) => existing.id !== saved.id)
+  writeAll([...local, saved])
+  clearCommentsForId(saved.id)
+  return saved
 }
 
 /**
@@ -380,6 +429,7 @@ export function updateRequest<T extends Record<string, unknown>>(
   } as EngineRequest<T>
 
   requests[index] = updated
+  markPending(updated)
   writeAll(requests)
   pushToServer(updated)
 
@@ -432,6 +482,7 @@ export function saveDraft<T extends Record<string, unknown>>(
     updatedAt: now,
   }
 
+  markPending(request)
   writeAll([...readAll(), request])
   pushToServer(request)
   clearCommentsForId(id)
@@ -466,6 +517,7 @@ export async function updateStatus(
   }
 
   requests[index] = updated
+  markPending(updated)
   writeAll(requests)
   await pushToServer(updated)
 
@@ -526,6 +578,7 @@ export async function assignRequest(
   }
 
   requests[index] = updated
+  markPending(updated)
   writeAll(requests)
   await pushToServer(updated)  // await so server is updated before UI confirms
 
@@ -572,6 +625,7 @@ export function recordCommentActivity(
   }
 
   requests[index] = updated
+  markPending(updated)
   writeAll(requests)
   pushToServer(updated)
 
@@ -594,6 +648,7 @@ export function updateAdminCc(id: string, adminCc: string[]): EngineRequest | nu
   }
 
   requests[index] = updated
+  markPending(updated)
   writeAll(requests)
   pushToServer(updated)
   return updated

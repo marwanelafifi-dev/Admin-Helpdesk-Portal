@@ -11,12 +11,12 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { mockShipments, mockUsers, type MockShipment } from "@/lib/mock-data"
-import { cn } from "@/lib/utils"
+import { mockUsers, type MockShipment } from "@/lib/mock-data"
+import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
-import { updateStatus, getRequestById, getAllCcEmails } from "@/services/engineService"
+import { updateStatus, getRequestById, getAllCcEmails, getRequestsByModule, initializeMockData } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 import { useExpandedRows } from "@/hooks/useExpandedRows"
@@ -77,19 +77,41 @@ export default function ShippingPage() {
   const [sortDir, setSortDir]         = useState<"asc" | "desc">("asc")
   const [colWidths, setColWidths]     = useState<(number | null)[]>(() => COLS.map(() => null))
   const tableRef = useRef<HTMLTableElement>(null)
-  const [statusOverrides, setStatusOverrides] = useState<Record<string, string>>({})
+  const [shipments, setShipments] = useState<MockShipment[]>([])
 
   const canUpdateStatus = ((session?.user?.permissions as string[])?.includes("update_status") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canEditRequest = ((session?.user?.permissions as string[])?.includes("edit_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canCancelRequest = ((session?.user?.permissions as string[])?.includes("cancel_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
 
-  const shipments = useMemo(() =>
-    mockShipments.map(s => ({
-      ...s,
-      status: (statusOverrides[s.id] ?? s.status) as string
-    })),
-    [statusOverrides]
-  )
+  useEffect(() => {
+    const loadShipments = () => {
+      initializeMockData()
+      const transformed = getRequestsByModule("shipping").map((req: any) => ({
+        id: req.id,
+        title: req.title || "Untitled Request",
+        trackingNumber: req.payload?.trackingNumber || "",
+        carrier: req.payload?.carrier || "",
+        origin: req.payload?.origin || "N/A",
+        destination: req.payload?.destination || "N/A",
+        status: req.status || "new",
+        expectedDelivery: fmtDate(req.updatedAt),
+        requester: req.requesterName || req.requesterId || "Unknown",
+        pickupDate: fmtDate(req.createdAt),
+        poNumber: req.payload?.poNumber || "",
+        costCenter: req.payload?.costCenter || "",
+        lastUpdate: fmtDateTime(req.updatedAt),
+      }))
+      setShipments(transformed)
+    }
+
+    loadShipments()
+    window.addEventListener("storage", loadShipments)
+    window.addEventListener("arp:storage", loadShipments)
+    return () => {
+      window.removeEventListener("storage", loadShipments)
+      window.removeEventListener("arp:storage", loadShipments)
+    }
+  }, [])
 
   const commentCounts = useCommentCounts(shipments.map(s => s.id))
   const { viewedComments } = useViewedComments()
@@ -101,7 +123,11 @@ export default function ShippingPage() {
     const stored = getRequestById(id)
     const currentUserId = session?.user?.id || "USR-001"
     const oldStatus = shipment?.status
-    setStatusOverrides(prev => ({ ...prev, [id]: newStatus }))
+    setShipments(prev => prev.map(shipment =>
+      shipment.id === id
+        ? { ...shipment, status: newStatus, lastUpdate: fmtDateTime(new Date().toISOString()) }
+        : shipment
+    ))
     void updateStatus(id, newStatus as any, currentUserId)
     if (shipment) {
       const ccEmails = stored ? getAllCcEmails(stored) : []
@@ -451,7 +477,7 @@ export default function ShippingPage() {
 
           {filtered.length > 0 && (
             <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-[11px] text-gray-400 text-right">
-              Showing {filtered.length} of {mockShipments.length} shipments
+              Showing {filtered.length} of {shipments.length} shipments
             </div>
           )}
             </div>

@@ -11,6 +11,16 @@ import type { EngineRequest } from "@/services/engineService"
 
 const STORE_PATH = path.join(process.cwd(), "data", "requests.json")
 
+const MODULE_PREFIX: Record<string, string> = {
+  shipping: "SHP",
+  maintenance: "MNT",
+  purchase: "PRC",
+  event: "EVT",
+  travel: "TRV",
+  hr: "HR",
+  general: "GEN",
+}
+
 function ensureStore() {
   const dir = path.dirname(STORE_PATH)
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
@@ -51,12 +61,43 @@ class RequestStore {
     this.store = readFromDisk()
     const idx = this.store.findIndex((r) => r.id === request.id)
     if (idx >= 0) {
+      if (this.store[idx].updatedAt > request.updatedAt) {
+        return this.store[idx]
+      }
       this.store[idx] = request
     } else {
       this.store.push(request)
     }
     writeToDisk(this.store)
     return request
+  }
+
+  create(request: EngineRequest): EngineRequest {
+    this.store = readFromDisk()
+
+    if (request.clientRequestId) {
+      const existing = this.store.find(
+        (item) => item.clientRequestId === request.clientRequestId
+      )
+      if (existing) return existing
+    }
+
+    const prefix = MODULE_PREFIX[request.module] ?? "REQ"
+    const year = new Date().getFullYear()
+    const pattern = new RegExp(`^${prefix}-${year}-(\\d+)$`)
+    const currentMax = this.store.reduce((max, item) => {
+      const match = item.id.match(pattern)
+      if (!match) return max
+      const value = Number(match[1])
+      return Number.isFinite(value) ? Math.max(max, value) : max
+    }, 0)
+    const id = `${prefix}-${year}-${String(currentMax + 1).padStart(4, "0")}`
+    const now = new Date().toISOString()
+    const saved = { ...request, id, updatedAt: now }
+
+    this.store.push(saved)
+    writeToDisk(this.store)
+    return saved
   }
 
   bulkReplace(requests: EngineRequest[]): void {

@@ -95,25 +95,14 @@ export default function PurchasePage() {
   }, [session?.user?.id, session?.user?.email, session?.user?.role])
 
   useEffect(() => {
-    const fetchFromServer = () => {
-      void fetch("/api/requests", { cache: "no-store" })
-        .then((r) => r.ok ? r.json() : null)
-        .then((json) => {
-          if (!Array.isArray(json?.data)) return
-          try { localStorage.setItem("arp_requests", JSON.stringify(json.data)) } catch {}
-          const all = (json.data as EngineRequest[]).filter((r) => r.module === "purchase")
-          setRequests(scopeRequests(all, { id: session?.user?.id, email: session?.user?.email, name: session?.user?.name }, session?.user?.role, (session?.user?.permissions as string[]) ?? []))
-        })
-        .catch(() => {})
-    }
-    fetchFromServer()
-    window.addEventListener("storage", fetchFromServer)
-    window.addEventListener("arp:storage", fetchFromServer)
+    loadRequests()
+    window.addEventListener("storage", loadRequests)
+    window.addEventListener("arp:storage", loadRequests)
     return () => {
-      window.removeEventListener("storage", fetchFromServer)
-      window.removeEventListener("arp:storage", fetchFromServer)
+      window.removeEventListener("storage", loadRequests)
+      window.removeEventListener("arp:storage", loadRequests)
     }
-  }, [session?.user?.id, session?.user?.email, session?.user?.role])
+  }, [loadRequests])
 
   function handleStatusChange(id: string, newStatus: string) {
     const request = requests.find(r => r.id === id)
