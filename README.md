@@ -309,3 +309,9 @@ Accepted JSON shapes include:
 - A backup wrapper containing `data.arp_requests`.
 
 Every request must contain the selected module id and the required request fields. Imports are atomic and never overwrite existing data. If any request ID already exists in live requests, appears more than once in the file, or remains in the recycle bin, the entire import is rejected and no records are saved.
+
+## Request Attachments
+
+All request forms persist uploaded files in `payload.attachments` as base64 data URLs so they can be viewed by other users and on other devices. This applies to Shipping, Maintenance, Purchase, Event, Travel, HR onboarding/offboarding, and General requests.
+
+The request detail page loads the complete request from the server before rendering the **Attachments** tab. Browser localStorage is only a fallback because its quota-protection path may remove large attachment data from the local cache. Existing attachments remain stored on the server and reappear when the request detail page refreshes.
