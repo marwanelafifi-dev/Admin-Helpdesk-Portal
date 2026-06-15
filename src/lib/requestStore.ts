@@ -100,6 +100,23 @@ class RequestStore {
     return saved
   }
 
+  importMany(requests: EngineRequest[]): EngineRequest[] {
+    this.store = readFromDisk()
+    const existingIds = new Set(this.store.map((request) => request.id))
+    const incomingIds = new Set<string>()
+
+    for (const request of requests) {
+      if (existingIds.has(request.id) || incomingIds.has(request.id)) {
+        throw new Error(`Request ID ${request.id} already exists`)
+      }
+      incomingIds.add(request.id)
+    }
+
+    this.store.push(...requests)
+    writeToDisk(this.store)
+    return requests
+  }
+
   bulkReplace(requests: EngineRequest[]): void {
     this.store = requests
     writeToDisk(this.store)
