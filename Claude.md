@@ -788,6 +788,18 @@ This document tracks the phased development of the Admin Request Platform, movin
 - [x] **Shipping pages use persisted engine data** — overview, Sending, and Receiving re-render from the shared request cache instead of mock or raw stale server data.
 - [x] **Database Clear-by-Module counts are server-backed** — module cards now show the authoritative current counts, with automatic refresh after clear, restore, focus, sync, and cross-tab changes.
 
+## Phase 6l: Module Request JSON Import (Completed — 15 Jun 2026)
+- [x] **Import Requests card added to Admin → Database** — administrators select Shipping, Maintenance, Purchase, Event, Travel, HR, or General before choosing a JSON file.
+- [x] **Single and multiple request import** — accepts a direct request object, request array, `{ request }`, `{ requests }`, `{ data }`, or a backup wrapper containing `data.arp_requests`.
+- [x] **Selected-module enforcement** — every imported record must already belong to the selected module; mixed or mismatched module files are rejected.
+- [x] **Required-field and date validation** — server validates IDs, title, status, requester identity, payload, status history, and timestamps before persistence.
+- [x] **Strict no-overwrite protection** — live request IDs, repeated IDs within the uploaded file, and IDs retained in the recycle bin are rejected.
+- [x] **Atomic multi-record persistence** — all records are validated before `requestStore.importMany()` writes to `data/requests.json`; one invalid or duplicate record rejects the entire import with no partial save.
+- [x] **Post-import synchronization** — the browser refreshes the authoritative request list, updates `arp_requests`, dispatches `arp:storage`, and refreshes Database module counts.
+- [x] **Audit Trail integration** — successful imports appear under the Database category with module, filename, and imported record count.
+- [x] **Import authorization** — restricted to Full Access, wildcard, `manage_users`, or `page:admin-database` permissions.
+- [x] **Import size limit** — one operation accepts up to 1,000 request records.
+
 ## Phase 6: Optimization & Scaling
 - [ ] Add Redis caching for frequently accessed dashboard data.
 - [ ] Implement file upload storage service for AWB/Invoices/Receipts.
@@ -890,7 +902,7 @@ Status column preserves color styling with dot indicators; other columns use neu
 |------|---------|--------------|
 | `src/app/(dashboard)/tasks/page.tsx` | Team Tasks management | Administration Team role only, real assignee from API, comment attachments, activity tracking |
 | `src/app/(dashboard)/admin/audit-trail/page.tsx` | Audit Trail | Reads localStorage, resolves USR-* IDs to names, category filter + search |
-| `src/app/(dashboard)/admin/database/page.tsx` | Database Backup/Restore + Scheduled Backups | Imports central registry; auto-discovers all owned keys; Scheduled Backups card with frequency/time/retention controls + Run Now + file list |
+| `src/app/(dashboard)/admin/database/page.tsx` | Database Backup/Restore, Request Import + Scheduled Backups | Module-aware single/multiple request JSON import with no-overwrite validation; imports central registry; auto-discovers all owned keys; Scheduled Backups card with frequency/time/retention controls + Run Now + file list |
 | `src/lib/dataStoreRegistry.ts` | Central localStorage registry | Single source of truth for every owned key. Adding a `StoreDefinition` here makes it appear in Database backup/restore/clear automatically |
 | `src/lib/backupScheduleStore.ts` | Backup schedule config store | Reads/writes `data/backup-schedule.json`; `listBackupFiles()` and `pruneOldBackups()` |
 | `src/lib/backupRunner.ts` | Backup execution logic | `runBackup()` — collects all data/*.json and writes timestamped JSON to `/app/backups/`; `shouldRunNow()` schedule evaluator |
