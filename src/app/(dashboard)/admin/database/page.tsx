@@ -20,6 +20,7 @@ import {
 import { fmtDateTime } from "@/lib/utils"
 import type { DeletedRequest } from "@/lib/deletedRequestStore"
 import { logAuditEvent } from "@/lib/auditLog"
+import type { EngineRequest } from "@/services/engineService"
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -207,6 +208,28 @@ function fmt(iso: string) {
   })
 }
 
+function extractRequestsFromJson(value: unknown): EngineRequest[] {
+  if (Array.isArray(value)) return value as EngineRequest[]
+  if (!value || typeof value !== "object") {
+    throw new Error("The JSON must contain a request object or an array of requests.")
+  }
+
+  const record = value as Record<string, unknown>
+  if (typeof record.id === "string") return [record as unknown as EngineRequest]
+  if (record.request && typeof record.request === "object" && !Array.isArray(record.request)) {
+    return [record.request as EngineRequest]
+  }
+  if (Array.isArray(record.requests)) return record.requests as EngineRequest[]
+  if (Array.isArray(record.data)) return record.data as EngineRequest[]
+
+  const backupData = record.data as Record<string, unknown> | undefined
+  if (backupData && Array.isArray(backupData.arp_requests)) {
+    return backupData.arp_requests as EngineRequest[]
+  }
+
+  throw new Error("No request record was found in this JSON file.")
+}
+
 // ── Sub-components ───────────────────────────────────────────────────────────
 
 function StatusAlert({ status }: { status: Status }) {
@@ -232,8 +255,11 @@ export default function DatabasePage() {
   const [clearAllStatus, setClearAllStatus] = useState<Status>({ type: "idle", message: "" })
   const [storeStatus, setStoreStatus]       = useState<Status>({ type: "idle", message: "" })
   const [moduleStatus, setModuleStatus]     = useState<Status>({ type: "idle", message: "" })
+  const [importStatus, setImportStatus]     = useState<Status>({ type: "idle", message: "" })
   const [moduleCounts, setModuleCounts]     = useState<Record<string, number>>({})
   const [moduleCountsLoading, setModuleCountsLoading] = useState(true)
+  const [importModule, setImportModule]     = useState<string>("shipping")
+  const [importingRequests, setImportingRequests] = useState(false)
 
   const [restoring, setRestoring]               = useState(false)
   const [lastBackupTime, setLastBackupTime]     = useState<string | null>(null)
@@ -457,6 +483,7 @@ export default function DatabasePage() {
   const [confirmPurgeId, setConfirmPurgeId] = useState<string | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const importInputRef = useRef<HTMLInputElement>(null)
 
   // ── Recycle Bin: Restore ──────────────────────────────────────────────────
   async function handleRestore(id: string) {
@@ -571,6 +598,71 @@ export default function DatabasePage() {
       }
     }
     reader.readAsText(file)
+  }
+
+  async function handleImportRequests(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setImportingRequests(true)
+    setImportStatus({ type: "idle", message: "" })
+
+    try {
+      const parsed = JSON.parse(await file.text()) as unknown
+      const requests = extractRequestsFromJson(parsed)
+      if (requests.length === 0) {
+        throw new Error("The JSON file does not contain any requests.")
+      }
+
+      const mismatched = requests.find((request) => request?.module !== importModule)
+      if (mismatched) {
+        throw new Error(
+          `Request ${mismatched.id || "(missing ID)"} belongs to module "${mismatched.module || "unknown"}", not "${importModule}".`
+        )
+      }
+
+      const res = await fetch("/api/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ operation: "import", module: importModule, requests }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? "Import failed")
+
+      const syncRes = await fetch("/api/requests", { cache: "no-store" })
+      if (syncRes.ok) {
+        const syncJson = await syncRes.json()
+        if (Array.isArray(syncJson?.data)) {
+          localStorage.setItem("arp_requests", JSON.stringify(syncJson.data))
+          window.dispatchEvent(new Event("arp:storage"))
+        }
+      }
+
+      const moduleLabel = REQUEST_MODULES.find(({ id }) => id === importModule)?.label ?? importModule
+      const importedCount = Number(json.imported) || requests.length
+      logAuditEvent({
+        actor: actorName,
+        actorEmail,
+        action: "database_import",
+        targetId: requests.length === 1 ? requests[0].id : "",
+        targetTitle: `${moduleLabel} Request Import`,
+        module: "database",
+        details: `Imported ${importedCount} ${moduleLabel} request${importedCount !== 1 ? "s" : ""} from ${file.name}`,
+      })
+      setImportStatus({
+        type: "success",
+        message: `${importedCount} ${moduleLabel} request${importedCount !== 1 ? "s" : ""} imported successfully.`,
+      })
+      await refreshModuleCounts()
+    } catch (error) {
+      setImportStatus({
+        type: "error",
+        message: `Import failed: ${error instanceof Error ? error.message : "Invalid JSON file"}`,
+      })
+    } finally {
+      setImportingRequests(false)
+      if (importInputRef.current) importInputRef.current.value = ""
+    }
   }
 
   // ── Clear All ─────────────────────────────────────────────────────────────
@@ -831,6 +923,67 @@ export default function DatabasePage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Import requests */}
+      <Card className="border border-blue-200 shadow-sm">
+        <CardHeader className="border-b bg-blue-50 rounded-t-lg">
+          <div className="flex items-center gap-3">
+            <div className="bg-blue-100 rounded-lg p-2"><Upload className="h-5 w-5 text-blue-700" /></div>
+            <div>
+              <CardTitle className="text-base font-semibold text-blue-900">Import Requests</CardTitle>
+              <p className="text-xs text-blue-600 mt-0.5">Select a module or page, then import one request or multiple request records</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-6 space-y-4">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+            <div className="space-y-2">
+              <label htmlFor="import-request-module" className="text-sm font-medium text-gray-700">
+                Module / page
+              </label>
+              <select
+                id="import-request-module"
+                value={importModule}
+                onChange={(event) => {
+                  setImportModule(event.target.value)
+                  setImportStatus({ type: "idle", message: "" })
+                }}
+                disabled={importingRequests}
+                className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
+              >
+                {REQUEST_MODULES.map(({ id, label }) => (
+                  <option key={id} value={id}>{label}</option>
+                ))}
+              </select>
+            </div>
+            <Button
+              onClick={() => importInputRef.current?.click()}
+              disabled={importingRequests}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              {importingRequests ? "Importing..." : "Import Request JSON"}
+            </Button>
+          </div>
+
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={handleImportRequests}
+          />
+
+          <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-3">
+            <Shield className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-blue-800">
+              The file may contain one request object or an array of requests. Every record must belong to the selected module. Request IDs are never overwritten: if any ID is already live, repeated in the file, or present in the recycle bin, the entire import is rejected and no records are added.
+            </p>
+          </div>
+
+          <StatusAlert status={importStatus} />
+        </CardContent>
+      </Card>
 
       {/* ── Deleted Requests (Recycle Bin) ── */}
       <Card className="border border-green-200 shadow-sm">

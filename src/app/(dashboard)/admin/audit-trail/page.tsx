@@ -224,6 +224,7 @@ async function buildAuditLog(): Promise<AuditEntry[]> {
           : ev.action === "request_assigned"? "Assigned"
           : ev.action === "database_backup"             ? "Database backup"
           : ev.action === "database_restore"            ? "Database restore"
+          : ev.action === "database_import"             ? "Request import"
           : ev.action === "database_clear"              ? "Database cleared"
           : ev.action === "maintenance_toggled"         ? "Maintenance mode toggled"
           : ev.action === "maintenance_message_updated" ? "Maintenance message updated"

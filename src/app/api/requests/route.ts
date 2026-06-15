@@ -7,6 +7,66 @@ import type { EngineRequest } from "@/services/engineService"
 
 export const runtime = "nodejs"
 
+const REQUEST_MODULES = new Set([
+  "shipping",
+  "maintenance",
+  "purchase",
+  "event",
+  "travel",
+  "hr",
+  "general",
+])
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0
+}
+
+function normalizeImportedRequest(value: unknown, moduleId: string): EngineRequest {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Each imported request must be a JSON object")
+  }
+
+  const request = value as Partial<EngineRequest>
+  if (!isNonEmptyString(request.id)) throw new Error("An imported request is missing its ID")
+  if (request.module !== moduleId) {
+    throw new Error(`Request ${request.id} does not belong to module ${moduleId}`)
+  }
+  if (!isNonEmptyString(request.title)) throw new Error(`Request ${request.id} is missing its title`)
+  if (!isNonEmptyString(request.status)) throw new Error(`Request ${request.id} is missing its status`)
+  if (!isNonEmptyString(request.requesterId)) throw new Error(`Request ${request.id} is missing requesterId`)
+  if (!isNonEmptyString(request.requesterName)) throw new Error(`Request ${request.id} is missing requesterName`)
+  if (!isNonEmptyString(request.requesterEmail)) throw new Error(`Request ${request.id} is missing requesterEmail`)
+  if (!request.payload || typeof request.payload !== "object" || Array.isArray(request.payload)) {
+    throw new Error(`Request ${request.id} has an invalid payload`)
+  }
+  if (!Array.isArray(request.statusHistory)) {
+    throw new Error(`Request ${request.id} has an invalid status history`)
+  }
+  if (!isNonEmptyString(request.createdAt) || Number.isNaN(Date.parse(request.createdAt))) {
+    throw new Error(`Request ${request.id} has an invalid createdAt date`)
+  }
+  if (!isNonEmptyString(request.updatedAt) || Number.isNaN(Date.parse(request.updatedAt))) {
+    throw new Error(`Request ${request.id} has an invalid updatedAt date`)
+  }
+
+  return {
+    ...request,
+    id: request.id.trim(),
+    module: moduleId,
+    title: request.title.trim(),
+    status: request.status,
+    requesterId: request.requesterId.trim(),
+    requesterName: request.requesterName.trim(),
+    requesterEmail: request.requesterEmail.trim(),
+    payload: request.payload,
+    statusHistory: request.statusHistory,
+    commentHistory: Array.isArray(request.commentHistory) ? request.commentHistory : [],
+    adminCc: Array.isArray(request.adminCc) ? request.adminCc : [],
+    createdAt: request.createdAt,
+    updatedAt: request.updatedAt,
+  } as EngineRequest
+}
+
 /**
  * GET /api/requests
  * Returns every request in the shared server store. Used by every list page
@@ -35,9 +95,54 @@ export async function POST(req: Request) {
   }
 
   const body = (await req.json()) as {
-    operation?: "create" | "upsert"
+    operation?: "create" | "upsert" | "import"
     request?: EngineRequest
+    requests?: EngineRequest[]
+    module?: string
   }
+
+  if (body.operation === "import") {
+    const perms = (session.user.permissions as string[] | undefined) ?? []
+    const role = session.user.role
+    const isAdmin = role === "Full Access"
+      || perms.includes("*")
+      || perms.includes("manage_users")
+      || perms.includes("page:admin-database")
+    if (!isAdmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    const requests = body.requests
+    const moduleId = body.module
+    if (!moduleId || !REQUEST_MODULES.has(moduleId)) {
+      return NextResponse.json({ error: "Invalid import module" }, { status: 400 })
+    }
+    if (!Array.isArray(requests) || requests.length === 0) {
+      return NextResponse.json({ error: "Missing import module or requests" }, { status: 400 })
+    }
+    if (requests.length > 1000) {
+      return NextResponse.json({ error: "A single import is limited to 1,000 requests" }, { status: 400 })
+    }
+
+    try {
+      const normalized = requests.map((request) => normalizeImportedRequest(request, moduleId))
+      const deletedIds = new Set(deletedRequestStore.getAll().map((entry) => entry.request.id))
+      const recycled = normalized.find((request) => deletedIds.has(request.id))
+      if (recycled) {
+        throw new Error(`Request ID ${recycled.id} already exists in the recycle bin`)
+      }
+
+      const imported = requestStore.importMany(normalized)
+      return NextResponse.json({ imported: imported.length, requests: imported })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Import failed"
+      return NextResponse.json(
+        { error: message },
+        { status: message.includes("already exists") ? 409 : 400 }
+      )
+    }
+  }
+
   if (!body?.request || !body.request.id) {
     return NextResponse.json({ error: "Missing request payload" }, { status: 400 })
   }
