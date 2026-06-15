@@ -800,6 +800,14 @@ This document tracks the phased development of the Admin Request Platform, movin
 - [x] **Import authorization** — restricted to Full Access, wildcard, `manage_users`, or `page:admin-database` permissions.
 - [x] **Import size limit** — one operation accepts up to 1,000 request records.
 
+## Phase 6m: Attachment Visibility Across All Request Pages (Completed — 15 Jun 2026)
+- [x] **Root cause fixed in the shared request-detail page** — localStorage may intentionally strip base64 attachment data after `QuotaExceededError`, so cached requests cannot be authoritative for the Attachments tab.
+- [x] **Server-first request detail loading** — `/requests/[id]` now fetches the complete request from the server before rendering; localStorage is used only as an offline/pending-request fallback.
+- [x] **Direct request lookup added** — authenticated `GET /api/requests?id=<requestId>` returns one full server-persisted request without downloading the entire request list.
+- [x] **All module forms covered** — Shipping, Maintenance, Purchase, Event, Travel, HR onboarding/offboarding, and General already persist uploaded files in `payload.attachments` as base64 data URLs.
+- [x] **Existing server attachments restored in the UI** — records whose browser cache omitted attachments now display them after the detail page refreshes from the server.
+- [x] **Attachment preview response typing fixed** — decoded file buffers are returned as `Uint8Array`, compatible with the current `NextResponse` body definitions.
+
 ## Phase 6: Optimization & Scaling
 - [ ] Add Redis caching for frequently accessed dashboard data.
 - [ ] Implement file upload storage service for AWB/Invoices/Receipts.
