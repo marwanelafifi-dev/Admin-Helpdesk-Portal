@@ -25,14 +25,292 @@
     --ring: 221.2 83.2% 53.3%;
     --radius: 0.5rem;
   }
+
+  .dark {
+    /* Coordinated slate-blue dark palette. Page background is the deepest
+       layer; cards sit one step lighter; hover/active surfaces a step above
+       that. Foreground colors stay close to white but never pure white to
+       reduce eye strain. */
+    --background: 222 24% 9%;
+    --foreground: 220 16% 96%;
+    --card: 222 22% 15%;
+    --card-foreground: 220 16% 96%;
+    --popover: 222 22% 17%;
+    --popover-foreground: 220 16% 96%;
+    --primary: 214 95% 68%;
+    --primary-foreground: 222 30% 8%;
+    --secondary: 222 22% 22%;
+    --secondary-foreground: 220 14% 92%;
+    --muted: 222 22% 20%;
+    --muted-foreground: 220 10% 64%;
+    --accent: 222 22% 22%;
+    --accent-foreground: 220 14% 92%;
+    --destructive: 0 72% 58%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 222 18% 24%;
+    --input: 222 22% 22%;
+    --ring: 214 95% 68%;
+  }
 }
 
 @layer base {
   * {
     @apply border-border;
   }
+  html {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  }
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
+
+/* ─── Dark mode overrides ────────────────────────────────────────────────── */
+/* These map the hardcoded Tailwind light-palette classes used throughout the
+   app onto a coordinated dark slate-blue palette so every page reads well
+   without per-component rewrites.
+   Palette base: hsl(222 22% 11%) page background, with progressively lighter
+   layers for cards, hovers, and elevated surfaces.                          */
+
+/* ── Surfaces ── */
+.dark .bg-white           { background-color: hsl(222 22% 15%) !important; }
+.dark .bg-gray-50         { background-color: hsl(222 22% 13%) !important; }
+.dark .bg-gray-100        { background-color: hsl(222 22% 18%) !important; }
+.dark .bg-gray-200        { background-color: hsl(222 22% 22%) !important; }
+.dark .bg-slate-50        { background-color: hsl(222 22% 13%) !important; }
+
+/* Tailwind opacity-modified backgrounds (bg-gray-50/40, bg-blue-50/30, etc.)
+   render as separate class names that plain .bg-gray-50 doesn't cover. */
+.dark .bg-gray-50\/30,
+.dark .bg-gray-50\/40,
+.dark .bg-gray-50\/50,
+.dark .bg-gray-50\/60  { background-color: hsl(222 22% 16%) !important; }
+.dark .bg-white\/50    { background-color: hsl(222 22% 15% / 0.85) !important; }
+
+/* Card hover / row hover */
+.dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-gray-50\/40:hover,
+.dark .hover\:bg-gray-50\/60:hover  { background-color: hsl(222 22% 19%) !important; }
+.dark .hover\:bg-gray-100:hover     { background-color: hsl(222 22% 21%) !important; }
+.dark .hover\:bg-blue-50:hover,
+.dark .hover\:bg-blue-50\/30:hover,
+.dark .hover\:bg-blue-50\/40:hover  { background-color: hsl(214 35% 22%) !important; }
+
+/* ── Borders ── */
+.dark .border-gray-100    { border-color: hsl(222 18% 22%) !important; }
+.dark .border-gray-200    { border-color: hsl(222 18% 26%) !important; }
+.dark .border-gray-300    { border-color: hsl(222 18% 32%) !important; }
+.dark .border-slate-200   { border-color: hsl(222 18% 26%) !important; }
+.dark .hover\:border-gray-200:hover { border-color: hsl(222 18% 30%) !important; }
+.dark .hover\:border-gray-300:hover { border-color: hsl(222 18% 38%) !important; }
+.dark .hover\:border-gray-400:hover { border-color: hsl(222 18% 45%) !important; }
+
+/* ── Text ── */
+.dark .text-gray-900      { color: hsl(220 16% 96%) !important; }
+.dark .text-gray-800      { color: hsl(220 14% 90%) !important; }
+.dark .text-gray-700      { color: hsl(220 12% 82%) !important; }
+.dark .text-gray-600      { color: hsl(220 10% 72%) !important; }
+.dark .text-gray-500      { color: hsl(220 10% 62%) !important; }
+.dark .text-gray-400      { color: hsl(220 10% 54%) !important; }
+.dark .text-gray-300      { color: hsl(220 10% 46%) !important; }
+
+/* ── Table header (dark in both modes, just slightly deeper in dark) ── */
+.dark .bg-slate-800       { background-color: hsl(222 24% 8%) !important; }
+.dark .bg-slate-900       { background-color: hsl(222 26% 6%) !important; }
+
+/* ── Tinted info panels: every Tailwind `bg-<color>-50` and `bg-<color>-100`
+       surface used in the app. Each gets a same-hue dark counterpart so
+       status pills, stat cards, and feedback chips still feel colored. ── */
+
+/* Amber / warning */
+.dark .bg-amber-50,
+.dark .bg-amber-50\/30    { background-color: hsl(38 65% 14%) !important; }
+.dark .bg-amber-100       { background-color: hsl(38 65% 22%) !important; }
+.dark .border-amber-200   { border-color: hsl(38 70% 38%) !important; }
+.dark .border-amber-300   { border-color: hsl(38 70% 44%) !important; }
+.dark .text-amber-900     { color: hsl(38 95% 88%) !important; }
+.dark .text-amber-800     { color: hsl(38 95% 80%) !important; }
+.dark .text-amber-700     { color: hsl(38 95% 72%) !important; }
+.dark .text-amber-600     { color: hsl(38 95% 68%) !important; }
+
+/* Blue / info */
+.dark .bg-blue-50,
+.dark .bg-blue-50\/30,
+.dark .bg-blue-50\/40     { background-color: hsl(214 55% 16%) !important; }
+.dark .bg-blue-100        { background-color: hsl(214 55% 24%) !important; }
+.dark .border-blue-200    { border-color: hsl(214 60% 38%) !important; }
+.dark .text-blue-900      { color: hsl(214 90% 88%) !important; }
+.dark .text-blue-800      { color: hsl(214 90% 80%) !important; }
+.dark .text-blue-700      { color: hsl(214 90% 72%) !important; }
+.dark .text-blue-600      { color: hsl(214 95% 68%) !important; }
+
+/* Red / danger */
+.dark .bg-red-50          { background-color: hsl(0 55% 16%) !important; }
+.dark .bg-red-100         { background-color: hsl(0 55% 24%) !important; }
+.dark .border-red-200     { border-color: hsl(0 60% 40%) !important; }
+.dark .text-red-900       { color: hsl(0 90% 90%) !important; }
+.dark .text-red-700       { color: hsl(0 85% 75%) !important; }
+.dark .text-red-600       { color: hsl(0 85% 70%) !important; }
+
+/* Emerald / success (also covers green / teal used for "completed" pills) */
+.dark .bg-emerald-50,
+.dark .bg-emerald-50\/30  { background-color: hsl(152 50% 14%) !important; }
+.dark .bg-emerald-100     { background-color: hsl(152 50% 22%) !important; }
+.dark .border-emerald-200 { border-color: hsl(152 55% 34%) !important; }
+.dark .text-emerald-700   { color: hsl(152 70% 70%) !important; }
+.dark .text-emerald-900   { color: hsl(152 70% 88%) !important; }
+.dark .bg-green-50,
+.dark .bg-green-50\/30    { background-color: hsl(142 50% 14%) !important; }
+.dark .border-green-200   { border-color: hsl(142 55% 34%) !important; }
+.dark .text-green-700     { color: hsl(142 65% 70%) !important; }
+
+/* Other accent palettes for stat-card icon tiles */
+.dark .bg-orange-50       { background-color: hsl(25 65% 16%) !important; }
+.dark .text-orange-600    { color: hsl(25 95% 68%) !important; }
+.dark .bg-purple-50       { background-color: hsl(270 50% 18%) !important; }
+.dark .text-purple-700    { color: hsl(270 75% 78%) !important; }
+.dark .text-purple-600    { color: hsl(270 80% 72%) !important; }
+.dark .bg-yellow-50       { background-color: hsl(48 65% 14%) !important; }
+.dark .text-yellow-700    { color: hsl(48 95% 70%) !important; }
+.dark .bg-teal-50         { background-color: hsl(174 50% 14%) !important; }
+.dark .text-teal-700      { color: hsl(174 65% 65%) !important; }
+.dark .text-teal-600      { color: hsl(174 75% 60%) !important; }
+.dark .bg-sky-50          { background-color: hsl(204 55% 14%) !important; }
+.dark .text-sky-700       { color: hsl(204 90% 72%) !important; }
+.dark .bg-pink-50         { background-color: hsl(330 50% 18%) !important; }
+.dark .text-pink-700      { color: hsl(330 75% 78%) !important; }
+.dark .bg-rose-50         { background-color: hsl(350 50% 18%) !important; }
+.dark .bg-indigo-50       { background-color: hsl(240 50% 18%) !important; }
+.dark .bg-indigo-100      { background-color: hsl(240 50% 24%) !important; }
+.dark .border-indigo-200  { border-color: hsl(240 55% 38%) !important; }
+.dark .text-indigo-700    { color: hsl(240 75% 78%) !important; }
+.dark .hover\:bg-indigo-50:hover { background-color: hsl(240 50% 22%) !important; }
+
+/* ── Dropdown & popover surfaces inside radix portals ── */
+.dark [data-radix-popper-content-wrapper] .bg-white { background-color: hsl(222 22% 17%) !important; }
+.dark [data-radix-popper-content-wrapper] .border   { border-color: hsl(222 18% 28%) !important; }
+
+/* ── Specific patches ── */
+/* Cards that explicitly target white with rounded-t-lg (section headers) */
+.dark .bg-gray-50.rounded-t-lg  { background-color: hsl(222 22% 16%) !important; }
+/* Form footer gray-50 strips */
+.dark .bg-gray-50.border-t      { background-color: hsl(222 22% 13%) !important; }
+
+@layer utilities {
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(18px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.55s ease-out both;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.55s ease-out both;
+  }
+}
+
+/* ─── Global mobile responsiveness ──────────────────────────────────────────
+   Pages were originally written for desktop with fixed multi-column grids
+   like `grid-cols-3`, `grid-cols-5`, etc. Rather than touch every page
+   individually, these rules collapse those grids to a single column on
+   small screens and let wide tables scroll horizontally inside their card
+   instead of overflowing the viewport.
+   Apply below 768px (the `md` Tailwind breakpoint) so tablets+ keep the
+   original layout.
+*/
+@media (max-width: 767px) {
+  /* Stat-card / KPI grids: stack vertically. Captures grid-cols-2..7 unless
+     a responsive variant (sm:/md:) is already explicitly applied. We use
+     :where() to keep specificity low so component-level overrides win. */
+  :where(.grid.grid-cols-2):not([class*=":grid-cols"]),
+  :where(.grid.grid-cols-3):not([class*=":grid-cols"]),
+  :where(.grid.grid-cols-4):not([class*=":grid-cols"]),
+  :where(.grid.grid-cols-5):not([class*=":grid-cols"]),
+  :where(.grid.grid-cols-6):not([class*=":grid-cols"]),
+  :where(.grid.grid-cols-7):not([class*=":grid-cols"]) {
+    grid-template-columns: 1fr;
+  }
+
+  /* Tables: never let them break the viewport. Their parent already has
+     -mx-6 px-6 -mb-6 overflow-x-auto in module list pages; this is a
+     safety net for anything that missed the pattern. */
+  table {
+    min-width: 100%;
+  }
+
+  /* Form footers wrap their Cancel + Submit buttons in a row. Stack and
+     full-width them on mobile. Add the `form-footer` class to mark a
+     footer (or it will inherit just from the standard structure below). */
+  .form-footer {
+    flex-direction: column-reverse !important;
+    align-items: stretch !important;
+    gap: 0.5rem !important;
+  }
+  .form-footer > * {
+    width: 100% !important;
+  }
+
+  /* Page header rows that put a title left + action button right tend to
+     overflow when the button label is long. Allow them to wrap. */
+  header.h-16,
+  .flex.items-center.justify-between:has(> .flex-1 > h1),
+  .flex.items-center.justify-between:has(> div > h1) {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+  }
+
+  /* Dialog content: shadcn's Dialog defaults to max-w-lg with absolute
+     positioning. On phones we want it edge-to-edge with a small margin. */
+  [role="dialog"] {
+    max-width: calc(100vw - 1.5rem) !important;
+  }
+
+  /* Large body text + headings shrink slightly so cards don't burst. */
+  h1.text-3xl { font-size: 1.5rem; line-height: 2rem; }
+  h1.text-2xl { font-size: 1.25rem; line-height: 1.75rem; }
+
+  /* Touch targets — buttons inside tables tend to be tiny on mobile. */
+  button[class*="h-7"], button[class*="h-8"] {
+    min-height: 36px;
+  }
+
+  /* Filter pill rows: allow wrapping. */
+  .flex.flex-wrap.gap-1\.5,
+  .flex.flex-wrap.gap-2,
+  .flex.flex-wrap.gap-3 {
+    width: 100%;
+  }
+}
+
+/* Specific page-header pattern: title block + action button on the right.
+   On <md we want the action button to drop below the title and span full
+   width so it's reachable with a thumb. */
+@media (max-width: 767px) {
+  /* New-request / "Add ..." buttons in module list headers — they all use
+     the same shape. Let them go full width on mobile. */
+  header.h-16 ~ * .flex.items-center.justify-between > .ml-4,
+  .flex.items-center.justify-between > [class*="ml-4"]:not(button):not(a):not(svg) {
+    margin-left: 0;
+  }
+}
+

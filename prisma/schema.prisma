@@ -1,0 +1,292 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Roles & Permissions ---
+model Role {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  permissions String[]   @default([]) // Array of permission strings
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([name])
+}
+
+// --- Auth & User ---
+model User {
+  id                String                  @id @default(cuid())
+  email             String                  @unique
+  name              String?
+  googleId          String?                 @unique
+  image             String?
+  picture           String?
+  passwordHash      String?
+  role              String                  @default("requester") // super_admin, admin, manager, requester, viewer
+  department        String?
+  emailVerified     DateTime?
+  active            Boolean                 @default(true)
+  additionalEmails  String[]                @default([])
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  // Relations
+  requests          Request[]               @relation("UserRequests")
+  comments          Comment[]               @relation("CommentAuthor")
+  history           RequestHistory[]        @relation("HistoryChangedBy")
+  notifications     Notification[]
+  preferences       NotificationPreference?
+  approvals         Approval[]              @relation("ApprovalUser")
+  accounts          Account[]
+  sessions          Session[]
+
+  @@index([email])
+  @@index([role])
+}
+
+// --- Request System ---
+model Request {
+  id            String                  @id @default(cuid())
+  title         String
+  description   String?
+  module        String                  // "shipping", "hr", "maintenance", "purchase"
+  type          String?                 // module-specific type
+  status        String                  @default("new") // new, on_hold, in_progress, completed, cancelled, delivered, in_customs
+  payload       Json                    // Module-specific fields stored as JSON
+
+  requesterId   String
+  requester     User                    @relation("UserRequests", fields: [requesterId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+
+  // Relations
+  attachments   Attachment[]            @relation("RequestAttachments")
+  approvals     Approval[]
+  history       RequestHistory[]
+  comments      Comment[]
+  notifications Notification[]
+
+  @@index([module])
+  @@index([status])
+  @@index([requesterId])
+  @@index([createdAt])
+  @@index([module, status])
+}
+
+model RequestHistory {
+  id              String      @id @default(cuid())
+  requestId       String
+  request         Request     @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  // What happened
+  action          String      // "created", "status_changed", "comment_added", "approved", "rejected", "assigned", "field_updated"
+  fieldName       String?     // null for "created", "status" for status change, etc.
+  oldValue        Json?       // Previous value
+  newValue        Json?       // New value
+
+  // Who made the change
+  changedByUserId String
+  changedByUser   User        @relation("HistoryChangedBy", fields: [changedByUserId], references: [id], onDelete: Cascade)
+
+  // Metadata
+  metadata        Json?       // Additional context
+  createdAt       DateTime    @default(now())
+
+  @@index([requestId])
+  @@index([createdAt])
+  @@index([action])
+}
+
+// --- Comments & Attachments ---
+model Comment {
+  id              String                  @id @default(cuid())
+  requestId       String
+  request         Request                 @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  // Comment content
+  content         String
+
+  // Who commented
+  authorId        String
+  author          User                    @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  // Edit tracking
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  editedAt        DateTime?               // null if never edited
+
+  // Mentions/tags
+  mentions        String[]                @default([])
+
+  // Nested replies (optional for Phase 1)
+  parentCommentId String?
+  parentComment   Comment?                @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies         Comment[]               @relation("CommentReplies")
+
+  // Attachments
+  attachments     CommentAttachment[]
+
+  // Notifications
+  notifications   Notification[]
+
+  @@index([requestId])
+  @@index([createdAt])
+}
+
+model CommentAttachment {
+  id        String    @id @default(cuid())
+  commentId String
+  comment   Comment   @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  name      String
+  url       String
+  mimeType  String
+  sizeBytes Int
+
+  uploadedAt DateTime @default(now())
+
+  @@index([commentId])
+}
+
+model Attachment {
+  id          String   @id @default(cuid())
+  requestId   String
+  request     Request  @relation("RequestAttachments", fields: [requestId], references: [id], onDelete: Cascade)
+
+  name        String
+  url         String
+  category    String   // "awb", "invoice", "other"
+  mimeType    String
+  sizeBytes   Int
+
+  uploadedAt  DateTime @default(now())
+  uploadedBy  String   // userId
+
+  @@index([requestId])
+  @@index([category])
+}
+
+// --- Notifications ---
+model Notification {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Notification content
+  type          String      // "status_change", "comment_added", "mentioned", "approval_needed", "request_created"
+  title         String
+  description   String
+
+  // Related data
+  requestId     String?
+  request       Request?    @relation(fields: [requestId], references: [id], onDelete: SetNull)
+
+  commentId     String?
+  comment       Comment?    @relation(fields: [commentId], references: [id], onDelete: SetNull)
+
+  // Status
+  read          Boolean     @default(false)
+  readAt        DateTime?
+  actionUrl     String?     // e.g., "/shipping/receiving/SHP-001"
+
+  // Channels
+  emailSent     Boolean     @default(false)
+  inApp         Boolean     @default(true)
+
+  createdAt     DateTime    @default(now())
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+}
+
+model NotificationPreference {
+  id                    String      @id @default(cuid())
+  userId                String      @unique
+  user                  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Email preferences
+  emailOnStatusChange   Boolean     @default(true)
+  emailOnComment        Boolean     @default(true)
+  emailOnMention        Boolean     @default(true)
+  emailOnApproval       Boolean     @default(true)
+
+  // Batch email
+  emailFrequency        String      @default("immediate") // "immediate", "daily", "weekly"
+
+  // Do not disturb
+  dndEnabled            Boolean     @default(false)
+  dndStartTime          String?     // "18:00"
+  dndEndTime            String?     // "09:00"
+
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+}
+
+// --- Approvals ---
+model Approval {
+  id        String    @id @default(cuid())
+  requestId String
+  request   Request   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  approverId String
+  approver   User     @relation("ApprovalUser", fields: [approverId], references: [id], onDelete: Cascade)
+
+  role      String    // "directManager", "techManager", "pm"
+  status    String    // "pending", "approved", "rejected"
+  comments  String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([requestId])
+  @@index([approverId])
+}
+
+// --- Session Management (for NextAuth) ---
+model Session {
+  id            String    @id @default(cuid())
+  sessionToken  String    @unique
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expires       DateTime
+
+  @@index([userId])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}

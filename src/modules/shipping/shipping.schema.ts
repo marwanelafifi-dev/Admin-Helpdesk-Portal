@@ -7,12 +7,9 @@ export const COST_CENTERS = NETSUITE_COST_CENTERS as [string, ...string[]]
 export const CARRIERS = ["DHL", "FedEx", "UPS", "Aramex", "Other"] as const
 
 export const REQUEST_STATUSES = [
-  "draft",
-  "pending_approval",
-  "approved",
-  "rejected",
-  "in_progress",
-  "completed",
+  "new",
+  "in_customs",
+  "delivered",
   "cancelled",
 ] as const
 
@@ -46,7 +43,7 @@ export const BaseRequestSchema = z.object({
   id: z.string(),
   module: z.string(),
   title: z.string().min(3, "Title must be at least 3 characters"),
-  status: z.enum(REQUEST_STATUSES).default("draft"),
+  status: z.enum(REQUEST_STATUSES).default("new"),
   requesterId: z.string().min(1, "Requester ID is required"),
   requesterName: z.string().min(1),
   requesterEmail: z.email({ error: "Invalid requester email" }),
@@ -61,7 +58,8 @@ export const BaseRequestSchema = z.object({
 const ApproverPersonSchema = z.object({
   userId: z.string().min(1),
   name: z.string().min(1),
-  email: z.email(),
+  // Email may be empty when a manager has no email yet in Company Data.
+  email: z.union([z.literal(""), z.email()]),
 })
 
 export const ShippingApproversSchema = z.object({
@@ -78,7 +76,9 @@ export const ShippingApproversFormSchema = z.object({
 
 export const ShippingPayloadSchema = z
   .object({
-    supplier: z.enum(SUPPLIERS, { error: "Select a valid supplier" }),
+    direction: z.enum(["sending", "receiving"]).default("receiving"),
+    supplier: z.string().min(1, "Supplier is required"),
+    supplierName: z.string().optional(),
     costCenter: z.enum(COST_CENTERS, { error: "Select a valid cost center" }),
     poNumber: z.string().min(1, "PO number is required"),
 
@@ -87,9 +87,9 @@ export const ShippingPayloadSchema = z
 
     carrier: z.enum(CARRIERS),
     carrierName: z.string().optional(),
-    trackingNumber: z.string().min(1, "Tracking Number is required"),
+    trackingNumber: z.string().optional(),
     trackingLink: z.string().optional(),
-    description: z.string().max(500).optional(),
+    description: z.string().min(1, "Description is required").max(500),
 
     expectedPickupDate: z.iso.date().optional(),
     expectedDeliveryDate: z.iso.date({ error: "Delivery Date is required" }),
@@ -100,6 +100,13 @@ export const ShippingPayloadSchema = z
         code: "custom",
         message: "Carrier Name is required when Carrier is Other",
         path: ["carrierName"],
+      })
+    }
+    if (val.supplier === "Other" && !val.supplierName?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Supplier Name is required when Supplier is Other",
+        path: ["supplierName"],
       })
     }
   })
@@ -117,15 +124,17 @@ export const ShippingRequestFormSchema = z
     approvers: ShippingApproversFormSchema,
     ccEmails: z.array(z.email({ error: "Must be a valid email address" })).default([]),
 
-    supplier: z.enum(SUPPLIERS, { error: "Select a valid supplier" }),
-    costCenter: z.enum(COST_CENTERS, { error: "Select a valid cost center" }),
+    direction: z.enum(["sending", "receiving"]).default("receiving"),
+    supplier: z.string().min(1, "Select a valid supplier"),
+    supplierName: z.string().optional(),
+    costCenter: z.string().min(1, "Select a valid cost center"),
     poNumber: z.string().min(1, "PO number is required"),
 
-    carrier: z.enum(CARRIERS),
+    carrier: z.string().min(1, "Select a carrier"),
     carrierName: z.string().optional(),
-    trackingNumber: z.string().min(1, "Tracking Number is required"),
+    trackingNumber: z.string().optional(),
     trackingLink: z.string().optional(),
-    description: z.string().max(500).optional(),
+    description: z.string().min(1, "Description is required").max(500),
 
     expectedPickupDate: z.string().optional(),
     expectedDeliveryDate: z.string().min(1, "Delivery Date is required"),
@@ -148,6 +157,14 @@ export const ShippingRequestFormSchema = z
         code: "custom",
         message: "Carrier Name is required when Carrier is Other",
         path: ["carrierName"],
+      })
+    }
+
+    if (val.supplier === "Other" && !val.supplierName?.trim()) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Supplier Name is required when Supplier is Other",
+        path: ["supplierName"],
       })
     }
 
@@ -176,4 +193,4 @@ export type ShippingRequestForm = z.infer<typeof ShippingRequestFormSchema>
 export type RequestStatus = (typeof REQUEST_STATUSES)[number]
 export type Supplier = (typeof SUPPLIERS)[number]
 export type CostCenter = (typeof COST_CENTERS)[number]
-export type Carrier = (typeof CARRIERS)[number]
+export type Carrier = string

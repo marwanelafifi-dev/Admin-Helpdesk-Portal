@@ -1,25 +1,25 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
   ShippingRequestFormSchema,
   type ShippingRequestForm,
-  CARRIERS,
-  SUPPLIERS,
-  COST_CENTERS,
 } from "./shipping.schema"
 import { shippingFormDefaults } from "./shipping.mock"
-import { mockUsers } from "@/lib/mock-data"
-import { submitRequest, type EngineRequest } from "@/services/engineService"
+import { getList, addItem, getManagerEmail } from "@/lib/companyDataStore"
+import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
+import { createNewRequestNotifications } from "@/lib/notificationStore"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { MarkdownEditor } from "@/components/ui/MarkdownEditor"
 import { Badge } from "@/components/ui/badge"
 import {
   Select,
@@ -28,6 +28,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { SearchableSelect } from "@/components/ui/SearchableSelect"
+import { CcEmailsField } from "@/components/ui/CcEmailsField"
 import {
   FileText,
   Package,
@@ -78,32 +80,49 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
   )
 }
 
-function buildAttachmentPayload(files: StagedFile[]) {
-  return files.map((sf) => ({
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result ?? ""))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}
+
+/**
+ * Convert staged files into a serializable attachment payload.
+ * Stores each file as a base64 `data:` URL so it survives the request
+ * being viewed by another user, in another tab, or after the original
+ * upload's blob URL has been revoked.
+ */
+async function buildAttachmentPayload(files: StagedFile[]) {
+  return Promise.all(files.map(async (sf) => ({
     id: `${sf.category}-${sf.id}`,
     name: sf.file.name,
-    url: URL.createObjectURL(sf.file),
+    url: await fileToDataUrl(sf.file),
     mimeType: sf.file.type || "application/octet-stream",
     sizeBytes: sf.file.size,
     uploadedAt: new Date().toISOString(),
-  }))
+  })))
 }
 
 function hasRequiredDocs(files: StagedFile[]) {
-  const hasAwb = files.some((f) => f.category === "awb")
-  const hasInvoice = files.some((f) => f.category === "invoice")
-  return hasAwb && hasInvoice
+  // Only the Commercial Invoice is required. AWB is optional.
+  return files.some((f) => f.category === "invoice")
 }
 
 function mapApprovers(approvers: ShippingRequestForm["approvers"]) {
-  const toPerson = (id: string) => {
-    const u = mockUsers.find((x) => x.id === id)
-    return u ? { userId: u.id, name: u.name, email: u.email } : undefined
-  }
+  // Resolve the manager name into {name, email} via Company Data so the
+  // stored payload carries a real email — not an empty string.
+  const toPerson = (id: string) => ({
+    userId: id,
+    name: id,
+    email: getManagerEmail(id) ?? "",
+  })
   return {
-    directManager: toPerson(approvers.directManager)!,
-    techManager: approvers.techManager.map((id) => toPerson(id)).filter(Boolean),
-    pm: approvers.pm.map((id) => toPerson(id)).filter(Boolean),
+    directManager: toPerson(approvers.directManager),
+    techManager: approvers.techManager.map(toPerson),
+    pm: approvers.pm.map(toPerson),
   }
 }
 
@@ -114,6 +133,7 @@ function FileUploadZone({
   files,
   onAdd,
   onRemove,
+  required,
 }: {
   category: StagedFile["category"]
   label: string
@@ -121,6 +141,7 @@ function FileUploadZone({
   files: StagedFile[]
   onAdd: (files: StagedFile[]) => void
   onRemove: (id: string) => void
+  required?: boolean
 }) {
   const handleFiles = (fileList: FileList | null) => {
     if (!fileList) return
@@ -140,11 +161,12 @@ function FileUploadZone({
       <Label className="flex items-center gap-2 text-sm font-medium">
         <Icon className="h-4 w-4" style={{ color: BRAND }} />
         {label}
+        {required && <span className="text-red-500">*</span>}
       </Label>
       <label className="flex flex-col items-center justify-center gap-2 w-full h-28 border-2 border-dashed rounded-lg cursor-pointer border-gray-200 bg-gray-50 hover:border-blue-300 hover:bg-blue-50/50">
         <input type="file" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
         <Upload className="h-6 w-6 text-gray-400" />
-        <p className="text-xs font-medium text-gray-600">Drop files here or browse</p>
+        <p className="text-xs font-medium text-gray-600">Click to browse files</p>
       </label>
       {categoryFiles.length > 0 && (
         <ul className="space-y-1.5">
@@ -166,50 +188,160 @@ function FileUploadZone({
   )
 }
 
-export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
+export function ShippingForm({ onCancel, editingRequest, isEditing, direction = "receiving" }: { onCancel?: () => void; editingRequest?: EngineRequest | null; isEditing?: boolean; direction?: "sending" | "receiving" }) {
   const router = useRouter()
+  const { data: session } = useSession()
   const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([])
-  const [ccEmailInput, setCcEmailInput] = useState("")
+  const [suppliers, setSuppliers] = useState<string[]>([])
+  const [costCenters, setCostCenters] = useState<string[]>([])
+  const [carriers, setCarriers] = useState<string[]>([])
+  const [managers, setManagers] = useState<{ id: string; name: string; email: string }[]>([])
 
-  const { register, control, handleSubmit, watch, setValue, setError, clearErrors, formState: { errors, isSubmitting } } = useForm<ShippingRequestForm>({
+  useEffect(() => {
+    setSuppliers(getList("suppliers"))
+    setCostCenters(getList("cost_centers"))
+    setCarriers(getList("carriers"))
+    setManagers(getList("managers").map((name) => ({ id: name, name, email: "" })))
+  }, [])
+
+  const { register, control, handleSubmit, watch, setValue, setError, clearErrors, formState: { errors, isSubmitting }, reset } = useForm<ShippingRequestForm>({
     resolver: zodResolver(ShippingRequestFormSchema) as any,
     defaultValues: shippingFormDefaults as any,
   })
 
+  useEffect(() => {
+    if (isEditing && editingRequest?.payload) {
+      const payload = editingRequest.payload as any
+      reset({
+        title: editingRequest.title || "",
+        notes: payload.notes || "",
+        supplier: payload.supplier || "",
+        supplierName: payload.supplierName || "",
+        poNumber: payload.poNumber || "",
+        costCenter: payload.costCenter || "",
+        carrier: payload.carrier || "",
+        carrierName: payload.carrierName || "",
+        trackingNumber: payload.trackingNumber || "",
+        trackingLink: payload.trackingLink || "",
+        description: payload.description || "",
+        expectedPickupDate: payload.expectedPickupDate || "",
+        expectedDeliveryDate: payload.expectedDeliveryDate || "",
+        approvers: {
+          directManager: payload.approvers?.directManager?.userId || "",
+          techManager: payload.approvers?.techManager?.map((a: any) => a.userId) || [],
+          pm: payload.approvers?.pm?.map((a: any) => a.userId) || [],
+        },
+        ccEmails: payload.ccEmails || [],
+      })
+    }
+  }, [editingRequest, isEditing, reset])
+
   const ccEmails = watch("ccEmails") ?? []
   const carrier = watch("carrier")
+  const supplier = watch("supplier")
 
   const addStagedFiles = useCallback((newFiles: StagedFile[]) => setStagedFiles((prev) => [...prev, ...newFiles]), [])
   const removeStagedFile = useCallback((id: string) => setStagedFiles((prev) => prev.filter((f) => f.id !== id)), [])
 
   const onSubmit = async (data: ShippingRequestForm) => {
-    if (!hasRequiredDocs(stagedFiles)) {
-      setError("attachments", { type: "manual", message: "AWB and Commercial Invoice are both required." })
+    if (!isEditing && !hasRequiredDocs(stagedFiles)) {
+      setError("attachments", { type: "manual", message: "Commercial Invoice is required." })
       return
     }
     clearErrors("attachments")
 
-    const payload = {
-      ...data,
-      approvers: mapApprovers(data.approvers),
-      attachments: buildAttachmentPayload(stagedFiles),
+    // If the user picked "Other" and typed a new supplier, push the typed
+    // value into the Company Data suppliers list so it's there next time —
+    // and replace the form's `supplier` field with that name so the payload
+    // we store doesn't keep "Other" as the supplier label.
+    let resolvedSupplier = data.supplier
+    if (data.supplier === "Other") {
+      const typed = (data.supplierName ?? "").trim()
+      if (typed) {
+        addItem("suppliers", typed)
+        setSuppliers(getList("suppliers"))
+        resolvedSupplier = typed
+      }
     }
 
-    const request: EngineRequest = submitRequest("shipping", payload as unknown as Record<string, unknown>, {
-      title: payload.title,
-      requesterId: "USR-001",
-      requesterName: "Marwan Elafifi",
-      requesterEmail: "marwan.elafifi@si-ware.com",
-    })
+    // Auto-CC the selected Direct Manager. Looks up their email in the
+    // Company Data managers list and appends it to ccEmails (deduped, case
+    // insensitive) so they receive every email notification for this request.
+    const managerName = data.approvers?.directManager?.trim()
+    const managerEmail = managerName ? getManagerEmail(managerName) : undefined
+    const ccEmailsWithManager = (() => {
+      const existing = data.ccEmails ?? []
+      if (!managerEmail) return existing
+      const lower = new Set(existing.map((e) => e.toLowerCase()))
+      if (lower.has(managerEmail.toLowerCase())) return existing
+      return [...existing, managerEmail]
+    })()
+    data.ccEmails = ccEmailsWithManager
 
-    if (request?.id) {
-      router.push("/requests")
+    let redirectTo: string | null = null
+    try {
+      // Resolve attachments to data URLs BEFORE building the payload so the
+      // stored object is fully serializable and survives across users/tabs.
+      const attachmentsPayload = isEditing
+        ? (editingRequest?.payload as any)?.attachments
+        : await buildAttachmentPayload(stagedFiles)
+
+      const payload = {
+        ...data,
+        supplier: resolvedSupplier,
+        // Stamp the page's direction (sending / receiving) so list pages can
+        // filter to their own bucket. When editing, keep whatever direction
+        // was already on the request.
+        direction: isEditing ? ((editingRequest?.payload as any)?.direction ?? direction) : direction,
+        approvers: mapApprovers(data.approvers),
+        attachments: attachmentsPayload,
+      }
+
+      if (isEditing && editingRequest) {
+        updateRequest(editingRequest.id, payload, {
+          title: data.title,
+          requesterId: editingRequest.requesterId,
+          requesterName: editingRequest.requesterName,
+          requesterEmail: editingRequest.requesterEmail,
+        })
+        redirectTo = `/requests/${editingRequest.id}`
+      } else {
+        const created = await submitRequest("shipping", payload, {
+          title: data.title,
+          requesterId: session?.user?.id || "USR-001",
+          requesterName: session?.user?.name || session?.user?.email || "Current User",
+          requesterEmail: session?.user?.email || "user@si-ware.com",
+        })
+        createNewRequestNotifications({
+          requestId: created.id,
+          requestTitle: created.title,
+          module: "shipping",
+          requesterId: created.requesterId,
+          requesterName: created.requesterName,
+          requesterEmail: created.requesterEmail,
+          ccEmails: data.ccEmails,
+          managerEmail: managerEmail,
+        })
+        redirectTo = `/requests/${created.id}`
+      }
+    } catch (error) {
+      console.error(isEditing ? "Failed to update request:" : "Failed to create request:", error)
+      setError("title", {
+        type: "manual",
+        message: isEditing ? "Failed to update request. Please try again." : "Failed to create request. Please try again.",
+      })
+    }
+
+    // Navigate outside the try/catch — router.push() in Next.js 15 can throw
+    // a navigation signal internally that would otherwise be swallowed as an error.
+    if (redirectTo) {
+      router.push(redirectTo)
       router.refresh()
     }
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 max-w-4xl mx-auto pb-12">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 max-w-4xl mx-auto">
       <Card>
         <SectionHeader icon={FileText} title="Request Details" subtitle="General information about this request" />
         <CardContent className="space-y-4">
@@ -232,20 +364,38 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
             <div className="space-y-1.5">
               <Label>Supplier <span className="text-red-500">*</span></Label>
               <Controller name="supplier" control={control} render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger className={cn(errors.supplier && "border-red-400")}><SelectValue placeholder="Select supplier" /></SelectTrigger>
-                  <SelectContent>{SUPPLIERS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={suppliers}
+                  placeholder="Select supplier"
+                  hasError={!!errors.supplier}
+                  pinnedOption={{
+                    value: "Other",
+                    label: "Other",
+                    caption: "Select if you need to add a new supplier",
+                  }}
+                />
               )} />
               <FieldError message={errors.supplier?.message} />
+              {supplier === "Other" && (
+                <div className="space-y-1.5 pt-1">
+                  <Label htmlFor="supplierName">Supplier Name <span className="text-red-500">*</span></Label>
+                  <Input id="supplierName" placeholder="Enter supplier name" {...register("supplierName")} className={cn(errors.supplierName && "border-red-400")} />
+                  <FieldError message={(errors as any).supplierName?.message} />
+                </div>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Cost Center <span className="text-red-500">*</span></Label>
               <Controller name="costCenter" control={control} render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger className={cn(errors.costCenter && "border-red-400")}><SelectValue placeholder="Select cost center" /></SelectTrigger>
-                  <SelectContent>{COST_CENTERS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={costCenters}
+                  placeholder="Select cost center"
+                  hasError={!!errors.costCenter}
+                />
               )} />
               <FieldError message={errors.costCenter?.message} />
             </div>
@@ -259,21 +409,43 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
       </Card>
 
       <Card>
+        <SectionHeader icon={Users} title="Approvers" subtitle="Select approval chain" />
+        <CardContent className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Direct Manager <span className="text-red-500">*</span></Label>
+            <Controller name="approvers.directManager" control={control} render={({ field }) => (
+              <SearchableSelect
+                value={field.value}
+                onChange={field.onChange}
+                options={managers.map((u) => u.name)}
+                placeholder="Select direct manager"
+                hasError={!!(errors.approvers as any)?.directManager}
+              />
+            )} />
+            <FieldError message={(errors.approvers as any)?.directManager?.message} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
         <SectionHeader icon={Package} title="Shipment Details" subtitle="Carrier and tracking information" />
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Carrier <span className="text-red-500">*</span></Label>
               <Controller name="carrier" control={control} render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger className={cn(errors.carrier && "border-red-400")}><SelectValue placeholder="Select carrier" /></SelectTrigger>
-                  <SelectContent>{CARRIERS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={carriers}
+                  placeholder="Select carrier"
+                  hasError={!!errors.carrier}
+                />
               )} />
               <FieldError message={errors.carrier?.message} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="trackingNumber">Tracking Number <span className="text-red-500">*</span></Label>
+              <Label htmlFor="trackingNumber">Tracking Number <span className="text-muted-foreground text-xs">(optional)</span></Label>
               <Input id="trackingNumber" {...register("trackingNumber")} className={cn(errors.trackingNumber && "border-red-400")} />
               <FieldError message={errors.trackingNumber?.message} />
             </div>
@@ -288,8 +460,11 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
           )}
 
           <div className="space-y-1.5">
-            <Label htmlFor="description">Shipment Description</Label>
-            <Textarea id="description" rows={2} {...register("description")} />
+            <Label htmlFor="description">Shipment Description <span className="text-red-500">*</span></Label>
+            <Controller name="description" control={control} render={({ field }) => (
+              <MarkdownEditor id="description" value={field.value ?? ""} onChange={field.onChange} placeholder="Describe the shipment contents..." rows={3} />
+            )} />
+            <FieldError message={errors.description?.message} />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -307,56 +482,44 @@ export function ShippingForm({ onCancel }: { onCancel?: () => void }) {
       </Card>
 
       <Card>
-        <SectionHeader icon={Users} title="CC Notifications" subtitle="Notification contacts (informational only)" />
-        <CardContent className="space-y-4">
-          <div className="space-y-3">
-            <Label>Primary Mail (CC)</Label>
-            <div className="flex gap-2 max-w-md">
-              <Input type="email" placeholder="colleague@si-ware.com" value={ccEmailInput} onChange={(e) => setCcEmailInput(e.target.value)} />
-              <Button type="button" variant="outline" size="icon" onClick={() => {
-                const email = ccEmailInput.trim()
-                if (!email || ccEmails.includes(email)) return
-                setValue("ccEmails", [...ccEmails, email])
-                setCcEmailInput("")
-              }}>
-                <Plus className="h-4 w-4" />
-              </Button>
+        <SectionHeader icon={Receipt} title="Attachments" subtitle="Commercial Invoice is required; AWB is optional" />
+        <CardContent>
+          <div className="space-y-4">
+            <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-6 p-3 rounded-lg", (errors.attachments as { message?: string })?.message ? "bg-red-50 border border-red-200" : "")}>
+              <FileUploadZone category="awb" label="AWB" icon={Plane} files={stagedFiles} onAdd={addStagedFiles} onRemove={removeStagedFile} />
+              <FileUploadZone category="invoice" label="Commercial Invoice" icon={FileText} files={stagedFiles} onAdd={addStagedFiles} onRemove={removeStagedFile} required />
             </div>
-            {ccEmails.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {ccEmails.map((email) => (
-                  <Badge key={email} variant="secondary" className="flex items-center gap-1.5 pr-1">
-                    <Mail className="h-3 w-3" />
-                    {email}
-                    <button type="button" onClick={() => setValue("ccEmails", ccEmails.filter((e) => e !== email))}>
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
+            <div className="mt-4">
+              <FileUploadZone category="other" label="Other" icon={Upload} files={stagedFiles} onAdd={addStagedFiles} onRemove={removeStagedFile} />
+            </div>
+            {(errors.attachments as { message?: string })?.message && (
+              <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                <p className="text-sm font-medium text-red-700">{(errors.attachments as { message?: string })?.message}</p>
               </div>
             )}
           </div>
         </CardContent>
       </Card>
 
+      {/* CC Notifications — last card before the submit footer */}
       <Card>
-        <SectionHeader icon={Receipt} title="Attachments" subtitle="AWB and Commercial Invoice are required" />
+        <SectionHeader icon={Users} title="CC Notifications" subtitle="Additional recipients for email updates on this request" />
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FileUploadZone category="awb" label="AWB" icon={Plane} files={stagedFiles} onAdd={addStagedFiles} onRemove={removeStagedFile} />
-            <FileUploadZone category="invoice" label="Commercial Invoice" icon={FileText} files={stagedFiles} onAdd={addStagedFiles} onRemove={removeStagedFile} />
-          </div>
-          <div className="mt-4">
-            <FileUploadZone category="other" label="Other" icon={Upload} files={stagedFiles} onAdd={addStagedFiles} onRemove={removeStagedFile} />
-          </div>
-          <FieldError message={(errors.attachments as { message?: string })?.message} />
+          <Controller
+            name="ccEmails"
+            control={control}
+            render={({ field }) => (
+              <CcEmailsField value={field.value ?? []} onChange={field.onChange} />
+            )}
+          />
         </CardContent>
       </Card>
 
-      <div className="sticky bottom-0 bg-white border-t py-4 px-1 flex items-center justify-between gap-3 -mx-1">
-        <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
+      <div className="form-footer border-t bg-gray-50 py-4 px-1 flex items-center justify-between gap-3 -mx-1">
+        <Button type="button" variant="ghost" onClick={() => onCancel?.()}>Cancel</Button>
         <Button type="submit" disabled={isSubmitting} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px]">
-          {isSubmitting ? "Submitting..." : "Submit"}
+          {isSubmitting ? (isEditing ? "Updating..." : "Submitting...") : (isEditing ? "Update Request" : "Submit")}
         </Button>
       </div>
     </form>
