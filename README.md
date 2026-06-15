@@ -290,3 +290,22 @@ Follow the same 4 steps above, plus:
 6. Add `MODULE_PREFIX` entry in `engineService.ts`
 7. Add to All Requests and My Requests filter pills
 8. Add to Database page `REQUEST_MODULES` array
+
+## Importing Requests
+
+Administrators can import request JSON from **Admin > Database > Import Requests**:
+
+1. Select the destination module/page.
+2. Click **Import Request JSON**.
+3. Upload a JSON file containing one request object or multiple request objects.
+
+Accepted JSON shapes include:
+
+- A single request object.
+- An array of request objects.
+- `{ "request": { ... } }`
+- `{ "requests": [ ... ] }`
+- `{ "data": [ ... ] }`
+- A backup wrapper containing `data.arp_requests`.
+
+Every request must contain the selected module id and the required request fields. Imports are atomic and never overwrite existing data. If any request ID already exists in live requests, appears more than once in the file, or remains in the recycle bin, the entire import is rejected and no records are saved.
