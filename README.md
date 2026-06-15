@@ -35,6 +35,16 @@ Open [http://localhost:3003](http://localhost:3003).
 
 ---
 
+## Request Data Reliability
+
+- New requests receive server-issued sequential IDs per module and year.
+- Concurrent submissions and retried network requests cannot overwrite or duplicate requests.
+- Pending status, assignee, and request edits are preserved during navigation and background synchronization.
+- Request pages re-render from the merged engine cache after server sync.
+- Admin Database module counts come from the authoritative server request store and refresh after clear or restore operations.
+
+---
+
 ## Docker Deployment (Ubuntu)
 
 ```bash

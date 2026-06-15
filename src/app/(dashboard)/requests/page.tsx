@@ -168,22 +168,13 @@ export default function RequestsPage() {
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
   useEffect(() => {
-    const fetchFromServer = () => {
-      void fetch("/api/requests", { cache: "no-store" })
-        .then((r) => r.ok ? r.json() : null)
-        .then((json) => {
-          if (!Array.isArray(json?.data)) return
-          try { localStorage.setItem("arp_requests", JSON.stringify(json.data)) } catch {}
-          setRequests(json.data)
-        })
-        .catch(() => {})
-    }
-    fetchFromServer()
-    window.addEventListener("storage", fetchFromServer)
-    window.addEventListener("arp:storage", fetchFromServer)
+    const loadRequests = () => setRequests(getRequests())
+    loadRequests()
+    window.addEventListener("storage", loadRequests)
+    window.addEventListener("arp:storage", loadRequests)
     return () => {
-      window.removeEventListener("storage", fetchFromServer)
-      window.removeEventListener("arp:storage", fetchFromServer)
+      window.removeEventListener("storage", loadRequests)
+      window.removeEventListener("arp:storage", loadRequests)
     }
   }, [])
 

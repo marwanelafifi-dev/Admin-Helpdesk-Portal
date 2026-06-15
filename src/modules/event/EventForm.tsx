@@ -101,7 +101,7 @@ export function EventForm({ onCancel, editingRequest, isEditing }: { onCancel?: 
         })
       } else {
         const attachments = await filesToAttachments(uploadedFiles, "event")
-        const newReq = submitRequest("event", { ...data, attachments } as any, {
+        const newReq = await submitRequest("event", { ...data, attachments } as any, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",

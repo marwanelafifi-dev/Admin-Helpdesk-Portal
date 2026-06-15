@@ -132,6 +132,12 @@ export default function SendingPage() {
     }
 
     fetchShipments()
+    window.addEventListener("storage", fetchShipments)
+    window.addEventListener("arp:storage", fetchShipments)
+    return () => {
+      window.removeEventListener("storage", fetchShipments)
+      window.removeEventListener("arp:storage", fetchShipments)
+    }
   }, [session?.user?.id, session?.user?.email, session?.user?.role])
 
   function handleStatusChange(id: string, newStatus: string) {

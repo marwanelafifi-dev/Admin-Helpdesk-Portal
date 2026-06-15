@@ -24,9 +24,9 @@ export async function GET() {
 
 /**
  * POST /api/requests
- * Upsert a full request object. Used by engineService when the user submits
- * a new request or updates an existing one. The client constructs the full
- * EngineRequest object (id, timestamps, etc.); the server just persists it.
+ * Creates a new request with a server-issued ID, or upserts an existing
+ * request. New clients send operation=create so concurrent submissions can
+ * never overwrite each other.
  */
 export async function POST(req: Request) {
   const session = await auth()
@@ -34,7 +34,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const body = (await req.json()) as { request?: EngineRequest }
+  const body = (await req.json()) as {
+    operation?: "create" | "upsert"
+    request?: EngineRequest
+  }
   if (!body?.request || !body.request.id) {
     return NextResponse.json({ error: "Missing request payload" }, { status: 400 })
   }
@@ -49,7 +52,8 @@ export async function POST(req: Request) {
     assignedToName: incoming.assignedToName ?? null,
     assignedToEmail: incoming.assignedToEmail ?? null,
   }
-  const isNew = !requestStore.getAll().some((r) => r.id === incoming.id)
+  const existing = requestStore.getAll().find((r) => r.id === incoming.id)
+  const isNew = body.operation === "create" || !existing
   if (isNew && !assignee.assignedToId) {
     const defaultAssignee = getDefaultAssignee()
     if (defaultAssignee) {
@@ -61,11 +65,26 @@ export async function POST(req: Request) {
     }
   }
 
-  const saved = requestStore.upsert({
+  const requestToSave = {
     ...incoming,
     ...assignee,
-    updatedAt: new Date().toISOString(),
-  })
+    updatedAt: incoming.updatedAt || new Date().toISOString(),
+  }
+
+  if (
+    body.operation !== "create" &&
+    existing &&
+    existing.createdAt !== incoming.createdAt
+  ) {
+    return NextResponse.json(
+      { error: `Request ID ${incoming.id} already exists` },
+      { status: 409 }
+    )
+  }
+
+  const saved = body.operation === "create"
+    ? requestStore.create(requestToSave)
+    : requestStore.upsert(requestToSave)
 
   return NextResponse.json({ request: saved })
 }

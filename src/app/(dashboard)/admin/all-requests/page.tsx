@@ -210,26 +210,19 @@ export default function AllRequestsPage() {
   }
 
   useEffect(() => {
-    const fetchFromServer = () => {
-      void fetch("/api/requests", { cache: "no-store" })
-        .then((r) => r.ok ? r.json() : null)
-        .then((json) => {
-          if (!Array.isArray(json?.data)) return
-          try { localStorage.setItem("arp_requests", JSON.stringify(json.data)) } catch {}
-          setRequests(json.data)
-          setTasks(getTasks())
-        })
-        .catch(() => {})
+    const loadFromCache = () => {
+      setRequests(getRequests())
+      setTasks(getTasks())
     }
 
-    fetchFromServer()
+    loadFromCache()
 
-    // Re-fetch from server on storage events — avoids stale localStorage cache
-    window.addEventListener("storage", fetchFromServer)
-    window.addEventListener("arp:storage", fetchFromServer)
+    // Re-render from the merged engine cache after local writes or server sync.
+    window.addEventListener("storage", loadFromCache)
+    window.addEventListener("arp:storage", loadFromCache)
     return () => {
-      window.removeEventListener("storage", fetchFromServer)
-      window.removeEventListener("arp:storage", fetchFromServer)
+      window.removeEventListener("storage", loadFromCache)
+      window.removeEventListener("arp:storage", loadFromCache)
     }
   }, [])
 

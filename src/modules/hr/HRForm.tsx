@@ -118,7 +118,7 @@ function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCance
         })
       } else {
         const attachments = await filesToAttachments(uploadedFiles, "hr")
-        const newReq = submitRequest("hr", { ...data, attachments }, {
+        const newReq = await submitRequest("hr", { ...data, attachments }, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",
@@ -471,7 +471,7 @@ function OffboardingFormFields({ onCancel, editingRequest, isEditing }: { onCanc
         })
       } else {
         const attachments = await filesToAttachments(uploadedFiles, "hr")
-        const newReq = submitRequest("hr", { ...data, attachments }, {
+        const newReq = await submitRequest("hr", { ...data, attachments }, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",

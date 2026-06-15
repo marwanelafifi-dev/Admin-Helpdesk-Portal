@@ -75,7 +75,7 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
     let redirectTo: string | null = null
     try {
       const attachments = await filesToAttachments(uploadedFiles, "travel")
-      const newReq = submitRequest("travel", { ...data, attachments } as any, {
+      const newReq = await submitRequest("travel", { ...data, attachments } as any, {
         title: data.requestTitle,
         requesterId: session?.user?.id || "USR-001",
         requesterName: session?.user?.name || session?.user?.email || "Current User",

@@ -306,7 +306,7 @@ export function ShippingForm({ onCancel, editingRequest, isEditing, direction = 
         })
         redirectTo = `/requests/${editingRequest.id}`
       } else {
-        const created = submitRequest("shipping", payload, {
+        const created = await submitRequest("shipping", payload, {
           title: data.title,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",

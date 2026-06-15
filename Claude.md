@@ -775,8 +775,18 @@ This document tracks the phased development of the Admin Request Platform, movin
 - [x] **`assignRequest()` and `updateStatus()` made async** — both now `await pushToServer()` so the server is guaranteed to have the latest data before the function returns. All 11 call sites updated with `void` prefix.
 - [x] **`_pendingPush` loaded on module init** — `loadPending()` called immediately when `engineService` module loads (client-side) so `syncFromServer()` merge logic has the pending map populated from the first render.
 - [x] **`syncFromServer()` merge prefers local pending version** — for any record in `_pendingPush` (including updates like assignments), the local version wins over the server version during merge, since local is guaranteed newer. Only removed from pending after push succeeds.
-- [x] **All pages use `fetchFromServer()` as storage listener** — replaced `load()` (which read stale localStorage/in-memory cache) with `fetchFromServer()` that always hits `/api/requests` directly. Applied to All Requests, My Requests, HR, Maintenance, Purchase, General.
-- [x] **`writeAll()` suppresses `arp:storage` while pushes are in flight** — prevents pages from fetching stale server data before `pushToServer()` completes. `pushToServer()` dispatches `arp:storage` itself after the push succeeds and `_pendingPush` is cleared — guaranteeing server has latest data before any listener refetches.
+- [x] **Pages re-render from the merged engine cache** — `arp:storage` listeners read `getRequests()` after `syncFromServer()` finishes, rather than bypassing pending-write protection with direct server fetches.
+- [x] **`writeAll()` suppresses `arp:storage` while pushes are in flight** — prevents listeners from rendering stale server data before `pushToServer()` completes.
+
+## Phase 6k: Request Identity, Sync Ordering & Database Counts (Completed — 15 Jun 2026)
+- [x] **Server-authoritative request IDs for every module** — new Shipping, Maintenance, Purchase, Event, Travel, HR, and General requests use atomic server-side sequential IDs. Concurrent submissions can no longer overwrite another user's request.
+- [x] **Idempotent request creation** — each create has a stable `clientRequestId`, so network retries return the original request instead of creating duplicates.
+- [x] **Collision protection for legacy upserts** — an existing request ID with a different creation timestamp returns `409` rather than replacing the stored request.
+- [x] **Pending writes registered before local events** — status, assignee, edit, comment-activity, CC, and draft mutations enter `_pendingPush` before `writeAll()`, closing the navigation/refresh race.
+- [x] **Out-of-order update protection** — stale client responses cannot clear newer pending records, and the server ignores writes whose `updatedAt` is older than the stored version.
+- [x] **Cache invalidation fixed after sync** — `syncFromServer()` now writes through `writeAll()`, ensuring the in-memory read cache and page listeners see the merged result.
+- [x] **Shipping pages use persisted engine data** — overview, Sending, and Receiving re-render from the shared request cache instead of mock or raw stale server data.
+- [x] **Database Clear-by-Module counts are server-backed** — module cards now show the authoritative current counts, with automatic refresh after clear, restore, focus, sync, and cross-tab changes.
 
 ## Phase 6: Optimization & Scaling
 - [ ] Add Redis caching for frequently accessed dashboard data.

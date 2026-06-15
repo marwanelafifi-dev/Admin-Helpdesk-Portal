@@ -88,7 +88,7 @@ export default function NewGeneralRequestPage() {
     // each attachment by its id.
     const attachments = await filesToAttachments(uploadedFiles, "general")
 
-    const saved = submitRequest(
+    const saved = await submitRequest(
       "general",
       { description: values.description ?? "", attachments, ccEmails },
       { title: values.title, requesterId: userId, requesterName: userName, requesterEmail: userEmail }
