@@ -317,25 +317,26 @@ export default function RequestDetailPage() {
         setLoading(true)
         initializeMockData()
 
-        // Try localStorage first (fast path)
-        let allRequests = getRequests()
-
-        // If localStorage is empty (fresh browser), fetch from server directly
-        if (allRequests.length === 0) {
-          try {
-            const r = await fetch("/api/requests", { cache: "no-store" })
-            if (r.ok) {
-              const json = await r.json()
-              if (Array.isArray(json?.data)) {
-                try { localStorage.setItem("arp_requests", JSON.stringify(json.data)) } catch {}
-                allRequests = json.data
-              }
-            }
-          } catch { /* fall through to not-found */ }
+        // Always load the full request from the server first. The browser
+        // cache may intentionally omit base64 attachment data when
+        // localStorage reaches its quota, so it is not authoritative for
+        // request details or the Attachments tab.
+        let engineRequest: EngineRequest | undefined
+        try {
+          const response = await fetch(`/api/requests?id=${encodeURIComponent(id)}`, {
+            cache: "no-store",
+          })
+          if (response.ok) {
+            const json = await response.json()
+            engineRequest = json?.request as EngineRequest | undefined
+          }
+        } catch {
+          // Fall back to local data below for offline/pending requests.
         }
 
-        // Find the request by ID
-        const engineRequest = allRequests.find(req => req.id === id)
+        if (!engineRequest) {
+          engineRequest = getRequests().find((req) => req.id === id)
+        }
 
         if (!engineRequest) {
           setError("Request not found")

@@ -85,7 +85,7 @@ export async function GET(
     return NextResponse.json({ error: "Failed to decode attachment" }, { status: 500 })
   }
 
-  return new NextResponse(buffer, {
+  return new NextResponse(new Uint8Array(buffer), {
     status: 200,
     headers: {
       "Content-Type": mime,

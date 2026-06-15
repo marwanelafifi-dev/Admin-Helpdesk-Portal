@@ -74,12 +74,23 @@ function normalizeImportedRequest(value: unknown, moduleId: string): EngineReque
  * Auth-gated: any signed-in user can read. Client-side filters control what
  * actually renders (e.g. My Requests still filters to current user).
  */
-export async function GET() {
+export async function GET(req: Request) {
   const session = await auth()
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
-  return NextResponse.json({ data: requestStore.getAll() })
+
+  const id = new URL(req.url).searchParams.get("id")
+  const requests = requestStore.getAll()
+  if (id) {
+    const request = requests.find((item) => item.id === id)
+    if (!request) {
+      return NextResponse.json({ error: "Request not found" }, { status: 404 })
+    }
+    return NextResponse.json({ request })
+  }
+
+  return NextResponse.json({ data: requests })
 }
 
 /**
