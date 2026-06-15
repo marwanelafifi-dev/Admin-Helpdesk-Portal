@@ -545,11 +545,13 @@ export async function updateStatus(
     status === "awaiting_approval" &&
     previousStatus !== "awaiting_approval"
   ) {
-    fetch(`/api/requests/${encodeURIComponent(id)}/send-approval-email`, {
+    const approvalResponse = await fetch(`/api/requests/${encodeURIComponent(id)}/send-approval-email`, {
       method: "POST",
-    }).catch(() => {
-      // Best-effort. The admin can resend from the UI if needed.
     })
+    if (!approvalResponse.ok) {
+      const body = await approvalResponse.json().catch(() => null)
+      throw new Error(body?.error ?? `Approval email failed (${approvalResponse.status})`)
+    }
   }
 
   return updated

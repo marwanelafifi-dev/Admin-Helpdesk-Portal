@@ -118,7 +118,10 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
     try {
       if (isEditing && editingRequest) {
         // Update existing request
-        updateRequest(editingRequest.id, data, {
+        updateRequest(editingRequest.id, {
+          ...data,
+          directManagerEmail: managerEmail ?? "",
+        }, {
           title: data.requestTitle,
           requesterId: editingRequest.requesterId,
           requesterName: editingRequest.requesterName,
@@ -127,7 +130,11 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
       } else {
         // Create new request — convert uploaded files to data URLs first.
         const attachments = await filesToAttachments(uploadedFiles, "purchase")
-        const newReq = await submitRequest("purchase", { ...data, attachments } as any, {
+        const newReq = await submitRequest("purchase", {
+          ...data,
+          directManagerEmail: managerEmail ?? "",
+          attachments,
+        } as any, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",

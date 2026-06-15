@@ -808,6 +808,15 @@ This document tracks the phased development of the Admin Request Platform, movin
 - [x] **Existing server attachments restored in the UI** — records whose browser cache omitted attachments now display them after the detail page refreshes from the server.
 - [x] **Attachment preview response typing fixed** — decoded file buffers are returned as `Uint8Array`, compatible with the current `NextResponse` body definitions.
 
+## Phase 6n: Purchase Approval Email Reliability (Completed — 15 Jun 2026)
+- [x] **Automatic Awaiting Approval trigger made reliable** — `updateStatus()` now awaits the Purchase approval-email API when a request first enters `awaiting_approval`.
+- [x] **Email failures are visible** — missing manager email, SMTP failures, and API errors are returned to Request Details, Purchase, and All Requests instead of being silently discarded.
+- [x] **Resend Approval Email action added** — Purchase requests already in Awaiting Approval show a resend button with sending, success, and error states.
+- [x] **Manager email stored on Purchase requests** — new and edited requests persist `directManagerEmail` alongside the selected manager name.
+- [x] **Recipient resolution strengthened** — approval email lookup checks the stored request email, Company Data manager records, active users by name/email, and legacy email-as-name values.
+- [x] **Approval links use a valid portal origin** — falls back to the incoming request origin when `NEXTAUTH_URL` and `AUTH_URL` are not configured.
+- [x] **Existing stuck requests recoverable** — admins can reopen a request in Awaiting Approval and resend without changing its status again.
+
 ## Phase 6: Optimization & Scaling
 - [ ] Add Redis caching for frequently accessed dashboard data.
 - [ ] Implement file upload storage service for AWB/Invoices/Receipts.
