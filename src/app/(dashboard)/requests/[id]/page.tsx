@@ -148,6 +148,10 @@ export default function RequestDetailPage() {
   const [surveyHover, setSurveyHover] = useState(0)
   const [surveyComment, setSurveyComment] = useState("")
   const [surveySubmitted, setSurveySubmitted] = useState(false)
+  const [approvalEmailStatus, setApprovalEmailStatus] = useState<{
+    type: "idle" | "sending" | "success" | "error"
+    message: string
+  }>({ type: "idle", message: "" })
 
   const fetchComments = async (requestId: string) => {
     try {
@@ -225,7 +229,13 @@ export default function RequestDetailPage() {
       const oldStatus = request.status
 
       // Update in engineService
-      void updateStatus(request.id, newStatus as any, currentUserId)
+      await updateStatus(request.id, newStatus as any, currentUserId)
+      if (request.module === "purchase" && newStatus === "awaiting_approval" && oldStatus !== newStatus) {
+        setApprovalEmailStatus({
+          type: "success",
+          message: "Approval email sent to the Direct Manager.",
+        })
+      }
 
       // Create new activity entry for status change
       const newStatusActivity = {
@@ -292,7 +302,33 @@ export default function RequestDetailPage() {
       }
     } catch (error) {
       console.error("Failed to update status:", error)
-      alert("Failed to update status. Please try again.")
+      const message = error instanceof Error ? error.message : "Failed to update status"
+      setApprovalEmailStatus({ type: "error", message })
+      alert(message)
+    }
+  }
+
+  const handleResendApprovalEmail = async () => {
+    if (!request) return
+    setApprovalEmailStatus({ type: "sending", message: "Sending approval email..." })
+    try {
+      const response = await fetch(
+        `/api/requests/${encodeURIComponent(request.id)}/send-approval-email`,
+        { method: "POST" }
+      )
+      const body = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(body?.error ?? `Approval email failed (${response.status})`)
+      }
+      setApprovalEmailStatus({
+        type: "success",
+        message: `Approval email sent to ${body?.to ?? "the Direct Manager"}.`,
+      })
+    } catch (error) {
+      setApprovalEmailStatus({
+        type: "error",
+        message: error instanceof Error ? error.message : "Approval email failed",
+      })
     }
   }
 
@@ -620,6 +656,32 @@ export default function RequestDetailPage() {
             {request.description && (
               <div className="pt-4 border-t">
                 <MarkdownDisplay content={request.description} />
+              </div>
+            )}
+
+            {request.module === "purchase" && request.status === "awaiting_approval" && (
+              <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-medium text-amber-800">Direct Manager approval is required</p>
+                  {approvalEmailStatus.message && (
+                    <p className={cn(
+                      "mt-1 text-xs",
+                      approvalEmailStatus.type === "error" ? "text-red-600" : "text-emerald-600"
+                    )}>
+                      {approvalEmailStatus.message}
+                    </p>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleResendApprovalEmail}
+                  disabled={approvalEmailStatus.type === "sending"}
+                  className="border-amber-300 text-amber-800 hover:bg-amber-50"
+                >
+                  <Send className="mr-2 h-4 w-4" />
+                  {approvalEmailStatus.type === "sending" ? "Sending..." : "Resend Approval Email"}
+                </Button>
               </div>
             )}
           </div>

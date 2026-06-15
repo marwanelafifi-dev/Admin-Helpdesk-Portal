@@ -291,7 +291,10 @@ export default function AllRequestsPage() {
     setRequests(prev => prev.map(r =>
       r.id === id ? { ...r, status: newStatus as RequestStatus, updatedAt: new Date().toISOString() } : r
     ))
-    void updateStatus(id, newStatus as RequestStatus, currentUserId)
+    void updateStatus(id, newStatus as RequestStatus, currentUserId).catch((error) => {
+      const message = error instanceof Error ? error.message : "Approval email failed"
+      alert(message)
+    })
     if (request) {
       createRequestUpdateNotifications({
         requestId: id,

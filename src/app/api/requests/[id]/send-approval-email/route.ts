@@ -4,7 +4,7 @@ import { requestStore } from "@/lib/requestStore"
 import { signApprovalToken } from "@/lib/approvalToken"
 import { sendPurchaseApprovalEmail } from "@/lib/emailService"
 import { readUsers } from "@/lib/userStore"
-import { readCompanyData } from "@/lib/companyDataServerStore"
+import { resolveRequestManagerEmail, resolveRequestManagerName } from "@/lib/approvalNotify"
 
 export const runtime = "nodejs"
 
@@ -25,7 +25,7 @@ const ADMIN_HELPDESK_EMAIL = "adminhelpdesk@si-ware.com"
  *   - send the email via the pooled SMTP transporter
  */
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await auth()
@@ -43,28 +43,14 @@ export async function POST(
   }
 
   const payload = (request.payload ?? {}) as Record<string, any>
-  const managerName = typeof payload.directManager === "string" ? payload.directManager.trim() : ""
+  const managerName = resolveRequestManagerName(request) ?? ""
   if (!managerName) {
     return NextResponse.json({ error: "No Direct Manager set on the request" }, { status: 400 })
   }
 
   // Resolve manager email from the shared company-data.json. Accepts
   // both legacy string entries and the newer { name, email } shape.
-  const cd = readCompanyData()
-  let managerEmail = ""
-  for (const m of cd.managers ?? []) {
-    if (typeof m === "string") {
-      if (m.toLowerCase() === managerName.toLowerCase() && m.includes("@")) {
-        managerEmail = m
-      }
-    } else if (m && typeof m === "object") {
-      if ((m.name ?? "").toLowerCase() === managerName.toLowerCase()) {
-        managerEmail = m.email ?? ""
-      }
-    }
-  }
-  // Fallback: if the manager string itself looks like an email, use it.
-  if (!managerEmail && managerName.includes("@")) managerEmail = managerName
+  const managerEmail = resolveRequestManagerEmail(request) ?? ""
 
   if (!managerEmail) {
     return NextResponse.json(
@@ -93,7 +79,11 @@ export async function POST(
   for (const e of (payload.ccEmails ?? []) as string[]) addCc(e)
   for (const e of request.adminCc ?? []) addCc(e)
 
-  const baseUrl = process.env.NEXTAUTH_URL ?? process.env.AUTH_URL ?? ""
+  const baseUrl = (
+    process.env.NEXTAUTH_URL ??
+    process.env.AUTH_URL ??
+    new URL(req.url).origin
+  ).replace(/\/$/, "")
   // Bind the tokens to the manager's email so only the intended recipient
   // can use them. The verify route compares this against the request's
   // current Direct Manager before applying the decision.

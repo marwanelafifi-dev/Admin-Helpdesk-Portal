@@ -15,6 +15,11 @@ export function resolveRequestManagerEmail(request: EngineRequest): string | und
     return shippingMgrEmail.trim().toLowerCase()
   }
 
+  const storedManagerEmail = payload.directManagerEmail
+  if (typeof storedManagerEmail === "string" && storedManagerEmail.trim()) {
+    return storedManagerEmail.trim().toLowerCase()
+  }
+
   // Purchase / HR store the manager's NAME under payload.directManager
   const name = typeof payload.directManager === "string" ? payload.directManager.trim() : ""
   if (!name) return undefined
@@ -28,6 +33,15 @@ export function resolveRequestManagerEmail(request: EngineRequest): string | und
       }
     }
   }
+  const user = readUsers().find((item) =>
+    item.active &&
+    (
+      item.email.toLowerCase() === name.toLowerCase() ||
+      item.name.trim().toLowerCase() === name.toLowerCase()
+    )
+  )
+  if (user?.email) return user.email.trim().toLowerCase()
+
   if (name.includes("@")) return name.toLowerCase()
   return undefined
 }
