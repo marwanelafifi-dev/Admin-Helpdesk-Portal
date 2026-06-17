@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import {
   deleteAnnouncementRecord,
+  DEFAULT_ANNOUNCEMENT_SIGNATURE,
   readAnnouncementStore,
   saveAnnouncementDraft,
   saveAnnouncementTemplate,
@@ -19,9 +20,12 @@ type Payload = {
   templateName?: string
   subject?: string
   body?: string
+  signature?: string
   to?: string[]
   cc?: string[]
   includeAllCompany?: boolean
+  autoSendEnabled?: boolean
+  scheduledAt?: string
   attachments?: AnnouncementAttachment[]
 }
 
@@ -74,6 +78,7 @@ export async function POST(req: NextRequest) {
   const id = body.id || `ANN-${Date.now()}`
   const subject = (body.subject ?? "").trim()
   const messageBody = (body.body ?? "").trim()
+  const signature = (body.signature ?? DEFAULT_ANNOUNCEMENT_SIGNATURE).trim() || DEFAULT_ANNOUNCEMENT_SIGNATURE
   const attachments = Array.isArray(body.attachments) ? body.attachments : []
 
   if (body.mode === "template") {
@@ -81,11 +86,20 @@ export async function POST(req: NextRequest) {
     if (!name || !subject || !messageBody) {
       return NextResponse.json({ error: "Template name, subject, and body are required" }, { status: 400 })
     }
+    if (body.autoSendEnabled && !body.scheduledAt) {
+      return NextResponse.json({ error: "Auto-send templates require a date and time" }, { status: 400 })
+    }
     const template = saveAnnouncementTemplate({
       id,
       name,
       subject,
       body: messageBody,
+      signature,
+      to: cleanEmails(body.to),
+      cc: cleanEmails(body.cc),
+      includeAllCompany: Boolean(body.includeAllCompany),
+      autoSendEnabled: Boolean(body.autoSendEnabled),
+      scheduledAt: body.scheduledAt,
       createdBy: session.user.name ?? session.user.email ?? "Admin",
       createdAt: now,
       updatedAt: now,
@@ -101,6 +115,7 @@ export async function POST(req: NextRequest) {
     id,
     subject,
     body: messageBody,
+    signature,
     to: cleanEmails(body.to),
     cc: cleanEmails(body.cc),
     includeAllCompany: Boolean(body.includeAllCompany),
@@ -129,6 +144,7 @@ export async function POST(req: NextRequest) {
     cc: message.cc,
     subject: message.subject,
     body: message.body,
+    signature: message.signature,
     senderName: message.createdBy,
     attachments: attachments.map(dataUrlToEmailAttachment).filter(Boolean) as any[],
   })
