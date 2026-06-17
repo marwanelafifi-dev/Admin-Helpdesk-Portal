@@ -80,6 +80,12 @@ const SERVER_FILE_STORES = [
     icon: MessageSquare, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200",
   },
   {
+    key: "server:announcements",
+    label: "Server Announcements",
+    description: "data/announcements.json — sent history, drafts, templates, and scheduled announcement content",
+    icon: Mail, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-200",
+  },
+  {
     key: "server:company-data",
     label: "Server Company Data",
     description: "data/company-data.json — suppliers, cost centers, managers, carriers, departments, sectors",
@@ -785,6 +791,12 @@ export default function DatabasePage() {
       } else if (key === "server:feedback") {
         await fetch("/api/feedback/responses", { method: "DELETE" })
         try { localStorage.removeItem("feedback_surveys"); localStorage.removeItem("feedback_responses") } catch {}
+      } else if (key === "server:announcements") {
+        await fetch("/api/admin/server-data", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data: { "announcements.json": { sent: [], drafts: [], templates: [] } } }),
+        })
       } else if (key === "server:company-data") {
         const empty = { suppliers: [], cost_centers: [], managers: [], carriers: [], departments: [], sectors: [] }
         await fetch("/api/company-data", {
@@ -839,7 +851,7 @@ export default function DatabasePage() {
         <Shield className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
         <div className="text-sm text-blue-800">
           <p className="font-semibold">What is included in a backup?</p>
-          <p className="mt-0.5 text-blue-700">Every store the app owns is captured automatically — browser data (requests, tasks, viewed comments, company data, platform settings, logos, theme) <strong>and</strong> server-side data (comments, feedback responses, users, roles). Browser data is synced to the server on every backup so <strong>Run Backup Now</strong> and scheduled backups capture the full picture too. Backups download as one JSON file (version 1.1) and Restore writes back whatever the file contains. Old v1.0 backups (browser data only) are still accepted. <strong>Team Requests</strong> is a filtered view of the request store (no separate data) — it is covered by the All Requests backup.</p>
+          <p className="mt-0.5 text-blue-700">Every store the app owns is captured automatically — browser data (requests, tasks, viewed comments, company data, platform settings, logos, theme) <strong>and</strong> server-side data (comments, feedback responses, announcements history/drafts/templates, users, roles, backup settings). Browser data is synced to the server on every backup so <strong>Run Backup Now</strong> and scheduled backups capture the full picture too. Backups download as one JSON file (version 1.1) and Restore writes back whatever the file contains. Old v1.0 backups (browser data only) are still accepted. <strong>Team Requests</strong> is a filtered view of the request store (no separate data) — it is covered by the All Requests backup.</p>
         </div>
       </div>
 
@@ -867,6 +879,7 @@ export default function DatabasePage() {
                 { label: "Server Requests", sub: "data/requests.json — every request from every user" },
                 { label: "Server Comments", sub: "data/comments.json on the server" },
                 { label: "Server Feedback Responses", sub: "data/feedback.json on the server" },
+                { label: "Server Announcements", sub: "data/announcements.json — sent history, drafts, templates, and scheduled content" },
                 { label: "Server Company Data", sub: "data/company-data.json — suppliers, cost centers, managers, departments, sectors, carriers" },
                 { label: "Users & Roles", sub: "data/users.json + data/roles.json (restored only if present in backup)" },
               ].map(({ label, sub }) => (

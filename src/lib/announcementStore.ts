@@ -15,6 +15,7 @@ export type AnnouncementMessage = {
   subject: string
   body: string
   signature: string
+  signatureLogo?: string
   to: string[]
   cc: string[]
   includeAllCompany: boolean
@@ -38,10 +39,12 @@ export type AnnouncementTemplate = {
   subject: string
   body: string
   signature: string
+  signatureLogo?: string
   to: string[]
   cc: string[]
   includeAllCompany: boolean
   autoSendEnabled: boolean
+  scheduleFrequency?: "once" | "weekly" | "monthly"
   scheduledAt?: string
   lastScheduledSentAt?: string
   createdBy: string
@@ -57,7 +60,7 @@ export type AnnouncementStoreData = {
 
 const STORE_PATH = path.join(process.cwd(), "data", "announcements.json")
 export const DEFAULT_ANNOUNCEMENT_SIGNATURE =
-  "Admin Helpdesk\nAdmin team.\n+202 2268 4704\n\nThis message and any attachments are confidential and may be privileged or otherwise protected from disclosure. If you are not the intended recipient, please telephone or mail the sender and delete this message and any attachment from your system."
+  "Admin Helpdesk\nAdministration Team\n+202 2268 4704\n\nBest regards,\nAdmin Helpdesk Portal\n\nThis message and any attachments are confidential and may be privileged or otherwise protected from disclosure. If you are not the intended recipient, please telephone or mail the sender and delete this message and any attachment from your system."
 
 const DEFAULT_DATA: AnnouncementStoreData = {
   sent: [],
@@ -127,6 +130,7 @@ function normalizeMessage<T extends Partial<AnnouncementMessage>>(message: T): T
   return {
     ...message,
     signature: typeof message.signature === "string" ? message.signature : DEFAULT_ANNOUNCEMENT_SIGNATURE,
+    signatureLogo: typeof message.signatureLogo === "string" ? message.signatureLogo : undefined,
     to: Array.isArray(message.to) ? message.to : [],
     cc: Array.isArray(message.cc) ? message.cc : [],
     includeAllCompany: Boolean(message.includeAllCompany),
@@ -141,10 +145,14 @@ function normalizeTemplate(template: Partial<AnnouncementTemplate>): Announcemen
     subject: template.subject ?? "",
     body: template.body ?? "",
     signature: typeof template.signature === "string" ? template.signature : DEFAULT_ANNOUNCEMENT_SIGNATURE,
+    signatureLogo: typeof template.signatureLogo === "string" ? template.signatureLogo : undefined,
     to: Array.isArray(template.to) ? template.to : ["eg.team@si-ware.com"],
     cc: Array.isArray(template.cc) ? template.cc : [],
     includeAllCompany: Boolean(template.includeAllCompany),
     autoSendEnabled: Boolean(template.autoSendEnabled),
+    scheduleFrequency: template.scheduleFrequency === "weekly" || template.scheduleFrequency === "monthly"
+      ? template.scheduleFrequency
+      : "once",
     scheduledAt: template.scheduledAt,
     lastScheduledSentAt: template.lastScheduledSentAt,
     createdBy: template.createdBy ?? "System",

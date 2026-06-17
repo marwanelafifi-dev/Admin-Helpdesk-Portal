@@ -415,6 +415,7 @@ export async function sendAnnouncementEmail(params: {
   subject: string
   body: string
   signature?: string
+  signatureLogo?: string
   senderName?: string
   attachments?: Array<{
     filename: string
@@ -430,70 +431,73 @@ export async function sendAnnouncementEmail(params: {
   const bodyHtml = params.body
     .split(/\r?\n/)
     .map((line) => line.trim()
-      ? `<p style="margin:0 0 14px;color:#1f2937;font-size:14px;line-height:1.7;">${escapeHtml(line)}</p>`
-      : `<div style="height:8px;"></div>`)
+      ? `<p style="margin:0 0 14px;color:#1f2937;font-size:15px;line-height:1.7;">${escapeHtml(line)}</p>`
+      : `<div style="height:10px;"></div>`)
     .join("")
   const signatureLines = (params.signature?.trim() || DEFAULT_ANNOUNCEMENT_SIGNATURE).split(/\r?\n/)
   const signatureName = signatureLines[0] || "Admin Helpdesk"
-  const signatureTitle = signatureLines[1] || "Admin team."
+  const signatureTitle = signatureLines[1] || "Administration Team"
   const signaturePhone = signatureLines[2] || "+202 2268 4704"
   const disclaimer = signatureLines.slice(3).filter((line) => line.trim()).join(" ")
 
   const html = `<!doctype html>
 <html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f6f8fb;font-family:Arial,Helvetica,sans-serif;color:#111827;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f6f8fb;padding:28px 12px;">
-    <tr><td align="center">
-      <table width="640" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
-        <tr>
-          <td style="padding:24px 32px 18px;border-bottom:1px solid #eef2f7;">
-            <p style="margin:0;color:#2563eb;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">Admin Helpdesk Announcement</p>
-            <h1 style="margin:8px 0 0;color:#111827;font-size:22px;line-height:1.3;font-weight:700;">${escapeHtml(params.subject)}</h1>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:28px 32px 8px;">
-            ${bodyHtml}
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:16px 32px 22px;">
-            <table cellpadding="0" cellspacing="0">
-              <tr>
-                <td style="vertical-align:top;padding-right:14px;">
-                  <div style="width:44px;height:44px;border-radius:999px;background:#2563eb;color:#ffffff;font-size:20px;font-weight:700;text-align:center;line-height:44px;">A</div>
-                </td>
-                <td style="vertical-align:top;">
-                  <p style="margin:0;color:#0070c0;font-size:19px;font-weight:700;">${escapeHtml(signatureName)}</p>
-                  <p style="margin:3px 0 0;color:#5b77a8;font-size:14px;">${escapeHtml(signatureTitle)}</p>
-                  <p style="margin:3px 0 0;color:#5b77a8;font-size:14px;">${escapeHtml(signaturePhone)}</p>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:22px 32px;background:#f8fafc;border-top:1px solid #e5e7eb;">
-            ${logoBuffer ? `<img src="cid:siware-logo" alt="Si-Ware Systems" style="height:36px;width:auto;display:block;margin:0 0 14px;" />` : `<p style="margin:0 0 14px;color:#1d4ed8;font-weight:700;font-size:18px;">Si-Ware Systems</p>`}
-            <table cellpadding="0" cellspacing="0" style="margin:0 0 14px;">
-              <tr>
-                <td style="padding-right:16px;"><span style="display:inline-block;width:24px;height:24px;border-radius:999px;background:#0070c0;color:#ffffff;text-align:center;line-height:24px;font-size:11px;font-weight:700;">in</span></td>
-                <td style="padding-right:16px;"><span style="display:inline-block;width:24px;height:24px;border-radius:999px;background:#0070c0;color:#ffffff;text-align:center;line-height:24px;font-size:13px;font-weight:700;">f</span></td>
-                <td style="padding-right:16px;"><span style="display:inline-block;width:24px;height:24px;border-radius:999px;background:#0070c0;color:#ffffff;text-align:center;line-height:24px;font-size:12px;font-weight:700;">X</span></td>
-                <td><span style="display:inline-block;width:24px;height:24px;border-radius:999px;background:#0070c0;color:#ffffff;text-align:center;line-height:24px;font-size:11px;font-weight:700;">&#9654;</span></td>
-              </tr>
-            </table>
-            <p style="margin:0;color:#64748b;font-size:11px;line-height:1.6;max-width:520px;">
-              ${escapeHtml(disclaimer || DEFAULT_ANNOUNCEMENT_SIGNATURE.split(/\r?\n/).slice(3).filter(Boolean).join(" "))}
-            </p>
-          </td>
-        </tr>
-      </table>
-    </td></tr>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+</head>
+<body style="margin:0;padding:0;background:#eef2ff;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#eef2ff;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table width="640" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #dbe3f0;border-radius:12px;overflow:hidden;">
+          <tr>
+            <td style="background:linear-gradient(90deg,#0f172a 0%,#1e293b 100%);padding:32px 40px;text-align:center;">
+              ${logoBuffer ? `<img src="cid:siware-logo" alt="Si-Ware Systems" style="height:48px;width:auto;display:block;margin:0 auto 16px;" />` : `<p style="margin:0 0 10px;color:#ffffff;font-size:13px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;">Si-Ware Systems</p>`}
+              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;line-height:1.35;">${escapeHtml(params.subject)}</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px 40px 8px;">
+              ${bodyHtml}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 40px 32px;">
+              <table cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td style="vertical-align:top;padding-right:16px;">
+                    ${params.signatureLogo ? `<img src="cid:signature-logo" alt="Signature logo" style="width:64px;height:64px;display:block;border-radius:10px;object-fit:contain;" />` : `<div style="width:56px;height:56px;border-radius:999px;background:#2563eb;color:#ffffff;font-size:18px;font-weight:700;text-align:center;line-height:56px;">A</div>`}
+                  </td>
+                  <td style="vertical-align:top;">
+                    <p style="margin:0;color:#0f172a;font-size:18px;font-weight:700;">${escapeHtml(signatureName)}</p>
+                    <p style="margin:4px 0 0;color:#64748b;font-size:14px;">${escapeHtml(signatureTitle)}</p>
+                    <p style="margin:4px 0 0;color:#64748b;font-size:14px;">${escapeHtml(signaturePhone)}</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 40px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+              <p style="margin:0;color:#64748b;font-size:12px;line-height:1.7;">${escapeHtml(disclaimer || "This message and any attachments are confidential and may be privileged or otherwise protected from disclosure.")}</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
   </table>
 </body>
 </html>`
+
+  const signatureLogoAttachment = params.signatureLogo && params.signatureLogo.startsWith("data:")
+    ? {
+        filename: "signature-logo.png",
+        content: Buffer.from(params.signatureLogo.split(",")[1] || "", "base64"),
+        cid: "signature-logo",
+        contentType: params.signatureLogo.split(":")[1]?.split(";")[0] || "image/png",
+      }
+    : null
 
   await sendMailWithRetry(transporter, {
     from: resolveFromAddress("Si-Ware Admin Helpdesk"),
@@ -508,6 +512,7 @@ export async function sendAnnouncementEmail(params: {
         cid: "siware-logo",
         contentType: "image/png",
       }] : []),
+      ...(signatureLogoAttachment ? [signatureLogoAttachment] : []),
       ...(params.attachments ?? []),
     ],
   })

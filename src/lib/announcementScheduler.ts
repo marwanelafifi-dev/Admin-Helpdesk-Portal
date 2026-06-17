@@ -13,6 +13,16 @@ function cleanEmails(values: string[]) {
     .filter((value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))))
 }
 
+function nextScheduledDate(date: Date, frequency: "once" | "weekly" | "monthly") {
+  const next = new Date(date)
+  if (frequency === "weekly") {
+    next.setDate(next.getDate() + 7)
+  } else if (frequency === "monthly") {
+    next.setMonth(next.getMonth() + 1)
+  }
+  return next
+}
+
 export async function processDueAnnouncementTemplates() {
   if (processing) return
   processing = true
@@ -40,6 +50,7 @@ export async function processDueAnnouncementTemplates() {
           subject: template.subject,
           body: template.body,
           signature: template.signature,
+          signatureLogo: template.signatureLogo,
           senderName: template.createdBy,
         })
 
@@ -48,6 +59,7 @@ export async function processDueAnnouncementTemplates() {
           subject: template.subject,
           body: template.body,
           signature: template.signature,
+          signatureLogo: template.signatureLogo,
           to: template.to,
           cc: template.cc,
           includeAllCompany: template.includeAllCompany,
@@ -62,8 +74,13 @@ export async function processDueAnnouncementTemplates() {
         data.sent.unshift(sent)
       }
 
-      template.autoSendEnabled = false
-      template.lastScheduledSentAt = nowIso
+      const frequency = template.scheduleFrequency || "once"
+      if (frequency === "once") {
+        template.autoSendEnabled = false
+      } else {
+        template.scheduledAt = nextScheduledDate(scheduledDate, frequency).toISOString()
+        template.lastScheduledSentAt = nowIso
+      }
       template.updatedAt = nowIso
       changed = true
     }

@@ -21,10 +21,12 @@ type Payload = {
   subject?: string
   body?: string
   signature?: string
+  signatureLogo?: string
   to?: string[]
   cc?: string[]
   includeAllCompany?: boolean
   autoSendEnabled?: boolean
+  scheduleFrequency?: "once" | "weekly" | "monthly"
   scheduledAt?: string
   attachments?: AnnouncementAttachment[]
 }
@@ -79,6 +81,7 @@ export async function POST(req: NextRequest) {
   const subject = (body.subject ?? "").trim()
   const messageBody = (body.body ?? "").trim()
   const signature = (body.signature ?? DEFAULT_ANNOUNCEMENT_SIGNATURE).trim() || DEFAULT_ANNOUNCEMENT_SIGNATURE
+  const signatureLogo = typeof body.signatureLogo === "string" ? body.signatureLogo : undefined
   const attachments = Array.isArray(body.attachments) ? body.attachments : []
 
   if (body.mode === "template") {
@@ -95,10 +98,14 @@ export async function POST(req: NextRequest) {
       subject,
       body: messageBody,
       signature,
+      signatureLogo,
       to: cleanEmails(body.to),
       cc: cleanEmails(body.cc),
       includeAllCompany: Boolean(body.includeAllCompany),
       autoSendEnabled: Boolean(body.autoSendEnabled),
+      scheduleFrequency: body.scheduleFrequency === "weekly" || body.scheduleFrequency === "monthly"
+        ? body.scheduleFrequency
+        : "once",
       scheduledAt: body.scheduledAt,
       createdBy: session.user.name ?? session.user.email ?? "Admin",
       createdAt: now,
@@ -116,6 +123,7 @@ export async function POST(req: NextRequest) {
     subject,
     body: messageBody,
     signature,
+    signatureLogo,
     to: cleanEmails(body.to),
     cc: cleanEmails(body.cc),
     includeAllCompany: Boolean(body.includeAllCompany),
@@ -145,6 +153,7 @@ export async function POST(req: NextRequest) {
     subject: message.subject,
     body: message.body,
     signature: message.signature,
+    signatureLogo: message.signatureLogo,
     senderName: message.createdBy,
     attachments: attachments.map(dataUrlToEmailAttachment).filter(Boolean) as any[],
   })

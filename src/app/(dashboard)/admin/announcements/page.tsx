@@ -26,6 +26,7 @@ type AnnouncementRecord = {
   subject: string
   body: string
   signature: string
+  signatureLogo?: string
   to: string[]
   cc: string[]
   includeAllCompany: boolean
@@ -44,22 +45,17 @@ type TemplateRecord = {
   subject: string
   body: string
   signature: string
+  signatureLogo?: string
   to: string[]
   cc: string[]
   includeAllCompany: boolean
   autoSendEnabled: boolean
+  scheduleFrequency?: "once" | "weekly" | "monthly"
   scheduledAt?: string
   lastScheduledSentAt?: string
   createdBy: string
   createdAt: string
   updatedAt: string
-}
-
-type DirectoryUser = {
-  id: string
-  name: string
-  email: string
-  role: string
 }
 
 type Tab = "sent" | "drafts" | "templates"
@@ -99,11 +95,9 @@ function fromDatetimeLocal(value: string) {
 export default function AnnouncementsPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [activeTab, setActiveTab] = useState<Tab>("sent")
-  const [users, setUsers] = useState<DirectoryUser[]>([])
   const [sent, setSent] = useState<AnnouncementRecord[]>([])
   const [drafts, setDrafts] = useState<AnnouncementRecord[]>([])
   const [templates, setTemplates] = useState<TemplateRecord[]>([])
-  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
   const [includeAllCompany, setIncludeAllCompany] = useState(true)
   const [includeEgyptTeam, setIncludeEgyptTeam] = useState(true)
   const [toText, setToText] = useState("")
@@ -111,8 +105,10 @@ export default function AnnouncementsPage() {
   const [subject, setSubject] = useState("")
   const [body, setBody] = useState("")
   const [signature, setSignature] = useState(DEFAULT_SIGNATURE)
+  const [signatureLogo, setSignatureLogo] = useState("")
   const [templateName, setTemplateName] = useState("")
   const [autoSendEnabled, setAutoSendEnabled] = useState(false)
+  const [scheduleFrequency, setScheduleFrequency] = useState<"once" | "weekly" | "monthly">("once")
   const [scheduledAt, setScheduledAt] = useState("")
   const [files, setFiles] = useState<File[]>([])
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null)
@@ -121,24 +117,15 @@ export default function AnnouncementsPage() {
   const [sending, setSending] = useState(false)
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null)
 
-  const selectedUserEmails = useMemo(
-    () => users.filter((user) => selectedUserIds.includes(user.id)).map((user) => user.email),
-    [users, selectedUserIds]
-  )
-
   const toEmails = useMemo(
     () => Array.from(new Set([
       ...(includeEgyptTeam ? [EGYPT_TEAM_EMAIL] : []),
       ...splitEmails(toText),
-      ...selectedUserEmails,
     ])),
-    [includeEgyptTeam, toText, selectedUserEmails]
+    [includeEgyptTeam, toText]
   )
 
-  const manualRecipientCount = toEmails.length
-  const recipientCount = includeAllCompany
-    ? new Set([...users.map((user) => user.email), ...toEmails]).size
-    : manualRecipientCount
+  const recipientCountLabel = includeAllCompany ? "All company" : `${toEmails.length} recipient${toEmails.length === 1 ? "" : "s"}`
 
   async function loadData() {
     setLoading(true)
@@ -149,7 +136,6 @@ export default function AnnouncementsPage() {
       setSent(json.data?.sent ?? [])
       setDrafts(json.data?.drafts ?? [])
       setTemplates(json.data?.templates ?? [])
-      setUsers(json.users ?? [])
     } catch (error) {
       setNotice({ type: "error", message: error instanceof Error ? error.message : "Failed to load announcements" })
     } finally {
@@ -172,7 +158,9 @@ export default function AnnouncementsPage() {
     setSelectedUserIds([])
     setFiles([])
     setSignature(DEFAULT_SIGNATURE)
+    setSignatureLogo("")
     setAutoSendEnabled(false)
+    setScheduleFrequency("once")
     setScheduledAt("")
     setCurrentDraftId(null)
   }
@@ -181,14 +169,15 @@ export default function AnnouncementsPage() {
     setSubject(template.subject)
     setBody(template.body)
     setSignature(template.signature || DEFAULT_SIGNATURE)
+    setSignatureLogo(template.signatureLogo || "")
     setTemplateName(template.name)
     setIncludeAllCompany(Boolean(template.includeAllCompany))
     setIncludeEgyptTeam((template.to ?? []).includes(EGYPT_TEAM_EMAIL))
     setToText(joinEmails((template.to ?? []).filter((email) => email !== EGYPT_TEAM_EMAIL)))
     setCcText(joinEmails(template.cc ?? []))
-    setSelectedUserIds([])
     setFiles([])
     setAutoSendEnabled(Boolean(template.autoSendEnabled))
+    setScheduleFrequency(template.scheduleFrequency || "once")
     setScheduledAt(toDatetimeLocal(template.scheduledAt))
     setNotice({ type: "success", message: `Template loaded: ${template.name}` })
     window.scrollTo({ top: 0, behavior: "smooth" })
@@ -199,11 +188,11 @@ export default function AnnouncementsPage() {
     setSubject(draft.subject)
     setBody(draft.body)
     setSignature(draft.signature || DEFAULT_SIGNATURE)
+    setSignatureLogo(draft.signatureLogo || "")
     setIncludeEgyptTeam((draft.to ?? []).includes(EGYPT_TEAM_EMAIL))
     setToText(joinEmails((draft.to ?? []).filter((email) => email !== EGYPT_TEAM_EMAIL)))
     setCcText(joinEmails(draft.cc ?? []))
     setIncludeAllCompany(draft.includeAllCompany)
-    setSelectedUserIds([])
     setFiles([])
     setNotice({ type: "success", message: "Draft loaded into compose" })
     window.scrollTo({ top: 0, behavior: "smooth" })
@@ -227,6 +216,7 @@ export default function AnnouncementsPage() {
           subject,
           body,
           signature,
+          signatureLogo: signatureLogo || undefined,
           to: toEmails,
           cc: splitEmails(ccText),
           includeAllCompany,
@@ -258,10 +248,12 @@ export default function AnnouncementsPage() {
           subject,
           body,
           signature,
+          signatureLogo: signatureLogo || undefined,
           to: toEmails,
           cc: splitEmails(ccText),
           includeAllCompany,
           autoSendEnabled,
+          scheduleFrequency: autoSendEnabled ? scheduleFrequency : "once",
           scheduledAt: autoSendEnabled ? fromDatetimeLocal(scheduledAt) : undefined,
         }),
       })
@@ -290,6 +282,7 @@ export default function AnnouncementsPage() {
           subject,
           body,
           signature,
+          signatureLogo: signatureLogo || undefined,
           to: toEmails,
           cc: splitEmails(ccText),
           includeAllCompany,
@@ -366,15 +359,27 @@ export default function AnnouncementsPage() {
             </div>
 
             <div className="grid grid-cols-1 gap-4 rounded-lg border bg-gray-50 p-4 md:grid-cols-[220px_minmax(0,1fr)]">
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-800">
-                <input
-                  type="checkbox"
-                  checked={autoSendEnabled}
-                  onChange={(e) => setAutoSendEnabled(e.target.checked)}
-                  className="h-4 w-4"
-                />
-                Auto send template
-              </label>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-800">
+                  <input
+                    type="checkbox"
+                    checked={autoSendEnabled}
+                    onChange={(e) => setAutoSendEnabled(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  Auto send template
+                </label>
+                <select
+                  value={scheduleFrequency}
+                  onChange={(e) => setScheduleFrequency(e.target.value as "once" | "weekly" | "monthly")}
+                  disabled={!autoSendEnabled}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="once">Once</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-medium uppercase tracking-wide text-gray-500">Send date and time</label>
                 <Input
@@ -405,6 +410,33 @@ export default function AnnouncementsPage() {
                 rows={7}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               />
+            </div>
+            <div className="space-y-2 rounded-lg border bg-gray-50 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <label className="text-sm font-medium text-gray-700">Signature logo</label>
+                <Button type="button" variant="outline" size="sm" onClick={() => document.getElementById("announcement-logo-input")?.click()}>Upload logo</Button>
+              </div>
+              <input
+                id="announcement-logo-input"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0]
+                  if (!file) return
+                  const reader = new FileReader()
+                  reader.onload = () => setSignatureLogo(typeof reader.result === "string" ? reader.result : "")
+                  reader.readAsDataURL(file)
+                }}
+              />
+              {signatureLogo ? (
+                <div className="flex items-center gap-3 rounded-md border bg-white p-3">
+                  <img src={signatureLogo} alt="Signature logo preview" className="h-12 w-12 rounded object-contain" />
+                  <span className="text-sm text-gray-600">Logo ready to be used in the email signature</span>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">No custom signature logo selected yet.</p>
+              )}
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -466,8 +498,8 @@ export default function AnnouncementsPage() {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-gray-700">Directory</label>
-                  <Badge variant="secondary">{recipientCount} recipient{recipientCount === 1 ? "" : "s"}</Badge>
+                  <label className="text-sm font-medium text-gray-700">Audience</label>
+                  <Badge variant="secondary">{recipientCountLabel}</Badge>
                 </div>
                 <label className="flex items-center gap-2 rounded-lg border bg-blue-50 border-blue-200 px-3 py-2 text-sm font-medium text-blue-900">
                   <input
@@ -478,29 +510,6 @@ export default function AnnouncementsPage() {
                   />
                   Send to all company users
                 </label>
-                <div className="max-h-44 overflow-y-auto rounded-md border divide-y">
-                  {users.map((user) => (
-                    <label key={user.id} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50">
-                      <input
-                        type="checkbox"
-                        checked={selectedUserIds.includes(user.id)}
-                        onChange={(e) => {
-                          setSelectedUserIds((prev) => e.target.checked
-                            ? [...prev, user.id]
-                            : prev.filter((id) => id !== user.id))
-                        }}
-                        className="h-4 w-4"
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate font-medium text-gray-900">{user.name}</span>
-                        <span className="block truncate text-xs text-gray-500">{user.email}</span>
-                      </span>
-                    </label>
-                  ))}
-                  {!loading && users.length === 0 && (
-                    <div className="px-3 py-6 text-center text-sm text-gray-500">No active users found.</div>
-                  )}
-                </div>
               </div>
             </CardContent>
           </Card>
@@ -608,7 +617,7 @@ export default function AnnouncementsPage() {
                     <p className="mt-1 text-sm text-gray-700 truncate">{template.subject}</p>
                     <p className="mt-1 text-xs text-gray-500">Updated {formatDate(template.updatedAt)}</p>
                     {template.autoSendEnabled && template.scheduledAt && (
-                      <p className="mt-1 text-xs font-medium text-blue-700">Auto sends {formatDate(template.scheduledAt)}</p>
+                      <p className="mt-1 text-xs font-medium text-blue-700">Auto sends {template.scheduleFrequency || "once"} · {formatDate(template.scheduledAt)}</p>
                     )}
                   </div>
                   <div className="flex gap-2">
