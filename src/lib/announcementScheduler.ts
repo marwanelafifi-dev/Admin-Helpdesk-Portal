@@ -13,10 +13,17 @@ function cleanEmails(values: string[]) {
     .filter((value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))))
 }
 
-function nextScheduledDate(date: Date, frequency: "once" | "weekly" | "monthly") {
+function nextScheduledDate(
+  date: Date,
+  frequency: "once" | "weekly" | "monthly",
+  dayOfWeek?: number,
+) {
   const next = new Date(date)
   if (frequency === "weekly") {
-    next.setDate(next.getDate() + 7)
+    const target = typeof dayOfWeek === "number" ? dayOfWeek : next.getDay()
+    const currentDay = next.getDay()
+    const diff = (target - currentDay + 7) % 7
+    next.setDate(next.getDate() + (diff === 0 ? 7 : diff))
   } else if (frequency === "monthly") {
     next.setMonth(next.getMonth() + 1)
   }
@@ -78,7 +85,11 @@ export async function processDueAnnouncementTemplates() {
       if (frequency === "once") {
         template.autoSendEnabled = false
       } else {
-        template.scheduledAt = nextScheduledDate(scheduledDate, frequency).toISOString()
+        template.scheduledAt = nextScheduledDate(
+          scheduledDate,
+          frequency,
+          template.scheduleDayOfWeek,
+        ).toISOString()
         template.lastScheduledSentAt = nowIso
       }
       template.updatedAt = nowIso

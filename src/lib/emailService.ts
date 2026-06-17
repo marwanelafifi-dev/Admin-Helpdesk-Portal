@@ -435,10 +435,12 @@ export async function sendAnnouncementEmail(params: {
       : `<div style="height:10px;"></div>`)
     .join("")
   const signatureLines = (params.signature?.trim() || DEFAULT_ANNOUNCEMENT_SIGNATURE).split(/\r?\n/)
-  const signatureName = signatureLines[0] || "Admin Helpdesk"
-  const signatureTitle = signatureLines[1] || "Administration Team"
-  const signaturePhone = signatureLines[2] || "+202 2268 4704"
-  const disclaimer = signatureLines.slice(3).filter((line) => line.trim()).join(" ")
+  const signatureName = signatureLines[0]?.trim() || ""
+  const signatureTitle = signatureLines[1]?.trim() || ""
+  const signaturePhone = signatureLines[2]?.trim() || ""
+  const hasSignatureBlock = Boolean(params.signatureLogo || signatureName || signatureTitle || signaturePhone)
+  const disclaimerLines = hasSignatureBlock ? signatureLines.slice(3) : signatureLines
+  const disclaimer = disclaimerLines.filter((line) => line.trim()).join(" ")
 
   const html = `<!doctype html>
 <html>
@@ -462,6 +464,7 @@ export async function sendAnnouncementEmail(params: {
               ${bodyHtml}
             </td>
           </tr>
+          ${hasSignatureBlock ? `
           <tr>
             <td style="padding:18px 40px 32px;">
               <table cellpadding="0" cellspacing="0" width="100%">
@@ -478,6 +481,7 @@ export async function sendAnnouncementEmail(params: {
               </table>
             </td>
           </tr>
+          ` : ""}
           <tr>
             <td style="padding:24px 40px;background:#f8fafc;border-top:1px solid #e2e8f0;">
               <p style="margin:0;color:#64748b;font-size:12px;line-height:1.7;">${escapeHtml(disclaimer || "This message and any attachments are confidential and may be privileged or otherwise protected from disclosure.")}</p>

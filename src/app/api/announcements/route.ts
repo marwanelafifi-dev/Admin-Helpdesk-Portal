@@ -27,6 +27,7 @@ type Payload = {
   includeAllCompany?: boolean
   autoSendEnabled?: boolean
   scheduleFrequency?: "once" | "weekly" | "monthly"
+  scheduleDayOfWeek?: number
   scheduledAt?: string
   attachments?: AnnouncementAttachment[]
 }
@@ -106,6 +107,7 @@ export async function POST(req: NextRequest) {
       scheduleFrequency: body.scheduleFrequency === "weekly" || body.scheduleFrequency === "monthly"
         ? body.scheduleFrequency
         : "once",
+      scheduleDayOfWeek: typeof body.scheduleDayOfWeek === "number" ? body.scheduleDayOfWeek : 1,
       scheduledAt: body.scheduledAt,
       createdBy: session.user.name ?? session.user.email ?? "Admin",
       createdAt: now,

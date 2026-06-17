@@ -45,6 +45,7 @@ export type AnnouncementTemplate = {
   includeAllCompany: boolean
   autoSendEnabled: boolean
   scheduleFrequency?: "once" | "weekly" | "monthly"
+  scheduleDayOfWeek?: number
   scheduledAt?: string
   lastScheduledSentAt?: string
   createdBy: string
@@ -60,7 +61,7 @@ export type AnnouncementStoreData = {
 
 const STORE_PATH = path.join(process.cwd(), "data", "announcements.json")
 export const DEFAULT_ANNOUNCEMENT_SIGNATURE =
-  "Admin Helpdesk\nAdministration Team\n+202 2268 4704\n\nBest regards,\nAdmin Helpdesk Portal\n\nThis message and any attachments are confidential and may be privileged or otherwise protected from disclosure. If you are not the intended recipient, please telephone or mail the sender and delete this message and any attachment from your system."
+  "This message and any attachments are confidential and may be privileged or otherwise protected from disclosure. If you are not the intended recipient, please notify the sender and delete this message and any attachment from your system."
 
 const DEFAULT_DATA: AnnouncementStoreData = {
   sent: [],
@@ -153,6 +154,9 @@ function normalizeTemplate(template: Partial<AnnouncementTemplate>): Announcemen
     scheduleFrequency: template.scheduleFrequency === "weekly" || template.scheduleFrequency === "monthly"
       ? template.scheduleFrequency
       : "once",
+    scheduleDayOfWeek: typeof template.scheduleDayOfWeek === "number"
+      ? template.scheduleDayOfWeek
+      : 1,
     scheduledAt: template.scheduledAt,
     lastScheduledSentAt: template.lastScheduledSentAt,
     createdBy: template.createdBy ?? "System",

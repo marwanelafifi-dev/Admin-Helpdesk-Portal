@@ -51,6 +51,7 @@ type TemplateRecord = {
   includeAllCompany: boolean
   autoSendEnabled: boolean
   scheduleFrequency?: "once" | "weekly" | "monthly"
+  scheduleDayOfWeek?: number
   scheduledAt?: string
   lastScheduledSentAt?: string
   createdBy: string
@@ -63,6 +64,15 @@ type Tab = "sent" | "drafts" | "templates"
 const EGYPT_TEAM_EMAIL = "eg.team@si-ware.com"
 const DEFAULT_SIGNATURE =
   "Admin Helpdesk\nAdmin team.\n+202 2268 4704\n\nThis message and any attachments are confidential and may be privileged or otherwise protected from disclosure. If you are not the intended recipient, please telephone or mail the sender and delete this message and any attachment from your system."
+const WEEKDAY_OPTIONS = [
+  { value: 0, label: "Sunday" },
+  { value: 1, label: "Monday" },
+  { value: 2, label: "Tuesday" },
+  { value: 3, label: "Wednesday" },
+  { value: 4, label: "Thursday" },
+  { value: 5, label: "Friday" },
+  { value: 6, label: "Saturday" },
+]
 
 function splitEmails(value: string): string[] {
   return Array.from(new Set(value
@@ -92,6 +102,10 @@ function fromDatetimeLocal(value: string) {
   return value ? new Date(value).toISOString() : undefined
 }
 
+function formatDayLabel(dayOfWeek?: number) {
+  return WEEKDAY_OPTIONS.find((item) => item.value === dayOfWeek)?.label ?? "Monday"
+}
+
 export default function AnnouncementsPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [activeTab, setActiveTab] = useState<Tab>("sent")
@@ -109,6 +123,7 @@ export default function AnnouncementsPage() {
   const [templateName, setTemplateName] = useState("")
   const [autoSendEnabled, setAutoSendEnabled] = useState(false)
   const [scheduleFrequency, setScheduleFrequency] = useState<"once" | "weekly" | "monthly">("once")
+  const [scheduleDayOfWeek, setScheduleDayOfWeek] = useState(1)
   const [scheduledAt, setScheduledAt] = useState("")
   const [files, setFiles] = useState<File[]>([])
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null)
@@ -155,12 +170,12 @@ export default function AnnouncementsPage() {
     setCcText("")
     setIncludeAllCompany(true)
     setIncludeEgyptTeam(true)
-    setSelectedUserIds([])
     setFiles([])
     setSignature(DEFAULT_SIGNATURE)
     setSignatureLogo("")
     setAutoSendEnabled(false)
     setScheduleFrequency("once")
+    setScheduleDayOfWeek(1)
     setScheduledAt("")
     setCurrentDraftId(null)
   }
@@ -178,6 +193,7 @@ export default function AnnouncementsPage() {
     setFiles([])
     setAutoSendEnabled(Boolean(template.autoSendEnabled))
     setScheduleFrequency(template.scheduleFrequency || "once")
+    setScheduleDayOfWeek(typeof template.scheduleDayOfWeek === "number" ? template.scheduleDayOfWeek : 1)
     setScheduledAt(toDatetimeLocal(template.scheduledAt))
     setNotice({ type: "success", message: `Template loaded: ${template.name}` })
     window.scrollTo({ top: 0, behavior: "smooth" })
@@ -254,6 +270,7 @@ export default function AnnouncementsPage() {
           includeAllCompany,
           autoSendEnabled,
           scheduleFrequency: autoSendEnabled ? scheduleFrequency : "once",
+          scheduleDayOfWeek: autoSendEnabled && scheduleFrequency === "weekly" ? scheduleDayOfWeek : undefined,
           scheduledAt: autoSendEnabled ? fromDatetimeLocal(scheduledAt) : undefined,
         }),
       })
@@ -380,14 +397,33 @@ export default function AnnouncementsPage() {
                   <option value="monthly">Monthly</option>
                 </select>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium uppercase tracking-wide text-gray-500">Send date and time</label>
-                <Input
-                  type="datetime-local"
-                  value={scheduledAt}
-                  onChange={(e) => setScheduledAt(e.target.value)}
-                  disabled={!autoSendEnabled}
-                />
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                    {scheduleFrequency === "weekly" ? "Start date & time" : "Send date & time"}
+                  </label>
+                  <Input
+                    type="datetime-local"
+                    value={scheduledAt}
+                    onChange={(e) => setScheduledAt(e.target.value)}
+                    disabled={!autoSendEnabled}
+                  />
+                </div>
+                {scheduleFrequency === "weekly" && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium uppercase tracking-wide text-gray-500">Day of week</label>
+                    <select
+                      value={scheduleDayOfWeek}
+                      onChange={(e) => setScheduleDayOfWeek(Number(e.target.value))}
+                      disabled={!autoSendEnabled}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      {WEEKDAY_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -617,7 +653,13 @@ export default function AnnouncementsPage() {
                     <p className="mt-1 text-sm text-gray-700 truncate">{template.subject}</p>
                     <p className="mt-1 text-xs text-gray-500">Updated {formatDate(template.updatedAt)}</p>
                     {template.autoSendEnabled && template.scheduledAt && (
-                      <p className="mt-1 text-xs font-medium text-blue-700">Auto sends {template.scheduleFrequency || "once"} · {formatDate(template.scheduledAt)}</p>
+                      <p className="mt-1 text-xs font-medium text-blue-700">
+                        Auto sends {template.scheduleFrequency || "once"}
+                        {template.scheduleFrequency === "weekly" && template.scheduleDayOfWeek !== undefined
+                          ? ` · ${formatDayLabel(template.scheduleDayOfWeek)}`
+                          : ""}
+                        · {formatDate(template.scheduledAt)}
+                      </p>
                     )}
                   </div>
                   <div className="flex gap-2">
