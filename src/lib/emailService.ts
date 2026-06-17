@@ -408,6 +408,97 @@ export async function sendRequestUpdateEmail(params: {
   })
 }
 
+export async function sendAnnouncementEmail(params: {
+  to: string[]
+  cc?: string[]
+  subject: string
+  body: string
+  senderName?: string
+  attachments?: Array<{
+    filename: string
+    content: Buffer
+    contentType?: string
+  }>
+}) {
+  const recipients = Array.from(new Set(params.to.filter(Boolean)))
+  if (recipients.length === 0) return
+
+  const transporter = createTransporter()
+  const logoBuffer = getLogoBuffer()
+  const bodyHtml = params.body
+    .split(/\r?\n/)
+    .map((line) => line.trim()
+      ? `<p style="margin:0 0 14px;color:#1f2937;font-size:14px;line-height:1.7;">${escapeHtml(line)}</p>`
+      : `<div style="height:8px;"></div>`)
+    .join("")
+
+  const html = `<!doctype html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f6f8fb;font-family:Arial,Helvetica,sans-serif;color:#111827;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f6f8fb;padding:28px 12px;">
+    <tr><td align="center">
+      <table width="640" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
+        <tr>
+          <td style="padding:24px 32px 18px;border-bottom:1px solid #eef2f7;">
+            <p style="margin:0;color:#2563eb;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">Admin Helpdesk Announcement</p>
+            <h1 style="margin:8px 0 0;color:#111827;font-size:22px;line-height:1.3;font-weight:700;">${escapeHtml(params.subject)}</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px 32px 8px;">
+            ${bodyHtml}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:16px 32px 30px;">
+            <table cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="vertical-align:top;padding-right:14px;">
+                  <div style="width:44px;height:44px;border-radius:999px;background:#2563eb;color:#ffffff;font-size:20px;font-weight:700;text-align:center;line-height:44px;">A</div>
+                </td>
+                <td style="vertical-align:top;">
+                  <p style="margin:0;color:#0f172a;font-size:17px;font-weight:700;">Admin Helpdesk</p>
+                  <p style="margin:3px 0 0;color:#64748b;font-size:13px;">Admin team</p>
+                  <p style="margin:3px 0 0;color:#64748b;font-size:13px;">+202 2268 4704</p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:22px 32px;background:#f8fafc;border-top:1px solid #e5e7eb;">
+            ${logoBuffer ? `<img src="cid:siware-logo" alt="Si-Ware Systems" style="height:36px;width:auto;display:block;margin:0 0 14px;" />` : `<p style="margin:0 0 14px;color:#1d4ed8;font-weight:700;font-size:18px;">Si-Ware Systems</p>`}
+            <p style="margin:0;color:#64748b;font-size:11px;line-height:1.6;max-width:520px;">
+              This message and any attachments are confidential and may be privileged or otherwise protected from disclosure.
+              If you are not the intended recipient, please notify the sender and delete this message and any attachment from your system.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+
+  await sendMailWithRetry(transporter, {
+    from: resolveFromAddress("Si-Ware Admin Helpdesk"),
+    to: recipients,
+    cc: params.cc?.filter(Boolean),
+    subject: params.subject,
+    html,
+    attachments: [
+      ...(logoBuffer ? [{
+        filename: "siware-logo.png",
+        content: logoBuffer,
+        cid: "siware-logo",
+        contentType: "image/png",
+      }] : []),
+      ...(params.attachments ?? []),
+    ],
+  })
+}
+
 function resolveTemplateVars(template: string, vars: Record<string, string>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? `{{${key}}}`)
 }

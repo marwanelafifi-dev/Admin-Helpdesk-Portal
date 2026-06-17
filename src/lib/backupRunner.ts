@@ -21,6 +21,7 @@ const SERVER_FILES = [
   "requests.json",
   "comments.json",
   "feedback.json",
+  "announcements.json",
   "company-data.json",
   "users.json",
   "roles.json",

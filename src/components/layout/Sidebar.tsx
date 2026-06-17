@@ -29,6 +29,7 @@ import {
   Bell,
   Inbox,
   Building2,
+  Megaphone,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { canAccessPath } from "@/lib/access"
@@ -88,6 +89,7 @@ const navItems: NavItem[] = [
       { title: "Roles", href: "/admin/roles", icon: Shield },
       { title: "Settings", href: "/admin/settings", icon: Settings },
       { title: "Notifications", href: "/admin/notifications", icon: Bell },
+      { title: "Announcements", href: "/admin/announcements", icon: Megaphone },
       { title: "Company Data", href: "/admin/company-data", icon: Building2 },
       { title: "Audit Trail", href: "/admin/audit-trail", icon: Shield },
       { title: "Database", href: "/admin/database", icon: Database },

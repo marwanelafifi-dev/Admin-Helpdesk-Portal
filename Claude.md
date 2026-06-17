@@ -817,6 +817,35 @@ This document tracks the phased development of the Admin Request Platform, movin
 - [x] **Approval links use a valid portal origin** — falls back to the incoming request origin when `NEXTAUTH_URL` and `AUTH_URL` are not configured.
 - [x] **Existing stuck requests recoverable** — admins can reopen a request in Awaiting Approval and resend without changing its status again.
 
+## Phase 6o: Admin Announcements (Completed — 17 Jun 2026)
+- [x] **Admin Announcements page added** at `/admin/announcements`.
+  - [x] Compose branded company emails from the portal.
+  - [x] Send to all active company users, selected directory users, manually entered recipients, and CC recipients.
+  - [x] Upload attachments and send them with the announcement email.
+  - [x] Save drafts and reload them into the composer.
+  - [x] Save reusable templates for common notices, including an initial doctor-availability template.
+  - [x] View previous sent announcements with recipient, CC, attachment, sender, and timestamp metadata.
+- [x] **Announcements API added** at `GET/POST/DELETE /api/announcements`.
+  - [x] `GET` returns sent history, drafts, templates, and the active user directory.
+  - [x] `POST` supports `send`, `draft`, and `template` modes.
+  - [x] `DELETE` removes drafts or templates.
+- [x] **Server store added** in `src/lib/announcementStore.ts`.
+  - [x] Persists to `data/announcements.json`.
+  - [x] Default templates are seeded when the file does not exist.
+- [x] **Email renderer added** via `sendAnnouncementEmail()` in `src/lib/emailService.ts`.
+  - [x] Uses the existing SMTP configuration and pooled transporter.
+  - [x] Sends branded Admin Helpdesk email with Si-Ware logo when available.
+- [x] **Navigation and permissions wired**.
+  - [x] Sidebar Admin group includes Announcements.
+  - [x] `page:admin-announcements` added to `access.ts`, `pageRegistry.ts`, and default roles for Full Access + Administration Team.
+- [x] **Backup integration added**.
+  - [x] `announcements.json` is included in scheduled backups and Admin Database server-data backup/restore/clear flows.
+
+## Phase 6p: Attachment Data Reliability (Completed — 17 Jun 2026)
+- [x] **Server-side attachment preservation added** in `POST /api/requests`.
+  - [x] If an existing server request has `payload.attachments` and a later upsert arrives with empty or missing attachments, the server keeps the existing attachment list.
+  - [x] Prevents browser localStorage quota protection from indirectly erasing attachments during later status, assignment, CC, or comment-activity updates.
+
 ## Phase 6: Optimization & Scaling
 - [ ] Add Redis caching for frequently accessed dashboard data.
 - [ ] Implement file upload storage service for AWB/Invoices/Receipts.
