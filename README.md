@@ -42,6 +42,7 @@ Open [http://localhost:3003](http://localhost:3003).
 - Pending status, assignee, and request edits are preserved during navigation and background synchronization.
 - Request pages re-render from the merged engine cache after server sync.
 - Admin Database module counts come from the authoritative server request store and refresh after clear or restore operations.
+- Server upserts preserve existing request attachments when a quota-stripped browser cache posts a lightweight update.
 
 ---
 
@@ -74,7 +75,7 @@ docker compose --profile tunnel up --build -d
 
 | Volume / Mount | Purpose |
 |----------------|---------|
-| `app_data` → `/app/data` | Server-side JSON stores (requests, comments, feedback, users, roles, settings) |
+| `app_data` → `/app/data` | Server-side JSON stores (requests, comments, feedback, announcements, users, roles, settings) |
 | `~/admin-helpdesk-Backup` → `/app/backups` | Automated scheduled backup files |
 | `postgres_data` | PostgreSQL data persistence |
 
@@ -138,6 +139,7 @@ SMTP_FROM=<display email>
 | `/admin/roles` | Role management with granular page + permission checkboxes |
 | `/admin/settings` | Platform branding, login page, security, feedback survey config |
 | `/admin/notifications` | SMTP email configuration |
+| `/admin/announcements` | Compose and send company announcements, manage drafts, sent history, templates, CC, and attachments |
 | `/admin/company-data` | Lookup tables: Suppliers, Cost Centers, Managers, Carriers, Departments, Sectors |
 | `/admin/audit-trail` | System event log with category filter |
 | `/admin/database` | Backup/restore, clear data, scheduled automatic backups, maintenance mode |
@@ -155,6 +157,7 @@ All request data is stored in server-side JSON files (no PostgreSQL for requests
 ├── requests.json        # All request records
 ├── comments.json        # Per-request comment threads
 ├── feedback.json        # Survey records + responses
+├── announcements.json   # Sent announcements, drafts, and reusable templates
 ├── users.json           # User accounts
 ├── roles.json           # Role definitions + permissions
 ├── company-data.json    # Lookup tables (suppliers, managers, etc.)
@@ -194,6 +197,19 @@ Automatic emails on:
 - Purchase approval request (one-click Approve / Reject links in email)
 - Feedback survey (configurable — can be disabled from Admin → Settings)
 
+### Admin Announcements
+
+The Admin Announcements page sends branded company-wide emails using the same SMTP configuration as notification emails.
+
+- Route: `/admin/announcements`
+- Permission: `page:admin-announcements` (included for Full Access and Administration Team by default)
+- Recipients: all active company users, manually entered To recipients, selected directory users, and CC recipients
+- Attachments: uploaded from the portal and sent with the email
+- Templates: reusable subject/body templates for common notices
+- Drafts: save incomplete announcements and reopen them later
+- Sent history: stored in `data/announcements.json` with recipient count, CC count, attachments, and sender details
+- Backups: `announcements.json` is included in Admin Database backup/restore and scheduled backups
+
 ---
 
 ## Project Structure
@@ -225,6 +241,7 @@ src/
 │   │       ├── roles/
 │   │       ├── settings/
 │   │       ├── notifications/
+│   │       ├── announcements/
 │   │       ├── company-data/
 │   │       ├── audit-trail/
 │   │       └── database/
@@ -235,6 +252,7 @@ src/
 │   │   │   ├── maintenance/       # GET/PUT/POST — maintenance mode
 │   │   │   ├── server-data/       # GET/POST/DELETE — server file bundle
 │   │   │   └── settings/          # GET/POST — platform settings
+│   │   ├── announcements/         # GET/POST/DELETE — announcements, drafts, templates, sending
 │   │   ├── feedback/
 │   │   ├── requests/
 │   │   └── users/
@@ -258,6 +276,7 @@ src/
 │   ├── dataStoreRegistry.ts       # Central localStorage key registry
 │   ├── emailService.ts            # All outbound email templates
 │   ├── feedbackStore.ts           # Feedback server-side store
+│   ├── announcementStore.ts       # Announcements server-side store
 │   ├── pageRegistry.ts            # Page permission definitions (middleware + Roles UI)
 │   ├── requestStore.ts            # Server-side request store
 │   └── settingsServer.ts          # Platform settings server-side store
@@ -315,3 +334,5 @@ Every request must contain the selected module id and the required request field
 All request forms persist uploaded files in `payload.attachments` as base64 data URLs so they can be viewed by other users and on other devices. This applies to Shipping, Maintenance, Purchase, Event, Travel, HR onboarding/offboarding, and General requests.
 
 The request detail page loads the complete request from the server before rendering the **Attachments** tab. Browser localStorage is only a fallback because its quota-protection path may remove large attachment data from the local cache. Existing attachments remain stored on the server and reappear when the request detail page refreshes.
+
+Server request upserts also preserve existing server attachments when a later browser update contains an empty or missing `payload.attachments` array. This prevents status, assignment, comment activity, or CC updates from accidentally overwriting the authoritative file list after browser quota protection strips local base64 data.

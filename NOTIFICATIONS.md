@@ -5,6 +5,7 @@ A role-based notification system that sends notifications for:
 - **Status changes** — when request status updates
 - **Pending approvals** — when requests need manager/admin approval
 - **Comments** — when someone comments on a request
+- **Announcements** — branded company-wide emails composed from the Admin Portal
 
 ## Components Created
 
@@ -136,14 +137,25 @@ All data stored in localStorage:
 - `arp_notifications` — notification list
 - `arp_notification_preferences` — user preferences per role
 
-## Email Integration (Mock)
-Currently simulates email sending via `sendEmailNotification()`.
-In production, replace with real email service (SendGrid, AWS SES, etc.)
+## Email Integration
+Email delivery uses the SMTP configuration saved from **Admin > Notifications** and the shared mail helpers in `src/lib/emailService.ts`.
+
+Announcement emails are sent from **Admin > Announcements** through `POST /api/announcements`. The page supports:
+- All-company recipients from active portal users
+- Manual To recipients
+- CC recipients
+- File attachments
+- Drafts
+- Sent history
+- Reusable templates
+
+Announcement records are stored server-side in `data/announcements.json` and included in Admin Database backup/restore plus scheduled backups.
 
 ## Future Enhancements
-- [ ] Real email service integration
+- [x] Real SMTP-backed email service integration
+- [x] Portal-composed company announcements
 - [ ] Notification sound/desktop alerts
 - [ ] Notification grouping/aggregation
 - [ ] Notification scheduling (quiet hours)
-- [ ] Notification templates
+- [x] Announcement templates
 - [ ] Digest emails
