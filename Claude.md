@@ -821,10 +821,21 @@ This document tracks the phased development of the Admin Request Platform, movin
 - [x] **Admin Announcements page added** at `/admin/announcements`.
   - [x] Compose branded company emails from the portal.
   - [x] Send to all active company users, selected directory users, manually entered recipients, and CC recipients.
+  - [x] Egypt Team `<eg.team@si-ware.com>` appears as a default removable To recipient.
   - [x] Upload attachments and send them with the announcement email.
   - [x] Save drafts and reload them into the composer.
+  - [x] Edit the Admin Helpdesk email signature from the compose form.
   - [x] Save reusable templates for common notices, including an initial doctor-availability template.
+  - [x] Schedule templates for one-time automatic send at an editable date/time.
   - [x] View previous sent announcements with recipient, CC, attachment, sender, and timestamp metadata.
+- [x] **Employee Announcements page added** at `/announcements`.
+  - [x] All authenticated users can view sent Administration Team announcements in a read-only inbox.
+  - [x] Page shows unread announcement count and per-announcement unread state.
+  - [x] Users can mark individual announcements or all announcements as read.
+  - [x] Sent announcement attachments are visible and downloadable from the reader page.
+- [x] **Announcement bell notifications added**.
+  - [x] Top bar syncs unread sent announcements into the existing in-app notification bell.
+  - [x] Announcement bell items deep-link to `/announcements#<announcement-id>`.
 - [x] **Announcements API added** at `GET/POST/DELETE /api/announcements`.
   - [x] `GET` returns sent history, drafts, templates, and the active user directory.
   - [x] `POST` supports `send`, `draft`, and `template` modes.
@@ -834,10 +845,15 @@ This document tracks the phased development of the Admin Request Platform, movin
   - [x] Default templates are seeded when the file does not exist.
 - [x] **Email renderer added** via `sendAnnouncementEmail()` in `src/lib/emailService.ts`.
   - [x] Uses the existing SMTP configuration and pooled transporter.
-  - [x] Sends branded Admin Helpdesk email with Si-Ware logo when available.
+  - [x] Sends branded Admin Helpdesk email with Si-Ware logo and editable signature when available.
+- [x] **Announcement template scheduler added**.
+  - [x] Started by `instrumentation.ts` in the Node.js runtime.
+  - [x] Checks due auto-send templates every 5 minutes, sends them once, records sent history, and disables auto-send after delivery.
 - [x] **Navigation and permissions wired**.
-  - [x] Sidebar Admin group includes Announcements.
+  - [x] Sidebar has an all-user Announcements page.
+  - [x] Administration Team group includes Send Announcements.
   - [x] `page:admin-announcements` added to `access.ts`, `pageRegistry.ts`, and default roles for Full Access + Administration Team.
+  - [x] `page:announcements` added for default all-user access.
 - [x] **Backup integration added**.
   - [x] `announcements.json` is included in scheduled backups and Admin Database server-data backup/restore/clear flows.
 

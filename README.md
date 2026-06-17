@@ -139,7 +139,8 @@ SMTP_FROM=<display email>
 | `/admin/roles` | Role management with granular page + permission checkboxes |
 | `/admin/settings` | Platform branding, login page, security, feedback survey config |
 | `/admin/notifications` | SMTP email configuration |
-| `/admin/announcements` | Compose and send company announcements, manage drafts, sent history, templates, CC, and attachments |
+| `/announcements` | Read-only company announcements inbox for all users |
+| `/admin/announcements` | Administration Team composer for company announcements, drafts, templates, CC, and attachments |
 | `/admin/company-data` | Lookup tables: Suppliers, Cost Centers, Managers, Carriers, Departments, Sectors |
 | `/admin/audit-trail` | System event log with category filter |
 | `/admin/database` | Backup/restore, clear data, scheduled automatic backups, maintenance mode |
@@ -202,12 +203,17 @@ Automatic emails on:
 The Admin Announcements page sends branded company-wide emails using the same SMTP configuration as notification emails.
 
 - Route: `/admin/announcements`
+- Read-only route for all users: `/announcements`
 - Permission: `page:admin-announcements` (included for Full Access and Administration Team by default)
 - Recipients: all active company users, manually entered To recipients, selected directory users, and CC recipients
+- Default To recipient: Egypt Team `<eg.team@si-ware.com>` can be included or removed from the compose panel
 - Attachments: uploaded from the portal and sent with the email
-- Templates: reusable subject/body templates for common notices
+- Signature: Admin Helpdesk signature is editable per announcement or template
+- Templates: reusable subject/body/signature templates for common notices, with optional scheduled auto-send date/time
 - Drafts: save incomplete announcements and reopen them later
 - Sent history: stored in `data/announcements.json` with recipient count, CC count, attachments, and sender details
+- Employee view: `/announcements` shows sent announcements, unread count, read state, and attachments
+- Bell notifications: unread sent announcements appear in the notification bell for each user
 - Backups: `announcements.json` is included in Admin Database backup/restore and scheduled backups
 
 ---

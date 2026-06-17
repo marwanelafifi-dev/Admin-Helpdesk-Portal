@@ -1,0 +1,38 @@
+{
+  "sent": [],
+  "drafts": [],
+  "templates": [
+    {
+      "id": "tpl-doctor-available",
+      "name": "Doctor Available",
+      "subject": "NOTIFICATION: Medright Doctor Now Available",
+      "body": "Dear Colleagues,\n\nMedright doctor is now available on the 1st floor, in the Rec. Area.\n\nBest regards,\nAdmin Helpdesk",
+      "signature": "Admin Helpdesk\nAdmin team.\n+202 2268 4704\n\nThis message and any attachments are confidential and may be privileged or otherwise protected from disclosure. If you are not the intended recipient, please telephone or mail the sender and delete this message and any attachment from your system.",
+      "to": [
+        "eg.team@si-ware.com"
+      ],
+      "cc": [],
+      "includeAllCompany": false,
+      "autoSendEnabled": false,
+      "createdBy": "System",
+      "createdAt": "1970-01-01T00:00:00.000Z",
+      "updatedAt": "1970-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "tpl-maintenance-window",
+      "name": "Maintenance Window",
+      "subject": "NOTIFICATION: Scheduled Maintenance",
+      "body": "Dear Colleagues,\n\nPlease note that scheduled maintenance will take place on [date] from [time] to [time].\n\nWe apologize for any inconvenience.\n\nBest regards,\nAdmin Helpdesk",
+      "signature": "Admin Helpdesk\nAdmin team.\n+202 2268 4704\n\nThis message and any attachments are confidential and may be privileged or otherwise protected from disclosure. If you are not the intended recipient, please telephone or mail the sender and delete this message and any attachment from your system.",
+      "to": [
+        "eg.team@si-ware.com"
+      ],
+      "cc": [],
+      "includeAllCompany": false,
+      "autoSendEnabled": false,
+      "createdBy": "System",
+      "createdAt": "1970-01-01T00:00:00.000Z",
+      "updatedAt": "1970-01-01T00:00:00.000Z"
+    }
+  ]
+}

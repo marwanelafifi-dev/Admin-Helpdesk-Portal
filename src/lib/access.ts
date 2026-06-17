@@ -2,6 +2,7 @@ export type RoutePermission =
   | "page:dashboard"
   | "page:feedback-reports"
   | "page:tasks"
+  | "page:announcements"
   | "page:all-requests"
   | "page:my-requests"
   | "page:team-requests"
@@ -66,6 +67,7 @@ export function permissionForPath(pathname: string): RoutePermission | null {
   if (path === "/dashboard") return "page:dashboard"
   if (path === "/feedback-reports") return "page:feedback-reports"
   if (path === "/tasks") return "page:tasks"
+  if (path === "/announcements") return "page:announcements"
   if (path === "/admin/all-requests") return "page:all-requests"
   if (path === "/requests") return "page:my-requests"
   if (path === "/team-requests") return "page:team-requests"
@@ -206,6 +208,7 @@ const defaultRouteOrder = [
   "/dashboard",
   "/feedback-reports",
   "/tasks",
+  "/announcements",
   "/admin/all-requests",
   "/requests",
   "/shipping",

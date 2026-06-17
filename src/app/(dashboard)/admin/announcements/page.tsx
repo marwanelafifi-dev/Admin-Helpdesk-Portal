@@ -25,6 +25,7 @@ type AnnouncementRecord = {
   id: string
   subject: string
   body: string
+  signature: string
   to: string[]
   cc: string[]
   includeAllCompany: boolean
@@ -42,6 +43,13 @@ type TemplateRecord = {
   name: string
   subject: string
   body: string
+  signature: string
+  to: string[]
+  cc: string[]
+  includeAllCompany: boolean
+  autoSendEnabled: boolean
+  scheduledAt?: string
+  lastScheduledSentAt?: string
   createdBy: string
   createdAt: string
   updatedAt: string
@@ -55,6 +63,10 @@ type DirectoryUser = {
 }
 
 type Tab = "sent" | "drafts" | "templates"
+
+const EGYPT_TEAM_EMAIL = "eg.team@si-ware.com"
+const DEFAULT_SIGNATURE =
+  "Admin Helpdesk\nAdmin team.\n+202 2268 4704\n\nThis message and any attachments are confidential and may be privileged or otherwise protected from disclosure. If you are not the intended recipient, please telephone or mail the sender and delete this message and any attachment from your system."
 
 function splitEmails(value: string): string[] {
   return Array.from(new Set(value
@@ -72,6 +84,18 @@ function formatDate(value?: string) {
   return new Date(value).toLocaleString()
 }
 
+function toDatetimeLocal(value?: string) {
+  if (!value) return ""
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ""
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+  return localDate.toISOString().slice(0, 16)
+}
+
+function fromDatetimeLocal(value: string) {
+  return value ? new Date(value).toISOString() : undefined
+}
+
 export default function AnnouncementsPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [activeTab, setActiveTab] = useState<Tab>("sent")
@@ -81,11 +105,15 @@ export default function AnnouncementsPage() {
   const [templates, setTemplates] = useState<TemplateRecord[]>([])
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
   const [includeAllCompany, setIncludeAllCompany] = useState(true)
+  const [includeEgyptTeam, setIncludeEgyptTeam] = useState(true)
   const [toText, setToText] = useState("")
   const [ccText, setCcText] = useState("")
   const [subject, setSubject] = useState("")
   const [body, setBody] = useState("")
+  const [signature, setSignature] = useState(DEFAULT_SIGNATURE)
   const [templateName, setTemplateName] = useState("")
+  const [autoSendEnabled, setAutoSendEnabled] = useState(false)
+  const [scheduledAt, setScheduledAt] = useState("")
   const [files, setFiles] = useState<File[]>([])
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -99,8 +127,12 @@ export default function AnnouncementsPage() {
   )
 
   const toEmails = useMemo(
-    () => Array.from(new Set([...splitEmails(toText), ...selectedUserEmails])),
-    [toText, selectedUserEmails]
+    () => Array.from(new Set([
+      ...(includeEgyptTeam ? [EGYPT_TEAM_EMAIL] : []),
+      ...splitEmails(toText),
+      ...selectedUserEmails,
+    ])),
+    [includeEgyptTeam, toText, selectedUserEmails]
   )
 
   const manualRecipientCount = toEmails.length
@@ -136,15 +168,28 @@ export default function AnnouncementsPage() {
     setToText("")
     setCcText("")
     setIncludeAllCompany(true)
+    setIncludeEgyptTeam(true)
     setSelectedUserIds([])
     setFiles([])
+    setSignature(DEFAULT_SIGNATURE)
+    setAutoSendEnabled(false)
+    setScheduledAt("")
     setCurrentDraftId(null)
   }
 
   function useTemplate(template: TemplateRecord) {
     setSubject(template.subject)
     setBody(template.body)
+    setSignature(template.signature || DEFAULT_SIGNATURE)
     setTemplateName(template.name)
+    setIncludeAllCompany(Boolean(template.includeAllCompany))
+    setIncludeEgyptTeam((template.to ?? []).includes(EGYPT_TEAM_EMAIL))
+    setToText(joinEmails((template.to ?? []).filter((email) => email !== EGYPT_TEAM_EMAIL)))
+    setCcText(joinEmails(template.cc ?? []))
+    setSelectedUserIds([])
+    setFiles([])
+    setAutoSendEnabled(Boolean(template.autoSendEnabled))
+    setScheduledAt(toDatetimeLocal(template.scheduledAt))
     setNotice({ type: "success", message: `Template loaded: ${template.name}` })
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
@@ -153,7 +198,9 @@ export default function AnnouncementsPage() {
     setCurrentDraftId(draft.id)
     setSubject(draft.subject)
     setBody(draft.body)
-    setToText(joinEmails(draft.to ?? []))
+    setSignature(draft.signature || DEFAULT_SIGNATURE)
+    setIncludeEgyptTeam((draft.to ?? []).includes(EGYPT_TEAM_EMAIL))
+    setToText(joinEmails((draft.to ?? []).filter((email) => email !== EGYPT_TEAM_EMAIL)))
     setCcText(joinEmails(draft.cc ?? []))
     setIncludeAllCompany(draft.includeAllCompany)
     setSelectedUserIds([])
@@ -179,6 +226,7 @@ export default function AnnouncementsPage() {
           id: currentDraftId ?? undefined,
           subject,
           body,
+          signature,
           to: toEmails,
           cc: splitEmails(ccText),
           includeAllCompany,
@@ -209,6 +257,12 @@ export default function AnnouncementsPage() {
           templateName: templateName || subject,
           subject,
           body,
+          signature,
+          to: toEmails,
+          cc: splitEmails(ccText),
+          includeAllCompany,
+          autoSendEnabled,
+          scheduledAt: autoSendEnabled ? fromDatetimeLocal(scheduledAt) : undefined,
         }),
       })
       const json = await res.json()
@@ -235,6 +289,7 @@ export default function AnnouncementsPage() {
           id: currentDraftId ?? undefined,
           subject,
           body,
+          signature,
           to: toEmails,
           cc: splitEmails(ccText),
           includeAllCompany,
@@ -310,6 +365,27 @@ export default function AnnouncementsPage() {
               </div>
             </div>
 
+            <div className="grid grid-cols-1 gap-4 rounded-lg border bg-gray-50 p-4 md:grid-cols-[220px_minmax(0,1fr)]">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-800">
+                <input
+                  type="checkbox"
+                  checked={autoSendEnabled}
+                  onChange={(e) => setAutoSendEnabled(e.target.checked)}
+                  className="h-4 w-4"
+                />
+                Auto send template
+              </label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium uppercase tracking-wide text-gray-500">Send date and time</label>
+                <Input
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={(e) => setScheduledAt(e.target.value)}
+                  disabled={!autoSendEnabled}
+                />
+              </div>
+            </div>
+
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-gray-700">Message</label>
               <textarea
@@ -321,12 +397,22 @@ export default function AnnouncementsPage() {
               />
             </div>
 
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">Signature</label>
+              <textarea
+                value={signature}
+                onChange={(e) => setSignature(e.target.value)}
+                rows={7}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              />
+            </div>
+
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" onClick={saveDraft} disabled={saving || !subject.trim() || !body.trim()}>
                 <Save className="h-4 w-4" />
                 Save Draft
               </Button>
-              <Button type="button" variant="outline" onClick={saveTemplate} disabled={saving || !subject.trim() || !body.trim()}>
+              <Button type="button" variant="outline" onClick={saveTemplate} disabled={saving || !subject.trim() || !body.trim() || (autoSendEnabled && !scheduledAt)}>
                 <Copy className="h-4 w-4" />
                 Save Template
               </Button>
@@ -344,18 +430,20 @@ export default function AnnouncementsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-4">
-              <label className="flex items-center gap-2 rounded-lg border bg-blue-50 border-blue-200 px-3 py-2 text-sm font-medium text-blue-900">
-                <input
-                  type="checkbox"
-                  checked={includeAllCompany}
-                  onChange={(e) => setIncludeAllCompany(e.target.checked)}
-                  className="h-4 w-4"
-                />
-                Send to all company users
-              </label>
-
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-gray-700">Add recipients</label>
+                <label className="mb-2 flex items-center gap-2 rounded-lg border bg-blue-50 px-3 py-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={includeEgyptTeam}
+                    onChange={(e) => setIncludeEgyptTeam(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-medium text-blue-950">Egypt Team</span>
+                    <span className="block truncate text-xs text-blue-700">&lt;{EGYPT_TEAM_EMAIL}&gt;</span>
+                  </span>
+                </label>
                 <textarea
                   value={toText}
                   onChange={(e) => setToText(e.target.value)}
@@ -381,6 +469,15 @@ export default function AnnouncementsPage() {
                   <label className="text-sm font-medium text-gray-700">Directory</label>
                   <Badge variant="secondary">{recipientCount} recipient{recipientCount === 1 ? "" : "s"}</Badge>
                 </div>
+                <label className="flex items-center gap-2 rounded-lg border bg-blue-50 border-blue-200 px-3 py-2 text-sm font-medium text-blue-900">
+                  <input
+                    type="checkbox"
+                    checked={includeAllCompany}
+                    onChange={(e) => setIncludeAllCompany(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  Send to all company users
+                </label>
                 <div className="max-h-44 overflow-y-auto rounded-md border divide-y">
                   {users.map((user) => (
                     <label key={user.id} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50">
@@ -478,7 +575,9 @@ export default function AnnouncementsPage() {
               onAction={(record) => {
                 setSubject(record.subject)
                 setBody(record.body)
-                setToText(joinEmails(record.to ?? []))
+                setSignature(record.signature || DEFAULT_SIGNATURE)
+                setIncludeEgyptTeam((record.to ?? []).includes(EGYPT_TEAM_EMAIL))
+                setToText(joinEmails((record.to ?? []).filter((email) => email !== EGYPT_TEAM_EMAIL)))
                 setCcText(joinEmails(record.cc ?? []))
                 setIncludeAllCompany(record.includeAllCompany)
                 window.scrollTo({ top: 0, behavior: "smooth" })
@@ -508,6 +607,9 @@ export default function AnnouncementsPage() {
                     </div>
                     <p className="mt-1 text-sm text-gray-700 truncate">{template.subject}</p>
                     <p className="mt-1 text-xs text-gray-500">Updated {formatDate(template.updatedAt)}</p>
+                    {template.autoSendEnabled && template.scheduledAt && (
+                      <p className="mt-1 text-xs font-medium text-blue-700">Auto sends {formatDate(template.scheduledAt)}</p>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => useTemplate(template)}>Use</Button>

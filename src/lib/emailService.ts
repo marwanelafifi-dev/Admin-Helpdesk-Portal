@@ -2,6 +2,7 @@ import nodemailer from "nodemailer"
 import fs from "fs"
 import path from "path"
 import { readEmailConfig } from "./emailConfig"
+import { DEFAULT_ANNOUNCEMENT_SIGNATURE } from "./announcementStore"
 
 function getLogoBuffer(): Buffer | null {
   try {
@@ -26,7 +27,7 @@ function getLogoBuffer(): Buffer | null {
  * sends through them, throttled by `rateLimit`. The transporter is rebuilt
  * only when the saved config changes.
  */
-let cachedTransporter: ReturnType<typeof nodemailer.createTransport> | null = null
+let cachedTransporter: any = null
 let cachedTransporterKey: string | null = null
 
 function configKey(saved: ReturnType<typeof readEmailConfig>) {
@@ -65,7 +66,7 @@ function createTransporter() {
     cachedTransporter = null
   }
 
-  let transporter: ReturnType<typeof nodemailer.createTransport>
+  let transporter: any
   if (saved?.method && saved?.values) {
     const v = saved.values
     if (saved.method === "gmail_app_password") {
@@ -413,6 +414,7 @@ export async function sendAnnouncementEmail(params: {
   cc?: string[]
   subject: string
   body: string
+  signature?: string
   senderName?: string
   attachments?: Array<{
     filename: string
@@ -431,6 +433,11 @@ export async function sendAnnouncementEmail(params: {
       ? `<p style="margin:0 0 14px;color:#1f2937;font-size:14px;line-height:1.7;">${escapeHtml(line)}</p>`
       : `<div style="height:8px;"></div>`)
     .join("")
+  const signatureLines = (params.signature?.trim() || DEFAULT_ANNOUNCEMENT_SIGNATURE).split(/\r?\n/)
+  const signatureName = signatureLines[0] || "Admin Helpdesk"
+  const signatureTitle = signatureLines[1] || "Admin team."
+  const signaturePhone = signatureLines[2] || "+202 2268 4704"
+  const disclaimer = signatureLines.slice(3).filter((line) => line.trim()).join(" ")
 
   const html = `<!doctype html>
 <html>
@@ -451,16 +458,16 @@ export async function sendAnnouncementEmail(params: {
           </td>
         </tr>
         <tr>
-          <td style="padding:16px 32px 30px;">
+          <td style="padding:16px 32px 22px;">
             <table cellpadding="0" cellspacing="0">
               <tr>
                 <td style="vertical-align:top;padding-right:14px;">
                   <div style="width:44px;height:44px;border-radius:999px;background:#2563eb;color:#ffffff;font-size:20px;font-weight:700;text-align:center;line-height:44px;">A</div>
                 </td>
                 <td style="vertical-align:top;">
-                  <p style="margin:0;color:#0f172a;font-size:17px;font-weight:700;">Admin Helpdesk</p>
-                  <p style="margin:3px 0 0;color:#64748b;font-size:13px;">Admin team</p>
-                  <p style="margin:3px 0 0;color:#64748b;font-size:13px;">+202 2268 4704</p>
+                  <p style="margin:0;color:#0070c0;font-size:19px;font-weight:700;">${escapeHtml(signatureName)}</p>
+                  <p style="margin:3px 0 0;color:#5b77a8;font-size:14px;">${escapeHtml(signatureTitle)}</p>
+                  <p style="margin:3px 0 0;color:#5b77a8;font-size:14px;">${escapeHtml(signaturePhone)}</p>
                 </td>
               </tr>
             </table>
@@ -469,9 +476,16 @@ export async function sendAnnouncementEmail(params: {
         <tr>
           <td style="padding:22px 32px;background:#f8fafc;border-top:1px solid #e5e7eb;">
             ${logoBuffer ? `<img src="cid:siware-logo" alt="Si-Ware Systems" style="height:36px;width:auto;display:block;margin:0 0 14px;" />` : `<p style="margin:0 0 14px;color:#1d4ed8;font-weight:700;font-size:18px;">Si-Ware Systems</p>`}
+            <table cellpadding="0" cellspacing="0" style="margin:0 0 14px;">
+              <tr>
+                <td style="padding-right:16px;"><span style="display:inline-block;width:24px;height:24px;border-radius:999px;background:#0070c0;color:#ffffff;text-align:center;line-height:24px;font-size:11px;font-weight:700;">in</span></td>
+                <td style="padding-right:16px;"><span style="display:inline-block;width:24px;height:24px;border-radius:999px;background:#0070c0;color:#ffffff;text-align:center;line-height:24px;font-size:13px;font-weight:700;">f</span></td>
+                <td style="padding-right:16px;"><span style="display:inline-block;width:24px;height:24px;border-radius:999px;background:#0070c0;color:#ffffff;text-align:center;line-height:24px;font-size:12px;font-weight:700;">X</span></td>
+                <td><span style="display:inline-block;width:24px;height:24px;border-radius:999px;background:#0070c0;color:#ffffff;text-align:center;line-height:24px;font-size:11px;font-weight:700;">&#9654;</span></td>
+              </tr>
+            </table>
             <p style="margin:0;color:#64748b;font-size:11px;line-height:1.6;max-width:520px;">
-              This message and any attachments are confidential and may be privileged or otherwise protected from disclosure.
-              If you are not the intended recipient, please notify the sender and delete this message and any attachment from your system.
+              ${escapeHtml(disclaimer || DEFAULT_ANNOUNCEMENT_SIGNATURE.split(/\r?\n/).slice(3).filter(Boolean).join(" "))}
             </p>
           </td>
         </tr>

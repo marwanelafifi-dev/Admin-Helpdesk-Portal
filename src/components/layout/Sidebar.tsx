@@ -53,8 +53,10 @@ const navItems: NavItem[] = [
       { title: "Feedback & Reports", href: "/feedback-reports", icon: BarChart3 },
       { title: "Team Tasks", href: "/tasks", icon: CheckSquare },
       { title: "All Requests", href: "/admin/all-requests", icon: ClipboardList },
+      { title: "Send Announcements", href: "/admin/announcements", icon: Megaphone },
     ],
   },
+  { title: "Announcements", href: "/announcements", icon: Megaphone },
   { title: "My Requests", href: "/requests", icon: FileText },
   { title: "Team Requests", href: "/team-requests", icon: UsersRound },
   {
@@ -89,7 +91,6 @@ const navItems: NavItem[] = [
       { title: "Roles", href: "/admin/roles", icon: Shield },
       { title: "Settings", href: "/admin/settings", icon: Settings },
       { title: "Notifications", href: "/admin/notifications", icon: Bell },
-      { title: "Announcements", href: "/admin/announcements", icon: Megaphone },
       { title: "Company Data", href: "/admin/company-data", icon: Building2 },
       { title: "Audit Trail", href: "/admin/audit-trail", icon: Shield },
       { title: "Database", href: "/admin/database", icon: Database },
@@ -116,10 +117,10 @@ export function Sidebar() {
   const [brandName, setBrandName] = useState("Admin Portal")
   const [brandSubtitle, setBrandSubtitle] = useState("Si-Ware Systems")
   const [administrationExpanded, setAdministrationExpanded] = useState(
-    pathname.startsWith("/admin/all-requests") || pathname.startsWith("/tasks") || pathname.startsWith("/feedback-reports")
+    pathname.startsWith("/admin/all-requests") || pathname.startsWith("/admin/announcements") || pathname.startsWith("/tasks") || pathname.startsWith("/feedback-reports")
   )
   const [adminExpanded, setAdminExpanded] = useState(
-    pathname.startsWith("/admin") && pathname !== "/admin/all-requests"
+    pathname.startsWith("/admin") && pathname !== "/admin/all-requests" && pathname !== "/admin/announcements"
   )
   const [shippingExpanded, setShippingExpanded] = useState(pathname.startsWith("/shipping"))
   const [hrExpanded, setHrExpanded] = useState(pathname.startsWith("/hr"))
@@ -228,7 +229,7 @@ export function Sidebar() {
       if (href === "/requests") return source === "my-requests"
       return source === href.slice(1)
     }
-    if (href === "/admin") return pathname.startsWith("/admin") && pathname !== "/admin/all-requests"
+    if (href === "/admin") return pathname.startsWith("/admin") && pathname !== "/admin/all-requests" && pathname !== "/admin/announcements"
     if (href === "/admin/all-requests") return pathname === "/admin/all-requests"
     if (href === "/requests") return pathname === "/requests"
     return pathname.startsWith(href)
@@ -275,7 +276,7 @@ export function Sidebar() {
             if (isAdmin) {
               expanded = adminExpanded
               setExpandedFn = (val) => setAdminExpanded(val)
-              active = pathname.startsWith("/admin") && pathname !== "/admin/all-requests"
+              active = pathname.startsWith("/admin") && pathname !== "/admin/all-requests" && pathname !== "/admin/announcements"
             } else if (isShipping) {
               expanded = shippingExpanded
               setExpandedFn = (val) => setShippingExpanded(val)
@@ -287,7 +288,7 @@ export function Sidebar() {
             } else if (isAdministration) {
               expanded = administrationExpanded
               setExpandedFn = (val) => setAdministrationExpanded(val)
-              active = pathname.startsWith("/admin/all-requests") || pathname.startsWith("/tasks") || pathname.startsWith("/feedback-reports") || pathname === "/dashboard"
+              active = pathname.startsWith("/admin/all-requests") || pathname.startsWith("/admin/announcements") || pathname.startsWith("/tasks") || pathname.startsWith("/feedback-reports") || pathname === "/dashboard"
             }
 
             const isFlyoutOpen = flyoutOpen === item.title
