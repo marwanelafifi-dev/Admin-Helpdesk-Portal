@@ -67,6 +67,37 @@ function normalizeImportedRequest(value: unknown, moduleId: string): EngineReque
   } as EngineRequest
 }
 
+function preserveExistingAttachments(
+  incoming: EngineRequest,
+  existing: EngineRequest | undefined
+): EngineRequest {
+  if (!existing) return incoming
+
+  const incomingPayload = incoming.payload as Record<string, unknown> | undefined
+  const existingPayload = existing.payload as Record<string, unknown> | undefined
+  const incomingAttachments = incomingPayload?.attachments
+  const existingAttachments = existingPayload?.attachments
+
+  if (!Array.isArray(existingAttachments) || existingAttachments.length === 0) {
+    return incoming
+  }
+
+  // Browser localStorage can intentionally strip base64 attachment payloads
+  // when quota is exceeded. Later lightweight updates then post that stripped
+  // request back to the server. Do not let that erase the server copy.
+  if (!Array.isArray(incomingAttachments) || incomingAttachments.length === 0) {
+    return {
+      ...incoming,
+      payload: {
+        ...(incomingPayload ?? {}),
+        attachments: existingAttachments,
+      },
+    }
+  }
+
+  return incoming
+}
+
 /**
  * GET /api/requests
  * Returns every request in the shared server store. Used by every list page
@@ -181,11 +212,11 @@ export async function POST(req: Request) {
     }
   }
 
-  const requestToSave = {
+  const requestToSave = preserveExistingAttachments({
     ...incoming,
     ...assignee,
     updatedAt: incoming.updatedAt || new Date().toISOString(),
-  }
+  }, existing)
 
   if (
     body.operation !== "create" &&

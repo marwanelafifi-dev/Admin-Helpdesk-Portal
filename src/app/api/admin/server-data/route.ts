@@ -33,6 +33,7 @@ interface ServerDataFile {
 const FILES: ServerDataFile[] = [
   { filename: "comments.json",     user_data: true,  clearable: true  },
   { filename: "feedback.json",     user_data: true,  clearable: true  },
+  { filename: "announcements.json", user_data: true,  clearable: true  },
   { filename: "requests.json",     user_data: true,  clearable: true  },
   { filename: "company-data.json", user_data: true,  clearable: true  },
   // Never clear these — admins would lock themselves out.
@@ -129,6 +130,7 @@ export async function DELETE() {
     // company-data uses the canonical object with empty arrays per key.
     const emptyShape: unknown =
       f.filename === "feedback.json" ? { surveys: [], responses: [] } :
+      f.filename === "announcements.json" ? { sent: [], drafts: [], templates: [] } :
       f.filename === "requests.json" ? [] :
       f.filename === "company-data.json" ? {
         suppliers: [], cost_centers: [], managers: [],
