@@ -78,7 +78,6 @@ export interface SubmitMeta {
 // â"€â"€â"€ Internal constants â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 const STORAGE_KEY = "arp_requests"
-const EMAIL_SERVICE_PATH = "./emailService.js"
 
 const MODULE_PREFIX: Record<string, string> = {
   shipping:    "SHP",
@@ -521,7 +520,7 @@ export async function updateStatus(
   writeAll(requests)
   await pushToServer(updated)
 
-  void import(EMAIL_SERVICE_PATH).then(({ simulateStatusChangeEmail }) => {
+  void import("./emailService").then(({ simulateStatusChangeEmail }) => {
     simulateStatusChangeEmail(updated, previousStatus, status)
   }).catch(() => {
     // Email simulation is best-effort in local dev.

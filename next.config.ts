@@ -13,9 +13,6 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   serverExternalPackages: ["imapflow", "mailparser"],
-  experimental: {
-    instrumentationHook: true,
-  },
   skipTrailingSlashRedirect: true,
 }
 
