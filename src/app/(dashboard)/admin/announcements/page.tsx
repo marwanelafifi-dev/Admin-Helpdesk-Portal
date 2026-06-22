@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Clock,
   Copy,
+  Eye,
   FileText,
   Mail,
   Paperclip,
@@ -130,6 +131,7 @@ export default function AnnouncementsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [sending, setSending] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null)
 
   const toEmails = useMemo(
@@ -335,12 +337,18 @@ export default function AnnouncementsPage() {
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Announcements</h1>
-          <p className="text-sm text-gray-500 mt-1">Compose and send company announcements from the Admin Portal.</p>
+          <p className="text-sm text-gray-500 mt-1">Compose and send formal company announcements from the Admin Portal.</p>
         </div>
-        <Button onClick={sendAnnouncement} disabled={sending || !subject.trim() || !body.trim()} className="bg-blue-600 hover:bg-blue-700 text-white">
-          <Send className="h-4 w-4" />
-          {sending ? "Sending..." : "Send Announcement"}
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setShowPreview(true)} disabled={!subject.trim() || !body.trim()} variant="outline" className="border-blue-200 text-blue-600 hover:bg-blue-50">
+            <Eye className="h-4 w-4" />
+            Preview Email
+          </Button>
+          <Button onClick={sendAnnouncement} disabled={sending || !subject.trim() || !body.trim()} className="bg-blue-600 hover:bg-blue-700 text-white">
+            <Send className="h-4 w-4" />
+            {sending ? "Sending..." : "Send Announcement"}
+          </Button>
+        </div>
       </div>
 
       {notice && (
@@ -360,19 +368,30 @@ export default function AnnouncementsPage() {
           <CardHeader className="border-b bg-gray-50">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
               <Mail className="h-4 w-4 text-blue-600" />
-              Compose Email
+              Compose Announcement
             </CardTitle>
+            <p className="text-xs text-gray-500 mt-2">Create a formal announcement to send to company users</p>
           </CardHeader>
           <CardContent className="p-6 space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Subject</label>
-                <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="NOTIFICATION: Medright Doctor Now Available" />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Template name</label>
-                <Input value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="Doctor available notice" />
-              </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-semibold text-gray-700">Email Subject Line</label>
+              <Input
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="NOTIFICATION: Medright Doctor Now Available"
+                className="font-medium"
+              />
+              <p className="text-xs text-gray-500">Use a clear, professional subject line. Recipients will see this in their inbox.</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-semibold text-gray-700">Template Name (Optional)</label>
+              <Input
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="e.g., Doctor available notice"
+              />
+              <p className="text-xs text-gray-500">Save this announcement as a template for future use</p>
             </div>
 
             <div className="grid grid-cols-1 gap-4 rounded-lg border bg-gray-50 p-4 md:grid-cols-[220px_minmax(0,1fr)]">
@@ -428,29 +447,31 @@ export default function AnnouncementsPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-700">Message</label>
+              <label className="text-sm font-semibold text-gray-700">Email Message Body</label>
               <textarea
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-                rows={11}
-                placeholder={"Dear Colleagues,\n\nMedright doctor is now available on the 1st floor, in the Rec. Area.\n\nBest regards,\nAdmin Helpdesk"}
+                rows={12}
+                placeholder={"Dear Colleagues,\n\nMedright doctor is now available on the 1st floor, in the Rec. Area.\n\nBest regards,"}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               />
+              <p className="text-xs text-gray-500">Write a formal, professional message. The signature will be added automatically.</p>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-700">Signature</label>
+              <label className="text-sm font-semibold text-gray-700">Email Signature</label>
               <textarea
                 value={signature}
                 onChange={(e) => setSignature(e.target.value)}
-                rows={7}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                rows={8}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono text-xs"
               />
+              <p className="text-xs text-gray-500">Professional signature including title, contact info, and legal disclaimer</p>
             </div>
-            <div className="space-y-2 rounded-lg border bg-gray-50 p-4">
+            <div className="space-y-2 rounded-lg border bg-blue-50 p-4 border-blue-200">
               <div className="flex items-center justify-between gap-3">
-                <label className="text-sm font-medium text-gray-700">Signature logo</label>
-                <Button type="button" variant="outline" size="sm" onClick={() => document.getElementById("announcement-logo-input")?.click()}>Upload logo</Button>
+                <label className="text-sm font-semibold text-gray-700">Signature Logo (Optional)</label>
+                <Button type="button" variant="outline" size="sm" onClick={() => document.getElementById("announcement-logo-input")?.click()} className="bg-white hover:bg-gray-50">Upload logo</Button>
               </div>
               <input
                 id="announcement-logo-input"
@@ -677,6 +698,131 @@ export default function AnnouncementsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Email Preview Modal */}
+      {showPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-lg bg-white shadow-lg">
+            {/* Preview Header */}
+            <div className="sticky top-0 border-b bg-gray-50 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Email Preview</h2>
+                <p className="text-sm text-gray-600 mt-1">This is how your announcement will appear to recipients</p>
+              </div>
+              <button
+                onClick={() => setShowPreview(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Email Content */}
+            <div className="p-6">
+              {/* Recipient Info */}
+              <div className="mb-6 rounded-lg border bg-blue-50 p-4">
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <span className="font-semibold text-gray-700">To: </span>
+                    <span className="text-gray-600">
+                      {includeAllCompany ? "All company users" : toEmails.slice(0, 3).join(", ")}
+                      {!includeAllCompany && toEmails.length > 3 ? ` (+${toEmails.length - 3} more)` : ""}
+                    </span>
+                  </div>
+                  {splitEmails(ccText).length > 0 && (
+                    <div>
+                      <span className="font-semibold text-gray-700">CC: </span>
+                      <span className="text-gray-600">{splitEmails(ccText).join(", ")}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Email Container */}
+              <div className="rounded-lg border bg-white p-6 font-sans" style={{ backgroundColor: "#ffffff" }}>
+                {/* Si-Ware Logo */}
+                <div className="mb-4 text-center border-b pb-4">
+                  <div className="inline-flex items-center gap-2 rounded bg-blue-600 text-white px-3 py-2 font-bold">
+                    SI-WARE SYSTEMS
+                  </div>
+                </div>
+
+                {/* Subject as Email Title */}
+                <h1 className="text-xl font-bold text-gray-900 mb-6">{subject}</h1>
+
+                {/* Body Content */}
+                <div className="whitespace-pre-wrap text-gray-700 mb-6 leading-relaxed text-sm">
+                  {body}
+                </div>
+
+                {/* Signature */}
+                <div className="border-t pt-6 mt-6">
+                  <div className="whitespace-pre-wrap text-gray-600 text-xs font-mono">
+                    {signature}
+                  </div>
+                  {signatureLogo && (
+                    <div className="mt-4">
+                      <img
+                        src={signatureLogo}
+                        alt="Signature logo"
+                        className="h-12 w-auto"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Attachments Note */}
+                {files.length > 0 && (
+                  <div className="mt-6 border-t pt-4">
+                    <p className="text-xs font-semibold text-gray-700 mb-2">Attachments ({files.length})</p>
+                    <div className="space-y-1">
+                      {files.map((file, idx) => (
+                        <div key={`${file.name}-${idx}`} className="text-xs text-gray-600 flex items-center gap-1">
+                          <Paperclip className="h-3 w-3" />
+                          {file.name}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer Info */}
+              <div className="mt-4 rounded-lg bg-gray-50 p-4 text-xs text-gray-600">
+                <p className="font-semibold text-gray-700 mb-2">Preview Information</p>
+                <ul className="space-y-1 list-disc list-inside">
+                  <li>Recipients: {includeAllCompany ? "All company users" : `${toEmails.length} recipients`}</li>
+                  <li>Subject line: {subject}</li>
+                  <li>Attachments: {files.length > 0 ? `${files.length} file(s)` : "None"}</li>
+                  <li className="text-yellow-700">⚠️ Review the content and recipients before sending</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Preview Actions */}
+            <div className="sticky bottom-0 border-t bg-gray-50 px-6 py-4 flex gap-3 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowPreview(false)}
+              >
+                Back to Edit
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowPreview(false)
+                  sendAnnouncement()
+                }}
+                disabled={sending}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Send className="h-4 w-4" />
+                {sending ? "Sending..." : "Send Now"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

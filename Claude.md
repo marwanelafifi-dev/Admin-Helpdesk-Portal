@@ -990,6 +990,84 @@ Status column preserves color styling with dot indicators; other columns use neu
 | `src/modules/hr/HRForm.tsx` | HR create form | Toggle-based type selection, checkbox items, Direct Manager Select from companyDataStore |
 | `src/modules/shipping/ShippingForm.tsx` | Shipping form | All dropdowns (Supplier, Cost Center, Carrier, Manager) read from companyDataStore |
 
+## Phase 6f: Submission Timestamps, Enhanced Announcements & Advanced Analytics (Completed — 22 Jun 2026)
+
+### **Phase 6f-1: Submission Date & Time Stamps**
+- [x] **All submission dates display full timestamp** (was date-only):
+  - [x] Format: `"10 Jun 2026 — 11:05 AM"` via `fmtDateTime()` instead of `fmtDate()`
+  - [x] Updated across 13 pages: My Requests, All Requests, Team Requests, Shipping (3 variants), HR, Maintenance, Purchase, Event, Travel, General, Request detail
+  - [x] Improves visibility into exact request submission times for audit trails and SLA tracking
+
+### **Phase 6f-2: Enhanced Announcements Page**
+- [x] **Professional Email Composer with Full Preview:**
+  - [x] New "Preview Email" button opens full email preview modal before sending
+  - [x] Preview shows Si-Ware branding header, subject, message body, signature, and logo
+  - [x] Recipient information display (To, CC, audience count)
+  - [x] Formal page layout with professional guidance hints under each field
+  - [x] "Compose Announcement" header + "Email Subject Line" label + "Email Message Body" with preview hints
+  - [x] "Email Signature" textarea with professional formatting guidance
+  - [x] "Signature Logo (Optional)" section with blue-tinted styling
+  - [x] Preview modal shows checklist: recipients, subject line, attachments count + warning to review before sending
+  - [x] "Back to Edit" and "Send Now" buttons in preview footer
+  - [x] Prevents accidental sends via false-positive confirms
+
+### **Phase 6f-3: Comprehensive Feedback & Analytics Dashboard**
+- [x] **Enhanced Summary Statistics (5 KPIs):**
+  - [x] Total Feedback responses count
+  - [x] Average Rating (1-5 stars with visual stars)
+  - [x] Satisfaction Rate (% of 4-5 star ratings)
+  - [x] **NEW:** Feedback Rate (% of completed requests that received feedback)
+  - [x] **NEW:** Average Resolution Time (days to complete all requests)
+
+- [x] **Module Performance Report — Advanced Metrics:**
+  - [x] Per-module feedback count & total completed request count
+  - [x] Average rating with 5-star visualization
+  - [x] Satisfaction score progress bar (color-coded: emerald/blue/amber/orange)
+  - [x] **NEW:** Feedback rate per module (% of requests rated)
+  - [x] **NEW:** Average resolution days per module
+  - [x] **NEW:** Rating count per module (3-column metric grid)
+  - [x] Hover effects and smooth transitions for professional appearance
+
+- [x] **NEW: Request Resolution & Feedback Analytics Section:**
+  - [x] Two-column layout with complementary metrics
+  - [x] **Feedback Response Coverage chart:**
+    - [x] Total completed requests (blue bar, 100%)
+    - [x] Received feedback count (emerald bar, variable %)
+    - [x] Coverage summary text showing feedback rate
+  - [x] **System Performance Metrics:**
+    - [x] Average Resolution Time card (blue, Clock icon)
+    - [x] Overall Satisfaction Score card (amber, Star icon)
+    - [x] Positive Reviews Rate card (emerald, TrendingUp icon)
+    - [x] Each card shows metric + unit label
+    - [x] Color-coded background and icons for visual hierarchy
+
+- [x] **NEW: Enhanced Individual Feedback Cards:**
+  - [x] Request identification: Request ID, Title, Module badge, Star rating
+  - [x] User comment (if provided) in styled quote block
+  - [x] **NEW: Request Evaluation Metrics Section:**
+    - [x] User Satisfaction Status (Positive/Neutral/Negative with icons)
+    - [x] Request Status Badge (Resolved)
+    - [x] Rating Score (X/5)
+    - [x] 3-column grid for visual balance
+    - [x] Color-coded status indicators (emerald/amber/red)
+  - [x] Requester name and submission timestamp
+  - [x] Professional styling with transitions
+
+- [x] **Data Intelligence Features:**
+  - [x] Loads real data from `/api/requests` and `/api/feedback/responses`
+  - [x] Calculates per-module metrics: feedback rate, avg resolution days, satisfaction
+  - [x] Computes overall system metrics: feedback coverage, completion time, satisfaction
+  - [x] Smart memoization prevents unnecessary recalculations
+  - [x] Works with real request data, not mock data
+
+### **Phase 6f-4: Bug Fix — Feedback Reminder Flickering**
+- [x] **Fixed "N completed requests" banner flicker on My Requests page:**
+  - [x] Root cause: `feedbackDoneIds` initialized as empty Set, causing banner to show before API loaded
+  - [x] Solution: Changed state from `Set<string>` → `Set<string> | null` (null = loading)
+  - [x] `pendingFeedback` returns empty array until data loads
+  - [x] Banner render check added: `feedbackDoneIds !== null && pendingFeedback.length > 0`
+  - [x] No more jumping/disappearing animations — smooth load after data arrives
+
 ---
 ### Development Loop (Repeat for each module)
 1. **Sync Plan:** Update this `CLAUDE.md`.

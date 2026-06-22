@@ -326,7 +326,7 @@ export default function AllRequestsPage() {
     const rows = filtered.map((r) => [
       r.id,
       r.title,
-      fmtDate(r.createdAt),
+      fmtDateTime(r.createdAt),
       r.requesterName,
       r.requesterEmail,
       formatModule(r.module),
@@ -632,7 +632,7 @@ export default function AllRequestsPage() {
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.title}</span>
                   </td>
                   <td className="py-3 px-3">
-                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{fmtDate(req.createdAt)}</span>
+                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{fmtDateTime(req.createdAt)}</span>
                   </td>
                   <td className="py-3 px-3 overflow-hidden">
                     <div className="text-sm font-medium text-gray-700 truncate">{req.requesterName}</div>
@@ -766,7 +766,7 @@ export default function AllRequestsPage() {
                           </div>
                           <div>
                             <p className="font-semibold text-gray-700">Submission Date</p>
-                            <p className="text-gray-600">{fmtDate(req.createdAt)}</p>
+                            <p className="text-gray-600">{fmtDateTime(req.createdAt)}</p>
                           </div>
                           <div>
                             <p className="font-semibold text-gray-700">Last Update</p>
