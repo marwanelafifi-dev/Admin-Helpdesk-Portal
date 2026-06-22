@@ -454,7 +454,7 @@ export async function sendAnnouncementEmail(params: {
       <td align="center">
         <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;box-shadow:0 4px 12px rgba(0,0,0,0.1);border-radius:8px;overflow:hidden;border:1px solid #e5e7eb;">
           <tr>
-            <td style="background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%);padding:48px 40px;text-align:center;">
+            <td style="background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);padding:48px 40px;text-align:center;">
               ${logoBuffer ? `<img src="cid:siware-logo" alt="Si-Ware Systems" style="height:60px;width:auto;display:block;margin:0 auto 20px;" />` : `<div style="margin:0 auto 20px;text-align:center;"><h2 style="margin:0;color:#ffffff;font-size:14px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">SI-WARE SYSTEMS</h2></div>`}
               <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:700;line-height:1.35;word-break:break-word;max-width:520px;margin-left:auto;margin-right:auto;letter-spacing:-0.5px;">${escapeHtml(params.subject)}</h1>
             </td>
@@ -487,7 +487,7 @@ export async function sendAnnouncementEmail(params: {
               <table width="100%" cellpadding="0" cellspacing="0" style="margin:0;">
                 <tr>
                   <td style="padding:8px 0;">
-                    <p style="margin:0;color:#6b7280;font-size:11px;line-height:1.65;border-left:3px solid #2563eb;padding-left:12px;padding-right:0;">
+                    <p style="margin:0;color:#6b7280;font-size:11px;line-height:1.65;border-left:3px solid #3b82f6;padding-left:12px;padding-right:0;">
                       ${escapeHtml(disclaimer || "This message and any attachments are confidential and may be privileged or otherwise protected from disclosure. If you are not the intended recipient, please telephone or mail the sender and delete this message and any attachment from your system.")}
                     </p>
                   </td>
@@ -520,13 +520,20 @@ export async function sendAnnouncementEmail(params: {
 
   // Send individual emails to each recipient to create separate threads
   // instead of grouping all recipients in one "To:" line
+  // Use unique Message-ID to prevent Gmail threading
   for (const recipient of recipients) {
+    const uniqueMessageId = `<announcement-${Date.now()}-${Math.random().toString(36).substr(2, 9)}@si-ware.com>`
     await sendMailWithRetry(transporter, {
       from: resolveFromAddress("Si-Ware Admin Helpdesk"),
       to: recipient,
       cc: params.cc?.filter(Boolean),
       subject: params.subject,
       html,
+      messageId: uniqueMessageId,
+      headers: {
+        "X-Priority": "3",
+        "X-MSMail-Priority": "Normal",
+      },
       attachments: [
         ...(logoBuffer ? [{
           filename: "siware-logo.png",
