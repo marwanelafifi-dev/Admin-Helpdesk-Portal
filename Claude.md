@@ -1182,6 +1182,62 @@ All announcements now include:
 - Form validation and sensible defaults
 - Full management interface with dedicated scheduled tab
 
+## Phase 6h-Fixes: Announcements Bug Fixes & Polish (Completed — 22 Jun 2026)
+- [x] **Recipients Validation:**
+  - [x] Preview Email button disabled if no recipients selected
+  - [x] Send Announcement button disabled if no recipients selected
+  - [x] Tooltips: "Add at least one recipient to preview/send"
+  - [x] Prevents accidental empty sends
+  - [x] Matches API-side validation
+
+- [x] **Gmail SMTP Throttling Fix:**
+  - [x] Added 500ms delay between each announcement email
+  - [x] Prevents Gmail 421 "Try again later" errors
+  - [x] First email sent immediately, subsequent emails delayed
+  - [x] For 10 recipients: ~5 seconds total delivery time
+  - [x] No lost emails due to connection resets
+  - [x] Reliable bulk announcement delivery
+
+- [x] **Scheduled Announcements Fix:**
+  - [x] When "Auto send template" checked + date/time selected: saves as scheduled template
+  - [x] Does NOT send immediately (was bug before)
+  - [x] Automatically appears in Scheduled tab after creation
+  - [x] Respects frequency settings (Once/Weekly/Monthly)
+  - [x] Shows success message: "Announcement scheduled for later"
+  - [x] Background scheduler auto-sends at scheduled time
+  - [x] Full audit trail and delivery tracking
+
+## Complete Announcements Feature (Phase 6h)
+**Status:** ✅ Production Ready
+
+**Core Features:**
+- Compose announcements with professional dark-themed emails
+- Upload custom signature logos or use default Si-Ware logo
+- Preview exact email before sending (WYSIWYG accuracy)
+- Send immediately to selected recipients (with 500ms delay per email)
+- Schedule announcements for later (once, weekly, monthly)
+- View sent history, drafts, and scheduled announcements
+- Manage templates for reuse
+- Professional signature with contact info and legal disclaimer
+
+**Technical Foundation:**
+- Dark mode email header (#1a2332 → #0f1622 gradient)
+- Gmail threading prevention (unique Message-IDs, anti-threading headers)
+- Base64 signature logo support with fallback
+- HTML email preview rendering
+- Error handling with meaningful user feedback
+- Form validation (subjects, recipients, scheduling)
+- Dedicated Scheduled tab with status indicators
+- Default empty form (no pre-selection)
+
+**Reliability Features:**
+- SMTP rate limiting (500ms inter-email delay)
+- Retry logic for failed sends
+- Connection pooling to prevent throttling
+- Server-side template persistence
+- Background scheduler for auto-sends
+- Separate email threads per recipient (no Gmail grouping)
+
 ---
 ### Development Loop (Repeat for each module)
 1. **Sync Plan:** Update this `CLAUDE.md`.
