@@ -536,8 +536,9 @@ export async function sendAnnouncementEmail(params: {
         }] : []),
         ...(signatureLogoAttachment ? [signatureLogoAttachment] : []),
         ...(params.attachments ?? []),
-    ],
-  })
+      ],
+    })
+  }
 }
 
 function resolveTemplateVars(template: string, vars: Record<string, string>): string {
