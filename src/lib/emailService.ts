@@ -448,43 +448,70 @@ export async function sendAnnouncementEmail(params: {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
 </head>
-<body style="margin:0;padding:0;background:#eef2ff;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#eef2ff;padding:32px 16px;">
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:-apple-system,'Segoe UI','Helvetica Neue',Arial,sans-serif;color:#1f2937;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;padding:48px 16px;">
     <tr>
       <td align="center">
-        <table width="640" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #dbe3f0;border-radius:12px;overflow:hidden;">
+        {/* Main Email Container */}
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;box-shadow:0 10px 25px rgba(0,0,0,0.08);border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
+          {/* Header Section */}
           <tr>
-            <td style="background:linear-gradient(90deg,#0f172a 0%,#1e293b 100%);padding:32px 40px;text-align:center;">
-              ${logoBuffer ? `<img src="cid:siware-logo" alt="Si-Ware Systems" style="height:48px;width:auto;display:block;margin:0 auto 16px;" />` : `<p style="margin:0 0 10px;color:#ffffff;font-size:13px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;">Si-Ware Systems</p>`}
-              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;line-height:1.35;">${escapeHtml(params.subject)}</h1>
+            <td style="background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%);padding:48px 40px;text-align:center;">
+              ${logoBuffer ? `<img src="cid:siware-logo" alt="Si-Ware Systems" style="height:56px;width:auto;display:block;margin:0 auto 24px;" />` : `<div style="margin:0 auto 24px;text-align:center;"><h2 style="margin:0;color:#ffffff;font-size:16px;font-weight:700;letter-spacing:0.05em;">SI-WARE SYSTEMS</h2></div>`}
+              <h1 style="margin:0;color:#ffffff;font-size:26px;font-weight:700;line-height:1.3;word-break:break-word;max-width:520px;margin-left:auto;margin-right:auto;">${escapeHtml(params.subject)}</h1>
             </td>
           </tr>
+
+          {/* Content Section */}
           <tr>
-            <td style="padding:32px 40px 8px;">
-              ${bodyHtml}
+            <td style="padding:40px 40px;">
+              <div style="color:#374151;font-size:16px;line-height:1.75;">
+                ${bodyHtml}
+              </div>
             </td>
           </tr>
+
+          {/* Signature Block */}
           ${hasSignatureBlock ? `
           <tr>
-            <td style="padding:18px 40px 32px;">
-              <table cellpadding="0" cellspacing="0" width="100%">
+            <td style="padding:32px 40px;border-top:2px solid #f0f0f0;">
+              <table cellpadding="0" cellspacing="0" width="100%" style="margin:0;">
                 <tr>
-                  <td style="vertical-align:top;padding-right:16px;">
-                    ${params.signatureLogo ? `<img src="cid:signature-logo" alt="Signature logo" style="width:64px;height:64px;display:block;border-radius:10px;object-fit:contain;" />` : `<div style="width:56px;height:56px;border-radius:999px;background:#2563eb;color:#ffffff;font-size:18px;font-weight:700;text-align:center;line-height:56px;">A</div>`}
+                  <td style="vertical-align:top;padding-right:20px;width:80px;">
+                    ${params.signatureLogo ? `<img src="cid:signature-logo" alt="Signature logo" style="width:72px;height:72px;display:block;border-radius:8px;object-fit:contain;" />` : `<div style="width:72px;height:72px;border-radius:8px;background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%);color:#ffffff;font-size:24px;font-weight:700;text-align:center;line-height:72px;flex-shrink:0;">A</div>`}
                   </td>
-                  <td style="vertical-align:top;">
-                    <p style="margin:0;color:#0f172a;font-size:18px;font-weight:700;">${escapeHtml(signatureName)}</p>
-                    <p style="margin:4px 0 0;color:#64748b;font-size:14px;">${escapeHtml(signatureTitle)}</p>
-                    <p style="margin:4px 0 0;color:#64748b;font-size:14px;">${escapeHtml(signaturePhone)}</p>
+                  <td style="vertical-align:top;padding:4px 0;">
+                    <p style="margin:0;color:#0f172a;font-size:16px;font-weight:700;letter-spacing:-0.3px;">${escapeHtml(signatureName)}</p>
+                    ${signatureTitle ? `<p style="margin:6px 0 0;color:#6b7280;font-size:14px;font-weight:500;">${escapeHtml(signatureTitle)}</p>` : ""}
+                    ${signaturePhone ? `<p style="margin:2px 0 0;color:#6b7280;font-size:14px;">${escapeHtml(signaturePhone)}</p>` : ""}
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
           ` : ""}
+
+          {/* Footer Disclaimer */}
           <tr>
-            <td style="padding:24px 40px;background:#f8fafc;border-top:1px solid #e2e8f0;">
-              <p style="margin:0;color:#64748b;font-size:12px;line-height:1.7;">${escapeHtml(disclaimer || "This message and any attachments are confidential and may be privileged or otherwise protected from disclosure.")}</p>
+            <td style="padding:24px 40px;background:#fafafa;border-top:1px solid #e5e7eb;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin:0;">
+                <tr>
+                  <td style="padding:12px 0 12px 0;">
+                    <p style="margin:0;color:#6b7280;font-size:11px;line-height:1.6;border-left:3px solid #2563eb;padding-left:12px;">
+                      ${escapeHtml(disclaimer || "This message and any attachments are confidential and may be privileged or otherwise protected from disclosure. If you are not the intended recipient, please telephone or mail the sender and delete this message and any attachment from your system.")}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+
+        {/* Footer Text */}
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;margin-top:24px;">
+          <tr>
+            <td style="text-align:center;padding:0 20px;">
+              <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.6;">© 2026 Si-Ware Systems. All rights reserved. | This is an automated notification from the Admin Helpdesk Portal.</p>
             </td>
           </tr>
         </table>

@@ -151,26 +151,23 @@ export default function AnnouncementsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-blue-600 text-white">
-              <Megaphone className="h-5 w-5" />
+      {/* Professional Header Section */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl shadow-lg p-8 text-white">
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-white/20 backdrop-blur">
+                <Megaphone className="h-6 w-6" />
+              </div>
+              <h1 className="text-3xl font-bold">Announcements</h1>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Announcements</h1>
-              <p className="text-sm text-gray-500 mt-1">Company announcements from the Administration Team.</p>
-            </div>
+            <p className="text-blue-100 mt-2">Official communications from the Administration Team</p>
           </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge className={cn("px-3 py-1", unreadCount > 0 ? "bg-red-600 text-white" : "bg-emerald-600 text-white")}>
-            {unreadCount > 0 ? `${unreadCount} unread` : "All read"}
-          </Badge>
-          <Button variant="outline" onClick={markAllRead} disabled={announcements.length === 0 || unreadCount === 0}>
-            <CheckCheck className="h-4 w-4" />
-            Mark all read
-          </Button>
+          <div className="text-right">
+            <Badge className={cn("px-4 py-2 text-sm font-semibold", unreadCount > 0 ? "bg-red-500 text-white" : "bg-emerald-500 text-white")}>
+              {unreadCount > 0 ? `${unreadCount} unread` : "All read"}
+            </Badge>
+          </div>
         </div>
       </div>
 
@@ -178,25 +175,37 @@ export default function AnnouncementsPage() {
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
       )}
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-        <Card className="border shadow-sm">
-          <CardHeader className="border-b bg-gray-50">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <Bell className="h-4 w-4 text-blue-600" />
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
+        {/* Announcements List Card */}
+        <Card className="border shadow-sm overflow-hidden">
+          <CardHeader className="border-b bg-gradient-to-r from-gray-50 to-gray-100 pt-5 pb-4">
+            <CardTitle className="text-base font-bold flex items-center gap-2">
+              <Bell className="h-5 w-5 text-blue-600" />
               Inbox
             </CardTitle>
-            <div className="relative mt-3">
+            <p className="text-xs text-gray-500 mt-1 font-medium">{announcements.length} announcement{announcements.length !== 1 ? 's' : ''}</p>
+            <div className="relative mt-4">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search announcements" className="pl-9" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by subject or sender..."
+                className="pl-9 bg-white border-gray-300 text-sm"
+              />
             </div>
           </CardHeader>
           <CardContent className="p-0">
             {loading ? (
-              <div className="px-5 py-10 text-center text-sm text-gray-500">Loading announcements...</div>
+              <div className="px-5 py-12 text-center text-sm text-gray-500">
+                <div className="animate-pulse">Loading announcements...</div>
+              </div>
             ) : filtered.length === 0 ? (
-              <div className="px-5 py-10 text-center text-sm text-gray-500">No announcements found.</div>
+              <div className="px-5 py-12 text-center text-sm text-gray-500">
+                <Bell className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                <p>No announcements found</p>
+              </div>
             ) : (
-              <div className="divide-y">
+              <div className="divide-y max-h-[600px] overflow-y-auto">
                 {filtered.map((item) => {
                   const unread = !readIds.has(item.id)
                   const active = selected?.id === item.id
@@ -206,20 +215,32 @@ export default function AnnouncementsPage() {
                       type="button"
                       onClick={() => selectAnnouncement(item.id)}
                       className={cn(
-                        "w-full px-5 py-4 text-left transition-colors hover:bg-blue-50",
-                        active && "bg-blue-50",
-                        unread && "bg-white"
+                        "w-full px-5 py-4 text-left transition-all duration-200 border-l-4 border-transparent",
+                        active && "bg-blue-50 border-l-blue-600",
+                        unread && !active && "bg-white hover:bg-blue-50/50 border-l-red-500",
+                        !unread && !active && "bg-gray-50 hover:bg-gray-100"
                       )}
                     >
                       <div className="flex items-start gap-3">
-                        <span className={cn("mt-1 h-2.5 w-2.5 rounded-full", unread ? "bg-red-500" : "bg-gray-300")} />
+                        {/* Unread Indicator */}
+                        {unread && (
+                          <div className="mt-1 h-3 w-3 rounded-full bg-red-500 flex-shrink-0 animate-pulse" />
+                        )}
+                        {!unread && (
+                          <div className="mt-1 h-3 w-3 rounded-full bg-gray-300 flex-shrink-0" />
+                        )}
+
                         <span className="min-w-0 flex-1">
-                          <span className="flex items-center gap-2">
-                            <span className={cn("truncate font-semibold", unread ? "text-gray-950" : "text-gray-700")}>{item.subject}</span>
-                            {unread && <Badge className="bg-red-600 text-white">New</Badge>}
-                          </span>
-                          <span className="mt-1 block text-xs text-gray-500">{formatDate(item.sentAt)} by {item.createdBy}</span>
-                          <span className="mt-2 block text-sm text-gray-600 line-clamp-2">{preview(item.body)}</span>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={cn("truncate font-bold text-sm", unread ? "text-gray-950" : "text-gray-700")}>
+                              {item.subject}
+                            </span>
+                            {unread && <Badge className="bg-red-600 text-white text-xs">New</Badge>}
+                          </div>
+                          <div className="text-xs text-gray-500 font-medium mb-1">
+                            {formatDate(item.sentAt)}
+                          </div>
+                          <div className="text-xs text-gray-600 line-clamp-1">{preview(item.body)}</div>
                         </span>
                       </div>
                     </button>
@@ -228,61 +249,111 @@ export default function AnnouncementsPage() {
               </div>
             )}
           </CardContent>
+          {announcements.length > 0 && unreadCount > 0 && (
+            <div className="border-t bg-blue-50 px-5 py-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={markAllRead}
+                className="w-full text-xs font-semibold h-8 border-blue-200 text-blue-700 hover:bg-blue-100"
+              >
+                <CheckCheck className="h-3.5 w-3.5 mr-1" />
+                Mark all as read
+              </Button>
+            </div>
+          )}
         </Card>
 
-        <Card className="border shadow-sm">
+        {/* Announcement Detail Card */}
+        <Card className="border shadow-sm overflow-hidden">
           {selected ? (
             <>
-              <CardHeader className="border-b bg-gray-50">
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              {/* Professional Header */}
+              <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-8 py-6">
+                <div className="flex items-start justify-between">
                   <div className="min-w-0">
-                    <CardTitle className="text-xl font-bold leading-tight text-gray-900">{selected.subject}</CardTitle>
-                    <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-500">
-                      <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {formatDate(selected.sentAt)}</span>
-                      <span>From {selected.createdBy}</span>
-                      {selected.attachments.length > 0 && <span>{selected.attachments.length} attachment(s)</span>}
+                    <h2 className="text-2xl font-bold leading-tight">{selected.subject}</h2>
+                    <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-blue-100">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Clock className="h-4 w-4" />
+                        {formatDate(selected.sentAt)}
+                      </span>
+                      <span className="text-blue-100">•</span>
+                      <span className="font-semibold text-blue-50">From {selected.createdBy}</span>
+                      {selected.attachments.length > 0 && (
+                        <>
+                          <span className="text-blue-100">•</span>
+                          <span className="inline-flex items-center gap-1">
+                            <Paperclip className="h-3.5 w-3.5" />
+                            {selected.attachments.length} file{selected.attachments.length !== 1 ? 's' : ''}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                   {!readIds.has(selected.id) && (
-                    <Button variant="outline" size="sm" onClick={() => markRead(selected.id)}>
+                    <Button
+                      size="sm"
+                      onClick={() => markRead(selected.id)}
+                      className="bg-white text-blue-600 hover:bg-blue-50 font-semibold"
+                    >
                       <CheckCheck className="h-4 w-4" />
                       Mark read
                     </Button>
                   )}
                 </div>
-              </CardHeader>
-              <CardContent className="p-6">
-                <article className="max-w-3xl">
-                  <div className="space-y-3 text-sm leading-7 text-gray-800">
-                    {selected.body.split(/\r?\n/).map((line, index) =>
-                      line.trim() ? <p key={index}>{line}</p> : <div key={index} className="h-2" />
-                    )}
+              </div>
+
+              {/* Content Area */}
+              <CardContent className="p-8">
+                <article className="max-w-4xl mx-auto">
+                  {/* Main Content */}
+                  <div className="prose prose-sm max-w-none">
+                    <div className="space-y-4 text-base leading-relaxed text-gray-800">
+                      {selected.body.split(/\r?\n/).map((line, index) =>
+                        line.trim() ? (
+                          <p key={index} className="text-gray-800 font-normal">
+                            {line}
+                          </p>
+                        ) : (
+                          <div key={index} className="h-2" />
+                        )
+                      )}
+                    </div>
                   </div>
 
-                  <div className="mt-8 border-t pt-6">
-                    <div className="whitespace-pre-line text-sm leading-6 text-gray-700">{selected.signature}</div>
+                  {/* Signature */}
+                  <div className="mt-10 pt-8 border-t border-gray-300">
+                    <div className="whitespace-pre-line text-sm leading-relaxed text-gray-600 font-mono text-xs bg-gray-50 p-4 rounded border border-gray-200">
+                      {selected.signature}
+                    </div>
                   </div>
 
+                  {/* Attachments */}
                   {selected.attachments.length > 0 && (
-                    <div className="mt-8 rounded-lg border bg-gray-50 p-4">
-                      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900">
-                        <Paperclip className="h-4 w-4 text-blue-600" />
+                    <div className="mt-10 pt-8 border-t border-gray-300">
+                      <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <Paperclip className="h-5 w-5 text-blue-600" />
                         Attachments
-                      </div>
-                      <div className="space-y-2">
+                      </h3>
+                      <div className="grid gap-3">
                         {selected.attachments.map((attachment) => (
                           <a
                             key={attachment.id}
                             href={attachment.url}
                             download={attachment.name}
-                            className="flex items-center gap-3 rounded-md border bg-white px-3 py-2 text-sm hover:bg-blue-50"
+                            className="flex items-center gap-4 rounded-lg border border-gray-200 bg-white px-4 py-3 hover:bg-blue-50 hover:border-blue-300 transition-all group"
                           >
-                            <FileText className="h-4 w-4 text-gray-500" />
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 group-hover:bg-blue-100">
+                              <FileText className="h-5 w-5 text-blue-600" />
+                            </div>
                             <span className="min-w-0 flex-1">
-                              <span className="block truncate font-medium text-gray-900">{attachment.name}</span>
+                              <span className="block truncate font-semibold text-gray-900 group-hover:text-blue-600">
+                                {attachment.name}
+                              </span>
                               <span className="block text-xs text-gray-500">{formatBytes(attachment.size)}</span>
                             </span>
-                            <Download className="h-4 w-4 text-blue-600" />
+                            <Download className="h-5 w-5 text-gray-400 group-hover:text-blue-600 flex-shrink-0" />
                           </a>
                         ))}
                       </div>
@@ -292,8 +363,9 @@ export default function AnnouncementsPage() {
               </CardContent>
             </>
           ) : (
-            <CardContent className="px-5 py-16 text-center text-sm text-gray-500">
-              Select an announcement to read it.
+            <CardContent className="px-8 py-20 text-center">
+              <Megaphone className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 font-medium">Select an announcement from the list to read it</p>
             </CardContent>
           )}
         </Card>

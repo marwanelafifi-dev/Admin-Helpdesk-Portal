@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import {
+  AlertCircle,
   CheckCircle2,
   Clock,
   Copy,
@@ -699,108 +700,128 @@ export default function AnnouncementsPage() {
         </CardContent>
       </Card>
 
-      {/* Email Preview Modal */}
+      {/* Email Preview Modal — Realistic Email Client View */}
       {showPreview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-lg bg-white shadow-lg">
-            {/* Preview Header */}
-            <div className="sticky top-0 border-b bg-gray-50 px-6 py-4 flex items-center justify-between">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-lg bg-white shadow-2xl flex flex-col">
+            {/* Modal Header */}
+            <div className="sticky top-0 border-b bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Email Preview</h2>
-                <p className="text-sm text-gray-600 mt-1">This is how your announcement will appear to recipients</p>
+                <h2 className="text-lg font-bold text-white">Email Preview</h2>
+                <p className="text-sm text-blue-100 mt-0.5">Exactly how it will appear to recipients</p>
               </div>
               <button
                 onClick={() => setShowPreview(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-blue-100 hover:text-white transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Email Content */}
-            <div className="p-6">
-              {/* Recipient Info */}
-              <div className="mb-6 rounded-lg border bg-blue-50 p-4">
-                <div className="space-y-2 text-sm">
-                  <div>
-                    <span className="font-semibold text-gray-700">To: </span>
-                    <span className="text-gray-600">
-                      {includeAllCompany ? "All company users" : toEmails.slice(0, 3).join(", ")}
-                      {!includeAllCompany && toEmails.length > 3 ? ` (+${toEmails.length - 3} more)` : ""}
-                    </span>
-                  </div>
-                  {splitEmails(ccText).length > 0 && (
-                    <div>
-                      <span className="font-semibold text-gray-700">CC: </span>
-                      <span className="text-gray-600">{splitEmails(ccText).join(", ")}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Email Container */}
-              <div className="rounded-lg border bg-white p-6 font-sans" style={{ backgroundColor: "#ffffff" }}>
-                {/* Si-Ware Logo */}
-                <div className="mb-4 text-center border-b pb-4">
-                  <div className="inline-flex items-center gap-2 rounded bg-blue-600 text-white px-3 py-2 font-bold">
-                    SI-WARE SYSTEMS
-                  </div>
-                </div>
-
-                {/* Subject as Email Title */}
-                <h1 className="text-xl font-bold text-gray-900 mb-6">{subject}</h1>
-
-                {/* Body Content */}
-                <div className="whitespace-pre-wrap text-gray-700 mb-6 leading-relaxed text-sm">
-                  {body}
-                </div>
-
-                {/* Signature */}
-                <div className="border-t pt-6 mt-6">
-                  <div className="whitespace-pre-wrap text-gray-600 text-xs font-mono">
-                    {signature}
-                  </div>
-                  {signatureLogo && (
-                    <div className="mt-4">
-                      <img
-                        src={signatureLogo}
-                        alt="Signature logo"
-                        className="h-12 w-auto"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* Attachments Note */}
-                {files.length > 0 && (
-                  <div className="mt-6 border-t pt-4">
-                    <p className="text-xs font-semibold text-gray-700 mb-2">Attachments ({files.length})</p>
-                    <div className="space-y-1">
-                      {files.map((file, idx) => (
-                        <div key={`${file.name}-${idx}`} className="text-xs text-gray-600 flex items-center gap-1">
-                          <Paperclip className="h-3 w-3" />
-                          {file.name}
+            {/* Email Client Wrapper */}
+            <div className="overflow-auto flex-1">
+              <div className="bg-gray-100 p-6">
+                {/* Email Header (Email Client Style) */}
+                <div className="bg-white rounded-t-lg shadow-sm border border-gray-200">
+                  <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                    <div className="space-y-3 text-sm">
+                      <div className="flex items-center">
+                        <span className="font-semibold text-gray-700 w-16">From:</span>
+                        <span className="text-gray-900">Admin Helpdesk &lt;admin@si-ware.com&gt;</span>
+                      </div>
+                      <div className="flex items-center">
+                        <span className="font-semibold text-gray-700 w-16">To:</span>
+                        <span className="text-gray-900">
+                          {includeAllCompany ? "All Company Users" : toEmails.slice(0, 2).join(", ")}
+                          {!includeAllCompany && toEmails.length > 2 ? ` +${toEmails.length - 2}` : ""}
+                        </span>
+                      </div>
+                      {splitEmails(ccText).length > 0 && (
+                        <div className="flex items-center">
+                          <span className="font-semibold text-gray-700 w-16">CC:</span>
+                          <span className="text-gray-900">{splitEmails(ccText).slice(0, 2).join(", ")}{splitEmails(ccText).length > 2 ? ` +${splitEmails(ccText).length - 2}` : ""}</span>
                         </div>
-                      ))}
+                      )}
+                      <div className="flex items-center">
+                        <span className="font-semibold text-gray-700 w-16">Subject:</span>
+                        <span className="text-gray-900 font-medium">{subject || "(No subject)"}</span>
+                      </div>
                     </div>
                   </div>
-                )}
-              </div>
 
-              {/* Footer Info */}
-              <div className="mt-4 rounded-lg bg-gray-50 p-4 text-xs text-gray-600">
-                <p className="font-semibold text-gray-700 mb-2">Preview Information</p>
-                <ul className="space-y-1 list-disc list-inside">
-                  <li>Recipients: {includeAllCompany ? "All company users" : `${toEmails.length} recipients`}</li>
-                  <li>Subject line: {subject}</li>
-                  <li>Attachments: {files.length > 0 ? `${files.length} file(s)` : "None"}</li>
-                  <li className="text-yellow-700">⚠️ Review the content and recipients before sending</li>
-                </ul>
+                  {/* Email Body */}
+                  <div className="px-8 py-8">
+                    {/* Si-Ware Logo Header */}
+                    <div className="text-center mb-8 pb-6 border-b-2 border-blue-100">
+                      <div className="inline-block bg-blue-600 text-white px-4 py-2 rounded font-bold text-sm tracking-wide">
+                        SI-WARE SYSTEMS
+                      </div>
+                    </div>
+
+                    {/* Email Content */}
+                    <div className="text-gray-800 space-y-4">
+                      {/* Subject as heading */}
+                      <h1 className="text-2xl font-bold text-gray-900 mb-6 leading-tight">
+                        {subject || "Announcement"}
+                      </h1>
+
+                      {/* Body text with proper line breaks */}
+                      <div className="whitespace-pre-wrap text-base leading-relaxed text-gray-700 font-normal">
+                        {body}
+                      </div>
+
+                      {/* Signature Section */}
+                      <div className="mt-8 pt-6 border-t border-gray-300 text-sm text-gray-600">
+                        <div className="whitespace-pre-wrap font-normal leading-relaxed mb-4">
+                          {signature}
+                        </div>
+                        {signatureLogo && (
+                          <div className="mt-4 pt-4 border-t border-gray-200">
+                            <img
+                              src={signatureLogo}
+                              alt="Company logo"
+                              className="h-12 w-auto"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Attachments */}
+                      {files.length > 0 && (
+                        <div className="mt-8 pt-6 border-t border-gray-300">
+                          <p className="text-sm font-semibold text-gray-900 mb-3">Attachments ({files.length})</p>
+                          <div className="space-y-2">
+                            {files.map((file, idx) => (
+                              <div
+                                key={`${file.name}-${idx}`}
+                                className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded text-sm text-gray-700 w-fit"
+                              >
+                                <Paperclip className="h-4 w-4 text-gray-500" />
+                                <span>{file.name}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Preview Actions */}
-            <div className="sticky bottom-0 border-t bg-gray-50 px-6 py-4 flex gap-3 justify-end">
+            {/* Preview Info Bar */}
+            <div className="border-t bg-amber-50 border-amber-200 px-6 py-3">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-amber-800">
+                  <p className="font-semibold">Sending to {includeAllCompany ? "all company users" : `${toEmails.length} recipient${toEmails.length !== 1 ? 's' : ''}`}</p>
+                  <p className="text-xs text-amber-700 mt-1">Please review the content and recipient list before sending</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="border-t bg-white px-6 py-4 flex gap-3 justify-end">
               <Button
                 type="button"
                 variant="outline"
@@ -814,7 +835,7 @@ export default function AnnouncementsPage() {
                   sendAnnouncement()
                 }}
                 disabled={sending}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold"
               >
                 <Send className="h-4 w-4" />
                 {sending ? "Sending..." : "Send Now"}

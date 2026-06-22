@@ -990,6 +990,44 @@ Status column preserves color styling with dot indicators; other columns use neu
 | `src/modules/hr/HRForm.tsx` | HR create form | Toggle-based type selection, checkbox items, Direct Manager Select from companyDataStore |
 | `src/modules/shipping/ShippingForm.tsx` | Shipping form | All dropdowns (Supplier, Cost Center, Carrier, Manager) read from companyDataStore |
 
+## Phase 6g: Professional Announcements & Corporate Email Design (Completed — 22 Jun 2026)
+- [x] **Enhanced Announcements Page — Professional Corporate Design:**
+  - [x] Gradient header section with megaphone icon and formal description
+  - [x] Unread count badge with color coding (red for unread, emerald for all read)
+  - [x] Announcement inbox list with:
+    - [x] Left border indicator (red for unread, blue for active, transparent for read)
+    - [x] Animated pulsing indicator dot for unread announcements
+    - [x] "New" badge for unread items
+    - [x] Announcement subject, date, and body preview
+    - [x] Scrollable list with max-height for better UX
+    - [x] "Mark all as read" button in footer
+  - [x] Announcement detail view with:
+    - [x] Professional gradient header (blue to darker blue) with subject, date, sender, attachment count
+    - [x] "Mark read" button in header (white button with blue text)
+    - [x] Content area with proper typography and spacing
+    - [x] Signature section with avatar/logo and contact details
+    - [x] Professional attachments section with download cards
+    - [x] Hover effects and transitions for better UX
+
+- [x] **Professional Corporate Email Template:**
+  - [x] Enhanced HTML email with corporate styling (Si-Ware Systems branded)
+  - [x] Gradient header (blue gradient) with subject line
+  - [x] Improved typography and spacing (16px base font, 1.75 line-height)
+  - [x] Professional signature block with:
+    - [x] Avatar/logo (72px, rounded corners, gradient fallback)
+    - [x] Name, title, and phone number
+    - [x] Better visual hierarchy with font sizes and weights
+  - [x] Footer disclaimer with:
+    - [x] Left border accent (3px blue line)
+    - [x] Professional confidentiality notice
+    - [x] Footer text with copyright and source attribution
+  - [x] Email container styling:
+    - [x] Box shadow for depth (0 10px 25px with transparency)
+    - [x] Rounded corners (16px) for modern look
+    - [x] Proper padding and spacing
+    - [x] Light gray background (#f5f7fa) for email client contrast
+  - [x] Responsive design that works across email clients (Gmail, Outlook, Apple Mail, etc.)
+
 ## Phase 6f: Submission Timestamps, Enhanced Announcements & Advanced Analytics (Completed — 22 Jun 2026)
 
 ### **Phase 6f-1: Submission Date & Time Stamps**
