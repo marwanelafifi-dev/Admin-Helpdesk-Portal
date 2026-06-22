@@ -454,7 +454,7 @@ export async function sendAnnouncementEmail(params: {
       <td align="center">
         <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;box-shadow:0 4px 12px rgba(0,0,0,0.1);border-radius:8px;overflow:hidden;border:1px solid #e5e7eb;">
           <tr>
-            <td style="background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);padding:48px 40px;text-align:center;">
+            <td style="background:linear-gradient(135deg,#1e5ba8 0%,#1a4a8f 100%);padding:48px 40px;text-align:center;">
               ${logoBuffer ? `<img src="cid:siware-logo" alt="Si-Ware Systems" style="height:60px;width:auto;display:block;margin:0 auto 20px;" />` : `<div style="margin:0 auto 20px;text-align:center;"><h2 style="margin:0;color:#ffffff;font-size:14px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">SI-WARE SYSTEMS</h2></div>`}
               <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:700;line-height:1.35;word-break:break-word;max-width:520px;margin-left:auto;margin-right:auto;letter-spacing:-0.5px;">${escapeHtml(params.subject)}</h1>
             </td>
@@ -466,11 +466,15 @@ export async function sendAnnouncementEmail(params: {
           </tr>
           ${hasSignatureBlock ? `
           <tr>
-            <td style="padding:32px 40px;border-top:2px solid #3b82f6;">
+            <td style="padding:32px 40px;border-top:none;">
               <table cellpadding="0" cellspacing="0" width="100%" style="margin:0;">
                 <tr>
-                  <td style="vertical-align:middle;">
-                    ${params.signatureLogo ? `<img src="cid:signature-logo" alt="Company logo" style="height:48px;width:auto;display:block;margin-bottom:12px;object-fit:contain;" />` : ""}
+                  <td style="vertical-align:middle;text-align:center;">
+                    ${params.signatureLogo ? `<img src="cid:signature-logo" alt="Company logo" style="height:48px;width:auto;display:inline-block;margin-bottom:12px;object-fit:contain;" />` : ""}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="vertical-align:middle;text-align:center;">
                     <p style="margin:0;color:#1f2937;font-size:14px;font-weight:700;letter-spacing:0.3px;text-transform:uppercase;">${escapeHtml(signatureName)}</p>
                     ${signatureTitle ? `<p style="margin:6px 0 0;color:#4b5563;font-size:12px;font-weight:500;letter-spacing:0.2px;">${escapeHtml(signatureTitle)}</p>` : ""}
                     ${signaturePhone ? `<p style="margin:8px 0 0;color:#6b7280;font-size:12px;letter-spacing:0.1px;font-weight:500;">${escapeHtml(signaturePhone)}</p>` : ""}
@@ -485,7 +489,7 @@ export async function sendAnnouncementEmail(params: {
               <table width="100%" cellpadding="0" cellspacing="0" style="margin:0;">
                 <tr>
                   <td style="padding:8px 0;">
-                    <p style="margin:0;color:#6b7280;font-size:11px;line-height:1.65;border-left:3px solid #3b82f6;padding-left:12px;padding-right:0;">
+                    <p style="margin:0;color:#6b7280;font-size:11px;line-height:1.65;border-left:3px solid #1e5ba8;padding-left:12px;padding-right:0;">
                       ${escapeHtml(disclaimer || "This message and any attachments are confidential and may be privileged or otherwise protected from disclosure. If you are not the intended recipient, please telephone or mail the sender and delete this message and any attachment from your system.")}
                     </p>
                   </td>
