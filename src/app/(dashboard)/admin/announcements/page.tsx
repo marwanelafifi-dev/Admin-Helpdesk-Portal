@@ -61,7 +61,7 @@ type TemplateRecord = {
   updatedAt: string
 }
 
-type Tab = "sent" | "drafts" | "templates"
+type Tab = "sent" | "drafts" | "templates" | "scheduled"
 
 const EGYPT_TEAM_EMAIL = "eg.team@si-ware.com"
 const DEFAULT_SIGNATURE =
@@ -338,10 +338,13 @@ export default function AnnouncementsPage() {
     if (res.ok) await loadData()
   }
 
+  const scheduledTemplates = templates.filter((t) => t.autoSendEnabled && t.scheduledAt)
+
   const tabs = [
     { id: "sent" as const, label: "Sent", count: sent.length },
     { id: "drafts" as const, label: "Drafts", count: drafts.length },
-    { id: "templates" as const, label: "Templates", count: templates.length },
+    { id: "templates" as const, label: "Templates", count: templates.filter((t) => !t.autoSendEnabled || !t.scheduledAt).length },
+    { id: "scheduled" as const, label: "Scheduled", count: scheduledTemplates.length, badge: true },
   ]
 
   return (
@@ -676,7 +679,7 @@ export default function AnnouncementsPage() {
 
           {activeTab === "templates" && (
             <div className="divide-y">
-              {templates.map((template) => (
+              {templates.filter((t) => !t.autoSendEnabled || !t.scheduledAt).map((template) => (
                 <div key={template.id} className="flex flex-col gap-3 px-5 py-4 md:flex-row md:items-center md:justify-between">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -685,15 +688,6 @@ export default function AnnouncementsPage() {
                     </div>
                     <p className="mt-1 text-sm text-gray-700 truncate">{template.subject}</p>
                     <p className="mt-1 text-xs text-gray-500">Updated {formatDate(template.updatedAt)}</p>
-                    {template.autoSendEnabled && template.scheduledAt && (
-                      <p className="mt-1 text-xs font-medium text-blue-700">
-                        Auto sends {template.scheduleFrequency || "once"}
-                        {template.scheduleFrequency === "weekly" && template.scheduleDayOfWeek !== undefined
-                          ? ` · ${formatDayLabel(template.scheduleDayOfWeek)}`
-                          : ""}
-                        · {formatDate(template.scheduledAt)}
-                      </p>
-                    )}
                   </div>
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => useTemplate(template)}>Use</Button>
@@ -703,8 +697,59 @@ export default function AnnouncementsPage() {
                   </div>
                 </div>
               ))}
-              {!loading && templates.length === 0 && (
+              {!loading && templates.filter((t) => !t.autoSendEnabled || !t.scheduledAt).length === 0 && (
                 <div className="px-5 py-10 text-center text-sm text-gray-500">No templates saved.</div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "scheduled" && (
+            <div className="divide-y">
+              {scheduledTemplates.map((template) => {
+                const scheduledDate = new Date(template.scheduledAt || "")
+                const isUpcoming = scheduledDate > new Date()
+                const nextSendLabel = isUpcoming ? "Sends at" : "Was scheduled for"
+                return (
+                  <div key={template.id} className="flex flex-col gap-4 px-5 py-4">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <div className={`h-3 w-3 rounded-full ${isUpcoming ? "bg-green-500 animate-pulse" : "bg-gray-300"}`} />
+                          <p className="font-semibold text-gray-900 truncate">{template.name}</p>
+                          {isUpcoming && (
+                            <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
+                              Upcoming
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-2 text-sm text-gray-700 truncate">{template.subject}</p>
+                        <div className="mt-3 space-y-1">
+                          <p className="text-xs text-gray-600">
+                            <span className="font-medium">{nextSendLabel}:</span> {formatDate(template.scheduledAt)}
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            <span className="font-medium">Frequency:</span> {template.scheduleFrequency === "once" ? "One-time" : `${template.scheduleFrequency?.charAt(0).toUpperCase()}${template.scheduleFrequency?.slice(1)}`}
+                            {template.scheduleFrequency === "weekly" && template.scheduleDayOfWeek !== undefined
+                              ? ` on ${formatDayLabel(template.scheduleDayOfWeek)}`
+                              : ""}
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            <span className="font-medium">Created:</span> {formatDate(template.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 flex-shrink-0">
+                        <Button variant="outline" size="sm" onClick={() => useTemplate(template)}>Edit</Button>
+                        <Button variant="ghost" size="sm" onClick={() => deleteRecord("templates", template.id)} className="text-red-600 hover:text-red-700">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+              {!loading && scheduledTemplates.length === 0 && (
+                <div className="px-5 py-10 text-center text-sm text-gray-500">No scheduled announcements.</div>
               )}
             </div>
           )}
