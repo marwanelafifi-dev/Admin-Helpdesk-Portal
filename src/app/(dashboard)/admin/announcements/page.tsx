@@ -309,7 +309,15 @@ export default function AnnouncementsPage() {
           attachments,
         }),
       })
-      const json = await res.json()
+
+      let json: any
+      try {
+        json = await res.json()
+      } catch (parseError) {
+        const text = await res.text()
+        throw new Error(`Invalid response from server: ${text?.slice(0, 100) || "No response body"}`)
+      }
+
       if (!res.ok) throw new Error(json?.error ?? "Failed to send announcement")
       resetCompose()
       await loadData()

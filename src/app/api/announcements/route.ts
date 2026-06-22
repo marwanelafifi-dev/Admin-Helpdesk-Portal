@@ -149,16 +149,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Add at least one recipient or select all company" }, { status: 400 })
   }
 
-  await sendAnnouncementEmail({
-    to: recipients,
-    cc: message.cc,
-    subject: message.subject,
-    body: message.body,
-    signature: message.signature,
-    signatureLogo: message.signatureLogo,
-    senderName: message.createdBy,
-    attachments: attachments.map(dataUrlToEmailAttachment).filter(Boolean) as any[],
-  })
+  try {
+    await sendAnnouncementEmail({
+      to: recipients,
+      cc: message.cc,
+      subject: message.subject,
+      body: message.body,
+      signature: message.signature,
+      signatureLogo: message.signatureLogo,
+      senderName: message.createdBy,
+      attachments: attachments.map(dataUrlToEmailAttachment).filter(Boolean) as any[],
+    })
+  } catch (emailError) {
+    const errorMessage = emailError instanceof Error ? emailError.message : "Failed to send announcement emails"
+    console.error("Email sending failed:", errorMessage)
+    return NextResponse.json({ error: `Failed to send emails: ${errorMessage}` }, { status: 500 })
+  }
 
   const sent = saveSentAnnouncement({
     ...message,
