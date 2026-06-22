@@ -767,6 +767,11 @@ export default function AnnouncementsPage() {
                           <p className="text-xs text-gray-600">
                             <span className="font-medium">{nextSendLabel}:</span> {formatDate(template.scheduledAt)}
                           </p>
+                          {template.lastScheduledSentAt && (
+                            <p className="text-xs text-emerald-600">
+                              <span className="font-medium">Last sent:</span> {formatDate(template.lastScheduledSentAt)}
+                            </p>
+                          )}
                           <p className="text-xs text-gray-600">
                             <span className="font-medium">Frequency:</span> {template.scheduleFrequency === "once" ? "One-time" : `${template.scheduleFrequency?.charAt(0).toUpperCase()}${template.scheduleFrequency?.slice(1)}`}
                             {template.scheduleFrequency === "weekly" && template.scheduleDayOfWeek !== undefined

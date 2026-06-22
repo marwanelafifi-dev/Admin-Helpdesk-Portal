@@ -1,114 +1,89 @@
-import { readAnnouncementStore, writeAnnouncementStore, type AnnouncementSent } from "./announcementStore"
-import { sendAnnouncementEmail } from "./emailService"
-import { readUsers } from "./userStore"
+import { readAnnouncementStore, saveAnnouncementTemplate, saveSentAnnouncement } from "@/lib/announcementStore"
+import { readUsers } from "@/lib/userStore"
+import { sendAnnouncementEmail } from "@/lib/emailService"
 
-const CHECK_INTERVAL_MS = 5 * 60 * 1000
-let schedulerStarted = false
-let processing = false
+// Check every 1 minute whether a scheduled announcement is due.
+const CHECK_INTERVAL_MS = 1 * 60 * 1000
 
-function cleanEmails(values: string[]) {
-  return Array.from(new Set(values
-    .filter(Boolean)
-    .map((value) => value.trim().toLowerCase())
-    .filter((value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))))
-}
-
-function nextScheduledDate(
-  date: Date,
-  frequency: "once" | "weekly" | "monthly",
-  dayOfWeek?: number,
-) {
-  const next = new Date(date)
-  if (frequency === "weekly") {
-    const target = typeof dayOfWeek === "number" ? dayOfWeek : next.getDay()
-    const currentDay = next.getDay()
-    const diff = (target - currentDay + 7) % 7
-    next.setDate(next.getDate() + (diff === 0 ? 7 : diff))
-  } else if (frequency === "monthly") {
-    next.setMonth(next.getMonth() + 1)
-  }
-  return next
-}
-
-export async function processDueAnnouncementTemplates() {
-  if (processing) return
-  processing = true
-
-  try {
-    const data = readAnnouncementStore()
-    const users = readUsers().filter((user) => user.active !== false && user.email)
-    const now = new Date()
-    const nowIso = now.toISOString()
-    let changed = false
-
-    for (const template of data.templates) {
-      if (!template.autoSendEnabled || !template.scheduledAt) continue
-
-      const scheduledDate = new Date(template.scheduledAt)
-      if (Number.isNaN(scheduledDate.getTime()) || scheduledDate > now) continue
-
-      const companyRecipients = template.includeAllCompany ? users.map((user) => user.email) : []
-      const recipients = cleanEmails([...companyRecipients, ...template.to])
-
-      if (recipients.length > 0) {
-        await sendAnnouncementEmail({
-          to: recipients,
-          cc: template.cc,
-          subject: template.subject,
-          body: template.body,
-          signature: template.signature,
-          signatureLogo: template.signatureLogo,
-          senderName: template.createdBy,
-        })
-
-        const sent: AnnouncementSent = {
-          id: `ANN-${Date.now()}-${template.id}`,
-          subject: template.subject,
-          body: template.body,
-          signature: template.signature,
-          signatureLogo: template.signatureLogo,
-          to: template.to,
-          cc: template.cc,
-          includeAllCompany: template.includeAllCompany,
-          attachments: [],
-          createdBy: template.createdBy,
-          createdByEmail: "",
-          createdAt: nowIso,
-          updatedAt: nowIso,
-          sentAt: nowIso,
-          recipientCount: recipients.length,
-        }
-        data.sent.unshift(sent)
-      }
-
-      const frequency = template.scheduleFrequency || "once"
-      if (frequency === "once") {
-        template.autoSendEnabled = false
-      } else {
-        template.scheduledAt = nextScheduledDate(
-          scheduledDate,
-          frequency,
-          template.scheduleDayOfWeek,
-        ).toISOString()
-        template.lastScheduledSentAt = nowIso
-      }
-      template.updatedAt = nowIso
-      changed = true
-    }
-
-    if (changed) writeAnnouncementStore(data)
-  } catch (error) {
-    console.error("Announcement template scheduler failed:", error)
-  } finally {
-    processing = false
-  }
-}
+let started = false
 
 export function startAnnouncementScheduler() {
-  if (schedulerStarted) return
-  schedulerStarted = true
+  if (started) return
+  started = true
 
-  processDueAnnouncementTemplates()
-  setInterval(processDueAnnouncementTemplates, CHECK_INTERVAL_MS)
-  console.log("Announcement template scheduler started")
+  console.log("[announcement-scheduler] Started — checking every minute")
+
+  const tick = async () => {
+    try {
+      const store = readAnnouncementStore()
+      const now = new Date()
+
+      for (const template of store.templates) {
+        if (!template.autoSendEnabled || !template.scheduledAt) continue
+
+        const scheduledTime = new Date(template.scheduledAt)
+        const isDue = now >= scheduledTime
+
+        if (!isDue) continue
+
+        // Skip if already sent
+        if (template.lastScheduledSentAt) continue
+
+        console.log(`[announcement-scheduler] Sending scheduled announcement: ${template.name}`)
+
+        try {
+          // Build recipient list (same as send flow)
+          const companyRecipients = template.includeAllCompany
+            ? readUsers().filter((user) => user.active !== false).map((user) => user.email)
+            : []
+          const recipients = Array.from(
+            new Set([...companyRecipients, ...template.to].map((e) => e.trim().toLowerCase()))
+          ).filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))
+
+          if (recipients.length === 0) {
+            console.warn(`[announcement-scheduler] No recipients for template ${template.name}`)
+            continue
+          }
+
+          // Send email
+          await sendAnnouncementEmail({
+            to: recipients,
+            cc: template.cc,
+            subject: template.subject,
+            body: template.body,
+            signature: template.signature,
+            signatureLogo: template.signatureLogo,
+            senderName: template.createdBy,
+            attachments: [],
+          })
+
+          // Update template with last sent time
+          const updated = {
+            ...template,
+            lastScheduledSentAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          }
+          saveAnnouncementTemplate(updated)
+
+          // Record in sent history
+          saveSentAnnouncement({
+            ...template,
+            sentAt: new Date().toISOString(),
+            recipientCount: recipients.length,
+          })
+
+          console.log(`[announcement-scheduler] ✓ Sent: ${template.name} to ${recipients.length} recipients`)
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : String(err)
+          console.error(`[announcement-scheduler] Failed to send ${template.name}: ${errorMsg}`)
+        }
+      }
+    } catch (err) {
+      console.error("[announcement-scheduler] Error during scheduled check:", err)
+    }
+  }
+
+  // Run once on startup in case we missed a window during a restart
+  setTimeout(tick, 10_000)
+  setInterval(tick, CHECK_INTERVAL_MS)
 }
