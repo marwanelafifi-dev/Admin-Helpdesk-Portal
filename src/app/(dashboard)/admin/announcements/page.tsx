@@ -65,7 +65,7 @@ type Tab = "sent" | "drafts" | "templates"
 
 const EGYPT_TEAM_EMAIL = "eg.team@si-ware.com"
 const DEFAULT_SIGNATURE =
-  "Admin Helpdesk\nAdmin team.\n+202 2268 4704\n\nThis message and any attachments are confidential and may be privileged or otherwise protected from disclosure. If you are not the intended recipient, please telephone or mail the sender and delete this message and any attachment from your system."
+  "Administration Team\n+20222684704\n\nThis message and any attachments are confidential and may be privileged or otherwise protected from disclosure. If you are not the intended recipient, please telephone or mail the sender and delete this message and any attachment from your system."
 const WEEKDAY_OPTIONS = [
   { value: 0, label: "Sunday" },
   { value: 1, label: "Monday" },

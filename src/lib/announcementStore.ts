@@ -61,7 +61,7 @@ export type AnnouncementStoreData = {
 
 const STORE_PATH = path.join(process.cwd(), "data", "announcements.json")
 export const DEFAULT_ANNOUNCEMENT_SIGNATURE =
-  "This message and any attachments are confidential and may be privileged or otherwise protected from disclosure. If you are not the intended recipient, please notify the sender and delete this message and any attachment from your system."
+  "Administration Team\n+20222684704\n\nThis message and any attachments are confidential and may be privileged or otherwise protected from disclosure. If you are not the intended recipient, please telephone or mail the sender and delete this message and any attachment from your system."
 
 const DEFAULT_DATA: AnnouncementStoreData = {
   sent: [],
