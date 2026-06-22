@@ -760,62 +760,48 @@ export default function AnnouncementsPage() {
                     </div>
                   </div>
 
-                  {/* Email Body */}
-                  <div className="px-8 py-8">
-                    {/* Si-Ware Logo Header */}
-                    <div className="text-center mb-8 pb-6 border-b-2 border-blue-100">
-                      <div className="inline-block bg-blue-600 text-white px-4 py-2 rounded font-bold text-sm tracking-wide">
-                        SI-WARE SYSTEMS
+                  {/* Email Body - Rendered as actual email HTML */}
+                  <div dangerouslySetInnerHTML={{
+                    __html: `
+                      <div style="background: linear-gradient(135deg, #1a2332 0%, #0f1622 100%); padding: 48px 40px; text-align: center; border-radius: 0; margin: -32px -32px 0 -32px;">
+                        <img src="${DEFAULT_SIGNATURE_LOGO}" alt="Si-Ware Systems" style="height: 60px; width: auto; display: block; margin: 0 auto 20px;" />
+                        <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; line-height: 1.35; word-break: break-word; max-width: 520px; margin-left: auto; margin-right: auto; letter-spacing: -0.5px;">
+                          ${subject || "Announcement"}
+                        </h1>
                       </div>
-                    </div>
-
-                    {/* Email Content */}
-                    <div className="text-gray-800 space-y-4">
-                      {/* Subject as heading */}
-                      <h1 className="text-2xl font-bold text-gray-900 mb-6 leading-tight">
-                        {subject || "Announcement"}
-                      </h1>
-
-                      {/* Body text with proper line breaks */}
-                      <div className="whitespace-pre-wrap text-base leading-relaxed text-gray-700 font-normal">
-                        {body}
+                      <div style="padding: 40px 32px; color: #374151; font-size: 15px; line-height: 1.7;">
+                        ${body.split(/\r?\n/).map((line) => line.trim()
+                          ? `<p style="margin: 0 0 14px; color: #1f2937; font-size: 15px; line-height: 1.7;">${line}</p>`
+                          : `<div style="height: 10px;"></div>`
+                        ).join('')}
                       </div>
-
-                      {/* Signature Section */}
-                      <div className="mt-8 pt-6 border-t border-gray-300 text-sm text-gray-600">
-                        <div className="whitespace-pre-wrap font-normal leading-relaxed mb-4">
-                          {signature}
-                        </div>
-                        {signatureLogo && (
-                          <div className="mt-4 pt-4 border-t border-gray-200">
-                            <img
-                              src={signatureLogo}
-                              alt="Company logo"
-                              className="h-12 w-auto"
-                            />
-                          </div>
-                        )}
+                      <div style="padding: 32px 40px; border-top: none;">
+                        <table cellpadding="0" cellspacing="0" width="100%" style="margin: 0;">
+                          <tr>
+                            <td style="vertical-align: top; padding-right: 16px; width: auto;">
+                              ${signatureLogo ? `<img src="${signatureLogo}" alt="Company logo" style="height: 48px; width: auto; display: block; object-fit: contain;" />` : ''}
+                            </td>
+                            <td style="vertical-align: middle; text-align: left;">
+                              <p style="margin: 0; color: #1f2937; font-size: 14px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase;">ADMINISTRATION TEAM</p>
+                              <p style="margin: 8px 0 0; color: #6b7280; font-size: 12px; letter-spacing: 0.1px; font-weight: 500;">+20222684704</p>
+                            </td>
+                          </tr>
+                        </table>
                       </div>
-
-                      {/* Attachments */}
-                      {files.length > 0 && (
-                        <div className="mt-8 pt-6 border-t border-gray-300">
-                          <p className="text-sm font-semibold text-gray-900 mb-3">Attachments ({files.length})</p>
-                          <div className="space-y-2">
-                            {files.map((file, idx) => (
-                              <div
-                                key={`${file.name}-${idx}`}
-                                className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded text-sm text-gray-700 w-fit"
-                              >
-                                <Paperclip className="h-4 w-4 text-gray-500" />
-                                <span>{file.name}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                      <div style="padding: 24px 40px; background: #f9fafb; border-top: 1px solid #e5e7eb;">
+                        <p style="margin: 0; color: #6b7280; font-size: 11px; line-height: 1.65; border-left: 3px solid #1e5ba8; padding-left: 12px; padding-right: 0;">
+                          This message and any attachments are confidential and may be privileged or otherwise protected from disclosure. If you are not the intended recipient, please telephone or mail the sender and delete this message and any attachment from your system.
+                        </p>
+                      </div>
+                      <div style="text-align: center; padding: 0 20px; margin-top: 24px;">
+                        <p style="margin: 0; color: #9ca3af; font-size: 12px; line-height: 1.6;">© 2026 Si-Ware Systems. All rights reserved. | This is an automated notification from the Admin Helpdesk Portal.</p>
+                      </div>
+                    `
+                  }} style={{
+                    fontFamily: "-apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
+                    color: "#1f2937",
+                    background: "#ffffff"
+                  }} />
                 </div>
               </div>
             </div>
