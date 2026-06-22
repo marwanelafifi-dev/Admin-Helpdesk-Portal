@@ -518,21 +518,24 @@ export async function sendAnnouncementEmail(params: {
       }
     : null
 
-  await sendMailWithRetry(transporter, {
-    from: resolveFromAddress("Si-Ware Admin Helpdesk"),
-    to: recipients,
-    cc: params.cc?.filter(Boolean),
-    subject: params.subject,
-    html,
-    attachments: [
-      ...(logoBuffer ? [{
-        filename: "siware-logo.png",
-        content: logoBuffer,
-        cid: "siware-logo",
-        contentType: "image/png",
-      }] : []),
-      ...(signatureLogoAttachment ? [signatureLogoAttachment] : []),
-      ...(params.attachments ?? []),
+  // Send individual emails to each recipient to create separate threads
+  // instead of grouping all recipients in one "To:" line
+  for (const recipient of recipients) {
+    await sendMailWithRetry(transporter, {
+      from: resolveFromAddress("Si-Ware Admin Helpdesk"),
+      to: recipient,
+      cc: params.cc?.filter(Boolean),
+      subject: params.subject,
+      html,
+      attachments: [
+        ...(logoBuffer ? [{
+          filename: "siware-logo.png",
+          content: logoBuffer,
+          cid: "siware-logo",
+          contentType: "image/png",
+        }] : []),
+        ...(signatureLogoAttachment ? [signatureLogoAttachment] : []),
+        ...(params.attachments ?? []),
     ],
   })
 }
