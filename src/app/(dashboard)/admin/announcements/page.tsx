@@ -296,6 +296,46 @@ export default function AnnouncementsPage() {
     setNotice(null)
     try {
       const attachments = await buildAttachments()
+
+      // If auto-send is enabled, save as scheduled template instead of sending now
+      if (autoSendEnabled && scheduledAt) {
+        const res = await fetch("/api/announcements", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: "template",
+            templateName: templateName || subject,
+            subject,
+            body,
+            signature,
+            signatureLogo: signatureLogo || undefined,
+            to: toEmails,
+            cc: splitEmails(ccText),
+            includeAllCompany,
+            autoSendEnabled: true,
+            scheduleFrequency,
+            scheduleDayOfWeek: scheduleFrequency === "weekly" ? scheduleDayOfWeek : undefined,
+            scheduledAt: fromDatetimeLocal(scheduledAt),
+          }),
+        })
+
+        let json: any
+        try {
+          json = await res.json()
+        } catch (parseError) {
+          const text = await res.text()
+          throw new Error(`Invalid response from server: ${text?.slice(0, 100) || "No response body"}`)
+        }
+
+        if (!res.ok) throw new Error(json?.error ?? "Failed to schedule announcement")
+        resetCompose()
+        await loadData()
+        setActiveTab("scheduled")
+        setNotice({ type: "success", message: "Announcement scheduled for later" })
+        return
+      }
+
+      // Otherwise send immediately
       const res = await fetch("/api/announcements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
