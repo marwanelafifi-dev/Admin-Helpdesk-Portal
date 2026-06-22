@@ -522,9 +522,11 @@ export async function sendAnnouncementEmail(params: {
 
   // Send individual emails to each recipient to create separate threads
   // instead of grouping all recipients in one "To:" line
-  // Use unique Message-ID to prevent Gmail threading
-  for (const recipient of recipients) {
-    const uniqueMessageId = `<announcement-${Date.now()}-${Math.random().toString(36).substr(2, 9)}@si-ware.com>`
+  // Use unique Message-ID and break threading headers to prevent Gmail from grouping
+  for (let i = 0; i < recipients.length; i++) {
+    const recipient = recipients[i]
+    const uniqueMessageId = `<announcement-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}@si-ware.com>`
+    const uniqueTimestamp = `${Date.now()}-${i}`
     await sendMailWithRetry(transporter, {
       from: resolveFromAddress("Si-Ware Admin Helpdesk"),
       to: recipient,
@@ -535,6 +537,15 @@ export async function sendAnnouncementEmail(params: {
       headers: {
         "X-Priority": "3",
         "X-MSMail-Priority": "Normal",
+        // Prevent Gmail from threading these emails together
+        "References": uniqueMessageId,
+        "In-Reply-To": uniqueMessageId,
+        // Custom header to mark as bulk/announcement (not a reply)
+        "X-Mailer": "Si-Ware Admin Helpdesk Portal",
+        "X-Originating-IP": "[127.0.0.1]",
+        // Prevent automatic conversation grouping
+        "Precedence": "bulk",
+        "List-ID": `announcements-${uniqueTimestamp}@si-ware.com`,
       },
       attachments: [
         ...(logoBuffer ? [{
