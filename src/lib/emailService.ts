@@ -466,16 +466,14 @@ export async function sendAnnouncementEmail(params: {
           </tr>
           ${hasSignatureBlock ? `
           <tr>
-            <td style="padding:36px 40px;border-top:1px solid #e5e7eb;">
+            <td style="padding:32px 40px;border-top:2px solid #3b82f6;">
               <table cellpadding="0" cellspacing="0" width="100%" style="margin:0;">
                 <tr>
-                  <td style="vertical-align:top;padding-right:20px;width:72px;">
-                    ${params.signatureLogo ? `<img src="cid:signature-logo" alt="Signature logo" style="width:72px;height:72px;display:block;border-radius:6px;object-fit:contain;border:1px solid #e5e7eb;" />` : `<div style="width:72px;height:72px;border-radius:6px;background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);color:#ffffff;font-size:28px;font-weight:700;text-align:center;line-height:72px;flex-shrink:0;box-shadow:0 2px 8px rgba(59,130,246,0.15);">A</div>`}
-                  </td>
-                  <td style="vertical-align:middle;padding:0;">
-                    <p style="margin:0;color:#111827;font-size:16px;font-weight:700;letter-spacing:-0.2px;">${escapeHtml(signatureName)}</p>
-                    ${signatureTitle ? `<p style="margin:4px 0 0;color:#6b7280;font-size:13px;font-weight:600;">${escapeHtml(signatureTitle)}</p>` : ""}
-                    ${signaturePhone ? `<p style="margin:3px 0 0;color:#9ca3af;font-size:13px;font-family:monospace;">${escapeHtml(signaturePhone)}</p>` : ""}
+                  <td style="vertical-align:middle;">
+                    ${params.signatureLogo ? `<img src="cid:signature-logo" alt="Company logo" style="height:48px;width:auto;display:block;margin-bottom:12px;object-fit:contain;" />` : ""}
+                    <p style="margin:0;color:#1f2937;font-size:14px;font-weight:700;letter-spacing:0.3px;text-transform:uppercase;">${escapeHtml(signatureName)}</p>
+                    ${signatureTitle ? `<p style="margin:6px 0 0;color:#4b5563;font-size:12px;font-weight:500;letter-spacing:0.2px;">${escapeHtml(signatureTitle)}</p>` : ""}
+                    ${signaturePhone ? `<p style="margin:8px 0 0;color:#6b7280;font-size:12px;letter-spacing:0.1px;font-weight:500;">${escapeHtml(signaturePhone)}</p>` : ""}
                   </td>
                 </tr>
               </table>
