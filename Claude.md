@@ -1267,6 +1267,22 @@ All announcements now include:
   - [x] Marks template with `lastScheduledSentAt` to prevent duplicate sends
   - [x] Supports one-time, weekly (on day), and monthly (on date) frequencies
   - [x] Graceful error handling with console logging
+  - [x] **In-memory dedup**: `sentThisSession` Set tracks sent announcements per session
+  - [x] **File state check**: Verifies `store.sent` before sending to prevent re-sends on restart
+  - [x] **Store-level prevention**: `saveSentAnnouncement()` checks before adding duplicates
+
+- [x] **Deduplication at 3 layers:**
+  - [x] **Scheduler layer** (`announcementScheduler.ts`): In-memory tracking + file state check
+  - [x] **Feed layer** (`/api/announcements/feed`): Deduplicates by ID before returning to client
+  - [x] **Store layer** (`announcementStore.ts`): `saveSentAnnouncement()` prevents store duplicates
+
+- [x] **Notification Cleanup:**
+  - [x] `deduplicateAnnouncementNotifications(userId)` in notificationStore
+  - [x] Removes old duplicate notification entries, keeps latest only
+  - [x] Returns count of removed duplicates
+  - [x] "Clean X duplicates" button on Notifications page (shows if duplicates detected)
+  - [x] One-click cleanup with success confirmation
+  - [x] Real-time duplicate count detection
 
 - [x] **Server Integration:**
   - [x] Auto-starts on boot via `instrumentation.ts` (Node.js runtime only)
