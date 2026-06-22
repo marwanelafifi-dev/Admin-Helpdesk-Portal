@@ -501,3 +501,51 @@ export function createNewRequestNotifications(params: {
     }).catch(() => {})
   })
 }
+
+function deleteNotification(notificationId: string) {
+  const notifications = readAllNotificationsRaw()
+  const filtered = notifications.filter((n) => n.id !== notificationId)
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered))
+  const channel = getBroadcastChannel()
+  if (channel) channel.postMessage({ type: "notifications_updated" })
+  subscribers.forEach((cb) => cb(filtered))
+}
+
+/**
+ * Remove duplicate announcement notifications.
+ * Useful after scheduler sent duplicate announcements.
+ * Keeps the most recent notification for each announcement ID.
+ */
+export function deduplicateAnnouncementNotifications(userId: string) {
+  const notifications = getNotificationsForUser(userId)
+  const seenAnnouncements = new Set<string>()
+  const toRemove = new Set<string>()
+
+  // Iterate reverse chronologically (most recent first)
+  for (let i = notifications.length - 1; i >= 0; i--) {
+    const n = notifications[i]
+    if (!n.requestId) continue
+
+    // Check if it's an announcement notification
+    const isAnnouncement = n.id.startsWith("announcement-") && n.requestId
+
+    if (isAnnouncement) {
+      if (seenAnnouncements.has(n.requestId)) {
+        // Duplicate found, mark for removal
+        toRemove.add(n.id)
+      } else {
+        // First occurrence, keep it
+        seenAnnouncements.add(n.requestId)
+      }
+    }
+  }
+
+  // Remove duplicates
+  if (toRemove.size > 0) {
+    for (const id of toRemove) {
+      deleteNotification(id)
+    }
+  }
+
+  return toRemove.size
+}

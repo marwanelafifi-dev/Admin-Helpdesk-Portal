@@ -1,14 +1,14 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Bell, Settings, CheckCheck, Trash2, ExternalLink } from "lucide-react"
+import { Bell, Settings, CheckCheck, Trash2, ExternalLink, Zap } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useNotifications } from "@/hooks/useNotifications"
-import { markNotificationAsRead, markAllNotificationsAsRead, type StoredNotification } from "@/lib/notificationStore"
+import { markNotificationAsRead, markAllNotificationsAsRead, deduplicateAnnouncementNotifications, type StoredNotification } from "@/lib/notificationStore"
 
 const TYPE_COLORS: Record<string, string> = {
   status:           "bg-amber-100 text-amber-700",
@@ -32,6 +32,7 @@ export default function NotificationsPage() {
   const router = useRouter()
   const { notifications } = useNotifications(userId)
   const [filter, setFilter] = useState<"all" | "unread">("all")
+  const [cleanupStatus, setCleanupStatus] = useState<{ removed: number } | null>(null)
 
   const filtered = useMemo(() =>
     filter === "unread"
@@ -41,6 +42,17 @@ export default function NotificationsPage() {
   )
 
   const unreadCount = notifications.filter((n) => !n.read).length
+  const announcementDuplicates = useMemo(() => {
+    const seenIds = new Set<string>()
+    let duplicateCount = 0
+    for (const n of notifications) {
+      if (n.id.startsWith("announcement-") && n.requestId) {
+        if (seenIds.has(n.requestId)) duplicateCount++
+        else seenIds.add(n.requestId)
+      }
+    }
+    return duplicateCount
+  }, [notifications])
 
   function handleClick(n: StoredNotification) {
     markNotificationAsRead(n.id)
@@ -49,6 +61,14 @@ export default function NotificationsPage() {
 
   function handleMarkAll() {
     if (userId) markAllNotificationsAsRead(userId)
+  }
+
+  function handleCleanupDuplicates() {
+    if (userId) {
+      const removed = deduplicateAnnouncementNotifications(userId)
+      setCleanupStatus({ removed })
+      setTimeout(() => setCleanupStatus(null), 3000)
+    }
   }
 
   return (
@@ -62,6 +82,22 @@ export default function NotificationsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {announcementDuplicates > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCleanupDuplicates}
+              className="gap-2 text-sm text-amber-600 border-amber-200 hover:bg-amber-50"
+            >
+              <Zap className="h-4 w-4" />
+              Clean {announcementDuplicates} duplicate{announcementDuplicates !== 1 ? "s" : ""}
+            </Button>
+          )}
+          {cleanupStatus && (
+            <span className="text-xs text-emerald-600 font-medium">
+              ✓ Removed {cleanupStatus.removed} duplicate{cleanupStatus.removed !== 1 ? "s" : ""}
+            </span>
+          )}
           {unreadCount > 0 && (
             <Button variant="outline" size="sm" onClick={handleMarkAll} className="gap-2 text-sm">
               <CheckCheck className="h-4 w-4" />
