@@ -2,6 +2,7 @@ import nodemailer from "nodemailer"
 import fs from "fs"
 import path from "path"
 import { readEmailConfig } from "./emailConfig"
+import { DEFAULT_ANNOUNCEMENT_SIGNATURE } from "./announcementStore"
 
 function getLogoBuffer(): Buffer | null {
   try {
@@ -26,7 +27,7 @@ function getLogoBuffer(): Buffer | null {
  * sends through them, throttled by `rateLimit`. The transporter is rebuilt
  * only when the saved config changes.
  */
-let cachedTransporter: ReturnType<typeof nodemailer.createTransport> | null = null
+let cachedTransporter: any = null
 let cachedTransporterKey: string | null = null
 
 function configKey(saved: ReturnType<typeof readEmailConfig>) {
@@ -65,7 +66,7 @@ function createTransporter() {
     cachedTransporter = null
   }
 
-  let transporter: ReturnType<typeof nodemailer.createTransport>
+  let transporter: any
   if (saved?.method && saved?.values) {
     const v = saved.values
     if (saved.method === "gmail_app_password") {
@@ -406,6 +407,167 @@ export async function sendRequestUpdateEmail(params: {
       }],
     } : {}),
   })
+}
+
+export async function sendAnnouncementEmail(params: {
+  to: string[]
+  cc?: string[]
+  subject: string
+  body: string
+  signature?: string
+  signatureLogo?: string
+  senderName?: string
+  attachments?: Array<{
+    filename: string
+    content: Buffer
+    contentType?: string
+  }>
+}) {
+  const recipients = Array.from(new Set(params.to.filter(Boolean)))
+  if (recipients.length === 0) return
+
+  const transporter = createTransporter()
+  const logoBuffer = getLogoBuffer()
+  const bodyHtml = params.body
+    .split(/\r?\n/)
+    .map((line) => line.trim()
+      ? `<p style="margin:0 0 14px;color:#1f2937;font-size:15px;line-height:1.7;">${escapeHtml(line)}</p>`
+      : `<div style="height:10px;"></div>`)
+    .join("")
+  const signatureLines = (params.signature?.trim() || DEFAULT_ANNOUNCEMENT_SIGNATURE).split(/\r?\n/)
+  const signatureName = signatureLines[0]?.trim() || ""
+  const signatureTitle = signatureLines[1]?.trim() || ""
+  const signaturePhone = signatureLines[2]?.trim() || ""
+  const hasSignatureBlock = Boolean(params.signatureLogo || signatureName || signatureTitle || signaturePhone)
+  const disclaimerLines = hasSignatureBlock ? signatureLines.slice(3) : signatureLines
+  const disclaimer = disclaimerLines.filter((line) => line.trim()).join(" ")
+
+  const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+</head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,'Segoe UI','Helvetica Neue',Arial,sans-serif;color:#1f2937;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;box-shadow:0 4px 12px rgba(0,0,0,0.1);border-radius:8px;overflow:hidden;border:1px solid #e5e7eb;">
+          <tr>
+            <td style="background:linear-gradient(135deg,#1a2332 0%,#0f1622 100%);padding:48px 40px;text-align:center;">
+              ${logoBuffer ? `<img src="cid:siware-logo" alt="Si-Ware Systems" style="height:60px;width:auto;display:block;margin:0 auto 20px;" />` : `<div style="margin:0 auto 20px;text-align:center;"><h2 style="margin:0;color:#ffffff;font-size:14px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">SI-WARE SYSTEMS</h2></div>`}
+              <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:700;line-height:1.35;word-break:break-word;max-width:520px;margin-left:auto;margin-right:auto;letter-spacing:-0.5px;">${escapeHtml(params.subject)}</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:40px 40px;color:#374151;font-size:15px;line-height:1.7;">
+              ${bodyHtml}
+            </td>
+          </tr>
+          ${hasSignatureBlock ? `
+          <tr>
+            <td style="padding:32px 40px;border-top:none;">
+              <table cellpadding="0" cellspacing="0" width="100%" style="margin:0;">
+                <tr>
+                  <td style="vertical-align:top;padding-right:16px;width:auto;">
+                    ${params.signatureLogo ? `<img src="cid:signature-logo" alt="Company logo" style="height:48px;width:auto;display:block;object-fit:contain;" />` : ""}
+                  </td>
+                  <td style="vertical-align:middle;text-align:left;">
+                    <p style="margin:0;color:#1f2937;font-size:14px;font-weight:700;letter-spacing:0.3px;text-transform:uppercase;">${escapeHtml(signatureName)}</p>
+                    ${signatureTitle ? `<p style="margin:6px 0 0;color:#4b5563;font-size:12px;font-weight:500;letter-spacing:0.2px;">${escapeHtml(signatureTitle)}</p>` : ""}
+                    ${signaturePhone ? `<p style="margin:8px 0 0;color:#6b7280;font-size:12px;letter-spacing:0.1px;font-weight:500;">${escapeHtml(signaturePhone)}</p>` : ""}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          ` : ""}
+          <tr>
+            <td style="padding:24px 40px;background:#f9fafb;border-top:1px solid #e5e7eb;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin:0;">
+                <tr>
+                  <td style="padding:8px 0;">
+                    <p style="margin:0;color:#6b7280;font-size:11px;line-height:1.65;border-left:3px solid #1e5ba8;padding-left:12px;padding-right:0;">
+                      ${escapeHtml(disclaimer || "This message and any attachments are confidential and may be privileged or otherwise protected from disclosure. If you are not the intended recipient, please telephone or mail the sender and delete this message and any attachment from your system.")}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;margin-top:24px;">
+          <tr>
+            <td style="text-align:center;padding:0 20px;">
+              <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.6;">© 2026 Si-Ware Systems. All rights reserved. | This is an automated notification from the Admin Helpdesk Portal.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+
+  const signatureLogoAttachment = params.signatureLogo && params.signatureLogo.startsWith("data:")
+    ? (() => {
+        const match = params.signatureLogo!.match(/^data:([^;,]+)?(?:;base64)?,(.+)$/)
+        if (!match || !match[2]) return null
+        return {
+          filename: "signature-logo.png",
+          content: Buffer.from(match[2], "base64"),
+          cid: "signature-logo",
+          contentType: match[1] || "image/png",
+        }
+      })()
+    : null
+
+  // Send individual emails to each recipient to create separate threads
+  // instead of grouping all recipients in one "To:" line
+  // Use unique Message-ID and break threading headers to prevent Gmail from grouping
+  // Add delay between sends to avoid Gmail SMTP throttling (421 errors)
+  for (let i = 0; i < recipients.length; i++) {
+    const recipient = recipients[i]
+    const uniqueMessageId = `<announcement-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}@si-ware.com>`
+    const uniqueTimestamp = `${Date.now()}-${i}`
+
+    // Add 500ms delay between each email to respect Gmail rate limits
+    if (i > 0) {
+      await new Promise(resolve => setTimeout(resolve, 500))
+    }
+
+    await sendMailWithRetry(transporter, {
+      from: resolveFromAddress("Si-Ware Admin Helpdesk"),
+      to: recipient,
+      cc: params.cc?.filter(Boolean),
+      subject: params.subject,
+      html,
+      messageId: uniqueMessageId,
+      headers: {
+        "X-Priority": "3",
+        "X-MSMail-Priority": "Normal",
+        // Prevent Gmail from threading these emails together
+        "References": uniqueMessageId,
+        "In-Reply-To": uniqueMessageId,
+        // Custom header to mark as bulk/announcement (not a reply)
+        "X-Mailer": "Si-Ware Admin Helpdesk Portal",
+        "X-Originating-IP": "[127.0.0.1]",
+        // Prevent automatic conversation grouping
+        "Precedence": "bulk",
+        "List-ID": `announcements-${uniqueTimestamp}@si-ware.com`,
+      },
+      attachments: [
+        ...(logoBuffer ? [{
+          filename: "siware-logo.png",
+          content: logoBuffer,
+          cid: "siware-logo",
+          contentType: "image/png",
+        }] : []),
+        ...(signatureLogoAttachment ? [signatureLogoAttachment] : []),
+        ...(params.attachments ?? []),
+      ],
+    })
+  }
 }
 
 function resolveTemplateVars(template: string, vars: Record<string, string>): string {
