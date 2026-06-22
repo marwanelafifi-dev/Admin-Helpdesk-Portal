@@ -84,6 +84,12 @@ export const STORE_REGISTRY: StoreDefinition[] = [
     description: "Read/unread comment tracking per user",
     icon: MessageSquare, color: "text-slate-600", bg: "bg-slate-50", border: "border-slate-200",
   },
+  {
+    key: "arp_announcements_read",
+    label: "Announcements Read Status",
+    description: "Per-user announcement read/unread tracking",
+    icon: Bell, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200",
+  },
 
   // ── Configuration / lookups ────────────────────────────────────────────────
   {
