@@ -66,6 +66,9 @@ type Tab = "sent" | "drafts" | "templates"
 const EGYPT_TEAM_EMAIL = "eg.team@si-ware.com"
 const DEFAULT_SIGNATURE =
   "Administration Team\n+20222684704\n\nThis message and any attachments are confidential and may be privileged or otherwise protected from disclosure. If you are not the intended recipient, please telephone or mail the sender and delete this message and any attachment from your system."
+
+const DEFAULT_SIGNATURE_LOGO = `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTQ4IiBoZWlnaHQ9IjE0OCIgdmlld0JveD0iMCAwIDE0OCAxNDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxjaXJjbGUgY3g9Ijc0IiBjeT0iNzQiIHI9Ijc0IiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMzAgNTBIMTAwQzEwMy4zMTQgNTAgMTA2IDUyLjY4NiAxMDYgNTZWNjZDMTA2IDY5LjMxNCAxMDMuMzE0IDcyIDEwMCA3Mkg2MEM1Ni42ODYgNzIgNTQgNjkuMzE0IDU0IDY2VjY4QzU0IDc0LjYyNzUgNDkuNjI3NSA4MCA0MyA4MEgzMEM5LjMxNCg4MCAwIDcxLjMxNCAwIDYwVjU2QzAgNTIuNjg2IDIuNjg2IDUwIDYgNTBIMzBaIiBmaWxsPSIjNTQyRDkwIi8+CjxwYXRoIGQ9Ik0zMCA4MkgxMDBDMTAzLjMxNCA4MiAxMDYgODQuNjg2IDEwNiA4OFY5OEMxMDYgMTAxLjMxNCAxMDMuMzE0IDEwNCAxMDAgMTA0SDYwQzU2LjY4NiAxMDQgNTQgMTAxLjMxNCA1NCA5OFYxMDFDNTQgMTA3LjYyNzUgNDkuNjI3NSAxMTIgNDMgMTEySDAzMEM5LjMxNCAxMTIgMCAxMDMuMzE0IDAgOTJWODhDMCg4NC42ODYgMi42ODYgODIgNiA4MkgzMFoiIGZpbGw9IiMwNDU5QjgiLz4KPGR5c3RlbSBkPSJNNTIgNTBDNTIgNDUuNTgyNiA0OC40MTc0IDQyIDQ0IDQyQzM5LjcwNDQgNDIgMzcuODI3NiA0My4zOTQ1IDM3IDE1LjI3NDJDMzYuMTczNyA0Mi42MDU0IDM0LjI5NTYgNDIgMzIgNDJDMjcuNTgyNiA0MiAyNCAzNy41ODI2IDI0IDMzQzI0IDI4LjQxNzQgMjcuNDEzNyAyNCAzMiAyNEM0MS4zNjU1IDI0IDQ4IDI1LjE3NjEgNDggMzJDNDggNDEuNjE3NCA0OS41ODI2IDQ2IDU0IDQ2QzU0IDUwLjQxNzQgNTAuNDE3NCA1NCA0NiA1NEMzNy41MzM4IDU0IDMwIDUyLjYxNzQgMzAgNDZDMzAgNDEuNTgyNiAyNi41ODI2IDM4IDIyIDM4QzE3LjQxNzQgMzggMTQgNDEuNDEzNyAxNCA0NkMxNCA1MC41ODI2IDE3LjU4MjYgNTQgMjIgNTRDMzAuNDEzNyA1NCAzNiA1OC44MjM5IDM2IDY0QzM2IDY5LjQxNzcgMzIgNzMuNDEzNyAyOCA3NEMyMyA3NC41NDc1IDIwIDcwLjU0NzcgMjAgNjZDMjAgNjAuNDc3MiAxNi40NzcyIDU2IDExIDU2QzUuNDc3MiA1NiAwIDYwLjQ3NzIgMCA2NkMwIDczLjczMiA0IDgwLjI2NzMgMTAgODJDMTUuNTIyOCA4My4yMDkzIDIwIDc5LjUyMjggMjAgNzRDMjAgODMuOTQyMyAyNSA5MiAzNiA5MkMzOC4yOTU2IDkyIDQwLjE3MzcgOTAuNjA1NSA0MSA5MC4yNzI4QzQxLjgyNjMgOTAuNjA1NSA0My43MDQ0IDkyIDQ2IDkyQzUwLjQxNzQgOTIgNTQgODguNDE3NCA1NCA4NEM1NCA3Ny4zNzI1IDU4LjM3MjUgNzIgNjUgNzJDNzcuNzI1IDcyIDg0IDYyLjgyMTMgODQgNDZDODQgNDEuNDEzNyA4MC41ODI2IDM4IDc2IDM4Qzcx0SFDQ0MCo5NC41NDc1IDczIDk4QzY4IDk5IDY0IDk0LjQxNzcgNjQgOTBDNjQgODMuNDI3NSA2OS40Mjc1IDc4IDc2IDc4Qzg3Ljc4NzcgNzggOTYgODcuNDk4IDk2IDk2Qzk2IDEwMS42MTggOTIuMzc1IDEwNi4yODEgODcgMTA2Ljk0NVYxMDZDOTEuNjI1IDEwNS4yOCA5NTEwMC4xNDMgOTkgOTZDOTYgODcuNDk4IDg3Ljc4NzcgNzggNzYgNzhDNjkuNDI3NSA3OCA2NCA4My40Mjc1IDY0IDkwQzY0IDk0LjQxNzcgNjggOTkgNzMgOTZDNzUgOTkuNDk1IDc3IDEwMy4yMDYgNzcgMTA3QzEwMDAxIDAiIGZpbGw9IiMwNDU5QjgiLz4KPC9zdmc+`
+
 const WEEKDAY_OPTIONS = [
   { value: 0, label: "Sunday" },
   { value: 1, label: "Monday" },
@@ -121,7 +124,7 @@ export default function AnnouncementsPage() {
   const [subject, setSubject] = useState("")
   const [body, setBody] = useState("")
   const [signature, setSignature] = useState(DEFAULT_SIGNATURE)
-  const [signatureLogo, setSignatureLogo] = useState("")
+  const [signatureLogo, setSignatureLogo] = useState(DEFAULT_SIGNATURE_LOGO)
   const [templateName, setTemplateName] = useState("")
   const [autoSendEnabled, setAutoSendEnabled] = useState(false)
   const [scheduleFrequency, setScheduleFrequency] = useState<"once" | "weekly" | "monthly">("once")
@@ -175,7 +178,7 @@ export default function AnnouncementsPage() {
     setIncludeEgyptTeam(false)
     setFiles([])
     setSignature(DEFAULT_SIGNATURE)
-    setSignatureLogo("")
+    setSignatureLogo(DEFAULT_SIGNATURE_LOGO)
     setAutoSendEnabled(false)
     setScheduleFrequency("once")
     setScheduleDayOfWeek(1)
