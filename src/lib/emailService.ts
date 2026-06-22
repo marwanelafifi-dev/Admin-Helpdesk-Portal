@@ -525,10 +525,17 @@ export async function sendAnnouncementEmail(params: {
   // Send individual emails to each recipient to create separate threads
   // instead of grouping all recipients in one "To:" line
   // Use unique Message-ID and break threading headers to prevent Gmail from grouping
+  // Add delay between sends to avoid Gmail SMTP throttling (421 errors)
   for (let i = 0; i < recipients.length; i++) {
     const recipient = recipients[i]
     const uniqueMessageId = `<announcement-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}@si-ware.com>`
     const uniqueTimestamp = `${Date.now()}-${i}`
+
+    // Add 500ms delay between each email to respect Gmail rate limits
+    if (i > 0) {
+      await new Promise(resolve => setTimeout(resolve, 500))
+    }
+
     await sendMailWithRetry(transporter, {
       from: resolveFromAddress("Si-Ware Admin Helpdesk"),
       to: recipient,
