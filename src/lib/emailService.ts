@@ -470,7 +470,7 @@ export async function sendAnnouncementEmail(params: {
               <table cellpadding="0" cellspacing="0" width="100%" style="margin:0;">
                 <tr>
                   <td style="vertical-align:top;padding-right:20px;width:72px;">
-                    ${params.signatureLogo ? `<img src="cid:signature-logo" alt="Signature logo" style="width:72px;height:72px;display:block;border-radius:6px;object-fit:contain;border:1px solid #e5e7eb;" />` : `<div style="width:72px;height:72px;border-radius:6px;background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%);color:#ffffff;font-size:28px;font-weight:700;text-align:center;line-height:72px;flex-shrink:0;box-shadow:0 2px 8px rgba(37,99,235,0.15);">A</div>`}
+                    ${params.signatureLogo ? `<img src="cid:signature-logo" alt="Signature logo" style="width:72px;height:72px;display:block;border-radius:6px;object-fit:contain;border:1px solid #e5e7eb;" />` : `<div style="width:72px;height:72px;border-radius:6px;background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);color:#ffffff;font-size:28px;font-weight:700;text-align:center;line-height:72px;flex-shrink:0;box-shadow:0 2px 8px rgba(59,130,246,0.15);">A</div>`}
                   </td>
                   <td style="vertical-align:middle;padding:0;">
                     <p style="margin:0;color:#111827;font-size:16px;font-weight:700;letter-spacing:-0.2px;">${escapeHtml(signatureName)}</p>
@@ -510,12 +510,16 @@ export async function sendAnnouncementEmail(params: {
 </html>`
 
   const signatureLogoAttachment = params.signatureLogo && params.signatureLogo.startsWith("data:")
-    ? {
-        filename: "signature-logo.png",
-        content: Buffer.from(params.signatureLogo.split(",")[1] || "", "base64"),
-        cid: "signature-logo",
-        contentType: params.signatureLogo.split(":")[1]?.split(";")[0] || "image/png",
-      }
+    ? (() => {
+        const match = params.signatureLogo!.match(/^data:([^;,]+)?(?:;base64)?,(.+)$/)
+        if (!match || !match[2]) return null
+        return {
+          filename: "signature-logo.png",
+          content: Buffer.from(match[2], "base64"),
+          cid: "signature-logo",
+          contentType: match[1] || "image/png",
+        }
+      })()
     : null
 
   // Send individual emails to each recipient to create separate threads
