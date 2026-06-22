@@ -188,7 +188,13 @@ export function saveAnnouncementTemplate(template: AnnouncementTemplate): Announ
 export function saveSentAnnouncement(sent: AnnouncementSent): AnnouncementSent {
   const data = readAnnouncementStore()
   sent = normalizeMessage(sent) as AnnouncementSent
-  data.sent.unshift(sent)
+
+  // Don't add duplicate if this announcement was already sent
+  const alreadySent = data.sent.some((s) => s.id === sent.id)
+  if (!alreadySent) {
+    data.sent.unshift(sent)
+  }
+
   data.drafts = data.drafts.filter((draft) => draft.id !== sent.id)
   writeAnnouncementStore(data)
   return sent

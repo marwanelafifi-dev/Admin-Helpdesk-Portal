@@ -10,7 +10,16 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const sent = readAnnouncementStore().sent
+  // Deduplicate by announcement ID (keep latest only)
+  const store = readAnnouncementStore()
+  const seenIds = new Set<string>()
+  const deduped = store.sent.filter((announcement) => {
+    if (seenIds.has(announcement.id)) return false
+    seenIds.add(announcement.id)
+    return true
+  })
+
+  const sent = deduped
     .slice()
     .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())
     .map((announcement) => ({

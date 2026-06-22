@@ -5,6 +5,10 @@ import { sendAnnouncementEmail } from "@/lib/emailService"
 // Check every 1 minute whether a scheduled announcement is due.
 const CHECK_INTERVAL_MS = 1 * 60 * 1000
 
+// Track which announcements have been sent this session to prevent duplicate sends
+// if file persistence has issues
+const sentThisSession = new Set<string>()
+
 let started = false
 
 export function startAnnouncementScheduler() {
@@ -26,8 +30,16 @@ export function startAnnouncementScheduler() {
 
         if (!isDue) continue
 
-        // Skip if already sent
-        if (template.lastScheduledSentAt) continue
+        // Skip if already sent (check both file state and session state)
+        if (template.lastScheduledSentAt || sentThisSession.has(template.id)) continue
+
+        // Also check if this announcement is already in sent history
+        const alreadySent = store.sent.some((s) => s.id === template.id && s.sentAt)
+        if (alreadySent) {
+          console.log(`[announcement-scheduler] Announcement ${template.name} already in sent history, skipping`)
+          sentThisSession.add(template.id)
+          continue
+        }
 
         console.log(`[announcement-scheduler] Sending scheduled announcement: ${template.name}`)
 
@@ -42,6 +54,7 @@ export function startAnnouncementScheduler() {
 
           if (recipients.length === 0) {
             console.warn(`[announcement-scheduler] No recipients for template ${template.name}`)
+            sentThisSession.add(template.id)
             continue
           }
 
@@ -57,25 +70,31 @@ export function startAnnouncementScheduler() {
             attachments: [],
           })
 
+          const sentAt = new Date().toISOString()
+
           // Update template with last sent time
           const updated = {
             ...template,
-            lastScheduledSentAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            lastScheduledSentAt: sentAt,
+            updatedAt: sentAt,
           }
           saveAnnouncementTemplate(updated)
 
           // Record in sent history
           saveSentAnnouncement({
             ...template,
-            sentAt: new Date().toISOString(),
+            sentAt,
             recipientCount: recipients.length,
           })
+
+          // Mark as sent in session to prevent re-sending if file I/O fails
+          sentThisSession.add(template.id)
 
           console.log(`[announcement-scheduler] ✓ Sent: ${template.name} to ${recipients.length} recipients`)
         } catch (err) {
           const errorMsg = err instanceof Error ? err.message : String(err)
           console.error(`[announcement-scheduler] Failed to send ${template.name}: ${errorMsg}`)
+          // Do NOT add to sentThisSession on error — allow retry next tick
         }
       }
     } catch (err) {
