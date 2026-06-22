@@ -742,7 +742,7 @@ export default function RequestDetailPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm">{fmtDate(request.createdAt)}</p>
+                    <p className="text-sm">{fmtDateTime(request.createdAt)}</p>
                   </CardContent>
                 </Card>
 

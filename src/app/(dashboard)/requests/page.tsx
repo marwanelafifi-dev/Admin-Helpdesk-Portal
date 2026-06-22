@@ -159,7 +159,7 @@ export default function RequestsPage() {
   // Request IDs (across the entire server-side feedback_responses store) that
   // already have a submitted survey — so we know which of MY completed/delivered
   // requests still need feedback. Server-side data: works across devices.
-  const [feedbackDoneIds, setFeedbackDoneIds] = useState<Set<string>>(new Set())
+  const [feedbackDoneIds, setFeedbackDoneIds] = useState<Set<string> | null>(null)
   const [reminderDismissed, setReminderDismissed] = useState(false)
   const tableRef = useRef<HTMLTableElement>(null)
 
@@ -231,6 +231,7 @@ export default function RequestsPage() {
   // User's completed/delivered requests that still don't have a submitted
   // feedback response — these drive the "Please rate" reminder banner.
   const pendingFeedback = useMemo(() => {
+    if (feedbackDoneIds === null) return [] // Don't calculate until feedback data is loaded
     const isClosed = (s: string) => s === "completed" || s === "delivered"
     return userRequests
       .filter((r) => isClosed(r.status) && !feedbackDoneIds.has(r.id))
@@ -283,8 +284,9 @@ export default function RequestsPage() {
       </div>
 
       {/* Pending Feedback Reminder — shows when the user has completed requests
-          that haven't been rated yet. Dismissible per session (refresh re-shows). */}
-      {!reminderDismissed && pendingFeedback.length > 0 && (
+          that haven't been rated yet. Dismissible per session (refresh re-shows).
+          Only shows after feedback data has been loaded (feedbackDoneIds !== null). */}
+      {!reminderDismissed && feedbackDoneIds !== null && pendingFeedback.length > 0 && (
         <div className="rounded-xl border-2 border-amber-200 bg-amber-50 px-4 py-3">
           <div className="flex items-start gap-3">
             <div className="h-9 w-9 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
@@ -486,7 +488,7 @@ export default function RequestsPage() {
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.title}</span>
                   </td>
                   <td className="py-3 px-3">
-                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{fmtDate(req.createdAt)}</span>
+                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">{fmtDateTime(req.createdAt)}</span>
                   </td>
                   <td className="py-3 px-3">
                     <div className="flex items-center gap-2">

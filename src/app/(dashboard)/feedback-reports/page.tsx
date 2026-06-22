@@ -1,14 +1,14 @@
 "use client"
 
 import React, { useState, useMemo, useEffect } from "react"
-import { Search, Star, BarChart3, TrendingUp, MessageSquare, ArrowUp, ArrowDown } from "lucide-react"
+import { Search, Star, BarChart3, TrendingUp, MessageSquare, ArrowUp, ArrowDown, CheckCircle2, Clock, AlertCircle, Percent } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { getRequests, initializeMockData } from "@/services/engineService"
 import type { FeedbackSurvey } from "@/services/feedbackService"
-import { cn, fmtDate } from "@/lib/utils"
+import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 
@@ -99,10 +99,12 @@ export default function FeedbackReportsPage() {
   const [filterRating, setFilterRating] = useState<number | null>(null)
   const [dateRange, setDateRange] = useState<"7d" | "30d" | "90d" | "all">("all")
   const [allFeedback, setAllFeedback] = useState<Feedback[]>([])
+  const [allRequests, setAllRequests] = useState<any[]>([])
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
   useEffect(() => {
     let cancelled = false
+    // Load feedback responses
     fetch("/api/feedback/responses")
       .then((res) => res.ok ? res.json() : { responses: [] })
       .then((data) => {
@@ -124,6 +126,18 @@ export default function FeedbackReportsPage() {
       .catch(() => {
         if (!cancelled) setAllFeedback([])
       })
+
+    // Load all requests for overall analytics
+    fetch("/api/requests")
+      .then((res) => res.ok ? res.json() : { data: [] })
+      .then((data) => {
+        if (cancelled) return
+        setAllRequests(data.data ?? [])
+      })
+      .catch(() => {
+        if (!cancelled) setAllRequests(getRequests())
+      })
+
     return () => { cancelled = true }
   }, [])
 
@@ -150,34 +164,75 @@ export default function FeedbackReportsPage() {
     })
   }, [allFeedback, search, filterRating, dateRange])
 
-  // Calculate statistics
+  // Calculate comprehensive statistics
   const stats = useMemo(() => {
-    const moduleStats: Record<string, { count: number; avgRating: number; totalRating: number }> = {}
+    const moduleStats: Record<string, { count: number; avgRating: number; totalRating: number; requestCount: number; feedbackRate: number; avgResolutionDays: number }> = {}
 
+    // Initialize module stats from all requests
+    const modules = new Set<string>()
+    allRequests.forEach((r) => modules.add(r.module))
+    modules.forEach((m) => {
+      moduleStats[m] = { count: 0, avgRating: 0, totalRating: 0, requestCount: 0, feedbackRate: 0, avgResolutionDays: 0 }
+    })
+
+    // Count completed/delivered requests per module
+    allRequests.forEach((r) => {
+      const isCompleted = r.status === "completed" || r.status === "delivered"
+      if (isCompleted) {
+        moduleStats[r.module].requestCount++
+        // Calculate resolution days
+        const createdDate = new Date(r.createdAt).getTime()
+        const completedDate = new Date(r.updatedAt).getTime()
+        const resolutionDays = Math.ceil((completedDate - createdDate) / (1000 * 60 * 60 * 24))
+        moduleStats[r.module].avgResolutionDays += resolutionDays
+      }
+    })
+
+    // Process feedback
     allFeedback.forEach((f) => {
       if (!moduleStats[f.module]) {
-        moduleStats[f.module] = { count: 0, avgRating: 0, totalRating: 0 }
+        moduleStats[f.module] = { count: 0, avgRating: 0, totalRating: 0, requestCount: 0, feedbackRate: 0, avgResolutionDays: 0 }
       }
       moduleStats[f.module].count++
       moduleStats[f.module].totalRating += f.rating
     })
 
+    // Calculate final stats
     Object.keys(moduleStats).forEach((module) => {
-      moduleStats[module].avgRating = Math.round((moduleStats[module].totalRating / moduleStats[module].count) * 10) / 10
+      const data = moduleStats[module]
+      data.avgRating = data.count > 0 ? Math.round((data.totalRating / data.count) * 10) / 10 : 0
+      data.feedbackRate = data.requestCount > 0 ? Math.round((data.count / data.requestCount) * 100) : 0
+      data.avgResolutionDays = data.requestCount > 0 ? Math.ceil(data.avgResolutionDays / data.requestCount) : 0
     })
 
     const totalRating = allFeedback.reduce((sum, f) => sum + f.rating, 0)
-    const avgRating = Math.round((totalRating / allFeedback.length) * 10) / 10
+    const avgRating = allFeedback.length > 0 ? Math.round((totalRating / allFeedback.length) * 10) / 10 : 0
     const satisfied = allFeedback.filter((f) => f.rating >= 4).length
-    const satisfactionRate = Math.round((satisfied / allFeedback.length) * 100)
+    const satisfactionRate = allFeedback.length > 0 ? Math.round((satisfied / allFeedback.length) * 100) : 0
+
+    // Overall metrics
+    const totalCompletedRequests = allRequests.filter((r) => r.status === "completed" || r.status === "delivered").length
+    const overallFeedbackRate = totalCompletedRequests > 0 ? Math.round((allFeedback.length / totalCompletedRequests) * 100) : 0
+    const avgCompletionDays = totalCompletedRequests > 0
+      ? Math.ceil(allRequests
+          .filter((r) => r.status === "completed" || r.status === "delivered")
+          .reduce((sum, r) => {
+            const createdDate = new Date(r.createdAt).getTime()
+            const completedDate = new Date(r.updatedAt).getTime()
+            return sum + Math.ceil((completedDate - createdDate) / (1000 * 60 * 60 * 24))
+          }, 0) / totalCompletedRequests)
+      : 0
 
     return {
       totalFeedback: allFeedback.length,
       avgRating,
       satisfactionRate,
       moduleStats,
+      overallFeedbackRate,
+      totalCompletedRequests,
+      avgCompletionDays,
     }
-  }, [allFeedback])
+  }, [allFeedback, allRequests])
 
   const renderStars = (rating: number, size: "sm" | "md" = "sm") => {
     const sizeClass = size === "md" ? "h-5 w-5" : "h-4 w-4"
@@ -214,7 +269,7 @@ export default function FeedbackReportsPage() {
       </div>
 
       {/* Summary Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         <Card className="border-0 bg-gradient-to-br from-slate-50 to-slate-100 shadow-sm">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
@@ -263,17 +318,34 @@ export default function FeedbackReportsPage() {
         <Card className="border-0 bg-gradient-to-br from-blue-50 to-blue-100 shadow-sm">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold text-gray-700">Response Coverage</CardTitle>
+              <CardTitle className="text-sm font-semibold text-gray-700">Feedback Rate</CardTitle>
               <div className="bg-white rounded-lg p-2">
-                <BarChart3 className="h-4 w-4 text-blue-600" />
+                <Percent className="h-4 w-4 text-blue-600" />
               </div>
             </div>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-blue-700">
-              {allFeedback.length > 0 ? `${Math.round((allFeedback.length / 20) * 100)}%` : "—"}
+              {stats.overallFeedbackRate || "—"}%
             </div>
-            <p className="text-xs text-gray-600 mt-2">of recent requests</p>
+            <p className="text-xs text-gray-600 mt-2">of completed requests</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 bg-gradient-to-br from-rose-50 to-rose-100 shadow-sm">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold text-gray-700">Avg Resolution</CardTitle>
+              <div className="bg-white rounded-lg p-2">
+                <Clock className="h-4 w-4 text-rose-600" />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-rose-700">
+              {stats.avgCompletionDays || "—"}
+            </div>
+            <p className="text-xs text-gray-600 mt-2">days to complete</p>
           </CardContent>
         </Card>
       </div>
@@ -301,8 +373,8 @@ export default function FeedbackReportsPage() {
                       {module.charAt(0).toUpperCase() + module.slice(1)}
                     </Badge>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">{data.count} feedback{data.count !== 1 ? 's' : ''}</p>
-                      <p className="text-xs text-gray-500">from completed requests</p>
+                      <p className="text-sm font-medium text-gray-900">{data.count} feedback{data.count !== 1 ? 's' : ''} • {data.requestCount} total</p>
+                      <p className="text-xs text-gray-500">from {data.requestCount} completed request{data.requestCount !== 1 ? 's' : ''}</p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -313,17 +385,123 @@ export default function FeedbackReportsPage() {
                     <div className="mt-1">{renderStars(Math.round(data.avgRating), "sm")}</div>
                   </div>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2.5">
-                  <div
-                    className={cn(
-                      "h-2.5 rounded-full transition-all",
-                      data.avgRating >= 4.5 ? "bg-emerald-500" : data.avgRating >= 4 ? "bg-blue-500" : data.avgRating >= 3.5 ? "bg-amber-500" : "bg-orange-500"
-                    )}
-                    style={{ width: `${(data.avgRating / 5) * 100}%` }}
-                  />
+
+                {/* Rating Progress Bar */}
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-gray-600">Satisfaction Score</span>
+                    <span className="text-xs font-bold text-gray-700">{data.feedbackRate}% rated</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div
+                      className={cn(
+                        "h-2.5 rounded-full transition-all",
+                        data.avgRating >= 4.5 ? "bg-emerald-500" : data.avgRating >= 4 ? "bg-blue-500" : data.avgRating >= 3.5 ? "bg-amber-500" : "bg-orange-500"
+                      )}
+                      style={{ width: `${(data.avgRating / 5) * 100}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Key Metrics */}
+                <div className="grid grid-cols-3 gap-3 text-xs">
+                  <div className="bg-gray-50 rounded p-2 text-center">
+                    <p className="text-gray-500 font-semibold">Feedback Rate</p>
+                    <p className="text-lg font-bold text-gray-900 mt-1">{data.feedbackRate}%</p>
+                  </div>
+                  <div className="bg-gray-50 rounded p-2 text-center">
+                    <p className="text-gray-500 font-semibold">Avg Days</p>
+                    <p className="text-lg font-bold text-gray-900 mt-1">{data.avgResolutionDays}d</p>
+                  </div>
+                  <div className="bg-gray-50 rounded p-2 text-center">
+                    <p className="text-gray-500 font-semibold">Rating Count</p>
+                    <p className="text-lg font-bold text-gray-900 mt-1">{data.count}</p>
+                  </div>
                 </div>
               </div>
             ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Request Resolution Analytics */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="border-b bg-gray-50 rounded-t-lg">
+          <div className="flex items-center gap-3">
+            <div className="bg-green-100 rounded-lg p-2">
+              <CheckCircle2 className="h-5 w-5 text-green-700" />
+            </div>
+            <div>
+              <CardTitle className="text-lg font-semibold text-gray-900">Request Resolution & Feedback Analytics</CardTitle>
+              <p className="text-xs text-gray-600 mt-1">Overall system performance metrics for completed requests</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Feedback Coverage Chart */}
+            <div className="border border-gray-200 rounded-lg p-5">
+              <h3 className="font-semibold text-gray-900 mb-4 text-sm">Feedback Response Coverage</h3>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-700">Total Completed Requests</span>
+                    <span className="text-lg font-bold text-gray-900">{stats.totalCompletedRequests}</span>
+                  </div>
+                  <div className="bg-gray-200 rounded-full h-3">
+                    <div
+                      className="bg-blue-500 h-3 rounded-full"
+                      style={{ width: "100%" }}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-700">Received Feedback</span>
+                    <span className="text-lg font-bold text-emerald-600">{stats.totalFeedback}</span>
+                  </div>
+                  <div className="bg-gray-200 rounded-full h-3">
+                    <div
+                      className="bg-emerald-500 h-3 rounded-full"
+                      style={{ width: `${stats.overallFeedbackRate}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="pt-3 border-t">
+                  <p className="text-sm text-gray-600">
+                    <span className="font-semibold text-gray-900">{stats.overallFeedbackRate}%</span> of completed requests have feedback
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Resolution Metrics */}
+            <div className="border border-gray-200 rounded-lg p-5">
+              <h3 className="font-semibold text-gray-900 mb-4 text-sm">System Performance Metrics</h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div>
+                    <p className="text-xs text-blue-600 font-semibold">Average Resolution Time</p>
+                    <p className="text-lg font-bold text-blue-900 mt-1">{stats.avgCompletionDays} days</p>
+                  </div>
+                  <Clock className="h-8 w-8 text-blue-400" />
+                </div>
+                <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg border border-amber-200">
+                  <div>
+                    <p className="text-xs text-amber-600 font-semibold">Overall Satisfaction</p>
+                    <p className="text-lg font-bold text-amber-900 mt-1">{stats.avgRating}/5.0</p>
+                  </div>
+                  <Star className="h-8 w-8 text-amber-400 fill-amber-400" />
+                </div>
+                <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+                  <div>
+                    <p className="text-xs text-emerald-600 font-semibold">Positive Reviews (4-5★)</p>
+                    <p className="text-lg font-bold text-emerald-900 mt-1">{stats.satisfactionRate}%</p>
+                  </div>
+                  <TrendingUp className="h-8 w-8 text-emerald-400" />
+                </div>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -431,7 +609,40 @@ export default function FeedbackReportsPage() {
                     </p>
                   )}
 
-                  <div className="flex items-center justify-between text-xs text-gray-500">
+                  {/* Request Evaluation Metrics */}
+                  <div className="mt-4 pt-4 border-t grid grid-cols-3 gap-2">
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500 font-semibold">User Satisfaction</p>
+                      <div className="mt-1 flex justify-center">
+                        {feedback.rating >= 4 ? (
+                          <div className="flex items-center gap-1">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                            <span className="text-xs font-bold text-emerald-600">Positive</span>
+                          </div>
+                        ) : feedback.rating >= 3 ? (
+                          <div className="flex items-center gap-1">
+                            <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
+                            <span className="text-xs font-bold text-amber-600">Neutral</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <AlertCircle className="h-3.5 w-3.5 text-red-600" />
+                            <span className="text-xs font-bold text-red-600">Negative</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500 font-semibold">Status</p>
+                      <Badge className="mt-2 bg-emerald-100 text-emerald-700 border-0">Resolved</Badge>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500 font-semibold">Rating Score</p>
+                      <p className="text-sm font-bold text-gray-900 mt-1">{feedback.rating}/5</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-gray-500 mt-4">
                     <span>Submitted by <span className="font-medium text-gray-700">{feedback.requesterName}</span></span>
                     <span>{fmtDate(feedback.submittedAt)}</span>
                   </div>

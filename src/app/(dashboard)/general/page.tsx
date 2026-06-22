@@ -332,7 +332,7 @@ export default function GeneralRequestPage() {
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.title}</span>
                   </td>
                   <td className="py-3 px-3 overflow-hidden">
-                    <span className="text-sm font-medium text-gray-700 truncate block">{fmtDate(req.createdAt)}</span>
+                    <span className="text-sm font-medium text-gray-700 truncate block">{fmtDateTime(req.createdAt)}</span>
                   </td>
                   <td className="py-3 px-3 overflow-hidden">
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.requesterName}</span>

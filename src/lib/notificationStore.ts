@@ -102,6 +102,7 @@ export function markAllNotificationsAsRead(userId: string) {
 }
 
 export function addNotification(params: {
+  id?: string
   userId: string
   type: string
   title: string
@@ -109,8 +110,13 @@ export function addNotification(params: {
   requestId?: string
   actionUrl?: string
 }) {
+  const existing = readAllNotifications().find((item) =>
+    params.id ? item.id === params.id : false
+  )
+  if (existing) return existing
+
   const notification: StoredNotification = {
-    id: `NTF-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    id: params.id ?? `NTF-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     userId: params.userId,
     type: params.type,
     title: params.title,
@@ -124,6 +130,10 @@ export function addNotification(params: {
   const notifications = [notification, ...readAllNotifications()]
   writeAllNotifications(notifications)
   return notification
+}
+
+export function hasNotification(notificationId: string) {
+  return readAllNotifications().some((item) => item.id === notificationId)
 }
 
 // Cache of real admin users fetched from /api/users/admin-team

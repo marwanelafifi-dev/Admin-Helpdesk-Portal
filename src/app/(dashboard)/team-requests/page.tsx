@@ -480,7 +480,7 @@ export default function TeamRequestsPage() {
 
                         {/* Submitted */}
                         <td className="px-4 py-3 text-sm font-medium text-gray-700 whitespace-nowrap">
-                          {fmtDate(request.createdAt)}
+                          {fmtDateTime(request.createdAt)}
                         </td>
 
                         {/* Requester */}

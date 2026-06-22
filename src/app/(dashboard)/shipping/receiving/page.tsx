@@ -118,7 +118,7 @@ export default function ReceivingPage() {
         status: req.status || "new",
         expectedDelivery: fmtDate(req.updatedAt),
         requester: req.requesterName || req.requesterId || "Unknown",
-        pickupDate: fmtDate(req.createdAt),
+        pickupDate: fmtDateTime(req.createdAt),
         poNumber: req.payload?.poNumber || "",
         costCenter: req.payload?.costCenter || "",
         lastUpdate: fmtDateTime(req.updatedAt),
