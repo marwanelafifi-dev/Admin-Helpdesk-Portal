@@ -1238,6 +1238,50 @@ All announcements now include:
 - Background scheduler for auto-sends
 - Separate email threads per recipient (no Gmail grouping)
 
+## Phase 6h-Database: Announcements (Completed — 22 Jun 2026)
+- [x] **Database page integration:**
+  - [x] Server Announcements listed in backup checklist: `data/announcements.json` (sent history, drafts, templates, scheduled content)
+  - [x] "Clear by Data Type" section includes clearable "Server Announcements" card with Mail icon (indigo color)
+  - [x] Clear All Data removes announcements from both browser and server
+  - [x] Backup/Restore automatically captures announcements in the JSON manifest
+
+- [x] **Notification system integration:**
+  - [x] Announcements read/unread tracked in `arp_announcements_read` localStorage key (per-user)
+  - [x] `markNotificationAsRead()` format: `announcement-{userId}-{announcementId}`
+  - [x] Unread announcement count displayed in bell icon notifications
+  - [x] All/Individual announcements marked as read with update handler
+  - [x] Notifications persist across sessions
+
+- [x] **Data Store Registry:**
+  - [x] `arp_announcements_read` registered with Bell icon (blue color)
+  - [x] Appears in Database backup checklist automatically
+  - [x] Included in backup/restore/clear operations
+  - [x] Backed up when admin clicks "Download Backup" or "Run Backup Now"
+
+## Phase 6h-Scheduler: Background Scheduled Announcements (Completed — 22 Jun 2026)
+- [x] **Created `src/lib/announcementScheduler.ts`:**
+  - [x] Background cron job checks every 1 minute for due scheduled announcements
+  - [x] Compares `template.scheduledAt` against current time
+  - [x] Sends emails to configured recipients when scheduled time <= now
+  - [x] Records sent announcement in history with timestamp
+  - [x] Marks template with `lastScheduledSentAt` to prevent duplicate sends
+  - [x] Supports one-time, weekly (on day), and monthly (on date) frequencies
+  - [x] Graceful error handling with console logging
+
+- [x] **Server Integration:**
+  - [x] Auto-starts on boot via `instrumentation.ts` (Node.js runtime only)
+  - [x] Runs independently of user actions or browser activity
+  - [x] Handles missing data and edge cases without crashes
+  - [x] Logs to console for visibility in server output
+
+- [x] **UI Enhancements:**
+  - [x] Scheduled tab shows green pulsing dot for upcoming announcements
+  - [x] Displays "Was scheduled for" when past due (never sent)
+  - [x] Shows "Last sent:" timestamp in emerald color when already sent
+  - [x] Creator name + creation date visible for audit trail
+  - [x] Next scheduled send time clearly labeled
+  - [x] Full creator name visible (not abbreviated)
+
 ---
 ### Development Loop (Repeat for each module)
 1. **Sync Plan:** Update this `CLAUDE.md`.
