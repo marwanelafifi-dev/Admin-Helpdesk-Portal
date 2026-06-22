@@ -355,11 +355,11 @@ export default function AnnouncementsPage() {
           <p className="text-sm text-gray-500 mt-1">Compose and send formal company announcements from the Admin Portal.</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => setShowPreview(true)} disabled={!subject.trim() || !body.trim()} variant="outline" className="border-blue-200 text-blue-600 hover:bg-blue-50">
+          <Button onClick={() => setShowPreview(true)} disabled={!subject.trim() || !body.trim() || (toEmails.length === 0 && !includeAllCompany && !includeEgyptTeam)} variant="outline" className="border-blue-200 text-blue-600 hover:bg-blue-50" title={toEmails.length === 0 && !includeAllCompany && !includeEgyptTeam ? "Add at least one recipient to preview" : ""}>
             <Eye className="h-4 w-4" />
             Preview Email
           </Button>
-          <Button onClick={sendAnnouncement} disabled={sending || !subject.trim() || !body.trim()} className="bg-blue-600 hover:bg-blue-700 text-white">
+          <Button onClick={sendAnnouncement} disabled={sending || !subject.trim() || !body.trim() || (toEmails.length === 0 && !includeAllCompany && !includeEgyptTeam)} className="bg-blue-600 hover:bg-blue-700 text-white" title={toEmails.length === 0 && !includeAllCompany && !includeEgyptTeam ? "Add at least one recipient to send" : ""}>
             <Send className="h-4 w-4" />
             {sending ? "Sending..." : "Send Announcement"}
           </Button>
