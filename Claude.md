@@ -1106,6 +1106,82 @@ Status column preserves color styling with dot indicators; other columns use neu
   - [x] Banner render check added: `feedbackDoneIds !== null && pendingFeedback.length > 0`
   - [x] No more jumping/disappearing animations — smooth load after data arrives
 
+## Phase 6h: Professional Announcements Email System (Completed — 22 Jun 2026)
+- [x] **Email Template Enhancements:**
+  - [x] Dark mode header gradient (#1a2332 → #0f1622) for professional appearance
+  - [x] Si-Ware logo at top of email with proper sizing
+  - [x] Dark-themed subject line and body typography
+  - [x] Signature section with logo positioned on left side
+  - [x] "ADMINISTRATION TEAM" + "+20222684704" contact info
+  - [x] Footer disclaimer with blue left border accent
+  - [x] Copyright notice at bottom
+  - [x] Responsive HTML email design compatible with all email clients
+
+- [x] **Gmail Threading Prevention:**
+  - [x] Unique Message-ID generated per recipient with timestamp and random suffix
+  - [x] References and In-Reply-To headers set to self (prevents reply detection)
+  - [x] Precedence: bulk header (marks as bulk mail, not conversational)
+  - [x] List-ID header with unique timestamp per email (tells clients these are from mailing list)
+  - [x] X-Priority and X-MSMail-Priority headers for email client compatibility
+  - [x] Each recipient receives completely separate email thread (no grouping)
+
+- [x] **Signature Logo Support:**
+  - [x] Improved base64 data URL extraction with robust regex matching
+  - [x] Logo displays inline with signature text (left column layout)
+  - [x] Default Si-Ware logo (SVG) appears by default on all announcements
+  - [x] Users can upload custom logo to override default
+  - [x] Logo persists across form resets (intentional for branding)
+  - [x] Fallback gradient color matches header theme
+
+- [x] **Email Preview Enhancement:**
+  - [x] Preview modal now renders exact same HTML as actual sent emails
+  - [x] Dark mode header matches production emails
+  - [x] Logo, signature, disclaimer all displayed identically
+  - [x] Users see 100% accurate representation before sending
+  - [x] No surprises or formatting discrepancies
+
+- [x] **Default Signature:**
+  - [x] Professional signature: "Administration Team" + "+20222684704"
+  - [x] Legal disclaimer included: confidentiality and intellectual property notice
+  - [x] Consistent across all announcements and templates
+  - [x] Updated across both form and store defaults
+
+- [x] **Form Defaults & Reset:**
+  - [x] Form starts completely empty (no pre-selected recipients)
+  - [x] includeAllCompany and includeEgyptTeam default to false
+  - [x] Clear button resets all fields to empty state
+  - [x] Signature logo resets to default Si-Ware logo
+  - [x] Better UX - no accidental sends to pre-selected recipients
+
+- [x] **Error Handling Improvements:**
+  - [x] Try-catch around sendAnnouncementEmail in API route
+  - [x] Meaningful error messages returned to client
+  - [x] Client-side JSON parsing with fallback to text response
+  - [x] Better error reporting for SMTP configuration issues
+  - [x] Console logging for debugging email send failures
+
+- [x] **Dedicated Scheduled Tab:**
+  - [x] New "Scheduled" tab separates auto-send announcements from regular templates
+  - [x] Shows count badge with blue highlight for upcoming items
+  - [x] Live status indicators: green pulsing dot = upcoming, gray = past
+  - [x] "Upcoming" badge for announcements scheduled in the future
+  - [x] Detailed scheduling info: send date/time, frequency, creation date
+  - [x] Frequency labels: One-time, Weekly (with day), Monthly
+  - [x] Edit and Delete buttons for management
+  - [x] Templates tab now shows only non-scheduled templates
+  - [x] Accurate count of regular vs scheduled templates
+
+## Email Feature Summary
+All announcements now include:
+- Professional dark-themed email design
+- Si-Ware branding with logo and signature
+- Proper Gmail thread handling (separate emails per recipient)
+- Accurate WYSIWYG preview before sending
+- Scheduled delivery with multiple frequency options (once, weekly, monthly)
+- Error handling and user feedback
+- Form validation and sensible defaults
+- Full management interface with dedicated scheduled tab
+
 ---
 ### Development Loop (Repeat for each module)
 1. **Sync Plan:** Update this `CLAUDE.md`.
