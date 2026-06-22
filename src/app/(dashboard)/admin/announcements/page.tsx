@@ -779,7 +779,7 @@ export default function AnnouncementsPage() {
                               : ""}
                           </p>
                           <p className="text-xs text-gray-600">
-                            <span className="font-medium">Created:</span> {formatDate(template.createdAt)}
+                            <span className="font-medium">Created by:</span> {template.createdBy} • {formatDate(template.createdAt)}
                           </p>
                         </div>
                       </div>
