@@ -92,6 +92,7 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
   const [managers, setManagers] = useState<string[]>([])
   const [costCenters, setCostCenters] = useState<string[]>([])
   const [travelType, setTravelType] = useState<"visa_application" | "hotel_flight_reservation">("visa_application")
+  const [attachmentError, setAttachmentError] = useState<string>("")
 
   // File states for Visa Application
   const [visaDocFile, setVisaDocFile] = useState<File | null>(null)
@@ -132,6 +133,9 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
   const handleCancel = onCancel ?? (() => router.push("/travel"))
 
   const onSubmit = async (data: FormData) => {
+    // Clear previous errors
+    setAttachmentError("")
+
     // Add automatic CC for Travel module: Ap@si-ware.com
     const finalCcEmails = addAutoCcForTravel(data.ccEmails || [])
 
@@ -143,9 +147,9 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
       }
 
       if (data.travelType === "visa_application") {
-        // Convert visa application files to attachments
+        // Validate visa application files
         if (!amanStickerFile || !passportFile) {
-          console.error("Missing required visa attachments")
+          setAttachmentError("Aman Sticker and Passport are required for Visa Application")
           return
         }
         const visaAttachments = await filesToAttachments([amanStickerFile, passportFile], "travel")
@@ -155,9 +159,9 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
         payload.passport = visaAttachments[1]
         payload.additionalAttachments = additionalAttachments
       } else {
-        // Convert hotel & flight files to attachments
+        // Validate hotel & flight files
         if (!formFile || !passportFile2) {
-          console.error("Missing required hotel & flight attachments")
+          setAttachmentError("Travel Request Form and Passport are required for Hotel & Flight Reservation")
           return
         }
         const requiredAttachments = await filesToAttachments([formFile, passportFile2], "travel")
@@ -194,6 +198,7 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
       redirectTo = "/travel"
     } catch (error) {
       console.error("Failed to create travel request:", error)
+      setAttachmentError("Failed to submit travel request. Please try again.")
     }
     if (redirectTo) {
       router.push(redirectTo)
@@ -589,7 +594,15 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
           </CardContent>
         </Card>
 
-        <div className="form-footer border-t bg-gray-50 py-4 px-1 flex items-center justify-between gap-3">
+        {/* Error message for attachments */}
+        {attachmentError && (
+          <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-700 dark:text-red-300">{attachmentError}</p>
+          </div>
+        )}
+
+        <div className="form-footer border-t bg-gray-50 dark:bg-gray-900 py-4 px-1 flex items-center justify-between gap-3">
           <Button type="button" variant="ghost" onClick={handleCancel}>
             Cancel
           </Button>
