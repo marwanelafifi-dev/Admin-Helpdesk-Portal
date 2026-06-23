@@ -109,6 +109,18 @@ const SERVER_FILE_STORES = [
     description: "data/email-config.json — SMTP settings",
     icon: Mail, color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-200",
   },
+  {
+    key: "server:notices",
+    label: "System Notices",
+    description: "data/notices.json — system updates, features, and bug fix announcements",
+    icon: MessageSquare, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200",
+  },
+  {
+    key: "server:user-feedback",
+    label: "User Feedback",
+    description: "data/user-feedback.json — portal feedback and comments from users",
+    icon: MessageSquare, color: "text-green-600", bg: "bg-green-50", border: "border-green-200",
+  },
 ] as const
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
