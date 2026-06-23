@@ -141,29 +141,27 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
 
       if (data.travelType === "visa_application") {
         // Convert visa application files to attachments
-        if (!visaDocFile || !amanStickerFile || !passportFile) {
+        if (!amanStickerFile || !passportFile) {
           console.error("Missing required visa attachments")
           return
         }
-        const visaAttachments = await filesToAttachments([visaDocFile, amanStickerFile, passportFile], "travel")
+        const visaAttachments = await filesToAttachments([amanStickerFile, passportFile], "travel")
         const additionalAttachments = additionalFiles.length > 0 ? await filesToAttachments(additionalFiles, "travel") : []
 
-        payload.visaDocument = visaAttachments[0]
-        payload.amanSticker = visaAttachments[1]
-        payload.passport = visaAttachments[2]
+        payload.amanSticker = visaAttachments[0]
+        payload.passport = visaAttachments[1]
         payload.additionalAttachments = additionalAttachments
       } else {
         // Convert hotel & flight files to attachments
-        if (!formFile || !amanStickerFile2 || !passportFile2) {
+        if (!formFile || !passportFile2) {
           console.error("Missing required hotel & flight attachments")
           return
         }
-        const requiredAttachments = await filesToAttachments([formFile, amanStickerFile2, passportFile2], "travel")
+        const requiredAttachments = await filesToAttachments([formFile, passportFile2], "travel")
         const additionalAttachments = additionalFiles2.length > 0 ? await filesToAttachments(additionalFiles2, "travel") : []
 
         payload.travelRequestForm = requiredAttachments[0]
-        payload.amanSticker = requiredAttachments[1]
-        payload.passport = requiredAttachments[2]
+        payload.passport = requiredAttachments[1]
         payload.additionalAttachments = additionalAttachments
 
         // Handle optional flight photo
@@ -329,12 +327,12 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
           </CardContent>
         </Card>
 
-        {/* Items Selection */}
+        {/* Items Selection - Only Hotel & Flight, no Visa */}
         {!isVisaApplication && (
           <Card>
             <SectionHeader icon={Plane} title="Travel Items" subtitle="Select what you need" />
             <CardContent className="space-y-3">
-              {["Visa", "Hotel", "Flight"].map((item) => (
+              {["Hotel", "Flight"].map((item) => (
                 <label key={item} className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-gray-50 transition">
                   <input
                     type="checkbox"
@@ -439,12 +437,6 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
             {isVisaApplication ? (
               <>
                 <AttachmentUploadZone
-                  label="Visa Document"
-                  required
-                  value={visaDocFile}
-                  onChange={setVisaDocFile}
-                />
-                <AttachmentUploadZone
                   label="Aman Sticker"
                   required
                   value={amanStickerFile}
@@ -510,12 +502,6 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
                   required
                   value={formFile}
                   onChange={setFormFile}
-                />
-                <AttachmentUploadZone
-                  label="Aman Sticker"
-                  required
-                  value={amanStickerFile2}
-                  onChange={setAmanStickerFile2}
                 />
                 <AttachmentUploadZone
                   label="Passport"

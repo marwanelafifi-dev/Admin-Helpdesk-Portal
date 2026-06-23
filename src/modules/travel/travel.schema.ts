@@ -29,8 +29,7 @@ export const VisaApplicationPayloadSchema = z
     costCenter: z.string().min(1, "Cost Center is required"),
     description: z.string().max(1000).optional(),
     items: z.array(z.enum(["Visa"])).min(1, "Visa is required"),
-    // Required attachments for visa
-    visaDocument: AttachmentSchema,
+    // Required attachments for visa (Visa Document removed)
     amanSticker: AttachmentSchema,
     passport: AttachmentSchema,
     // Optional additional attachments
@@ -57,9 +56,8 @@ export const HotelFlightReservationPayloadSchema = z
     // Conditional: Flight fields
     flightCompany: z.string().optional(),
     flightPhoto: AttachmentSchema.optional(),
-    // Required attachments
+    // Required attachments (Aman Sticker removed)
     travelRequestForm: AttachmentSchema,
-    amanSticker: AttachmentSchema,
     passport: AttachmentSchema,
     // Optional additional attachments
     additionalAttachments: z.array(AttachmentSchema).default([]),
@@ -101,16 +99,7 @@ export const VisaApplicationFormSchema = z
     costCenter: z.string().min(1, "Cost Center is required"),
     description: z.string().max(1000).optional(),
     items: z.array(z.enum(["Visa"])).min(1, "Visa is required"),
-    // Required attachments for visa
-    visaDocument: z
-      .object({
-        name: z.string(),
-        url: z.string(),
-        mimeType: z.string(),
-        sizeBytes: z.number(),
-        uploadedAt: z.string(),
-      })
-      .refine((att) => att.url, "Visa document is required"),
+    // Required attachments for visa (Visa Document removed)
     amanSticker: z
       .object({
         name: z.string(),
@@ -163,7 +152,7 @@ export const HotelFlightReservationFormSchema = z
       sizeBytes: z.number(),
       uploadedAt: z.string(),
     }).optional(),
-    // Required attachments
+    // Required attachments (Aman Sticker removed)
     travelRequestForm: z
       .object({
         name: z.string(),
@@ -173,15 +162,6 @@ export const HotelFlightReservationFormSchema = z
         uploadedAt: z.string(),
       })
       .refine((att) => att.url, "Travel request form is required"),
-    amanSticker: z
-      .object({
-        name: z.string(),
-        url: z.string(),
-        mimeType: z.string(),
-        sizeBytes: z.number(),
-        uploadedAt: z.string(),
-      })
-      .refine((att) => att.url, "Aman sticker is required"),
     passport: z
       .object({
         name: z.string(),
