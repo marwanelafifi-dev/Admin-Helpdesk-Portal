@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { AlertCircle, CheckCircle2, Star, Send, Loader2 } from "lucide-react"
+import { AlertCircle, CheckCircle2, Star, Send, Loader2, Edit2, Trash2, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { isSuperAdmin, hasPermission } from "@/lib/access"
 
 interface SystemNotice {
   id: string
@@ -43,6 +44,18 @@ export default function SystemNoticesPage() {
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
+  const [editingNotice, setEditingNotice] = useState<SystemNotice | null>(null)
+  const [showNoticeForm, setShowNoticeForm] = useState(false)
+
+  const isFullAccess = isSuperAdmin(session?.user?.role) || hasPermission(session?.user?.permissions, "manage_users")
+  const permissions = session?.user?.permissions || []
+
+  const [noticeForm, setNoticeForm] = useState({
+    title: "",
+    type: "feature" as "feature" | "bug_fix" | "update",
+    summary: "",
+    description: "",
+  })
 
   const [feedbackForm, setFeedbackForm] = useState({
     category: "general" as FeedbackCategory,
@@ -62,7 +75,7 @@ export default function SystemNoticesPage() {
       const res = await fetch("/api/notices")
       if (res.ok) {
         const data = await res.json()
-        setNotices(data.notices || [])
+        setNotices(data.data || data.notices || [])
       }
     } catch (error) {
       console.error("Failed to load notices:", error)
@@ -141,6 +154,69 @@ export default function SystemNoticesPage() {
     return date.toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" })
   }
 
+  const handleSaveNotice = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!noticeForm.title.trim() || !noticeForm.summary.trim()) {
+      alert("Please fill in title and summary")
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const method = editingNotice ? "PUT" : "POST"
+      const url = editingNotice ? `/api/admin/notices/${editingNotice.id}` : "/api/admin/notices"
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(noticeForm),
+      })
+
+      if (res.ok) {
+        setSuccessMessage(editingNotice ? "Notice updated successfully" : "Notice created successfully")
+        setNoticeForm({ title: "", type: "feature", summary: "", description: "" })
+        setEditingNotice(null)
+        setShowNoticeForm(false)
+        setTimeout(() => setSuccessMessage(""), 3000)
+        loadNotices()
+      } else {
+        alert("Failed to save notice")
+      }
+    } catch (error) {
+      console.error("Failed to save notice:", error)
+      alert("Error saving notice")
+    }
+    setSubmitting(false)
+  }
+
+  const handleDeleteNotice = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this notice?")) return
+
+    try {
+      const res = await fetch(`/api/admin/notices/${id}`, { method: "DELETE" })
+      if (res.ok) {
+        setSuccessMessage("Notice deleted successfully")
+        setTimeout(() => setSuccessMessage(""), 3000)
+        loadNotices()
+      } else {
+        alert("Failed to delete notice")
+      }
+    } catch (error) {
+      console.error("Failed to delete notice:", error)
+      alert("Error deleting notice")
+    }
+  }
+
+  const startEditNotice = (notice: SystemNotice) => {
+    setEditingNotice(notice)
+    setNoticeForm({
+      title: notice.title,
+      type: notice.type,
+      summary: notice.summary,
+      description: notice.description || "",
+    })
+    setShowNoticeForm(true)
+  }
+
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Header */}
@@ -180,6 +256,142 @@ export default function SystemNoticesPage() {
       {/* Notices Tab */}
       {activeTab === "notices" && (
         <div className="space-y-4">
+          {/* Admin: New Notice Form */}
+          {isFullAccess && (
+            <>
+              <div className="flex justify-end">
+                {showNoticeForm ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowNoticeForm(false)
+                      setEditingNotice(null)
+                      setNoticeForm({ title: "", type: "feature", summary: "", description: "" })
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                ) : (
+                  <Button
+                    className="bg-teal-600 hover:bg-teal-700"
+                    onClick={() => {
+                      setShowNoticeForm(true)
+                      setEditingNotice(null)
+                      setNoticeForm({ title: "", type: "feature", summary: "", description: "" })
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    New Notice
+                  </Button>
+                )}
+              </div>
+
+              {successMessage && (
+                <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2 text-green-700 dark:text-green-300">
+                  <CheckCircle2 className="h-4 w-4" />
+                  {successMessage}
+                </div>
+              )}
+
+              {showNoticeForm && (
+                <Card className="border-teal-200 dark:border-teal-900">
+                  <CardHeader className="bg-teal-50 dark:bg-teal-950">
+                    <CardTitle className="text-teal-900 dark:text-teal-100">
+                      {editingNotice ? "Edit Notice" : "Create New Notice"}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    <form onSubmit={handleSaveNotice} className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Type
+                        </label>
+                        <select
+                          value={noticeForm.type}
+                          onChange={(e) => setNoticeForm({ ...noticeForm, type: e.target.value as any })}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                        >
+                          <option value="feature">Feature</option>
+                          <option value="bug_fix">Bug Fix</option>
+                          <option value="update">Update</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Title *
+                        </label>
+                        <Input
+                          value={noticeForm.title}
+                          onChange={(e) => setNoticeForm({ ...noticeForm, title: e.target.value })}
+                          placeholder="e.g., Travel module is now live"
+                          className="dark:bg-gray-700 dark:text-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Summary *
+                        </label>
+                        <Input
+                          value={noticeForm.summary}
+                          onChange={(e) => setNoticeForm({ ...noticeForm, summary: e.target.value })}
+                          placeholder="Brief one-line summary"
+                          className="dark:bg-gray-700 dark:text-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Description (Optional)
+                        </label>
+                        <Textarea
+                          value={noticeForm.description}
+                          onChange={(e) => setNoticeForm({ ...noticeForm, description: e.target.value })}
+                          placeholder="Detailed description..."
+                          rows={4}
+                          className="dark:bg-gray-700 dark:text-white"
+                        />
+                      </div>
+
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setShowNoticeForm(false)
+                            setEditingNotice(null)
+                            setNoticeForm({ title: "", type: "feature", summary: "", description: "" })
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="submit"
+                          disabled={submitting}
+                          className="bg-teal-600 hover:bg-teal-700 text-white"
+                        >
+                          {submitting ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="h-4 w-4 mr-2" />
+                              {editingNotice ? "Update Notice" : "Create Notice"}
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </form>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
+
+          {/* Notices List */}
           {loading ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-teal-600" />
@@ -192,9 +404,12 @@ export default function SystemNoticesPage() {
             </Card>
           ) : (
             notices.map((notice) => (
-              <Card key={notice.id} className="cursor-pointer hover:shadow-md transition-shadow">
+              <Card key={notice.id} className="hover:shadow-md transition-shadow">
                 <CardContent className="pt-6">
-                  <div onClick={() => setExpandedNotice(expandedNotice === notice.id ? null : notice.id)}>
+                  <div
+                    onClick={() => setExpandedNotice(expandedNotice === notice.id ? null : notice.id)}
+                    className="cursor-pointer"
+                  >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
@@ -210,6 +425,26 @@ export default function SystemNoticesPage() {
                         <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">{notice.summary}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">{formatDate(notice.postedAt)}</p>
                       </div>
+                      {isFullAccess && (
+                        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => startEditNotice(notice)}
+                            className="text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteNotice(notice.id)}
+                            className="text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
 
                     {expandedNotice === notice.id && notice.description && (
