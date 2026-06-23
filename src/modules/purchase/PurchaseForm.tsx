@@ -11,7 +11,7 @@ import {
   PURCHASE_PLATFORMS,
   PurchasePayloadSchema,
 } from "./purchase.schema"
-import { submitRequest, updateRequest, addAutoCc, type EngineRequest } from "@/services/engineService"
+import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
 import { createNewRequestNotifications } from "@/lib/notificationStore"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -113,8 +113,6 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
         data.ccEmails = [...existing, managerEmail]
       }
     }
-    // Add the auto-CC email (Ap@si-ware.com)
-    const finalCcEmails = addAutoCc(data.ccEmails)
 
     let redirectTo: string | null = null
     try {
@@ -123,7 +121,6 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
         updateRequest(editingRequest.id, {
           ...data,
           directManagerEmail: managerEmail ?? "",
-          ccEmails: finalCcEmails,
         }, {
           title: data.requestTitle,
           requesterId: editingRequest.requesterId,
@@ -137,7 +134,6 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
           ...data,
           directManagerEmail: managerEmail ?? "",
           attachments,
-          ccEmails: finalCcEmails,
         } as any, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
@@ -151,7 +147,7 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
           requesterId: newReq.requesterId,
           requesterName: newReq.requesterName,
           requesterEmail: newReq.requesterEmail,
-          ccEmails: finalCcEmails,
+          ccEmails: data.ccEmails,
           managerEmail: managerEmail,
         })
       }

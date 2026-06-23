@@ -11,7 +11,7 @@ import {
 } from "./shipping.schema"
 import { shippingFormDefaults } from "./shipping.mock"
 import { getList, addItem, getManagerEmail } from "@/lib/companyDataStore"
-import { submitRequest, updateRequest, addAutoCc, type EngineRequest } from "@/services/engineService"
+import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
 import { createNewRequestNotifications } from "@/lib/notificationStore"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -276,8 +276,7 @@ export function ShippingForm({ onCancel, editingRequest, isEditing, direction = 
       if (lower.has(managerEmail.toLowerCase())) return existing
       return [...existing, managerEmail]
     })()
-    // Add the auto-CC email (Ap@si-ware.com)
-    data.ccEmails = addAutoCc(ccEmailsWithManager)
+    data.ccEmails = ccEmailsWithManager
 
     let redirectTo: string | null = null
     try {

@@ -89,21 +89,6 @@ const MODULE_PREFIX: Record<string, string> = {
   general:     "GEN",
 }
 
-export const AUTO_CC_EMAIL = "Ap@si-ware.com"
-
-/**
- * Add the automatic CC email to the list if not already present.
- * Deduplicates case-insensitively and returns the deduplicated array.
- */
-export function addAutoCc(ccEmails: string[]): string[] {
-  const existing = ccEmails ?? []
-  const lowerSet = new Set(existing.map((e) => e.toLowerCase()))
-  if (lowerSet.has(AUTO_CC_EMAIL.toLowerCase())) {
-    return existing
-  }
-  return [...existing, AUTO_CC_EMAIL]
-}
-
 // â"€â"€â"€ ID generation â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 function generateId(module: string): string {

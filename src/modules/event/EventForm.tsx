@@ -7,7 +7,7 @@ import { useForm, Controller, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { EventPayloadSchema, FLOOR_NUMBERS } from "./event.schema"
-import { submitRequest, updateRequest, addAutoCc, type EngineRequest } from "@/services/engineService"
+import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
 import { createNewRequestNotifications } from "@/lib/notificationStore"
 import { filesToAttachments } from "@/lib/attachments"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -90,13 +90,10 @@ export function EventForm({ onCancel, editingRequest, isEditing }: { onCancel?: 
   const handleCancel = onCancel ?? (() => router.push("/event"))
 
   const onSubmit = async (data: EventForm) => {
-    // Add the auto-CC email (Ap@si-ware.com)
-    const finalCcEmails = addAutoCc(data.ccEmails)
-
     let redirectTo: string | null = null
     try {
       if (isEditing && editingRequest) {
-        updateRequest(editingRequest.id, { ...data, ccEmails: finalCcEmails }, {
+        updateRequest(editingRequest.id, data, {
           title: data.requestTitle,
           requesterId: editingRequest.requesterId,
           requesterName: editingRequest.requesterName,
@@ -104,7 +101,7 @@ export function EventForm({ onCancel, editingRequest, isEditing }: { onCancel?: 
         })
       } else {
         const attachments = await filesToAttachments(uploadedFiles, "event")
-        const newReq = await submitRequest("event", { ...data, attachments, ccEmails: finalCcEmails } as any, {
+        const newReq = await submitRequest("event", { ...data, attachments } as any, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",
@@ -117,7 +114,7 @@ export function EventForm({ onCancel, editingRequest, isEditing }: { onCancel?: 
           requesterId: newReq.requesterId,
           requesterName: newReq.requesterName,
           requesterEmail: newReq.requesterEmail,
-          ccEmails: finalCcEmails,
+          ccEmails: data.ccEmails,
         })
       }
       redirectTo = "/event"

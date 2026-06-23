@@ -13,7 +13,7 @@ import { MarkdownEditor } from "@/components/ui/MarkdownEditor"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { Upload, X, Inbox, Mail } from "lucide-react"
-import { submitRequest, getRequests, addAutoCc, type EngineRequest } from "@/services/engineService"
+import { submitRequest, getRequests, type EngineRequest } from "@/services/engineService"
 import { createRequestUpdateNotifications, createNewRequestNotifications } from "@/lib/notificationStore"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
 import { filesToAttachments } from "@/lib/attachments"
@@ -88,12 +88,9 @@ export default function NewGeneralRequestPage() {
     // each attachment by its id.
     const attachments = await filesToAttachments(uploadedFiles, "general")
 
-    // Add the auto-CC email (Ap@si-ware.com)
-    const finalCcEmails = addAutoCc(ccEmails)
-
     const saved = await submitRequest(
       "general",
-      { description: values.description ?? "", attachments, ccEmails: finalCcEmails },
+      { description: values.description ?? "", attachments, ccEmails },
       { title: values.title, requesterId: userId, requesterName: userName, requesterEmail: userEmail }
     )
 
@@ -104,7 +101,7 @@ export default function NewGeneralRequestPage() {
       requesterId: userId,
       requesterName: userName,
       requesterEmail: userEmail,
-      ccEmails: finalCcEmails,
+      ccEmails,
     })
 
     router.push("/general")

@@ -14,7 +14,7 @@ import {
   OnboardingPayloadSchema,
   OffboardingPayloadSchema,
 } from "./hr.schema"
-import { submitRequest, updateRequest, addAutoCc, type EngineRequest } from "@/services/engineService"
+import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
 import { createNewRequestNotifications } from "@/lib/notificationStore"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -118,9 +118,7 @@ function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCance
         })
       } else {
         const attachments = await filesToAttachments(uploadedFiles, "hr")
-        // Add the auto-CC email (Ap@si-ware.com)
-        const finalCcEmails = addAutoCc(data.ccEmails)
-        const newReq = await submitRequest("hr", { ...data, attachments, ccEmails: finalCcEmails }, {
+        const newReq = await submitRequest("hr", { ...data, attachments }, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",
@@ -133,7 +131,7 @@ function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCance
           requesterId: newReq.requesterId,
           requesterName: newReq.requesterName,
           requesterEmail: newReq.requesterEmail,
-          ccEmails: finalCcEmails,
+          ccEmails: data.ccEmails,
           managerEmail: data.directManager ? getManagerEmail(data.directManager) : undefined,
         })
       }
@@ -473,9 +471,7 @@ function OffboardingFormFields({ onCancel, editingRequest, isEditing }: { onCanc
         })
       } else {
         const attachments = await filesToAttachments(uploadedFiles, "hr")
-        // Add the auto-CC email (Ap@si-ware.com)
-        const finalCcEmails = addAutoCc(data.ccEmails)
-        const newReq = await submitRequest("hr", { ...data, attachments, ccEmails: finalCcEmails }, {
+        const newReq = await submitRequest("hr", { ...data, attachments }, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",
@@ -488,7 +484,7 @@ function OffboardingFormFields({ onCancel, editingRequest, isEditing }: { onCanc
           requesterId: newReq.requesterId,
           requesterName: newReq.requesterName,
           requesterEmail: newReq.requesterEmail,
-          ccEmails: finalCcEmails,
+          ccEmails: data.ccEmails,
           managerEmail: data.directManager ? getManagerEmail(data.directManager) : undefined,
         })
       }
