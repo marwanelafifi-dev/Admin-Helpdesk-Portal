@@ -290,6 +290,14 @@ export default function DatabasePage() {
   const [signoutStatus, setSignoutStatus] = useState<Status>({ type: "idle", message: "" })
   const [showSignoutConfirm, setShowSignoutConfirm] = useState(false)
 
+  // ── Scheduled Maintenance Announcement state ──────────────────────────────
+  const [scheduledMaintenanceEnabled, setScheduledMaintenanceEnabled] = useState(false)
+  const [showScheduledMaintenanceForm, setShowScheduledMaintenanceForm] = useState(false)
+  const [scheduledMaintenanceMessage, setScheduledMaintenanceMessage] = useState("")
+  const [scheduledMaintenanceStart, setScheduledMaintenanceStart] = useState("")
+  const [scheduledMaintenanceEnd, setScheduledMaintenanceEnd] = useState("")
+  const [scheduledMaintenanceStatus, setScheduledMaintenanceStatus] = useState<Status>({ type: "idle", message: "" })
+
   // ── Scheduled Backup state ────────────────────────────────────────────────
   const [scheduleEnabled, setScheduleEnabled]     = useState(false)
   const [scheduleFreqs, setScheduleFreqs]         = useState<("hourly"|"daily"|"weekly"|"monthly")[]>(["daily"])
@@ -355,6 +363,13 @@ export default function DatabasePage() {
       const json = await res.json()
       setMaintenance(Boolean(json.maintenance))
       setMaintenanceMessage(json.maintenanceMessage ?? "")
+      // Load scheduled maintenance announcement
+      if (json.scheduledMaintenance?.enabled) {
+        setScheduledMaintenanceEnabled(true)
+        setScheduledMaintenanceMessage(json.scheduledMaintenance.announcementMessage)
+        setScheduledMaintenanceStart(json.scheduledMaintenance.startTime.slice(0, 16))
+        setScheduledMaintenanceEnd(json.scheduledMaintenance.endTime.slice(0, 16))
+      }
     }).catch(() => {})
 
     void fetch("/api/admin/backup-schedule").then(async (res) => {
@@ -427,6 +442,59 @@ export default function DatabasePage() {
       })
     } catch (e: any) {
       setSignoutStatus({ type: "error", message: `Failed to force sign-out: ${e?.message ?? "unknown"}` })
+    }
+  }
+
+  async function saveScheduledMaintenance() {
+    setScheduledMaintenanceStatus({ type: "idle", message: "" })
+    if (!scheduledMaintenanceMessage.trim() || !scheduledMaintenanceStart || !scheduledMaintenanceEnd) {
+      setScheduledMaintenanceStatus({ type: "error", message: "Please fill in all fields" })
+      return
+    }
+
+    try {
+      const startDate = new Date(scheduledMaintenanceStart)
+      const endDate = new Date(scheduledMaintenanceEnd)
+
+      if (endDate <= startDate) {
+        setScheduledMaintenanceStatus({ type: "error", message: "End time must be after start time" })
+        return
+      }
+
+      const res = await fetch("/api/admin/maintenance", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          scheduledMaintenance: {
+            enabled: true,
+            startTime: startDate.toISOString(),
+            endTime: endDate.toISOString(),
+            announcementMessage: scheduledMaintenanceMessage,
+          },
+        }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+
+      logAuditEvent({
+        actor: actorName,
+        actorEmail,
+        action: "maintenance_scheduled",
+        targetId: "",
+        targetTitle: "Scheduled Maintenance Announcement",
+        module: "database",
+        details: `Scheduled maintenance from ${startDate.toLocaleString()} to ${endDate.toLocaleString()}`,
+      })
+
+      setScheduledMaintenanceStatus({
+        type: "success",
+        message: "Maintenance announcement scheduled. Users will see a banner 72 hours before the start time.",
+      })
+      setTimeout(() => {
+        setScheduledMaintenanceStatus({ type: "idle", message: "" })
+        setShowScheduledMaintenanceForm(false)
+      }, 3000)
+    } catch (e: any) {
+      setScheduledMaintenanceStatus({ type: "error", message: `Failed to schedule maintenance: ${e?.message ?? "unknown"}` })
     }
   }
 
@@ -1411,6 +1479,81 @@ export default function DatabasePage() {
                 </div>
               </div>
               <StatusAlert status={maintenanceStatus} />
+            </div>
+
+            {/* Scheduled Maintenance Announcement card */}
+            <div className="rounded-xl border-2 border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-3">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-950/30 flex items-center justify-center text-blue-700 dark:text-blue-300">
+                    <CalendarClock className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">Scheduled Maintenance Notice</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Announce upcoming maintenance to all users (shows for 72 hours before start time)
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowScheduledMaintenanceForm(!showScheduledMaintenanceForm)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${scheduledMaintenanceEnabled ? "bg-blue-600" : "bg-gray-300"}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${scheduledMaintenanceEnabled ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
+
+              {showScheduledMaintenanceForm && (
+                <div className="space-y-3 border-t pt-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Announcement Message</label>
+                    <textarea
+                      value={scheduledMaintenanceMessage}
+                      onChange={(e) => setScheduledMaintenanceMessage(e.target.value)}
+                      placeholder="e.g., We have scheduled maintenance on..."
+                      rows={2}
+                      className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Start Date & Time</label>
+                      <input
+                        type="datetime-local"
+                        value={scheduledMaintenanceStart}
+                        onChange={(e) => setScheduledMaintenanceStart(e.target.value)}
+                        className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-gray-600 dark:text-gray-400">End Date & Time</label>
+                      <input
+                        type="datetime-local"
+                        value={scheduledMaintenanceEnd}
+                        onChange={(e) => setScheduledMaintenanceEnd(e.target.value)}
+                        className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button onClick={saveScheduledMaintenance} className="bg-blue-600 hover:bg-blue-700 text-white">
+                      <Save className="h-4 w-4 mr-2" />
+                      Schedule Announcement
+                    </Button>
+                    <Button
+                      onClick={() => setShowScheduledMaintenanceForm(false)}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                  <StatusAlert status={scheduledMaintenanceStatus} />
+                </div>
+              )}
             </div>
 
             {/* Force sign-out card */}

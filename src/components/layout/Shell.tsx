@@ -3,6 +3,7 @@
 import { Sidebar } from "./Sidebar"
 import { TopBar } from "./TopBar"
 import { MobileNavProvider, useMobileNav } from "./MobileNavContext"
+import { ScheduledMaintenanceBanner } from "./ScheduledMaintenanceBanner"
 import { useEngineSync } from "@/hooks/useEngineSync"
 import { useHeartbeat } from "@/hooks/useHeartbeat"
 
@@ -27,6 +28,9 @@ function ShellInner({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background relative" suppressHydrationWarning>
+      {/* Scheduled Maintenance Banner - appears on all pages */}
+      <ScheduledMaintenanceBanner />
+
       {/* Sidebar — fixed drawer below lg, static beside content at lg+ */}
       <Sidebar />
 

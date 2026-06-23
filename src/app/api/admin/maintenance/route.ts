@@ -11,16 +11,24 @@ export const runtime = "nodejs"
 
 /**
  * GET /api/admin/maintenance — returns the current maintenance flag,
- * banner message, and session min-version. Any signed-in user can read so
- * the Shell can decide whether to show the banner.
+ * banner message, scheduled maintenance, and session min-version.
+ * Any signed-in user can read so the Shell can decide whether to show the banner.
  *
- * PUT /api/admin/maintenance — toggle maintenance / change message.
- *   body: { maintenance?: boolean; maintenanceMessage?: string }
+ * PUT /api/admin/maintenance — toggle maintenance / change message / schedule announcement.
+ *   body: {
+ *     maintenance?: boolean;
+ *     maintenanceMessage?: string;
+ *     scheduledMaintenance?: {
+ *       enabled: boolean;
+ *       startTime: string (ISO 8601);
+ *       endTime: string (ISO 8601);
+ *       announcementMessage: string;
+ *     }
+ *   }
  *   admin-only.
  *
- * POST /api/admin/maintenance/force-signout — bumps sessionMinVersion to
- * the current time, invalidating every existing JWT on its next request.
- * Sent as a POST with no body. Admin-only.
+ * POST /api/admin/maintenance — bumps sessionMinVersion to the current time,
+ * invalidating every existing JWT on its next request. Admin-only.
  */
 
 function isAuthorized(perms: string[] | undefined, role?: string) {
