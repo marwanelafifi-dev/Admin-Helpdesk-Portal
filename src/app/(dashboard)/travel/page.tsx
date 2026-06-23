@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Search, Plus, Plane, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
@@ -356,7 +357,9 @@ export default function TravelPage() {
                 <tr className={cn("border-b border-gray-100 hover:bg-blue-50/30 transition-colors", hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40"))}>
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-700 truncate block">{req.id}</span>
+                      <Link href={`/requests/${req.id}?source=travel`} className="text-sm font-medium text-blue-600 truncate block hover:underline">
+                        {req.id}
+                      </Link>
                       {(commentCounts[req.id] ?? 0) > 0 && (
                         <span className={cn("flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap flex-shrink-0", hasUnreadComments ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700")}>
                           <MessageCircle className="h-3 w-3" />
