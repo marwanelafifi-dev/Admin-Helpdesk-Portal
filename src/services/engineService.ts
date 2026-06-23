@@ -659,6 +659,14 @@ export function updateAdminCc(id: string, adminCc: string[]): EngineRequest | nu
  * getAllCcEmails
  * Returns the merged CC list: payload.ccEmails (from form) + adminCc.
  */
+export const AUTO_CC_EMAIL = "Ap@si-ware.com"
+
+export function addAutoCcForTravel(ccEmails: string[]): string[] {
+  const normalized = (ccEmails ?? []).map((e) => e.toLowerCase().trim())
+  const has = normalized.includes(AUTO_CC_EMAIL.toLowerCase())
+  return has ? ccEmails : [...(ccEmails ?? []), AUTO_CC_EMAIL]
+}
+
 export function getAllCcEmails(request: EngineRequest): string[] {
   const payload = (request.payload ?? {}) as Record<string, any>
   const payloadCc = Array.isArray(payload.ccEmails) ? (payload.ccEmails as string[]) : []
