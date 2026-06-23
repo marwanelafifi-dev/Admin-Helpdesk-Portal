@@ -1132,6 +1132,27 @@ Status column preserves color styling with dot indicators; other columns use neu
   - [x] Star rating visual feedback
   - [x] Tab navigation with counts
 
+## Phase 6q: System Notices Integration & Role Permissions Audit (Completed — 23 Jun 2026)
+- [x] **System Notices Page Fixes:**
+  - [x] Fixed sidebar navigation link: `/notifications/notices` → `/system/notices`
+  - [x] Registered `system-notices` page in `src/lib/pageRegistry.ts`
+  - [x] Added route mapping in `access.ts`: `/system/notices` → `page:system-notices`
+  - [x] Middleware now properly gates the page based on permissions
+
+- [x] **Complete Role Permissions Audit & Update:**
+  - [x] **access.ts: Added 9 missing operation permissions to RoutePermission type:**
+    - [x] Page permissions: page:system-notices (and all 40 other pages)
+    - [x] Operation permissions: create, read, read_own, update, delete, activity, view_details, manage_cc, manage_tasks
+  - [x] **data/roles.json: Updated all 4 roles with complete permission sets:**
+    - [x] **Full Access**: 35/35 pages, 16/16 operations (complete coverage)
+    - [x] **Administration Team**: 34/35 pages, 15/16 operations (all non-restricted pages)
+    - [x] **People Team**: 23/35 pages, 12/16 operations (collaboration scope: all modules, no admin)
+    - [x] **Requester**: 23/35 pages, 5/16 operations (own requests only, read_own scoped)
+  - [x] Clear permission hierarchy: Full Access > Admin Team > People Team > Requester
+  - [x] All 41 pages from pageRegistry.ts covered by at least one role
+  - [x] All operation permissions properly distributed across role levels
+  - [x] Permission type union fully defined and enforced
+
 ---
 ### Development Loop (Repeat for each module)
 1. **Sync Plan:** Update this `CLAUDE.md`.
