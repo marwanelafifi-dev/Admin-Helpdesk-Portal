@@ -46,17 +46,21 @@ const STATUS_PILL_ACTIVE: Record<string, string> = {
 
 const STATUSES = ["new", "awaiting_approval", "in_progress", "completed", "cancelled"] as const
 
-type SortKey = "id" | "title" | "createdAt" | "requesterName" | "destination" | "startDate" | "status" | "updatedAt"
+type SortKey = "id" | "title" | "createdAt" | "requesterName" | "status" | "updatedAt"
 
 const COLS: { key: SortKey; label: string; defaultW: number }[] = [
   { key: "id",            label: "Request ID",      defaultW: 130 },
   { key: "title",         label: "Request Title",   defaultW: 200 },
   { key: "createdAt",     label: "Submission Date", defaultW: 140 },
   { key: "requesterName", label: "Requester Name",  defaultW: 160 },
-  { key: "destination",   label: "Destination",     defaultW: 140 },
-  { key: "startDate",     label: "Travel Date",     defaultW: 120 },
   { key: "status",        label: "Status",          defaultW: 130 },
   { key: "updatedAt",     label: "Last Update Date",defaultW: 140 },
+]
+
+// Type and Items are displayed but not sortable
+const EXTRA_COLS = [
+  { label: "Type",   width: 120 },
+  { label: "Items",  width: 140 },
 ]
 
 
@@ -187,13 +191,7 @@ export default function TravelPage() {
     )
     return result.sort((a, b) => {
       let av: string, bv: string
-      if (sortKey === "destination") {
-        av = String((a.payload as Record<string, unknown>).destination ?? "")
-        bv = String((b.payload as Record<string, unknown>).destination ?? "")
-      } else if (sortKey === "startDate") {
-        av = String((a.payload as Record<string, unknown>).startDate ?? "")
-        bv = String((b.payload as Record<string, unknown>).startDate ?? "")
-      } else if (sortKey === "requesterName") {
+      if (sortKey === "requesterName") {
         av = a.requesterName ?? ""
         bv = b.requesterName ?? ""
       } else {
@@ -338,6 +336,15 @@ export default function TravelPage() {
                     </span>
                   </th>
                 ))}
+                {EXTRA_COLS.map((col) => (
+                  <th
+                    key={col.label}
+                    className="py-3 text-xs font-semibold text-slate-300 tracking-wide text-left select-none"
+                    style={{ paddingLeft: 12, paddingRight: 8, width: col.width }}
+                  >
+                    {col.label}
+                  </th>
+                ))}
                 <th className="bg-slate-800" />
               </tr>
             </thead>
@@ -367,18 +374,6 @@ export default function TravelPage() {
                   <td className="py-3 px-3 overflow-hidden">
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.requesterName}</span>
                   </td>
-                  <td className="py-3 px-3 overflow-hidden">
-                    <span className="text-sm font-medium text-gray-700 truncate block">
-                      {String((req.payload as Record<string, unknown>).destination ?? "—")}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="text-sm font-medium text-gray-700">
-                      {(req.payload as Record<string, unknown>).startDate
-                        ? fmtDate(String((req.payload as Record<string, unknown>).startDate))
-                        : "—"}
-                    </span>
-                  </td>
                   <td className="py-3 px-3">
                     <InlineStatusSelect
                       currentStatus={req.status}
@@ -392,6 +387,18 @@ export default function TravelPage() {
                   </td>
                   <td className="py-3 px-3">
                     <span className="text-sm font-medium text-gray-700">{fmtDateTime(req.updatedAt)}</span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <span className="text-sm font-medium text-gray-700">
+                      {(req.payload as Record<string, unknown>).travelType === "visa_application" ? "Visa" : "Hotel & Flight"}
+                    </span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <span className="text-sm font-medium text-gray-700">
+                      {Array.isArray((req.payload as Record<string, unknown>).items)
+                        ? ((req.payload as Record<string, unknown>).items as string[]).join(", ")
+                        : "—"}
+                    </span>
                   </td>
                   <td className="py-3 px-2 text-right">
                     <RequestActionsMenu
@@ -412,7 +419,7 @@ export default function TravelPage() {
                 </tr>
                 {isExpanded(req.id) && (
                   <tr className="bg-blue-50">
-                    <td colSpan={9} className="py-4 px-6">
+                    <td colSpan={COLS.length + EXTRA_COLS.length + 1} className="py-4 px-6">
                       <div className="space-y-3 text-sm">
                         <div className="grid grid-cols-2 gap-6">
                           <div>
@@ -446,7 +453,7 @@ export default function TravelPage() {
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="py-16 text-center text-gray-400 text-sm">
+                  <td colSpan={COLS.length + EXTRA_COLS.length + 1} className="py-16 text-center text-gray-400 text-sm">
                     No trips match the current filters
                   </td>
                 </tr>
