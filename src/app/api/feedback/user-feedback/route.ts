@@ -52,7 +52,7 @@ export async function POST(req: Request) {
 
   try {
     const data = await req.json()
-    const { category, title, comment, rating } = data
+    const { category, title, comment, rating, attachments } = data
 
     if (!category || !title || !comment) {
       return NextResponse.json(
@@ -69,6 +69,7 @@ export async function POST(req: Request) {
       title,
       comment,
       rating: rating ? Math.min(Math.max(rating, 1), 5) : undefined,
+      attachments: attachments || [],
       status: "new",
     })
 

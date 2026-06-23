@@ -738,6 +738,31 @@ export default function SystemNoticesPage() {
                             </Badge>
                           </div>
                           <p className="text-gray-600 dark:text-gray-400 text-sm mt-2">{feedback.comment}</p>
+
+                          {feedback.attachments && feedback.attachments.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                              <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                                Attachments ({feedback.attachments.length})
+                              </p>
+                              <div className="space-y-1">
+                                {feedback.attachments.map((att) => (
+                                  <a
+                                    key={att.id}
+                                    href={att.url}
+                                    download={att.name}
+                                    className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                  >
+                                    <Download className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300 flex-1 truncate">
+                                      {att.name}
+                                    </span>
+                                    <span className="text-xs text-gray-500 dark:text-gray-500">({formatFileSize(att.size)})</span>
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                           <div className="flex items-center gap-4 mt-2">
                             <p className="text-xs text-gray-500 dark:text-gray-500">{formatDate(feedback.createdAt)}</p>
                             {feedback.rating && (

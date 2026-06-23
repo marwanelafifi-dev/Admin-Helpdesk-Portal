@@ -4,6 +4,15 @@ import path from "path"
 export type FeedbackCategory = "general" | "bug" | "feature_request" | "ui_ux"
 export type FeedbackStatus = "new" | "reviewed" | "resolved"
 
+export interface Attachment {
+  id: string
+  name: string
+  type: string
+  size: number
+  url: string
+  uploadedAt: string
+}
+
 export interface UserFeedback {
   id: string
   userId: string
@@ -15,6 +24,7 @@ export interface UserFeedback {
   status: FeedbackStatus
   createdAt: string
   rating?: number // 1-5 stars
+  attachments?: Attachment[]
 }
 
 const FEEDBACK_FILE = path.join(process.cwd(), "data", "user-feedback.json")
