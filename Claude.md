@@ -82,7 +82,36 @@ This document tracks the phased development of the Admin Request Platform, movin
   - [x] Status filter pills + search. Sortable + resizable dark slate table.
   - [x] Columns: Request ID, Request Title, Submission Date, Requester Name, Destination, Travel Date, Status, Last Update Date.
   - [x] Mock records removed. Live with real data.
-  - [ ] Define Zod Schema + build booking/approval workflow form.
+  - [x] Define Zod Schema + build booking/approval workflow form.
+
+## Phase 5w (continued): Travel Module — Full Implementation (Completed — 23 Jun 2026)
+- [x] **Travel Request module fully live** (was "Coming Soon"):
+  - [x] Removed Coming Soon button/banner from travel list page and form footer.
+  - [x] `travel.schema.ts` complete: two request types (visa, hotel_flight) with conditional fields and validation.
+  - [x] `TravelForm.tsx` rewritten: Request type toggle (Applying For Visa / Hotel & Flight Reservation) with conditional rendering.
+  - [x] Visa type: Items (Visa checkbox), Visa Document, Aman Sticker, Passport, Additional Attachments (optional).
+  - [x] Hotel & Flight type: Items (Visa/Hotel/Flight multi-select), conditional Hotel URL (if Hotel selected), conditional Flight company + photo (if Flight selected), Travel Request Form, Aman Sticker, Passport, Additional Attachments (optional).
+  - [x] All required attachments validated before submit.
+  - [x] Travel list page with 5 stat cards: Total, New, Awaiting Approval, In Progress, Completed.
+  - [x] Status filter pills including Awaiting Approval (amber).
+  - [x] Inline status select with travel-specific statuses.
+  - [x] Row expansion showing request type badge + details.
+  - [x] Request actions menu (View Details, Edit).
+  - [x] Unread comment indicators (red/blue badges).
+  - [x] CC visibility toggle (toggle to see requests where user is CC'd).
+  - [x] **Travel Approval Email Workflow** — full integration with Purchase/Shipping:
+    - [x] `sendTravelApprovalEmail()` function in `emailService.ts`.
+    - [x] Teal gradient header (#14b8a6 to #0d9488) — travel branding.
+    - [x] Manager email with Approve/Reject buttons (one-time use signed links, 14-day expiry).
+    - [x] CC email (read-only notification copy).
+    - [x] Dynamic field display based on request type (Visa vs Hotel & Flight).
+    - [x] Auto-sends when Travel request enters `awaiting_approval` status.
+    - [x] **If Approved**: Status → `in_progress` (blue), comment "Approved by Direct Manager" added to thread, decision email sent.
+    - [x] **If Rejected**: Status → `cancelled` (red), rejection form displays asking for required reason, comment with rejection reason added to thread, decision email sent.
+    - [x] Resend button on Travel list + detail page for existing awaiting_approval requests.
+  - [x] Travel module integrated into My Requests, All Requests, Team Requests, Dashboard.
+  - [x] All 5 statuses (new, awaiting_approval, in_progress, completed, cancelled) working across all pages.
+  - [x] Teal color theme (#14b8a6) for Travel module (sidebar, form, email, badges).
 - [x] **engineService mock data** — removed for production v1. `initializeMockData()` now wipes stale dev data on first boot. `ProductionDataWipe` component clears all localStorage keys on first browser load.
 
 ## Phase 2b: Employee Feedback & Satisfaction Surveys (Completed)
@@ -817,50 +846,26 @@ This document tracks the phased development of the Admin Request Platform, movin
 - [x] **Approval links use a valid portal origin** — falls back to the incoming request origin when `NEXTAUTH_URL` and `AUTH_URL` are not configured.
 - [x] **Existing stuck requests recoverable** — admins can reopen a request in Awaiting Approval and resend without changing its status again.
 
-## Phase 6o: Admin Announcements (Completed — 17 Jun 2026)
-- [x] **Admin Announcements page added** at `/admin/announcements`.
-  - [x] Compose branded company emails from the portal.
-  - [x] Send to all active company users, selected directory users, manually entered recipients, and CC recipients.
-  - [x] Egypt Team `<eg.team@si-ware.com>` appears as a default removable To recipient.
-  - [x] Upload attachments and send them with the announcement email.
-  - [x] Save drafts and reload them into the composer.
-  - [x] Edit the Admin Helpdesk email signature from the compose form.
-  - [x] Save reusable templates for common notices, including an initial doctor-availability template.
-  - [x] Schedule templates for one-time automatic send at an editable date/time.
-  - [x] View previous sent announcements with recipient, CC, attachment, sender, and timestamp metadata.
-- [x] **Employee Announcements page added** at `/announcements`.
-  - [x] All authenticated users can view sent Administration Team announcements in a read-only inbox.
-  - [x] Page shows unread announcement count and per-announcement unread state.
-  - [x] Users can mark individual announcements or all announcements as read.
-  - [x] Sent announcement attachments are visible and downloadable from the reader page.
-- [x] **Announcement bell notifications added**.
-  - [x] Top bar syncs unread sent announcements into the existing in-app notification bell.
-  - [x] Announcement bell items deep-link to `/announcements#<announcement-id>`.
-- [x] **Announcements API added** at `GET/POST/DELETE /api/announcements`.
-  - [x] `GET` returns sent history, drafts, templates, and the active user directory.
-  - [x] `POST` supports `send`, `draft`, and `template` modes.
-  - [x] `DELETE` removes drafts or templates.
-- [x] **Server store added** in `src/lib/announcementStore.ts`.
-  - [x] Persists to `data/announcements.json`.
-  - [x] Default templates are seeded when the file does not exist.
-- [x] **Email renderer added** via `sendAnnouncementEmail()` in `src/lib/emailService.ts`.
-  - [x] Uses the existing SMTP configuration and pooled transporter.
-  - [x] Sends branded Admin Helpdesk email with Si-Ware logo and editable signature when available.
-- [x] **Announcement template scheduler added**.
-  - [x] Started by `instrumentation.ts` in the Node.js runtime.
-  - [x] Checks due auto-send templates every 5 minutes, sends them once, records sent history, and disables auto-send after delivery.
-- [x] **Navigation and permissions wired**.
-  - [x] Sidebar has an all-user Announcements page.
-  - [x] Administration Team group includes Send Announcements.
-  - [x] `page:admin-announcements` added to `access.ts`, `pageRegistry.ts`, and default roles for Full Access + Administration Team.
-  - [x] `page:announcements` added for default all-user access.
-- [x] **Backup integration added**.
-  - [x] `announcements.json` is included in scheduled backups and Admin Database server-data backup/restore/clear flows.
-
-## Phase 6p: Attachment Data Reliability (Completed — 17 Jun 2026)
-- [x] **Server-side attachment preservation added** in `POST /api/requests`.
-  - [x] If an existing server request has `payload.attachments` and a later upsert arrives with empty or missing attachments, the server keeps the existing attachment list.
-  - [x] Prevents browser localStorage quota protection from indirectly erasing attachments during later status, assignment, CC, or comment-activity updates.
+## Phase 6o: CC Visibility Across Module Pages (Completed — 23 Jun 2026)
+- [x] **CC Request Discovery across all module pages:**
+  - [x] New `useCcVisibility()` hook — manages checkbox toggle state via sessionStorage (`arp_show_cc_requests`).
+  - [x] New `CcVisibilityToggle` component — blue Mail icon with checkbox, shows "Show requests I'm CC'd on".
+  - [x] New `isUserInCc(request, userEmail)` function in engineService — checks if user is in CC list (case-insensitive).
+  - [x] All 9 module list pages now have CC toggle:
+    - [x] General Requests
+    - [x] Shipping (base) + Shipping Sending + Shipping Receiving
+    - [x] HR
+    - [x] Maintenance
+    - [x] Purchase
+    - [x] Event
+    - [x] Travel
+  - [x] `allVisibleRequests` useMemo on each page:
+    - [x] When toggle OFF: shows only user's own requests (requester).
+    - [x] When toggle ON: includes requests where user is CC'd but is NOT the requester.
+    - [x] Deduplicates to avoid showing same request twice.
+  - [x] Toggle placed after status/filter pills, before result counter.
+  - [x] Result counter text updates: "Showing N requests (including CC'd requests)" when ON.
+  - [x] My Requests and Team Requests pages **unchanged** — keep role-specific filtering.
 
 ## Phase 6: Optimization & Scaling
 - [ ] Add Redis caching for frequently accessed dashboard data.
@@ -948,16 +953,17 @@ Status column preserves color styling with dot indicators; other columns use neu
 ### Module Pages
 | File | Purpose | Key Features |
 |------|---------|--------------|
-| `src/app/(dashboard)/shipping/page.tsx` | Shipping module | Status: new/in_progress/in_customs/delivered/cancelled |
-| `src/app/(dashboard)/shipping/receiving/page.tsx` | Shipping Receiving submodule | Receiving-specific workflow |
-| `src/app/(dashboard)/general/page.tsx` | General Request module | Statuses: new/in_progress/completed/cancelled; indigo color theme |
+| `src/app/(dashboard)/shipping/page.tsx` | Shipping module | Status: new/in_progress/in_customs/delivered/cancelled; CC visibility toggle |
+| `src/app/(dashboard)/shipping/sending/page.tsx` | Shipping Sending submodule | Sending-specific workflow; CC visibility toggle |
+| `src/app/(dashboard)/shipping/receiving/page.tsx` | Shipping Receiving submodule | Receiving-specific workflow; CC visibility toggle |
+| `src/app/(dashboard)/general/page.tsx` | General Request module | Statuses: new/in_progress/completed/cancelled; indigo color theme; CC visibility toggle |
 | `src/app/(dashboard)/general/new/page.tsx` | General Request form | Title + Description + Attachments (base64); centered max-w-3xl |
-| `src/app/(dashboard)/hr/page.tsx` | HR module (list + tabs) | Onboarding/Offboarding tabs, status: new/on_hold/completed |
+| `src/app/(dashboard)/hr/page.tsx` | HR module (list + tabs) | Onboarding/Offboarding tabs, status: new/on_hold/completed; CC visibility toggle |
 | `src/app/(dashboard)/hr/new/page.tsx` | HR form page | Form with type query param support |
-| `src/app/(dashboard)/maintenance/page.tsx` | Maintenance module | Priority filtering, status: new/on_hold/completed/cancelled |
-| `src/app/(dashboard)/purchase/page.tsx` | Purchase module | Supplier/price display, status: new/in_customs/on_hold/delivered/cancelled |
-| `src/app/(dashboard)/event/page.tsx` | Event module | Event date/attendees display, full status lifecycle |
-| `src/app/(dashboard)/travel/page.tsx` | Travel module | Destination/date display, full status lifecycle |
+| `src/app/(dashboard)/maintenance/page.tsx` | Maintenance module | Priority filtering, status: new/on_hold/completed/cancelled; CC visibility toggle |
+| `src/app/(dashboard)/purchase/page.tsx` | Purchase module | Supplier/price display, status: new/in_customs/on_hold/delivered/cancelled; CC visibility toggle |
+| `src/app/(dashboard)/event/page.tsx` | Event module | Event date/attendees display, full status lifecycle; CC visibility toggle |
+| `src/app/(dashboard)/travel/page.tsx` | Travel module | Destination/date display, full status lifecycle; CC visibility toggle |
 
 ### Admin Tools
 | File | Purpose | Key Features |
@@ -986,257 +992,13 @@ Status column preserves color styling with dot indicators; other columns use neu
 | `src/components/layout/ThemeProvider.tsx` | Dark mode provider | next-themes wrapper; `attribute="class"`, `storageKey="arp_theme"` |
 | `src/components/ui/InlineStatusSelect.tsx` | Inline status dropdown | Module-aware status list, optimistic update, chevron indicator |
 | `src/components/ui/RequestActionsMenu.tsx` | Three-dot row action menu | View Details (expand), Edit (form link) |
+| `src/components/ui/CcVisibilityToggle.tsx` | CC request discovery toggle | Checkbox with Mail icon, placed on all module list pages |
 | `src/hooks/useExpandedRows.ts` | Row expansion state hook | `toggleRow()`, `isExpanded()` per request ID |
+| `src/hooks/useCcVisibility.ts` | CC visibility toggle state | Persists to sessionStorage (`arp_show_cc_requests`), survives page reloads within session |
 | `src/modules/hr/HRForm.tsx` | HR create form | Toggle-based type selection, checkbox items, Direct Manager Select from companyDataStore |
 | `src/modules/shipping/ShippingForm.tsx` | Shipping form | All dropdowns (Supplier, Cost Center, Carrier, Manager) read from companyDataStore |
-
-## Phase 6g: Professional Announcements & Corporate Email Design (Completed — 22 Jun 2026)
-- [x] **Enhanced Announcements Page — Professional Corporate Design:**
-  - [x] Gradient header section with megaphone icon and formal description
-  - [x] Unread count badge with color coding (red for unread, emerald for all read)
-  - [x] Announcement inbox list with:
-    - [x] Left border indicator (red for unread, blue for active, transparent for read)
-    - [x] Animated pulsing indicator dot for unread announcements
-    - [x] "New" badge for unread items
-    - [x] Announcement subject, date, and body preview
-    - [x] Scrollable list with max-height for better UX
-    - [x] "Mark all as read" button in footer
-  - [x] Announcement detail view with:
-    - [x] Professional gradient header (blue to darker blue) with subject, date, sender, attachment count
-    - [x] "Mark read" button in header (white button with blue text)
-    - [x] Content area with proper typography and spacing
-    - [x] Signature section with avatar/logo and contact details
-    - [x] Professional attachments section with download cards
-    - [x] Hover effects and transitions for better UX
-
-- [x] **Professional Corporate Email Template:**
-  - [x] Enhanced HTML email with corporate styling (Si-Ware Systems branded)
-  - [x] Gradient header (blue gradient) with subject line
-  - [x] Improved typography and spacing (16px base font, 1.75 line-height)
-  - [x] Professional signature block with:
-    - [x] Avatar/logo (72px, rounded corners, gradient fallback)
-    - [x] Name, title, and phone number
-    - [x] Better visual hierarchy with font sizes and weights
-  - [x] Footer disclaimer with:
-    - [x] Left border accent (3px blue line)
-    - [x] Professional confidentiality notice
-    - [x] Footer text with copyright and source attribution
-  - [x] Email container styling:
-    - [x] Box shadow for depth (0 10px 25px with transparency)
-    - [x] Rounded corners (16px) for modern look
-    - [x] Proper padding and spacing
-    - [x] Light gray background (#f5f7fa) for email client contrast
-  - [x] Responsive design that works across email clients (Gmail, Outlook, Apple Mail, etc.)
-
-## Phase 6f: Submission Timestamps, Enhanced Announcements & Advanced Analytics (Completed — 22 Jun 2026)
-
-### **Phase 6f-1: Submission Date & Time Stamps**
-- [x] **All submission dates display full timestamp** (was date-only):
-  - [x] Format: `"10 Jun 2026 — 11:05 AM"` via `fmtDateTime()` instead of `fmtDate()`
-  - [x] Updated across 13 pages: My Requests, All Requests, Team Requests, Shipping (3 variants), HR, Maintenance, Purchase, Event, Travel, General, Request detail
-  - [x] Improves visibility into exact request submission times for audit trails and SLA tracking
-
-### **Phase 6f-2: Enhanced Announcements Page**
-- [x] **Professional Email Composer with Full Preview:**
-  - [x] New "Preview Email" button opens full email preview modal before sending
-  - [x] Preview shows Si-Ware branding header, subject, message body, signature, and logo
-  - [x] Recipient information display (To, CC, audience count)
-  - [x] Formal page layout with professional guidance hints under each field
-  - [x] "Compose Announcement" header + "Email Subject Line" label + "Email Message Body" with preview hints
-  - [x] "Email Signature" textarea with professional formatting guidance
-  - [x] "Signature Logo (Optional)" section with blue-tinted styling
-  - [x] Preview modal shows checklist: recipients, subject line, attachments count + warning to review before sending
-  - [x] "Back to Edit" and "Send Now" buttons in preview footer
-  - [x] Prevents accidental sends via false-positive confirms
-
-### **Phase 6f-3: Comprehensive Feedback & Analytics Dashboard**
-- [x] **Enhanced Summary Statistics (5 KPIs):**
-  - [x] Total Feedback responses count
-  - [x] Average Rating (1-5 stars with visual stars)
-  - [x] Satisfaction Rate (% of 4-5 star ratings)
-  - [x] **NEW:** Feedback Rate (% of completed requests that received feedback)
-  - [x] **NEW:** Average Resolution Time (days to complete all requests)
-
-- [x] **Module Performance Report — Advanced Metrics:**
-  - [x] Per-module feedback count & total completed request count
-  - [x] Average rating with 5-star visualization
-  - [x] Satisfaction score progress bar (color-coded: emerald/blue/amber/orange)
-  - [x] **NEW:** Feedback rate per module (% of requests rated)
-  - [x] **NEW:** Average resolution days per module
-  - [x] **NEW:** Rating count per module (3-column metric grid)
-  - [x] Hover effects and smooth transitions for professional appearance
-
-- [x] **NEW: Request Resolution & Feedback Analytics Section:**
-  - [x] Two-column layout with complementary metrics
-  - [x] **Feedback Response Coverage chart:**
-    - [x] Total completed requests (blue bar, 100%)
-    - [x] Received feedback count (emerald bar, variable %)
-    - [x] Coverage summary text showing feedback rate
-  - [x] **System Performance Metrics:**
-    - [x] Average Resolution Time card (blue, Clock icon)
-    - [x] Overall Satisfaction Score card (amber, Star icon)
-    - [x] Positive Reviews Rate card (emerald, TrendingUp icon)
-    - [x] Each card shows metric + unit label
-    - [x] Color-coded background and icons for visual hierarchy
-
-- [x] **NEW: Enhanced Individual Feedback Cards:**
-  - [x] Request identification: Request ID, Title, Module badge, Star rating
-  - [x] User comment (if provided) in styled quote block
-  - [x] **NEW: Request Evaluation Metrics Section:**
-    - [x] User Satisfaction Status (Positive/Neutral/Negative with icons)
-    - [x] Request Status Badge (Resolved)
-    - [x] Rating Score (X/5)
-    - [x] 3-column grid for visual balance
-    - [x] Color-coded status indicators (emerald/amber/red)
-  - [x] Requester name and submission timestamp
-  - [x] Professional styling with transitions
-
-- [x] **Data Intelligence Features:**
-  - [x] Loads real data from `/api/requests` and `/api/feedback/responses`
-  - [x] Calculates per-module metrics: feedback rate, avg resolution days, satisfaction
-  - [x] Computes overall system metrics: feedback coverage, completion time, satisfaction
-  - [x] Smart memoization prevents unnecessary recalculations
-  - [x] Works with real request data, not mock data
-
-### **Phase 6f-4: Bug Fix — Feedback Reminder Flickering**
-- [x] **Fixed "N completed requests" banner flicker on My Requests page:**
-  - [x] Root cause: `feedbackDoneIds` initialized as empty Set, causing banner to show before API loaded
-  - [x] Solution: Changed state from `Set<string>` → `Set<string> | null` (null = loading)
-  - [x] `pendingFeedback` returns empty array until data loads
-  - [x] Banner render check added: `feedbackDoneIds !== null && pendingFeedback.length > 0`
-  - [x] No more jumping/disappearing animations — smooth load after data arrives
-
-## Phase 6h: Professional Announcements Email System (Completed — 22 Jun 2026)
-- [x] **Email Template Enhancements:**
-  - [x] Dark mode header gradient (#1a2332 → #0f1622) for professional appearance
-  - [x] Si-Ware logo at top of email with proper sizing
-  - [x] Dark-themed subject line and body typography
-  - [x] Signature section with logo positioned on left side
-  - [x] "ADMINISTRATION TEAM" + "+20222684704" contact info
-  - [x] Footer disclaimer with blue left border accent
-  - [x] Copyright notice at bottom
-  - [x] Responsive HTML email design compatible with all email clients
-
-- [x] **Gmail Threading Prevention:**
-  - [x] Unique Message-ID generated per recipient with timestamp and random suffix
-  - [x] References and In-Reply-To headers set to self (prevents reply detection)
-  - [x] Precedence: bulk header (marks as bulk mail, not conversational)
-  - [x] List-ID header with unique timestamp per email (tells clients these are from mailing list)
-  - [x] X-Priority and X-MSMail-Priority headers for email client compatibility
-  - [x] Each recipient receives completely separate email thread (no grouping)
-
-- [x] **Signature Logo Support:**
-  - [x] Improved base64 data URL extraction with robust regex matching
-  - [x] Logo displays inline with signature text (left column layout)
-  - [x] Default Si-Ware logo (SVG) appears by default on all announcements
-  - [x] Users can upload custom logo to override default
-  - [x] Logo persists across form resets (intentional for branding)
-  - [x] Fallback gradient color matches header theme
-
-- [x] **Email Preview Enhancement:**
-  - [x] Preview modal now renders exact same HTML as actual sent emails
-  - [x] Dark mode header matches production emails
-  - [x] Logo, signature, disclaimer all displayed identically
-  - [x] Users see 100% accurate representation before sending
-  - [x] No surprises or formatting discrepancies
-
-- [x] **Default Signature:**
-  - [x] Professional signature: "Administration Team" + "+20222684704"
-  - [x] Legal disclaimer included: confidentiality and intellectual property notice
-  - [x] Consistent across all announcements and templates
-  - [x] Updated across both form and store defaults
-
-- [x] **Form Defaults & Reset:**
-  - [x] Form starts completely empty (no pre-selected recipients)
-  - [x] includeAllCompany and includeEgyptTeam default to false
-  - [x] Clear button resets all fields to empty state
-  - [x] Signature logo resets to default Si-Ware logo
-  - [x] Better UX - no accidental sends to pre-selected recipients
-
-- [x] **Error Handling Improvements:**
-  - [x] Try-catch around sendAnnouncementEmail in API route
-  - [x] Meaningful error messages returned to client
-  - [x] Client-side JSON parsing with fallback to text response
-  - [x] Better error reporting for SMTP configuration issues
-  - [x] Console logging for debugging email send failures
-
-- [x] **Dedicated Scheduled Tab:**
-  - [x] New "Scheduled" tab separates auto-send announcements from regular templates
-  - [x] Shows count badge with blue highlight for upcoming items
-  - [x] Live status indicators: green pulsing dot = upcoming, gray = past
-  - [x] "Upcoming" badge for announcements scheduled in the future
-  - [x] Detailed scheduling info: send date/time, frequency, creation date
-  - [x] Frequency labels: One-time, Weekly (with day), Monthly
-  - [x] Edit and Delete buttons for management
-  - [x] Templates tab now shows only non-scheduled templates
-  - [x] Accurate count of regular vs scheduled templates
-
-## Email Feature Summary
-All announcements now include:
-- Professional dark-themed email design
-- Si-Ware branding with logo and signature
-- Proper Gmail thread handling (separate emails per recipient)
-- Accurate WYSIWYG preview before sending
-- Scheduled delivery with multiple frequency options (once, weekly, monthly)
-- Error handling and user feedback
-- Form validation and sensible defaults
-- Full management interface with dedicated scheduled tab
-
-## Phase 6h-Fixes: Announcements Bug Fixes & Polish (Completed — 22 Jun 2026)
-- [x] **Recipients Validation:**
-  - [x] Preview Email button disabled if no recipients selected
-  - [x] Send Announcement button disabled if no recipients selected
-  - [x] Tooltips: "Add at least one recipient to preview/send"
-  - [x] Prevents accidental empty sends
-  - [x] Matches API-side validation
-
-- [x] **Gmail SMTP Throttling Fix:**
-  - [x] Added 500ms delay between each announcement email
-  - [x] Prevents Gmail 421 "Try again later" errors
-  - [x] First email sent immediately, subsequent emails delayed
-  - [x] For 10 recipients: ~5 seconds total delivery time
-  - [x] No lost emails due to connection resets
-  - [x] Reliable bulk announcement delivery
-
-- [x] **Scheduled Announcements Fix:**
-  - [x] When "Auto send template" checked + date/time selected: saves as scheduled template
-  - [x] Does NOT send immediately (was bug before)
-  - [x] Automatically appears in Scheduled tab after creation
-  - [x] Respects frequency settings (Once/Weekly/Monthly)
-  - [x] Shows success message: "Announcement scheduled for later"
-  - [x] Background scheduler auto-sends at scheduled time
-  - [x] Full audit trail and delivery tracking
-
-## Complete Announcements Feature (Phase 6h)
-**Status:** ✅ Production Ready
-
-**Core Features:**
-- Compose announcements with professional dark-themed emails
-- Upload custom signature logos or use default Si-Ware logo
-- Preview exact email before sending (WYSIWYG accuracy)
-- Send immediately to selected recipients (with 500ms delay per email)
-- Schedule announcements for later (once, weekly, monthly)
-- View sent history, drafts, and scheduled announcements
-- Manage templates for reuse
-- Professional signature with contact info and legal disclaimer
-
-**Technical Foundation:**
-- Dark mode email header (#1a2332 → #0f1622 gradient)
-- Gmail threading prevention (unique Message-IDs, anti-threading headers)
-- Base64 signature logo support with fallback
-- HTML email preview rendering
-- Error handling with meaningful user feedback
-- Form validation (subjects, recipients, scheduling)
-- Dedicated Scheduled tab with status indicators
-- Default empty form (no pre-selection)
-
-**Reliability Features:**
-- SMTP rate limiting (500ms inter-email delay)
-- Retry logic for failed sends
-- Connection pooling to prevent throttling
-- Server-side template persistence
-- Background scheduler for auto-sends
-- Separate email threads per recipient (no Gmail grouping)
+| `src/modules/travel/travel.schema.ts` | Travel request schema | Two discriminated request types: VisaTravelRequestSchema + HotelFlightTravelRequestSchema; conditional field validation via superRefine |
+| `src/modules/travel/TravelForm.tsx` | Travel create form | Request type toggle (Visa / Hotel & Flight), conditional form fields based on type, required attachment validation, SearchableSelect for manager/cost center |
 
 ## Phase 6h-Database: Announcements (Completed — 22 Jun 2026)
 - [x] **Database page integration:**

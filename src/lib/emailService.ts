@@ -893,3 +893,266 @@ export async function sendPurchaseApprovalEmail(params: {
     })
   }
 }
+
+/**
+ * sendShippingApprovalEmail
+ *
+ * Fired when a Shipping request transitions to "Awaiting Approval" status.
+ * Goes To: the selected Direct Manager (Cc: requester + Administration
+ * Team + helpdesk). Contains every field needed to decide plus two
+ * one-shot signed buttons — Approve and Reject — that the manager can
+ * click straight from their inbox.
+ */
+export async function sendShippingApprovalEmail(params: {
+  to: string
+  cc?: string[]
+  managerName?: string
+  requestId: string
+  requestTitle: string
+  direction?: string
+  carrier?: string
+  trackingNumber?: string
+  poNumber?: string
+  costCenter?: string
+  expectedDeliveryDate?: string
+  description?: string
+  notes?: string
+  requesterName?: string
+  requesterEmail?: string
+  approveUrl: string
+  rejectUrl: string
+}) {
+  const transporter = createTransporter()
+  const baseUrl = getBaseUrl()
+  const requestUrl = `${baseUrl}/requests/${params.requestId}`
+  const logoBuffer = getLogoBuffer()
+
+  const subject = `Approval needed: ${params.requestTitle} — ${params.requestId}`
+
+  const row = (label: string, value?: string | number | null) => {
+    const v = value == null || value === "" ? "—" : String(value)
+    return `
+      <tr>
+        <td style="padding:8px 14px;color:#475569;font-size:12px;border-bottom:1px solid #e2e8f0;width:180px;vertical-align:top;">${escapeHtml(label)}</td>
+        <td style="padding:8px 14px;color:#0f172a;font-size:13px;border-bottom:1px solid #e2e8f0;vertical-align:top;">${escapeHtml(v)}</td>
+      </tr>`
+  }
+
+  const detailsTable = `
+      <table style="width:100%;border-collapse:collapse;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;background:#f8fafc;">
+        ${row("Requested by", params.requesterName)}
+        ${row("Requester email", params.requesterEmail)}
+        ${row("Direction", params.direction === "sending" ? "Sending (Outgoing)" : "Receiving (Incoming)")}
+        ${row("Carrier", params.carrier)}
+        ${row("Tracking Number", params.trackingNumber)}
+        ${row("PO Number", params.poNumber)}
+        ${row("Cost Center", params.costCenter)}
+        ${row("Expected Delivery Date", params.expectedDeliveryDate)}
+        ${row("Description", params.description)}
+        ${params.notes ? row("Notes", params.notes) : ""}
+      </table>`
+
+  const wrapper = (body: string) => `<!doctype html>
+<html><body style="margin:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;">
+  <div style="max-width:640px;margin:0 auto;padding:32px 16px;">
+    ${logoBuffer ? `<div style="text-align:center;margin-bottom:24px;"><img src="cid:siware-logo" alt="Si-Ware" style="height:36px;"></div>` : ""}
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.04);">
+      <div style="background:linear-gradient(135deg,#0369a1,#06b6d4);color:#fff;padding:24px 28px;">
+        <p style="margin:0;font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:1px;">Shipping Approval Request</p>
+        <h1 style="margin:6px 0 0;font-size:22px;font-weight:600;">${escapeHtml(params.requestTitle)}</h1>
+        <p style="margin:8px 0 0;font-size:13px;opacity:.9;">${escapeHtml(params.requestId)}</p>
+      </div>
+      ${body}
+    </div>
+    <p style="text-align:center;margin:18px 0 0;font-size:12px;color:#94a3b8;">Si-Ware Systems Admin Helpdesk Portal &nbsp;·&nbsp; adminhelpdesk@si-ware.com</p>
+  </div>
+</body></html>`
+
+  // Manager email — has Approve / Reject action buttons
+  const managerHtml = wrapper(`
+      <div style="padding:24px 28px 8px;">
+        <p style="margin:0 0 8px;font-size:14px;color:#334155;">${params.managerName ? `Hi ${escapeHtml(params.managerName)}, a` : "A"} shipping request requires your approval. Please review the details below and click <strong>Approve</strong> or <strong>Reject</strong>.</p>
+      </div>
+      ${detailsTable}
+      <div style="padding:28px;text-align:center;background:#fff;">
+        <a href="${params.approveUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Approve</a>
+        <a href="${params.rejectUrl}"  style="display:inline-block;background:#ef4444;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Reject</a>
+        <p style="margin:18px 0 0;font-size:12px;color:#64748b;">Or <a href="${requestUrl}" style="color:#0369a1;">open the request in the portal</a> to take action there.</p>
+        <p style="margin:8px 0 0;font-size:11px;color:#94a3b8;">These buttons are single-use links; they stop working once a decision is recorded or the request status changes.</p>
+      </div>`)
+
+  // CC email — read-only copy, no action buttons
+  const ccHtml = wrapper(`
+      <div style="padding:24px 28px 8px;">
+        <p style="margin:0 0 8px;font-size:14px;color:#334155;">A shipping request is <strong>awaiting approval</strong> from the Direct Manager. This is an informational copy — no action is required from you.</p>
+      </div>
+      ${detailsTable}
+      <div style="padding:20px 28px;text-align:center;background:#fff;">
+        <a href="${requestUrl}" style="display:inline-block;background:#0369a1;color:#fff;font-weight:600;padding:10px 28px;border-radius:8px;text-decoration:none;font-size:14px;">View Request in Portal</a>
+      </div>`)
+
+  const attachments = logoBuffer ? [{
+    filename: "siware-logo.png",
+    content: logoBuffer,
+    cid: "siware-logo",
+    contentType: "image/png",
+  }] : []
+
+  // Send action email to manager only (no CC on this one)
+  await sendMailWithRetry(transporter, {
+    from: resolveFromAddress("Si-Ware Admin Helpdesk"),
+    to: params.to,
+    subject,
+    html: managerHtml,
+    attachments,
+  })
+
+  // Send read-only notification to CC recipients (no action URLs exposed)
+  if (params.cc && params.cc.length > 0) {
+    await sendMailWithRetry(transporter, {
+      from: resolveFromAddress("Si-Ware Admin Helpdesk"),
+      to: params.cc,
+      subject: `[CC] ${subject}`,
+      html: ccHtml,
+      attachments,
+    })
+  }
+}
+
+/**
+ * sendTravelApprovalEmail
+ *
+ * Fired when a Travel request transitions to "Awaiting Approval" status.
+ * Goes To: the selected Direct Manager (Cc: requester + Administration
+ * Team + helpdesk). Contains every field needed to decide plus two
+ * one-shot signed buttons — Approve and Reject — that the manager can
+ * click straight from their inbox.
+ */
+export async function sendTravelApprovalEmail(params: {
+  to: string
+  cc?: string[]
+  managerName?: string
+  requestId: string
+  requestTitle: string
+  travelType?: string
+  directManager?: string
+  costCenter?: string
+  description?: string
+  items?: string[]
+  hotelUrl?: string
+  flightCompany?: string
+  notes?: string
+  requesterName?: string
+  requesterEmail?: string
+  approveUrl: string
+  rejectUrl: string
+}) {
+  const transporter = createTransporter()
+  const baseUrl = getBaseUrl()
+  const requestUrl = `${baseUrl}/requests/${params.requestId}`
+  const logoBuffer = getLogoBuffer()
+
+  const subject = `Approval needed: ${params.requestTitle} — ${params.requestId}`
+
+  const row = (label: string, value?: string | number | null) => {
+    const v = value == null || value === "" ? "—" : String(value)
+    return `
+      <tr>
+        <td style="padding:8px 14px;color:#475569;font-size:12px;border-bottom:1px solid #e2e8f0;width:180px;vertical-align:top;">${escapeHtml(label)}</td>
+        <td style="padding:8px 14px;color:#0f172a;font-size:13px;border-bottom:1px solid #e2e8f0;vertical-align:top;">${escapeHtml(v)}</td>
+      </tr>`
+  }
+
+  const linkRow = (label: string, value?: string | null) => {
+    if (!value) return ""
+    const safe = escapeHtml(value)
+    return `
+      <tr>
+        <td style="padding:8px 14px;color:#475569;font-size:12px;border-bottom:1px solid #e2e8f0;width:180px;vertical-align:top;">${escapeHtml(label)}</td>
+        <td style="padding:8px 14px;font-size:13px;border-bottom:1px solid #e2e8f0;vertical-align:top;"><a href="${safe}" style="color:#14b8a6;text-decoration:none;word-break:break-all;">${safe}</a></td>
+      </tr>`
+  }
+
+  const travelTypeDisplay = params.travelType === "visa_application" ? "Visa Application" : "Hotel & Flight Reservation"
+  const itemsDisplay = Array.isArray(params.items) ? params.items.join(", ") : params.items || "—"
+
+  const detailsTable = `
+      <table style="width:100%;border-collapse:collapse;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;background:#f8fafc;">
+        ${row("Requested by", params.requesterName)}
+        ${row("Requester email", params.requesterEmail)}
+        ${row("Request Type", travelTypeDisplay)}
+        ${row("Items", itemsDisplay)}
+        ${row("Direct Manager", params.directManager)}
+        ${row("Cost Center", params.costCenter)}
+        ${params.hotelUrl ? linkRow("Hotel URL", params.hotelUrl) : ""}
+        ${row("Flight Company", params.flightCompany)}
+        ${params.description ? row("Description", params.description) : ""}
+        ${params.notes ? row("Notes", params.notes) : ""}
+      </table>`
+
+  const wrapper = (body: string) => `<!doctype html>
+<html><body style="margin:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;">
+  <div style="max-width:640px;margin:0 auto;padding:32px 16px;">
+    ${logoBuffer ? `<div style="text-align:center;margin-bottom:24px;"><img src="cid:siware-logo" alt="Si-Ware" style="height:36px;"></div>` : ""}
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.04);">
+      <div style="background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;padding:24px 28px;">
+        <p style="margin:0;font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:1px;">Travel Approval Request</p>
+        <h1 style="margin:6px 0 0;font-size:22px;font-weight:600;">${escapeHtml(params.requestTitle)}</h1>
+        <p style="margin:8px 0 0;font-size:13px;opacity:.9;">${escapeHtml(params.requestId)}</p>
+      </div>
+      ${body}
+    </div>
+    <p style="text-align:center;margin:18px 0 0;font-size:12px;color:#94a3b8;">Si-Ware Systems Admin Helpdesk Portal &nbsp;·&nbsp; adminhelpdesk@si-ware.com</p>
+  </div>
+</body></html>`
+
+  // Manager email — has Approve / Reject action buttons
+  const managerHtml = wrapper(`
+      <div style="padding:24px 28px 8px;">
+        <p style="margin:0 0 8px;font-size:14px;color:#334155;">${params.managerName ? `Hi ${escapeHtml(params.managerName)}, a` : "A"} travel request requires your approval. Please review the details below and click <strong>Approve</strong> or <strong>Reject</strong>.</p>
+      </div>
+      ${detailsTable}
+      <div style="padding:28px;text-align:center;background:#fff;">
+        <a href="${params.approveUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Approve</a>
+        <a href="${params.rejectUrl}"  style="display:inline-block;background:#ef4444;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Reject</a>
+        <p style="margin:18px 0 0;font-size:12px;color:#64748b;">Or <a href="${requestUrl}" style="color:#0d9488;">open the request in the portal</a> to take action there.</p>
+        <p style="margin:8px 0 0;font-size:11px;color:#94a3b8;">These buttons are single-use links; they stop working once a decision is recorded or the request status changes.</p>
+      </div>`)
+
+  // CC email — read-only copy, no action buttons
+  const ccHtml = wrapper(`
+      <div style="padding:24px 28px 8px;">
+        <p style="margin:0 0 8px;font-size:14px;color:#334155;">A travel request is <strong>awaiting approval</strong> from the Direct Manager. This is an informational copy — no action is required from you.</p>
+      </div>
+      ${detailsTable}
+      <div style="padding:20px 28px;text-align:center;background:#fff;">
+        <a href="${requestUrl}" style="display:inline-block;background:#0d9488;color:#fff;font-weight:600;padding:10px 28px;border-radius:8px;text-decoration:none;font-size:14px;">View Request in Portal</a>
+      </div>`)
+
+  const attachments = logoBuffer ? [{
+    filename: "siware-logo.png",
+    content: logoBuffer,
+    cid: "siware-logo",
+    contentType: "image/png",
+  }] : []
+
+  // Send action email to manager only (no CC on this one)
+  await sendMailWithRetry(transporter, {
+    from: resolveFromAddress("Si-Ware Admin Helpdesk"),
+    to: params.to,
+    subject,
+    html: managerHtml,
+    attachments,
+  })
+
+  // Send read-only notification to CC recipients (no action URLs exposed)
+  if (params.cc && params.cc.length > 0) {
+    await sendMailWithRetry(transporter, {
+      from: resolveFromAddress("Si-Ware Admin Helpdesk"),
+      to: params.cc,
+      subject: `[CC] ${subject}`,
+      html: ccHtml,
+      attachments,
+    })
+  }
+}

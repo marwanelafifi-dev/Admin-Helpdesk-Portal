@@ -6,7 +6,7 @@ import { Search, Plus, Plane, Clock, CheckCircle2, ChevronUp, ChevronDown, Chevr
 import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, type EngineRequest, type RequestStatus } from "@/services/engineService"
+import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, isUserInCc, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
@@ -16,14 +16,16 @@ import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
+import { CcVisibilityToggle } from "@/components/ui/CcVisibilityToggle"
+import { useCcVisibility } from "@/hooks/useCcVisibility"
 import { LABEL_COLORS, LABEL_DOTS } from "@/lib/statusPalette"
 import { scopeRequests } from "@/lib/access"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
-  new: "New", in_progress: "In Progress",
-  delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
+  new: "New", awaiting_approval: "Awaiting Approval", in_progress: "In Progress",
+  completed: "Completed", cancelled: "Cancelled",
 }
 
 const STATUS_COLORS: Record<string, string> = Object.fromEntries(
@@ -35,13 +37,13 @@ const STATUS_DOT: Record<string, string> = Object.fromEntries(
 
 const STATUS_PILL_ACTIVE: Record<string, string> = {
   new: "bg-sky-500 border-sky-500 text-white",
+  awaiting_approval: "bg-amber-500 border-amber-500 text-white",
   in_progress: "bg-blue-600 border-blue-600 text-white",
-  delivered: "bg-green-600 border-green-600 text-white",
   completed: "bg-emerald-600 border-emerald-600 text-white",
   cancelled: "bg-red-600 border-red-600 text-white",
 }
 
-const STATUSES = ["new", "in_progress", "delivered", "completed", "cancelled"] as const
+const STATUSES = ["new", "awaiting_approval", "in_progress", "completed", "cancelled"] as const
 
 type SortKey = "id" | "title" | "createdAt" | "requesterName" | "destination" | "startDate" | "status" | "updatedAt"
 
@@ -61,6 +63,7 @@ const COLS: { key: SortKey; label: string; defaultW: number }[] = [
 
 export default function TravelPage() {
   const { data: session } = useSession()
+  const { showCcRequests, toggleCcVisibility } = useCcVisibility()
   const [requests, setRequests]           = useState<EngineRequest[]>([])
   const [search, setSearch]               = useState("")
   const [statusFilter, setStatusFilter]   = useState("all")
@@ -157,8 +160,22 @@ export default function TravelPage() {
     return sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1 shrink-0" /> : <ChevronDown className="h-3 w-3 ml-1 shrink-0" />
   }
 
+  const allVisibleRequests = useMemo(() => {
+    if (!showCcRequests) return requests
+    // When CC toggle is on, include requests where the user is CC'd but not the requester
+    const userEmail = session?.user?.email ?? ""
+    const userId = session?.user?.id ?? ""
+    const allRequests = getRequests().filter((r) => r.module === "travel")
+    const ccRequests = allRequests.filter((r) =>
+      r.requesterId !== userId && // Not the requester
+      !requests.some(req => req.id === r.id) && // Not already included
+      isUserInCc(r, userEmail) // User is in CC
+    )
+    return [...requests, ...ccRequests]
+  }, [requests, showCcRequests, session?.user?.email, session?.user?.id])
+
   const filtered = useMemo(() => {
-    let result = requests
+    let result = allVisibleRequests
     if (statusFilter !== "all") result = result.filter((r) => r.status === statusFilter)
     const q = search.trim().toLowerCase()
     if (q) result = result.filter((r) =>
@@ -183,20 +200,22 @@ export default function TravelPage() {
       }
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
-  }, [requests, statusFilter, search, sortKey, sortDir])
+  }, [allVisibleRequests, statusFilter, search, sortKey, sortDir])
 
   const counts = useMemo(() => ({
-    total:     requests.length,
-    upcoming:  requests.filter((r) => r.status === "new").length,
-    onHold:    requests.filter((r) => r.status === "in_progress").length,
-    completed: requests.filter((r) => r.status === "completed").length,
+    total:             requests.length,
+    new:               requests.filter((r) => r.status === "new").length,
+    awaitingApproval:  requests.filter((r) => r.status === "awaiting_approval").length,
+    inProgress:        requests.filter((r) => r.status === "in_progress").length,
+    completed:         requests.filter((r) => r.status === "completed").length,
   }), [requests])
 
   const statCards = [
-    { key: "all",        label: "Total Trips",  value: counts.total,     icon: Plane,       iconBg: "bg-pink-50",   iconColor: "text-pink-600",    activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
-    { key: "new",        label: "Upcoming",     value: counts.upcoming,  icon: Clock,       iconBg: "bg-sky-50",    iconColor: "text-sky-600",     activeBg: "bg-sky-500",    activeBorder: "border-sky-500" },
-    { key: "in_progress",label: "In Progress",  value: counts.onHold,    icon: Clock,       iconBg: "bg-blue-50",   iconColor: "text-blue-600",    activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
-    { key: "completed",  label: "Completed",    value: counts.completed, icon: CheckCircle2,iconBg: "bg-emerald-50",iconColor: "text-emerald-600", activeBg: "bg-emerald-600",activeBorder: "border-emerald-600" },
+    { key: "all",               label: "Total Trips",        value: counts.total,             icon: Plane,        iconBg: "bg-teal-50",    iconColor: "text-teal-600",    activeBg: "bg-slate-800", activeBorder: "border-slate-800" },
+    { key: "new",               label: "New",                value: counts.new,               icon: Clock,        iconBg: "bg-sky-50",     iconColor: "text-sky-600",     activeBg: "bg-sky-500",   activeBorder: "border-sky-500" },
+    { key: "awaiting_approval", label: "Awaiting Approval",  value: counts.awaitingApproval,  icon: Clock,        iconBg: "bg-amber-50",   iconColor: "text-amber-600",   activeBg: "bg-amber-500", activeBorder: "border-amber-500" },
+    { key: "in_progress",       label: "In Progress",        value: counts.inProgress,        icon: Clock,        iconBg: "bg-blue-50",    iconColor: "text-blue-600",    activeBg: "bg-blue-600",  activeBorder: "border-blue-600" },
+    { key: "completed",         label: "Completed",          value: counts.completed,         icon: CheckCircle2,  iconBg: "bg-emerald-50", iconColor: "text-emerald-600", activeBg: "bg-emerald-600",activeBorder: "border-emerald-600" },
   ] as const
 
   return (
@@ -211,7 +230,7 @@ export default function TravelPage() {
         {(newRequestsCount > 0 || newTasksCount > 0) && (
           <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
         )}
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white ml-4" disabled>
+        <Button className="bg-blue-600 hover:bg-blue-700 text-white ml-4" onClick={() => window.open("/travel/new", "_blank")}>
           <Plus className="h-4 w-4 mr-2" />
           New Travel Request
         </Button>
@@ -262,7 +281,7 @@ export default function TravelPage() {
                 return (
                   <button
                     key={s}
-                    onClick={() => setStatusFilter(s)}
+                    onClick={() => setStatusFilter(s === "all" ? "all" : s)}
                     className={cn(
                       "h-8 px-3 rounded-md text-xs font-medium border transition-all",
                       statusFilter === s ? activeClass : "bg-white border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700"
@@ -274,8 +293,16 @@ export default function TravelPage() {
               })}
             </div>
           </div>
-          <p className="text-sm text-muted-foreground font-normal mt-1">
-            Showing {filtered.length} trip{filtered.length !== 1 ? "s" : ""}
+
+          {/* CC Visibility Toggle */}
+          <div className="mt-3">
+            <CcVisibilityToggle checked={showCcRequests} onCheckedChange={toggleCcVisibility} />
+          </div>
+
+          <p className="text-sm text-muted-foreground font-normal mt-2">
+            {showCcRequests
+              ? `Showing ${filtered.length} trip${filtered.length !== 1 ? "s" : ""} (including CC'd requests)`
+              : `Showing ${filtered.length} trip${filtered.length !== 1 ? "s" : ""}`}
           </p>
         </CardHeader>
 
@@ -421,13 +448,6 @@ export default function TravelPage() {
               )}
             </tbody>
           </table>
-
-          {/* Coming soon message */}
-          <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground border-t border-gray-100">
-            <Plane className="h-10 w-10 mb-3 text-slate-300" />
-            <p className="font-medium text-sm">Travel module coming soon</p>
-            <p className="text-xs mt-1">Flight bookings, hotel reservations, and travel approvals will appear here</p>
-          </div>
 
           {filtered.length > 0 && (
             <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-[11px] text-gray-400 text-right">

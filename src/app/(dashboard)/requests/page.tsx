@@ -93,22 +93,22 @@ const MODULES  = ["shipping", "maintenance", "purchase", "event", "travel", "hr"
 // Module-specific allowed statuses — drives the inline status dropdown so each
 // row only offers statuses that make sense for its module.
 const MODULE_STATUSES: Record<string, readonly string[]> = {
-  shipping:    ["new", "in_progress", "in_customs", "delivered", "cancelled"],
+  shipping:    ["new", "awaiting_approval", "in_progress", "in_customs", "delivered", "cancelled"],
   maintenance: ["new", "in_progress", "completed", "cancelled"],
   purchase:    ["new", "in_progress", "awaiting_approval", "delivered", "cancelled"],
   event:       ["new", "in_progress", "delivered", "completed", "cancelled"],
-  travel:      ["new", "in_progress", "delivered", "completed", "cancelled"],
+  travel:      ["new", "awaiting_approval", "in_progress", "completed", "cancelled"],
   hr:          ["new", "in_progress", "completed"],
   general:     ["new", "in_progress", "completed", "cancelled"],
 }
 
 // Module-specific status labels — codes match the UI text 1:1.
 const MODULE_STATUS_LABELS: Record<string, Record<string, string>> = {
-  shipping:    { new: "New", in_progress: "In Progress", in_customs: "In Customs", delivered: "Delivered", cancelled: "Cancelled" },
+  shipping:    { new: "New", awaiting_approval: "Awaiting Approval", in_progress: "In Progress", in_customs: "In Customs", delivered: "Delivered", cancelled: "Cancelled" },
   purchase:    { new: "New", in_progress: "In Progress", awaiting_approval: "Awaiting Approval", delivered: "Delivered", cancelled: "Cancelled" },
   maintenance: { new: "New", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled" },
   event:       { new: "New", in_progress: "In Progress", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled" },
-  travel:      { new: "New", in_progress: "In Progress", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled" },
+  travel:      { new: "New", awaiting_approval: "Awaiting Approval", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled" },
   hr:          { new: "New", in_progress: "In Progress", completed: "Completed" },
   general:     { new: "New", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled" },
 }

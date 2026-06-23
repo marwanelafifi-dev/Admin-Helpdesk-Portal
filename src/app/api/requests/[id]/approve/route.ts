@@ -6,6 +6,7 @@ import { commentsStore } from "@/lib/commentsStore"
 
 export const runtime = "nodejs"
 
+// Both Purchase and Shipping can be awaiting_approval; Purchase also accepts legacy "in_customs"
 const AWAITING_STATUSES = new Set(["awaiting_approval", "in_customs"])
 
 export async function GET(

@@ -8,6 +8,8 @@ export const CARRIERS = ["DHL", "FedEx", "UPS", "Aramex", "Other"] as const
 
 export const REQUEST_STATUSES = [
   "new",
+  "awaiting_approval",
+  "in_progress",
   "in_customs",
   "delivered",
   "cancelled",

@@ -79,11 +79,11 @@ const STATUSES = ["new", "in_progress", "in_customs", "awaiting_approval", "deli
 // Module-specific statuses — canonical code per UI label.
 // Each code maps 1:1 to exactly one UI label (see MODULE_STATUS_LABELS).
 const MODULE_STATUSES: Record<string, readonly string[]> = {
-  shipping:    ["new", "in_progress", "in_customs", "delivered", "cancelled"],
+  shipping:    ["new", "awaiting_approval", "in_progress", "in_customs", "delivered", "cancelled"],
   maintenance: ["new", "in_progress", "completed", "cancelled"],
   purchase:    ["new", "in_progress", "awaiting_approval", "delivered", "cancelled"],
   event:       ["new", "in_progress", "delivered", "completed", "cancelled"],
-  travel:      ["new", "in_progress", "delivered", "completed", "cancelled"],
+  travel:      ["new", "awaiting_approval", "in_progress", "completed", "cancelled"],
   hr:          ["new", "in_progress", "completed"],
   general:     ["new", "in_progress", "completed", "cancelled"],
 }
@@ -91,7 +91,7 @@ const MODULE_STATUSES: Record<string, readonly string[]> = {
 // Module-specific status labels — codes match the UI text 1:1.
 const MODULE_STATUS_LABELS: Record<string, Record<string, string>> = {
   shipping: {
-    new: "New", in_progress: "In Progress", in_customs: "In Customs", delivered: "Delivered", cancelled: "Cancelled",
+    new: "New", awaiting_approval: "Awaiting Approval", in_progress: "In Progress", in_customs: "In Customs", delivered: "Delivered", cancelled: "Cancelled",
   },
   purchase: {
     new: "New", in_progress: "In Progress", awaiting_approval: "Awaiting Approval", delivered: "Delivered", cancelled: "Cancelled",
@@ -103,7 +103,7 @@ const MODULE_STATUS_LABELS: Record<string, Record<string, string>> = {
     new: "New", in_progress: "In Progress", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
   },
   travel: {
-    new: "New", in_progress: "In Progress", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled",
+    new: "New", awaiting_approval: "Awaiting Approval", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled",
   },
   hr: {
     new: "New", in_progress: "In Progress", completed: "Completed",
