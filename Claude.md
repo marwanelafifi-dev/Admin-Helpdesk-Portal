@@ -106,8 +106,8 @@ This document tracks the phased development of the Admin Request Platform, movin
     - [x] CC email (read-only notification copy).
     - [x] Dynamic field display based on request type (Visa vs Hotel & Flight).
     - [x] Auto-sends when Travel request enters `awaiting_approval` status.
-    - [x] Approve → status → `in_progress` + success notification.
-    - [x] Reject → status → `cancelled` + rejection form with required reason capture.
+    - [x] **If Approved**: Status → `in_progress` (blue), comment "Approved by Direct Manager" added to thread, decision email sent.
+    - [x] **If Rejected**: Status → `cancelled` (red), rejection form displays asking for required reason, comment with rejection reason added to thread, decision email sent.
     - [x] Resend button on Travel list + detail page for existing awaiting_approval requests.
   - [x] Travel module integrated into My Requests, All Requests, Team Requests, Dashboard.
   - [x] All 5 statuses (new, awaiting_approval, in_progress, completed, cancelled) working across all pages.
