@@ -1015,39 +1015,42 @@ export default function RequestDetailPage() {
                       key={attachment.id}
                       className="flex items-center gap-3 p-4 border rounded-lg hover:bg-gray-50 hover:border-blue-300 transition-colors"
                     >
-                      <a
-                        href={previewUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 flex-1 min-w-0 group cursor-pointer"
-                        title="Open in new tab"
-                      >
-                        <FileText className="h-5 w-5 text-blue-600 flex-shrink-0 group-hover:scale-110 transition-transform" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate group-hover:text-blue-600">
-                            {attachment.name}
+                      <FileText className="h-5 w-5 text-blue-600 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {attachment.name}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-xs text-gray-500">
+                            {(attachment.sizeBytes / 1024).toFixed(1)} KB
                           </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <p className="text-xs text-gray-500">
-                              {(attachment.sizeBytes / 1024).toFixed(1)} KB
-                            </p>
-                            {attachment.source === 'comment' && (
-                              <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded">
-                                From comment by {attachment.commentAuthor}
-                              </span>
-                            )}
-                          </div>
+                          {attachment.source === 'comment' && (
+                            <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded">
+                              From comment by {attachment.commentAuthor}
+                            </span>
+                          )}
                         </div>
-                      </a>
-                      <a
-                        href={attachment.url}
-                        download={attachment.name}
-                        className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded transition-colors flex-shrink-0"
-                        title={isDataUrl ? "Download file" : "Download"}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Download
-                      </a>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <a
+                          href={previewUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded transition-colors"
+                          title="Preview in new tab"
+                        >
+                          Preview
+                        </a>
+                        <a
+                          href={attachment.url}
+                          download={attachment.name}
+                          className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded transition-colors"
+                          title={isDataUrl ? "Download file" : "Download"}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Download
+                        </a>
+                      </div>
                     </div>
                   )
                 })
