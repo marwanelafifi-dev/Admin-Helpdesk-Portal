@@ -30,6 +30,7 @@ import {
   Inbox,
   Building2,
   Megaphone,
+  Info,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { canAccessPath } from "@/lib/access"
@@ -57,6 +58,7 @@ const navItems: NavItem[] = [
     ],
   },
   { title: "Announcements", href: "/announcements", icon: Megaphone },
+  { title: "System Notices", href: "/notifications/notices", icon: Info },
   { title: "My Requests", href: "/requests", icon: FileText },
   { title: "Team Requests", href: "/team-requests", icon: UsersRound },
   {

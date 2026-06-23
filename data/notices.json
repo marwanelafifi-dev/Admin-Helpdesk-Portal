@@ -1,0 +1,64 @@
+{
+  "notices": [
+    {
+      "id": "notice-event-live",
+      "title": "Event Module Now Live",
+      "type": "feature",
+      "summary": "Event request management now available with full workflow including date, attendees, and location tracking.",
+      "description": "The Event module is now fully operational with all features including:\n- Event date and time scheduling\n- Attendee count tracking\n- Internal/External location types\n- Full approval workflow\n- Comment and attachment support",
+      "postedAt": "2026-06-11T00:00:00.000Z",
+      "postedBy": "System",
+      "lastUpdatedAt": "2026-06-11T00:00:00.000Z"
+    },
+    {
+      "id": "notice-announcements-page",
+      "title": "Announcements Page Available",
+      "type": "feature",
+      "summary": "New page to manage system-wide announcements and communications with scheduling and templates.",
+      "description": "The Announcements feature enables admins to:\n- Create and send company-wide announcements\n- Use pre-built templates for common messages\n- Schedule announcements for specific times\n- Track sent announcements and delivery status\n- Manage announcement drafts",
+      "postedAt": "2026-05-18T00:00:00.000Z",
+      "postedBy": "System",
+      "lastUpdatedAt": "2026-05-18T00:00:00.000Z"
+    },
+    {
+      "id": "notice-cc-visibility",
+      "title": "CC Request Visibility Toggle",
+      "type": "feature",
+      "summary": "Users can now discover requests they're CC'd on across all modules with a convenient toggle switch.",
+      "description": "New CC visibility feature allows users to:\n- Toggle display of requests where they are CC'd\n- See requests from colleagues that require their input\n- Access to the same list pages (Shipping, HR, Purchase, Event, Travel, General, Maintenance)\n- Separate view from their own submitted requests",
+      "postedAt": "2026-06-23T00:00:00.000Z",
+      "postedBy": "System",
+      "lastUpdatedAt": "2026-06-23T00:00:00.000Z"
+    },
+    {
+      "id": "notice-travel-complete",
+      "title": "Travel Module Complete",
+      "type": "feature",
+      "summary": "Complete travel request system with visa and hotel/flight booking types is now available.",
+      "description": "The Travel module now includes:\n- Multiple trip types (flights, hotels, visas)\n- Date and destination tracking\n- Budget and cost management\n- Approval workflows\n- Document attachment support\n- Travel history and reporting",
+      "postedAt": "2026-05-18T00:00:00.000Z",
+      "postedBy": "System",
+      "lastUpdatedAt": "2026-05-18T00:00:00.000Z"
+    },
+    {
+      "id": "notice-shipping-id-fix",
+      "title": "Fixed Shipping Request ID Duplicates",
+      "type": "bug_fix",
+      "summary": "Resolved issue where concurrent submissions could create duplicate request IDs in shipping module.",
+      "description": "A critical issue has been fixed:\n- Root cause: Race condition in concurrent request submission\n- Solution: Implemented server-side atomic ID generation\n- Impact: All new requests now have guaranteed unique IDs\n- Status: Deployed and verified across all modules",
+      "postedAt": "2026-06-10T00:00:00.000Z",
+      "postedBy": "System",
+      "lastUpdatedAt": "2026-06-10T00:00:00.000Z"
+    },
+    {
+      "id": "notice-attachment-loss-fix",
+      "title": "Fixed Attachment Loss on Submit",
+      "type": "bug_fix",
+      "summary": "Resolved attachment loss when localStorage storage limit was exceeded during form submission.",
+      "description": "Fixed storage quota issue:\n- Root cause: localStorage overflow when saving attachments\n- Solution: Implement graceful quota handling and server-side persistence\n- Workaround: Attachments now persisted to server immediately\n- Users can safely upload large files without data loss",
+      "postedAt": "2026-06-08T00:00:00.000Z",
+      "postedBy": "System",
+      "lastUpdatedAt": "2026-06-08T00:00:00.000Z"
+    }
+  ]
+}
