@@ -117,9 +117,15 @@ const SERVER_FILE_STORES = [
   },
   {
     key: "server:user-feedback",
-    label: "User Feedback",
-    description: "data/user-feedback.json — portal feedback and comments from users",
+    label: "System Notices Feedback",
+    description: "data/user-feedback.json — user feedback on system notices and updates",
     icon: MessageSquare, color: "text-green-600", bg: "bg-green-50", border: "border-green-200",
+  },
+  {
+    key: "server:admin-survey",
+    label: "Admin Team Survey",
+    description: "data/admin-survey.json — internal admin team survey and feedback responses",
+    icon: Users, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-200",
   },
 ] as const
 
@@ -904,6 +910,10 @@ export default function DatabasePage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ data: { "email-config.json": {} } }),
         })
+      } else if (key === "server:user-feedback") {
+        await fetch("/api/feedback/user-feedback", { method: "DELETE" })
+      } else if (key === "server:admin-survey") {
+        await fetch("/api/feedback/admin-survey", { method: "DELETE" })
       }
       try {
         window.dispatchEvent(new Event("arp:storage"))
