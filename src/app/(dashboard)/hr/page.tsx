@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, type EngineRequest, type RequestStatus } from "@/services/engineService"
+import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, isUserInCc, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import type { HRPayload } from "@/modules/hr/hr.schema"
 import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
@@ -22,6 +22,8 @@ import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
+import { CcVisibilityToggle } from "@/components/ui/CcVisibilityToggle"
+import { useCcVisibility } from "@/hooks/useCcVisibility"
 import { LABEL_COLORS, LABEL_DOTS } from "@/lib/statusPalette"
 import { scopeRequests } from "@/lib/access"
 
@@ -70,6 +72,7 @@ const COLS: { key: SortKey; label: string; defaultW: number }[] = [
 
 export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
   const { data: session } = useSession()
+  const { showCcRequests, toggleCcVisibility } = useCcVisibility()
   const [requests, setRequests]         = useState<EngineRequest[]>([])
   const [search, setSearch]             = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -167,8 +170,22 @@ export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
 
   const hrRequests = useMemo(() => requests.filter((r) => r.module === "hr"), [requests])
 
+  const allVisibleRequests = useMemo(() => {
+    if (!showCcRequests) return hrRequests
+    // When CC toggle is on, include requests where the user is CC'd but not the requester
+    const userEmail = session?.user?.email ?? ""
+    const userId = session?.user?.id ?? ""
+    const allRequests = getRequests().filter((r) => r.module === "hr")
+    const ccRequests = allRequests.filter((r) =>
+      r.requesterId !== userId && // Not the requester
+      !hrRequests.some(req => req.id === r.id) && // Not already included
+      isUserInCc(r, userEmail) // User is in CC
+    )
+    return [...hrRequests, ...ccRequests]
+  }, [hrRequests, showCcRequests, session?.user?.email, session?.user?.id])
+
   const filtered = useMemo(() => {
-    let result = hrRequests
+    let result = allVisibleRequests
     if (activeTab !== "all") result = result.filter((r) => (r.payload as HRPayload).hrType === activeTab)
     if (statusFilter !== "all") result = result.filter((r) => r.status === statusFilter)
     const q = search.trim().toLowerCase()
@@ -196,7 +213,7 @@ export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
       const av = getVal(a, pa), bv = getVal(b, pb)
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
-  }, [hrRequests, activeTab, statusFilter, search, sortKey, sortDir])
+  }, [allVisibleRequests, activeTab, statusFilter, search, sortKey, sortDir])
 
   const stats = useMemo(() => ({
     total:       hrRequests.length,
@@ -346,8 +363,15 @@ export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
             </div>
           </div>
 
-          <p className="text-sm text-muted-foreground font-normal mt-1">
-            Showing {filtered.length} request{filtered.length !== 1 ? "s" : ""}
+          {/* CC Visibility Toggle */}
+          <div className="mt-3">
+            <CcVisibilityToggle checked={showCcRequests} onCheckedChange={toggleCcVisibility} />
+          </div>
+
+          <p className="text-sm text-muted-foreground font-normal mt-2">
+            {showCcRequests
+              ? `Showing ${filtered.length} request${filtered.length !== 1 ? "s" : ""} (including CC'd requests)`
+              : `Showing ${filtered.length} request${filtered.length !== 1 ? "s" : ""}`}
           </p>
         </CardHeader>
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { getRequests, type EngineRequest } from "@/services/engineService"
+import { TravelForm } from "@/modules/travel/TravelForm"
 
 export default function NewTravelRequestPage() {
   const router = useRouter()
@@ -32,10 +33,8 @@ export default function NewTravelRequestPage() {
         <p className="text-muted-foreground text-sm mt-0.5">{subtitle}</p>
       </div>
 
-      {/* Coming Soon Message */}
-      <div className="p-6 bg-blue-50 border border-blue-200 rounded-lg">
-        <p className="text-blue-900">Travel request form is coming soon</p>
-      </div>
+      {/* Form */}
+      <TravelForm onCancel={() => router.push("/travel")} />
     </div>
   )
 }

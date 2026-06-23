@@ -82,7 +82,36 @@ This document tracks the phased development of the Admin Request Platform, movin
   - [x] Status filter pills + search. Sortable + resizable dark slate table.
   - [x] Columns: Request ID, Request Title, Submission Date, Requester Name, Destination, Travel Date, Status, Last Update Date.
   - [x] Mock records removed. Live with real data.
-  - [ ] Define Zod Schema + build booking/approval workflow form.
+  - [x] Define Zod Schema + build booking/approval workflow form.
+
+## Phase 5w (continued): Travel Module — Full Implementation (Completed — 23 Jun 2026)
+- [x] **Travel Request module fully live** (was "Coming Soon"):
+  - [x] Removed Coming Soon button/banner from travel list page and form footer.
+  - [x] `travel.schema.ts` complete: two request types (visa, hotel_flight) with conditional fields and validation.
+  - [x] `TravelForm.tsx` rewritten: Request type toggle (Applying For Visa / Hotel & Flight Reservation) with conditional rendering.
+  - [x] Visa type: Items (Visa checkbox), Visa Document, Aman Sticker, Passport, Additional Attachments (optional).
+  - [x] Hotel & Flight type: Items (Visa/Hotel/Flight multi-select), conditional Hotel URL (if Hotel selected), conditional Flight company + photo (if Flight selected), Travel Request Form, Aman Sticker, Passport, Additional Attachments (optional).
+  - [x] All required attachments validated before submit.
+  - [x] Travel list page with 5 stat cards: Total, New, Awaiting Approval, In Progress, Completed.
+  - [x] Status filter pills including Awaiting Approval (amber).
+  - [x] Inline status select with travel-specific statuses.
+  - [x] Row expansion showing request type badge + details.
+  - [x] Request actions menu (View Details, Edit).
+  - [x] Unread comment indicators (red/blue badges).
+  - [x] CC visibility toggle (toggle to see requests where user is CC'd).
+  - [x] **Travel Approval Email Workflow** — full integration with Purchase/Shipping:
+    - [x] `sendTravelApprovalEmail()` function in `emailService.ts`.
+    - [x] Teal gradient header (#14b8a6 to #0d9488) — travel branding.
+    - [x] Manager email with Approve/Reject buttons (one-time use signed links, 14-day expiry).
+    - [x] CC email (read-only notification copy).
+    - [x] Dynamic field display based on request type (Visa vs Hotel & Flight).
+    - [x] Auto-sends when Travel request enters `awaiting_approval` status.
+    - [x] Approve → status → `in_progress` + success notification.
+    - [x] Reject → status → `cancelled` + rejection form with required reason capture.
+    - [x] Resend button on Travel list + detail page for existing awaiting_approval requests.
+  - [x] Travel module integrated into My Requests, All Requests, Team Requests, Dashboard.
+  - [x] All 5 statuses (new, awaiting_approval, in_progress, completed, cancelled) working across all pages.
+  - [x] Teal color theme (#14b8a6) for Travel module (sidebar, form, email, badges).
 - [x] **engineService mock data** — removed for production v1. `initializeMockData()` now wipes stale dev data on first boot. `ProductionDataWipe` component clears all localStorage keys on first browser load.
 
 ## Phase 2b: Employee Feedback & Satisfaction Surveys (Completed)
@@ -817,6 +846,27 @@ This document tracks the phased development of the Admin Request Platform, movin
 - [x] **Approval links use a valid portal origin** — falls back to the incoming request origin when `NEXTAUTH_URL` and `AUTH_URL` are not configured.
 - [x] **Existing stuck requests recoverable** — admins can reopen a request in Awaiting Approval and resend without changing its status again.
 
+## Phase 6o: CC Visibility Across Module Pages (Completed — 23 Jun 2026)
+- [x] **CC Request Discovery across all module pages:**
+  - [x] New `useCcVisibility()` hook — manages checkbox toggle state via sessionStorage (`arp_show_cc_requests`).
+  - [x] New `CcVisibilityToggle` component — blue Mail icon with checkbox, shows "Show requests I'm CC'd on".
+  - [x] New `isUserInCc(request, userEmail)` function in engineService — checks if user is in CC list (case-insensitive).
+  - [x] All 9 module list pages now have CC toggle:
+    - [x] General Requests
+    - [x] Shipping (base) + Shipping Sending + Shipping Receiving
+    - [x] HR
+    - [x] Maintenance
+    - [x] Purchase
+    - [x] Event
+    - [x] Travel
+  - [x] `allVisibleRequests` useMemo on each page:
+    - [x] When toggle OFF: shows only user's own requests (requester).
+    - [x] When toggle ON: includes requests where user is CC'd but is NOT the requester.
+    - [x] Deduplicates to avoid showing same request twice.
+  - [x] Toggle placed after status/filter pills, before result counter.
+  - [x] Result counter text updates: "Showing N requests (including CC'd requests)" when ON.
+  - [x] My Requests and Team Requests pages **unchanged** — keep role-specific filtering.
+
 ## Phase 6: Optimization & Scaling
 - [ ] Add Redis caching for frequently accessed dashboard data.
 - [ ] Implement file upload storage service for AWB/Invoices/Receipts.
@@ -903,16 +953,17 @@ Status column preserves color styling with dot indicators; other columns use neu
 ### Module Pages
 | File | Purpose | Key Features |
 |------|---------|--------------|
-| `src/app/(dashboard)/shipping/page.tsx` | Shipping module | Status: new/in_progress/in_customs/delivered/cancelled |
-| `src/app/(dashboard)/shipping/receiving/page.tsx` | Shipping Receiving submodule | Receiving-specific workflow |
-| `src/app/(dashboard)/general/page.tsx` | General Request module | Statuses: new/in_progress/completed/cancelled; indigo color theme |
+| `src/app/(dashboard)/shipping/page.tsx` | Shipping module | Status: new/in_progress/in_customs/delivered/cancelled; CC visibility toggle |
+| `src/app/(dashboard)/shipping/sending/page.tsx` | Shipping Sending submodule | Sending-specific workflow; CC visibility toggle |
+| `src/app/(dashboard)/shipping/receiving/page.tsx` | Shipping Receiving submodule | Receiving-specific workflow; CC visibility toggle |
+| `src/app/(dashboard)/general/page.tsx` | General Request module | Statuses: new/in_progress/completed/cancelled; indigo color theme; CC visibility toggle |
 | `src/app/(dashboard)/general/new/page.tsx` | General Request form | Title + Description + Attachments (base64); centered max-w-3xl |
-| `src/app/(dashboard)/hr/page.tsx` | HR module (list + tabs) | Onboarding/Offboarding tabs, status: new/on_hold/completed |
+| `src/app/(dashboard)/hr/page.tsx` | HR module (list + tabs) | Onboarding/Offboarding tabs, status: new/on_hold/completed; CC visibility toggle |
 | `src/app/(dashboard)/hr/new/page.tsx` | HR form page | Form with type query param support |
-| `src/app/(dashboard)/maintenance/page.tsx` | Maintenance module | Priority filtering, status: new/on_hold/completed/cancelled |
-| `src/app/(dashboard)/purchase/page.tsx` | Purchase module | Supplier/price display, status: new/in_customs/on_hold/delivered/cancelled |
-| `src/app/(dashboard)/event/page.tsx` | Event module | Event date/attendees display, full status lifecycle |
-| `src/app/(dashboard)/travel/page.tsx` | Travel module | Destination/date display, full status lifecycle |
+| `src/app/(dashboard)/maintenance/page.tsx` | Maintenance module | Priority filtering, status: new/on_hold/completed/cancelled; CC visibility toggle |
+| `src/app/(dashboard)/purchase/page.tsx` | Purchase module | Supplier/price display, status: new/in_customs/on_hold/delivered/cancelled; CC visibility toggle |
+| `src/app/(dashboard)/event/page.tsx` | Event module | Event date/attendees display, full status lifecycle; CC visibility toggle |
+| `src/app/(dashboard)/travel/page.tsx` | Travel module | Destination/date display, full status lifecycle; CC visibility toggle |
 
 ### Admin Tools
 | File | Purpose | Key Features |
@@ -941,9 +992,13 @@ Status column preserves color styling with dot indicators; other columns use neu
 | `src/components/layout/ThemeProvider.tsx` | Dark mode provider | next-themes wrapper; `attribute="class"`, `storageKey="arp_theme"` |
 | `src/components/ui/InlineStatusSelect.tsx` | Inline status dropdown | Module-aware status list, optimistic update, chevron indicator |
 | `src/components/ui/RequestActionsMenu.tsx` | Three-dot row action menu | View Details (expand), Edit (form link) |
+| `src/components/ui/CcVisibilityToggle.tsx` | CC request discovery toggle | Checkbox with Mail icon, placed on all module list pages |
 | `src/hooks/useExpandedRows.ts` | Row expansion state hook | `toggleRow()`, `isExpanded()` per request ID |
+| `src/hooks/useCcVisibility.ts` | CC visibility toggle state | Persists to sessionStorage (`arp_show_cc_requests`), survives page reloads within session |
 | `src/modules/hr/HRForm.tsx` | HR create form | Toggle-based type selection, checkbox items, Direct Manager Select from companyDataStore |
 | `src/modules/shipping/ShippingForm.tsx` | Shipping form | All dropdowns (Supplier, Cost Center, Carrier, Manager) read from companyDataStore |
+| `src/modules/travel/travel.schema.ts` | Travel request schema | Two discriminated request types: VisaTravelRequestSchema + HotelFlightTravelRequestSchema; conditional field validation via superRefine |
+| `src/modules/travel/TravelForm.tsx` | Travel create form | Request type toggle (Visa / Hotel & Flight), conditional form fields based on type, required attachment validation, SearchableSelect for manager/cost center |
 
 ---
 ### Development Loop (Repeat for each module)

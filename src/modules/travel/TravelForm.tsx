@@ -1,16 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
-import {
-  TRAVEL_TYPES,
-  TRAVEL_CLASS,
-  TravelPayloadSchema,
-} from "./travel.schema"
+import { TravelFormSchema, type TravelForm as TravelFormType } from "./travel.schema"
 import { submitRequest } from "@/services/engineService"
 import { createNewRequestNotifications } from "@/lib/notificationStore"
 import { filesToAttachments } from "@/lib/attachments"
@@ -19,18 +14,16 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select"
-import { AlertCircle, Plane, Upload, X } from "lucide-react"
+import { AlertCircle, Plane, Upload, X, FileText } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
+import { MarkdownEditor } from "@/components/ui/MarkdownEditor"
 import { getList } from "@/lib/companyDataStore"
 
-const BRAND = "#ec4899" // pink-500
+const BRAND = "#14b8a6" // teal-500
 
-type TravelForm = z.infer<typeof TravelPayloadSchema>
+type FormData = TravelFormType
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null
@@ -58,29 +51,135 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
   )
 }
 
+function AttachmentUploadZone({ label, required = false, onChange, value }: { label: string; required?: boolean; onChange: (file: File | null) => void; value?: File }) {
+  return (
+    <div className="space-y-2">
+      <Label className="text-sm font-medium">
+        {label} {required && <span className="text-red-500">*</span>}
+      </Label>
+      <div className="relative">
+        <input
+          type="file"
+          className="hidden"
+          id={`upload-${label}`}
+          onChange={(e) => onChange(e.target.files?.[0] ?? null)}
+        />
+        <button
+          type="button"
+          onClick={() => document.getElementById(`upload-${label}`)?.click()}
+          className="w-full px-4 py-6 border-2 border-dashed rounded-lg hover:bg-opacity-40 transition-all flex flex-col items-center justify-center gap-1.5 group"
+          style={{
+            borderColor: BRAND,
+            backgroundColor: `${BRAND}08`,
+          }}
+        >
+          <Upload className="h-5 w-5 group-hover:scale-110 transition-transform" style={{ color: BRAND }} />
+          <span className="text-sm font-medium text-gray-700">
+            {value ? value.name : "Click to browse"}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {value ? `${(value.size / 1024 / 1024).toFixed(2)} MB` : "Select a file"}
+          </span>
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function TravelForm({ onCancel }: { onCancel?: () => void }) {
   const router = useRouter()
   const { data: session } = useSession()
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
-  const [departments, setDepartments] = useState<string[]>([])
-  useEffect(() => { setDepartments(getList("departments")) }, [])
-  const { register, control, handleSubmit, formState: { errors, isSubmitting } } = useForm<TravelForm>({
-    resolver: zodResolver(TravelPayloadSchema),
-    defaultValues: { attachments: [], ccEmails: [] },
+  const [managers, setManagers] = useState<string[]>([])
+  const [costCenters, setCostCenters] = useState<string[]>([])
+  const [travelType, setTravelType] = useState<"visa_application" | "hotel_flight_reservation">("visa_application")
+
+  // File states for Visa Application
+  const [visaDocFile, setVisaDocFile] = useState<File | null>(null)
+  const [amanStickerFile, setAmanStickerFile] = useState<File | null>(null)
+  const [passportFile, setPassportFile] = useState<File | null>(null)
+  const [additionalFiles, setAdditionalFiles] = useState<File[]>([])
+
+  // File states for Hotel & Flight
+  const [formFile, setFormFile] = useState<File | null>(null)
+  const [amanStickerFile2, setAmanStickerFile2] = useState<File | null>(null)
+  const [passportFile2, setPassportFile2] = useState<File | null>(null)
+  const [flightPhotoFile, setFlightPhotoFile] = useState<File | null>(null)
+  const [additionalFiles2, setAdditionalFiles2] = useState<File[]>([])
+
+  const [items, setItems] = useState<string[]>(["Visa"])
+
+  useEffect(() => {
+    setManagers(getList("managers"))
+    setCostCenters(getList("cost_centers"))
+  }, [])
+
+  const {
+    register,
+    control,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    watch,
+    reset,
+  } = useForm<FormData>({
+    resolver: zodResolver(TravelFormSchema),
+    defaultValues: {
+      travelType: "visa_application",
+      items: ["Visa"],
+      ccEmails: [],
+    },
   })
 
   const handleCancel = onCancel ?? (() => router.push("/travel"))
 
-  const onSubmit = async (data: TravelForm) => {
+  const onSubmit = async (data: FormData) => {
     let redirectTo: string | null = null
     try {
-      const attachments = await filesToAttachments(uploadedFiles, "travel")
-      const newReq = await submitRequest("travel", { ...data, attachments } as any, {
+      let payload: any = {
+        ...data,
+        ccEmails: data.ccEmails || [],
+      }
+
+      if (data.travelType === "visa_application") {
+        // Convert visa application files to attachments
+        if (!visaDocFile || !amanStickerFile || !passportFile) {
+          console.error("Missing required visa attachments")
+          return
+        }
+        const visaAttachments = await filesToAttachments([visaDocFile, amanStickerFile, passportFile], "travel")
+        const additionalAttachments = additionalFiles.length > 0 ? await filesToAttachments(additionalFiles, "travel") : []
+
+        payload.visaDocument = visaAttachments[0]
+        payload.amanSticker = visaAttachments[1]
+        payload.passport = visaAttachments[2]
+        payload.additionalAttachments = additionalAttachments
+      } else {
+        // Convert hotel & flight files to attachments
+        if (!formFile || !amanStickerFile2 || !passportFile2) {
+          console.error("Missing required hotel & flight attachments")
+          return
+        }
+        const requiredAttachments = await filesToAttachments([formFile, amanStickerFile2, passportFile2], "travel")
+        const additionalAttachments = additionalFiles2.length > 0 ? await filesToAttachments(additionalFiles2, "travel") : []
+
+        payload.travelRequestForm = requiredAttachments[0]
+        payload.amanSticker = requiredAttachments[1]
+        payload.passport = requiredAttachments[2]
+        payload.additionalAttachments = additionalAttachments
+
+        // Handle optional flight photo
+        if (flightPhotoFile) {
+          const flightAttachments = await filesToAttachments([flightPhotoFile], "travel")
+          payload.flightPhoto = flightAttachments[0]
+        }
+      }
+
+      const newReq = await submitRequest("travel", payload, {
         title: data.requestTitle,
         requesterId: session?.user?.id || "USR-001",
         requesterName: session?.user?.name || session?.user?.email || "Current User",
         requesterEmail: session?.user?.email || "user@si-ware.com",
       })
+
       createNewRequestNotifications({
         requestId: newReq.id,
         requestTitle: newReq.title,
@@ -90,15 +189,20 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
         requesterEmail: newReq.requesterEmail,
         ccEmails: data.ccEmails,
       })
+
       redirectTo = "/travel"
     } catch (error) {
-      console.error("Failed to create request:", error)
+      console.error("Failed to create travel request:", error)
     }
     if (redirectTo) {
       router.push(redirectTo)
       router.refresh()
     }
   }
+
+  const isVisaApplication = travelType === "visa_application"
+  const hasHotel = items.includes("Hotel")
+  const hasFlight = items.includes("Flight")
 
   return (
     <div className="space-y-5 max-w-3xl mx-auto">
@@ -108,194 +212,365 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
           <CardContent className="pt-6">
             <div className="space-y-1.5">
               <Label htmlFor="requestTitle">Request Title <span className="text-red-500">*</span></Label>
-              <Input id="requestTitle" placeholder="e.g. Business Trip to Dubai - Q2 Conference" {...register("requestTitle")} className={cn(errors.requestTitle && "border-red-400")} />
+              <Input
+                id="requestTitle"
+                placeholder="e.g. Visa Application for Business Trip"
+                {...register("requestTitle")}
+                className={cn(errors.requestTitle && "border-red-400")}
+              />
               <FieldError message={errors.requestTitle?.message} />
             </div>
           </CardContent>
         </Card>
 
-        {/* Travel Details */}
+        {/* Request Type Selection */}
         <Card>
-          <SectionHeader icon={Plane} title="Travel Details" subtitle="Flight and destination information" />
+          <SectionHeader icon={Plane} title="Request Type" subtitle="Select the type of travel request" />
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="tripName">Trip Name <span className="text-red-500">*</span></Label>
-                <Input id="tripName" placeholder="e.g. Q2 Conference" {...register("tripName")} className={cn(errors.tripName && "border-red-400")} />
-                <FieldError message={errors.tripName?.message} />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="travelerName">Traveler Name <span className="text-red-500">*</span></Label>
-                <Input id="travelerName" placeholder="Full name" {...register("travelerName")} className={cn(errors.travelerName && "border-red-400")} />
-                <FieldError message={errors.travelerName?.message} />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="travelType">Travel Type <span className="text-red-500">*</span></Label>
-                <Controller
-                  name="travelType"
-                  control={control}
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger className={cn(errors.travelType && "border-red-400")}>
-                        <SelectValue placeholder="Select travel type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TRAVEL_TYPES.map((type) => (
-                          <SelectItem key={type} value={type}>{type}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+            <div className="grid grid-cols-2 gap-3">
+              {["visa_application", "hotel_flight_reservation"].map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => {
+                    setTravelType(type as "visa_application" | "hotel_flight_reservation")
+                    reset({
+                      travelType: type as "visa_application" | "hotel_flight_reservation",
+                      items: type === "visa_application" ? ["Visa"] : ["Visa"],
+                      ccEmails: [],
+                    })
+                    if (type === "visa_application") {
+                      setItems(["Visa"])
+                    } else {
+                      setItems(["Visa"])
+                    }
+                  }}
+                  className={cn(
+                    "p-4 rounded-lg border-2 transition-all text-left",
+                    travelType === type
+                      ? "border-teal-500 bg-teal-50"
+                      : "border-gray-200 bg-white hover:border-gray-300"
                   )}
-                />
-                <FieldError message={errors.travelType?.message} />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="flightClass">Flight Class <span className="text-red-500">*</span></Label>
-                <Controller
-                  name="flightClass"
-                  control={control}
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger className={cn(errors.flightClass && "border-red-400")}>
-                        <SelectValue placeholder="Select flight class" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TRAVEL_CLASS.map((cls) => (
-                          <SelectItem key={cls} value={cls}>{cls}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                <FieldError message={errors.flightClass?.message} />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="origin">Origin <span className="text-red-500">*</span></Label>
-                <Input id="origin" placeholder="e.g. Cairo, Egypt" {...register("origin")} className={cn(errors.origin && "border-red-400")} />
-                <FieldError message={errors.origin?.message} />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="destination">Destination <span className="text-red-500">*</span></Label>
-                <Input id="destination" placeholder="e.g. Dubai, UAE" {...register("destination")} className={cn(errors.destination && "border-red-400")} />
-                <FieldError message={errors.destination?.message} />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="departureDate">Departure Date <span className="text-red-500">*</span></Label>
-                <Input id="departureDate" type="date" {...register("departureDate")} className={cn(errors.departureDate && "border-red-400")} />
-                <FieldError message={errors.departureDate?.message} />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="returnDate">Return Date</Label>
-                <Input id="returnDate" type="date" {...register("returnDate")} />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="purpose">Purpose of Travel <span className="text-red-500">*</span></Label>
-              <Textarea id="purpose" placeholder="Explain the business purpose of this trip..." rows={3} {...register("purpose")} className={cn(errors.purpose && "border-red-400")} />
-              <FieldError message={errors.purpose?.message} />
+                >
+                  <div className="font-medium text-sm text-gray-900">
+                    {type === "visa_application" ? "Applying For Visa" : "Hotel & Flight Reservation"}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {type === "visa_application"
+                      ? "Visa document, Aman sticker, and passport"
+                      : "Travel form, optional hotel & flight details"}
+                  </p>
+                </button>
+              ))}
             </div>
           </CardContent>
         </Card>
 
         {/* Business Information */}
         <Card>
-          <SectionHeader icon={Plane} title="Business Information" subtitle="Department and approval details" />
+          <SectionHeader icon={FileText} title="Business Information" subtitle="Manager and cost center details" />
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Department <span className="text-red-500">*</span></Label>
+                <Label>Direct Manager <span className="text-red-500">*</span></Label>
                 <Controller
-                  name="department"
+                  name="directManager"
                   control={control}
                   render={({ field }) => (
                     <SearchableSelect
                       value={field.value ?? ""}
                       onChange={field.onChange}
-                      options={departments}
-                      placeholder="Select department"
-                      hasError={!!errors.department}
+                      options={managers}
+                      placeholder="Select manager"
+                      hasError={!!errors.directManager}
                     />
                   )}
                 />
-                <FieldError message={errors.department?.message} />
+                <FieldError message={errors.directManager?.message} />
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="approver">Manager Approval <span className="text-red-500">*</span></Label>
-                <Input id="approver" placeholder="Manager name" {...register("approver")} className={cn(errors.approver && "border-red-400")} />
-                <FieldError message={errors.approver?.message} />
+                <Label>Cost Center <span className="text-red-500">*</span></Label>
+                <Controller
+                  name="costCenter"
+                  control={control}
+                  render={({ field }) => (
+                    <SearchableSelect
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                      options={costCenters}
+                      placeholder="Select cost center"
+                      hasError={!!errors.costCenter}
+                    />
+                  )}
+                />
+                <FieldError message={errors.costCenter?.message} />
               </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="estimatedCost">Estimated Cost (EGP) <span className="text-red-500">*</span></Label>
-              <Input id="estimatedCost" type="number" min="0" step="0.01" placeholder="0.00" {...register("estimatedCost", { valueAsNumber: true })} className={cn(errors.estimatedCost && "border-red-400")} />
-              <FieldError message={errors.estimatedCost?.message} />
             </div>
           </CardContent>
         </Card>
 
+        {/* Description */}
+        <Card>
+          <SectionHeader icon={Plane} title="Description" subtitle="Travel purpose and details" />
+          <CardContent>
+            <Controller
+              name="description"
+              control={control}
+              render={({ field }) => (
+                <MarkdownEditor
+                  value={field.value ?? ""}
+                  onChange={field.onChange}
+                  placeholder="Enter travel details, itinerary, or business purpose..."
+                  error={errors.description?.message}
+                />
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Items Selection */}
+        {!isVisaApplication && (
+          <Card>
+            <SectionHeader icon={Plane} title="Travel Items" subtitle="Select what you need" />
+            <CardContent className="space-y-3">
+              {["Visa", "Hotel", "Flight"].map((item) => (
+                <label key={item} className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-gray-50 transition">
+                  <input
+                    type="checkbox"
+                    checked={items.includes(item)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setItems([...items, item])
+                      } else {
+                        setItems(items.filter((i) => i !== item))
+                      }
+                    }}
+                    className="w-4 h-4 rounded border-gray-300"
+                  />
+                  <span className="text-sm font-medium text-gray-700">{item}</span>
+                </label>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Hotel URL (if Hotel selected) */}
+        {!isVisaApplication && hasHotel && (
+          <Card>
+            <SectionHeader icon={Plane} title="Hotel Details" subtitle="Optional hotel booking URL" />
+            <CardContent>
+              <div className="space-y-1.5">
+                <Label htmlFor="hotelUrl">Hotel Booking URL</Label>
+                <Input
+                  id="hotelUrl"
+                  type="url"
+                  placeholder="https://example.com/hotel-booking"
+                  {...register("hotelUrl")}
+                  className={cn(errors.hotelUrl && "border-red-400")}
+                />
+                <FieldError message={errors.hotelUrl?.message} />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Flight Info (if Flight selected) */}
+        {!isVisaApplication && hasFlight && (
+          <Card>
+            <SectionHeader icon={Plane} title="Flight Details" subtitle="Flight company and booking info" />
+            <CardContent className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="flightCompany">Flight Company Name</Label>
+                <Input
+                  id="flightCompany"
+                  placeholder="e.g. EgyptAir, Emirates"
+                  {...register("flightCompany")}
+                  className={cn(errors.flightCompany && "border-red-400")}
+                />
+                <FieldError message={errors.flightCompany?.message} />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Flight Booking Screenshot / Confirmation</Label>
+                <div className="text-xs text-gray-500 mb-2">
+                  Upload a screenshot of your flight booking confirmation (optional if company name is provided)
+                </div>
+                <div className="relative">
+                  <input
+                    type="file"
+                    className="hidden"
+                    id="upload-flight-photo"
+                    onChange={(e) => setFlightPhotoFile(e.target.files?.[0] ?? null)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById("upload-flight-photo")?.click()}
+                    className="w-full px-4 py-6 border-2 border-dashed rounded-lg hover:bg-opacity-40 transition-all flex flex-col items-center justify-center gap-1.5 group"
+                    style={{
+                      borderColor: BRAND,
+                      backgroundColor: `${BRAND}08`,
+                    }}
+                  >
+                    <Upload className="h-5 w-5 group-hover:scale-110 transition-transform" style={{ color: BRAND }} />
+                    <span className="text-sm font-medium text-gray-700">
+                      {flightPhotoFile ? flightPhotoFile.name : "Click to browse"}
+                    </span>
+                  </button>
+                </div>
+                {flightPhotoFile && (
+                  <button
+                    type="button"
+                    onClick={() => setFlightPhotoFile(null)}
+                    className="text-xs text-red-500 hover:text-red-700"
+                  >
+                    Remove file
+                  </button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Attachments */}
         <Card>
-          <SectionHeader icon={Upload} title="Attachments" subtitle="Upload itinerary, hotel bookings, or quotes" />
-          <CardContent>
-            <div className="space-y-3">
-              <input
-                id="attachments"
-                type="file"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  if (e.target.files) {
-                    setUploadedFiles(Array.from(e.target.files))
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => document.getElementById("attachments")?.click()}
-                className="w-full px-6 py-8 border-2 border-dashed border-pink-300 rounded-lg hover:border-pink-500 hover:bg-pink-50 transition-all duration-200 flex flex-col items-center justify-center gap-2 group"
-              >
-                <Upload className="h-6 w-6 text-pink-600 group-hover:scale-110 transition-transform duration-200" />
-                <span className="text-sm font-medium text-gray-700">Click to browse files</span>
-                <span className="text-xs text-muted-foreground">Itinerary, hotel bookings, or supporting documents</span>
-              </button>
+          <SectionHeader icon={Upload} title="Required Attachments" subtitle="Upload documents" />
+          <CardContent className="space-y-6">
+            {isVisaApplication ? (
+              <>
+                <AttachmentUploadZone
+                  label="Visa Document"
+                  required
+                  value={visaDocFile}
+                  onChange={setVisaDocFile}
+                />
+                <AttachmentUploadZone
+                  label="Aman Sticker"
+                  required
+                  value={amanStickerFile}
+                  onChange={setAmanStickerFile}
+                />
+                <AttachmentUploadZone
+                  label="Passport"
+                  required
+                  value={passportFile}
+                  onChange={setPassportFile}
+                />
 
-              {uploadedFiles.length > 0 && (
+                {/* Additional Attachments for Visa */}
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-gray-700">{uploadedFiles.length} file(s) selected:</p>
-                  <div className="space-y-1.5">
-                    {uploadedFiles.map((file, idx) => (
-                      <div key={idx} className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-pink-50 border border-pink-200">
-                        <span className="text-sm text-gray-700 truncate">{file.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => setUploadedFiles(uploadedFiles.filter((_, i) => i !== idx))}
-                          className="p-1 hover:bg-pink-200 rounded transition-colors"
-                        >
-                          <X className="h-4 w-4 text-pink-600" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                  <Label className="text-sm font-medium">Additional Attachments (Optional)</Label>
+                  <input
+                    type="file"
+                    multiple
+                    className="hidden"
+                    id="upload-additional-visa"
+                    onChange={(e) => {
+                      if (e.target.files) {
+                        setAdditionalFiles(Array.from(e.target.files))
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById("upload-additional-visa")?.click()}
+                    className="w-full px-4 py-6 border-2 border-dashed rounded-lg hover:bg-opacity-40 transition-all flex flex-col items-center justify-center gap-1.5 group"
+                    style={{
+                      borderColor: BRAND,
+                      backgroundColor: `${BRAND}08`,
+                    }}
+                  >
+                    <Upload className="h-5 w-5 group-hover:scale-110 transition-transform" style={{ color: BRAND }} />
+                    <span className="text-sm font-medium text-gray-700">
+                      {additionalFiles.length > 0 ? `${additionalFiles.length} file(s)` : "Click to browse"}
+                    </span>
+                  </button>
+                  {additionalFiles.length > 0 && (
+                    <div className="space-y-1.5">
+                      {additionalFiles.map((file, idx) => (
+                        <div key={idx} className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-teal-50 border border-teal-200">
+                          <span className="text-sm text-gray-700 truncate">{file.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setAdditionalFiles(additionalFiles.filter((_, i) => i !== idx))}
+                            className="p-1 hover:bg-teal-200 rounded transition-colors"
+                          >
+                            <X className="h-4 w-4 text-teal-600" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-              <p className="text-xs text-muted-foreground">Optional: Upload supporting documents for faster approval</p>
-            </div>
+              </>
+            ) : (
+              <>
+                <AttachmentUploadZone
+                  label="Travel Request Form"
+                  required
+                  value={formFile}
+                  onChange={setFormFile}
+                />
+                <AttachmentUploadZone
+                  label="Aman Sticker"
+                  required
+                  value={amanStickerFile2}
+                  onChange={setAmanStickerFile2}
+                />
+                <AttachmentUploadZone
+                  label="Passport"
+                  required
+                  value={passportFile2}
+                  onChange={setPassportFile2}
+                />
+
+                {/* Additional Attachments for Hotel & Flight */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Additional Attachments (Optional)</Label>
+                  <input
+                    type="file"
+                    multiple
+                    className="hidden"
+                    id="upload-additional-hotel"
+                    onChange={(e) => {
+                      if (e.target.files) {
+                        setAdditionalFiles2(Array.from(e.target.files))
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById("upload-additional-hotel")?.click()}
+                    className="w-full px-4 py-6 border-2 border-dashed rounded-lg hover:bg-opacity-40 transition-all flex flex-col items-center justify-center gap-1.5 group"
+                    style={{
+                      borderColor: BRAND,
+                      backgroundColor: `${BRAND}08`,
+                    }}
+                  >
+                    <Upload className="h-5 w-5 group-hover:scale-110 transition-transform" style={{ color: BRAND }} />
+                    <span className="text-sm font-medium text-gray-700">
+                      {additionalFiles2.length > 0 ? `${additionalFiles2.length} file(s)` : "Click to browse"}
+                    </span>
+                  </button>
+                  {additionalFiles2.length > 0 && (
+                    <div className="space-y-1.5">
+                      {additionalFiles2.map((file, idx) => (
+                        <div key={idx} className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-teal-50 border border-teal-200">
+                          <span className="text-sm text-gray-700 truncate">{file.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setAdditionalFiles2(additionalFiles2.filter((_, i) => i !== idx))}
+                            className="p-1 hover:bg-teal-200 rounded transition-colors"
+                          >
+                            <X className="h-4 w-4 text-teal-600" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -303,28 +578,39 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
         <Card>
           <SectionHeader icon={Plane} title="Additional Notes" subtitle="Any extra information" />
           <CardContent>
-            <Textarea placeholder="Optional notes..." rows={3} {...register("notes")} />
+            <Textarea
+              placeholder="Optional notes about your travel request..."
+              rows={3}
+              {...register("notes")}
+              className={cn(errors.notes && "border-red-400")}
+            />
+            <FieldError message={errors.notes?.message} />
           </CardContent>
         </Card>
 
         {/* CC Notifications */}
         <Card>
-          <SectionHeader icon={Plane} title="CC Notifications" subtitle="Additional recipients for email updates on this request" />
+          <SectionHeader icon={Plane} title="CC Notifications" subtitle="Additional recipients for email updates" />
           <CardContent>
             <Controller
               control={control}
               name="ccEmails"
-              render={({ field }) => (
-                <CcEmailsField value={field.value ?? []} onChange={field.onChange} />
-              )}
+              render={({ field }) => <CcEmailsField value={field.value ?? []} onChange={field.onChange} />}
             />
           </CardContent>
         </Card>
 
         <div className="form-footer border-t bg-gray-50 py-4 px-1 flex items-center justify-between gap-3">
-          <Button type="button" variant="ghost" onClick={handleCancel}>Cancel</Button>
-          <Button type="submit" disabled={true} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px] opacity-50 cursor-not-allowed">
-            Coming Soon
+          <Button type="button" variant="ghost" onClick={handleCancel}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            style={{ backgroundColor: BRAND }}
+            className="text-white hover:opacity-90 min-w-[160px]"
+          >
+            {isSubmitting ? "Submitting..." : "Submit Request"}
           </Button>
         </div>
       </form>

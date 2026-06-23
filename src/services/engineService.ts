@@ -535,12 +535,12 @@ export async function updateStatus(
     })
   }
 
-  // Purchase Approval workflow: when a Purchase request enters
+  // Purchase, Shipping, and Travel Approval workflow: when a request enters
   // "Awaiting Approval", fire the special approval email to the selected
   // Direct Manager with one-click Approve / Reject buttons.
   if (
     typeof window !== "undefined" &&
-    updated.module === "purchase" &&
+    (updated.module === "purchase" || updated.module === "shipping" || updated.module === "travel") &&
     status === "awaiting_approval" &&
     previousStatus !== "awaiting_approval"
   ) {
@@ -707,6 +707,17 @@ export function getRequestsByModule(module: string): EngineRequest[] {
 /** Returns a single request by ID, or undefined if not found. */
 export function getRequestById(id: string): EngineRequest | undefined {
   return readAll().find((r) => r.id === id)
+}
+
+/**
+ * Check if a user (by email) is in the CC list of a request.
+ * Compares case-insensitively.
+ */
+export function isUserInCc(request: EngineRequest, userEmail: string): boolean {
+  if (!userEmail) return false
+  const ccEmails = getAllCcEmails(request)
+  const normalizedUserEmail = userEmail.toLowerCase()
+  return ccEmails.some((email) => email.toLowerCase() === normalizedUserEmail)
 }
 
 /** Wipes the entire store â€" useful for testing / dev reset. */

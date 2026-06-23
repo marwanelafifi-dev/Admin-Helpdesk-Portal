@@ -7,7 +7,7 @@ import { Search, Plus, CalendarDays, Clock, CheckCircle2, ChevronUp, ChevronDown
 import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, type EngineRequest, type RequestStatus } from "@/services/engineService"
+import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, isUserInCc, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
@@ -17,6 +17,8 @@ import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
+import { CcVisibilityToggle } from "@/components/ui/CcVisibilityToggle"
+import { useCcVisibility } from "@/hooks/useCcVisibility"
 import { LABEL_COLORS, LABEL_DOTS } from "@/lib/statusPalette"
 import { scopeRequests } from "@/lib/access"
 
@@ -63,6 +65,7 @@ const COLS: { key: SortKey; label: string; defaultW: number }[] = [
 export default function EventPage() {
   const router = useRouter()
   const { data: session } = useSession()
+  const { showCcRequests, toggleCcVisibility } = useCcVisibility()
   const [requests, setRequests]           = useState<EngineRequest[]>([])
   const [search, setSearch]               = useState("")
   const [statusFilter, setStatusFilter]   = useState("all")
@@ -160,8 +163,22 @@ export default function EventPage() {
     return sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1 shrink-0" /> : <ChevronDown className="h-3 w-3 ml-1 shrink-0" />
   }
 
+  const allVisibleRequests = useMemo(() => {
+    if (!showCcRequests) return requests
+    // When CC toggle is on, include requests where the user is CC'd but not the requester
+    const userEmail = session?.user?.email ?? ""
+    const userId = session?.user?.id ?? ""
+    const allRequests = getRequests().filter((r) => r.module === "event")
+    const ccRequests = allRequests.filter((r) =>
+      r.requesterId !== userId && // Not the requester
+      !requests.some(req => req.id === r.id) && // Not already included
+      isUserInCc(r, userEmail) // User is in CC
+    )
+    return [...requests, ...ccRequests]
+  }, [requests, showCcRequests, session?.user?.email, session?.user?.id])
+
   const filtered = useMemo(() => {
-    let result = requests
+    let result = allVisibleRequests
     if (statusFilter !== "all") result = result.filter((r) => r.status === statusFilter)
     const q = search.trim().toLowerCase()
     if (q) result = result.filter((r) => r.id.toLowerCase().includes(q) || r.title.toLowerCase().includes(q))
@@ -182,7 +199,7 @@ export default function EventPage() {
       }
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
-  }, [requests, statusFilter, search, sortKey, sortDir])
+  }, [allVisibleRequests, statusFilter, search, sortKey, sortDir])
 
   const counts = useMemo(() => ({
     total:     requests.length,
@@ -273,8 +290,16 @@ export default function EventPage() {
               })}
             </div>
           </div>
-          <p className="text-sm text-muted-foreground font-normal mt-1">
-            Showing {filtered.length} event{filtered.length !== 1 ? "s" : ""}
+
+          {/* CC Visibility Toggle */}
+          <div className="mt-3">
+            <CcVisibilityToggle checked={showCcRequests} onCheckedChange={toggleCcVisibility} />
+          </div>
+
+          <p className="text-sm text-muted-foreground font-normal mt-2">
+            {showCcRequests
+              ? `Showing ${filtered.length} event${filtered.length !== 1 ? "s" : ""} (including CC'd requests)`
+              : `Showing ${filtered.length} event${filtered.length !== 1 ? "s" : ""}`}
           </p>
         </CardHeader>
 

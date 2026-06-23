@@ -230,7 +230,7 @@ export default function RequestDetailPage() {
 
       // Update in engineService
       await updateStatus(request.id, newStatus as any, currentUserId)
-      if (request.module === "purchase" && newStatus === "awaiting_approval" && oldStatus !== newStatus) {
+      if ((request.module === "purchase" || request.module === "shipping") && newStatus === "awaiting_approval" && oldStatus !== newStatus) {
         setApprovalEmailStatus({
           type: "success",
           message: "Approval email sent to the Direct Manager.",
@@ -334,7 +334,7 @@ export default function RequestDetailPage() {
 
   const getStatusesByModule = (module: string): string[] => {
     const moduleStatuses: Record<string, string[]> = {
-      shipping:    ['new', 'in_progress', 'in_customs', 'delivered', 'cancelled'],
+      shipping:    ['new', 'awaiting_approval', 'in_progress', 'in_customs', 'delivered', 'cancelled'],
       hr:          ['new', 'in_progress', 'completed'],
       maintenance: ['new', 'in_progress', 'completed', 'cancelled'],
       purchase:    ['new', 'in_progress', 'awaiting_approval', 'delivered', 'cancelled'],
@@ -659,7 +659,7 @@ export default function RequestDetailPage() {
               </div>
             )}
 
-            {request.module === "purchase" && request.status === "awaiting_approval" && (
+            {(request.module === "purchase" || request.module === "shipping") && request.status === "awaiting_approval" && (
               <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm font-medium text-amber-800">Direct Manager approval is required</p>

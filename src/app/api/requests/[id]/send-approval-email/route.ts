@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { requestStore } from "@/lib/requestStore"
 import { signApprovalToken } from "@/lib/approvalToken"
-import { sendPurchaseApprovalEmail } from "@/lib/emailService"
+import { sendPurchaseApprovalEmail, sendShippingApprovalEmail, sendTravelApprovalEmail } from "@/lib/emailService"
 import { readUsers } from "@/lib/userStore"
 import { resolveRequestManagerEmail, resolveRequestManagerName } from "@/lib/approvalNotify"
 
@@ -13,10 +13,9 @@ const ADMIN_HELPDESK_EMAIL = "adminhelpdesk@si-ware.com"
 /**
  * POST /api/requests/:id/send-approval-email
  *
- * Sends the Purchase Approval email to the request's Direct Manager
- * with signed Approve/Reject buttons. Called by the client when a
- * Purchase request transitions to "Awaiting Approval" (status code
- * `in_customs`).
+ * Sends the Approval email to the request's Direct Manager with signed
+ * Approve/Reject buttons. Called when a Purchase or Shipping request
+ * transitions to "Awaiting Approval" status.
  *
  * Server-side so we can:
  *   - resolve the manager's email via the shared company-data.json
@@ -38,8 +37,8 @@ export async function POST(
   if (!request) {
     return NextResponse.json({ error: "Request not found" }, { status: 404 })
   }
-  if (request.module !== "purchase") {
-    return NextResponse.json({ error: "Only Purchase requests use this flow" }, { status: 400 })
+  if (!["purchase", "shipping", "travel"].includes(request.module)) {
+    return NextResponse.json({ error: "Only Purchase, Shipping, and Travel requests use this flow" }, { status: 400 })
   }
 
   const payload = (request.payload ?? {}) as Record<string, any>
@@ -93,28 +92,70 @@ export async function POST(
   const rejectUrl  = `${baseUrl}/api/requests/${encodeURIComponent(id)}/reject?token=${rejectToken}`
 
   try {
-    await sendPurchaseApprovalEmail({
-      to: managerEmail,
-      cc: Array.from(ccSet),
-      managerName,
-      requestId: request.id,
-      requestTitle: request.title,
-      itemTitle: payload.itemTitle,
-      description: payload.description,
-      category: payload.category,
-      platform: payload.platform,
-      supplier: payload.supplier,
-      productUrl: payload.productUrl,
-      quantity: typeof payload.quantity === "number" ? payload.quantity : undefined,
-      estimatedPrice: typeof payload.estimatedPrice === "number" ? payload.estimatedPrice : undefined,
-      costCenter: payload.costCenter,
-      businessJustification: payload.businessJustification,
-      notes: payload.notes,
-      requesterName: request.requesterName,
-      requesterEmail: request.requesterEmail,
-      approveUrl,
-      rejectUrl,
-    })
+    if (request.module === "purchase") {
+      await sendPurchaseApprovalEmail({
+        to: managerEmail,
+        cc: Array.from(ccSet),
+        managerName,
+        requestId: request.id,
+        requestTitle: request.title,
+        itemTitle: payload.itemTitle,
+        description: payload.description,
+        category: payload.category,
+        platform: payload.platform,
+        supplier: payload.supplier,
+        productUrl: payload.productUrl,
+        quantity: typeof payload.quantity === "number" ? payload.quantity : undefined,
+        estimatedPrice: typeof payload.estimatedPrice === "number" ? payload.estimatedPrice : undefined,
+        costCenter: payload.costCenter,
+        businessJustification: payload.businessJustification,
+        notes: payload.notes,
+        requesterName: request.requesterName,
+        requesterEmail: request.requesterEmail,
+        approveUrl,
+        rejectUrl,
+      })
+    } else if (request.module === "shipping") {
+      await sendShippingApprovalEmail({
+        to: managerEmail,
+        cc: Array.from(ccSet),
+        managerName,
+        requestId: request.id,
+        requestTitle: request.title,
+        direction: payload.direction,
+        carrier: payload.carrier || payload.carrierName,
+        trackingNumber: payload.trackingNumber,
+        poNumber: payload.poNumber,
+        costCenter: payload.costCenter,
+        expectedDeliveryDate: payload.expectedDeliveryDate,
+        description: payload.description,
+        notes: payload.notes,
+        requesterName: request.requesterName,
+        requesterEmail: request.requesterEmail,
+        approveUrl,
+        rejectUrl,
+      })
+    } else if (request.module === "travel") {
+      await sendTravelApprovalEmail({
+        to: managerEmail,
+        cc: Array.from(ccSet),
+        managerName,
+        requestId: request.id,
+        requestTitle: request.title,
+        travelType: payload.travelType,
+        directManager: payload.directManager,
+        costCenter: payload.costCenter,
+        description: payload.description,
+        items: payload.items,
+        hotelUrl: payload.hotelUrl,
+        flightCompany: payload.flightCompany,
+        notes: payload.notes,
+        requesterName: request.requesterName,
+        requesterEmail: request.requesterEmail,
+        approveUrl,
+        rejectUrl,
+      })
+    }
     return NextResponse.json({ ok: true, to: managerEmail, cc: Array.from(ccSet) })
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)

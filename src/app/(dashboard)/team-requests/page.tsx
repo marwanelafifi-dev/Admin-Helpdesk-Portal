@@ -71,7 +71,7 @@ const MODULE_STATUSES: Record<string, readonly string[]> = {
   maintenance: ["new", "on_hold", "completed", "cancelled"],
   purchase:    ["new", "on_hold", "awaiting_approval", "delivered", "cancelled"],
   event:       ["new", "on_hold", "delivered", "completed", "cancelled"],
-  travel:      ["new", "on_hold", "delivered", "completed", "cancelled"],
+  travel:      ["new", "awaiting_approval", "on_hold", "completed", "cancelled"],
   hr:          ["new", "on_hold", "completed"],
   general:     ["new", "on_hold", "completed", "cancelled"],
 }
@@ -81,7 +81,7 @@ const MODULE_STATUS_LABELS: Record<string, Record<string, string>> = {
   purchase:    { new: "New", on_hold: "In Progress", awaiting_approval: "Awaiting Approval", delivered: "Delivered", cancelled: "Cancelled" },
   maintenance: { new: "New", on_hold: "In Progress", completed: "Completed", cancelled: "Cancelled" },
   event:       { new: "New", on_hold: "In Progress", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled" },
-  travel:      { new: "New", on_hold: "In Progress", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled" },
+  travel:      { new: "New", awaiting_approval: "Awaiting Approval", on_hold: "In Progress", completed: "Completed", cancelled: "Cancelled" },
   hr:          { new: "New", on_hold: "In Progress", completed: "Completed" },
   general:     { new: "New", on_hold: "In Progress", completed: "Completed", cancelled: "Cancelled" },
 }

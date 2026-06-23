@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { mockShipments, mockUsers, type MockShipment } from "@/lib/mock-data"
 import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
-import { getRequestsByModule, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently } from "@/services/engineService"
+import { getRequestsByModule, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, isUserInCc } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
@@ -19,16 +19,18 @@ import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 import { animationClasses } from "@/lib/animations"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
+import { CcVisibilityToggle } from "@/components/ui/CcVisibilityToggle"
+import { useCcVisibility } from "@/hooks/useCcVisibility"
 import { getList } from "@/lib/companyDataStore"
 import { LABEL_COLORS, LABEL_DOTS } from "@/lib/statusPalette"
 import { scopeRequests } from "@/lib/access"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STATUSES = ["new", "in_progress", "in_customs", "delivered", "cancelled"] as const
+const STATUSES = ["new", "awaiting_approval", "in_progress", "in_customs", "delivered", "cancelled"] as const
 
 const STATUS_LABELS: Record<string, string> = {
-  new: "New", in_progress: "In Progress", in_customs: "In Customs", delivered: "Delivered", cancelled: "Cancelled",
+  new: "New", awaiting_approval: "Awaiting Approval", in_progress: "In Progress", in_customs: "In Customs", delivered: "Delivered", cancelled: "Cancelled",
 }
 
 const STATUS_COLORS: Record<string, string> = Object.fromEntries(
@@ -39,11 +41,12 @@ const STATUS_DOT: Record<string, string> = Object.fromEntries(
 )
 
 const STATUS_PILL_ACTIVE: Record<string, string> = {
-  new:        "bg-sky-500 border-sky-500 text-white",
-  in_progress: "bg-blue-600 border-blue-600 text-white",
-  in_customs: "bg-amber-600 border-amber-600 text-white",
-  delivered:  "bg-green-600 border-green-600 text-white",
-  cancelled:  "bg-red-600 border-red-600 text-white",
+  new:                "bg-sky-500 border-sky-500 text-white",
+  awaiting_approval:  "bg-amber-500 border-amber-500 text-white",
+  in_progress:        "bg-blue-600 border-blue-600 text-white",
+  in_customs:         "bg-amber-600 border-amber-600 text-white",
+  delivered:          "bg-green-600 border-green-600 text-white",
+  cancelled:          "bg-red-600 border-red-600 text-white",
 }
 
 type SortKey = keyof Pick<MockShipment, "id" | "title" | "pickupDate" | "trackingNumber" | "poNumber" | "costCenter" | "carrier" | "requester" | "status" | "expectedDelivery" | "lastUpdate">
@@ -66,6 +69,7 @@ const COLS: { key: SortKey; label: string; defaultW: number }[] = [
 
 export default function SendingPage() {
   const { data: session } = useSession()
+  const { showCcRequests, toggleCcVisibility } = useCcVisibility()
   const [search, setSearch]           = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [carrierFilter, setCarrierFilter] = useState("all")
@@ -201,8 +205,38 @@ export default function SendingPage() {
     return sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1 shrink-0" /> : <ChevronDown className="h-3 w-3 ml-1 shrink-0" />
   }
 
+  const allVisibleShipments = useMemo(() => {
+    if (!showCcRequests) return shipments
+    // When CC toggle is on, include requests where the user is CC'd but not the requester
+    const userEmail = session?.user?.email ?? ""
+    const userId = session?.user?.id ?? ""
+    const allRequests = getRequestsByModule("shipping").filter((r: any) => (r.payload as any)?.direction === "sending")
+    const ccRequests = allRequests.filter((r) => {
+      return (
+        r.requesterId !== userId && // Not the requester
+        !shipments.some(s => s.id === r.id) && // Not already included
+        isUserInCc(r, userEmail) // User is in CC
+      )
+    }).map((r) => ({
+      id: r.id,
+      title: r.title || "Untitled Request",
+      trackingNumber: r.payload?.trackingNumber || "",
+      carrier: r.payload?.carrier || "",
+      origin: r.payload?.origin || "N/A",
+      destination: r.payload?.destination || "N/A",
+      status: r.status || "new",
+      expectedDelivery: fmtDate(r.updatedAt),
+      requester: r.requesterName || r.requesterId || "Unknown",
+      pickupDate: fmtDateTime(r.createdAt),
+      poNumber: r.payload?.poNumber || "",
+      costCenter: r.payload?.costCenter || "",
+      lastUpdate: fmtDateTime(r.updatedAt),
+    }))
+    return [...shipments, ...ccRequests]
+  }, [shipments, showCcRequests, session?.user?.email, session?.user?.id])
+
   const filtered = useMemo(() => {
-    let result = shipments.filter((s) => {
+    let result = allVisibleShipments.filter((s) => {
       const q = search.toLowerCase()
       const matchSearch = s.id.toLowerCase().includes(q) || s.trackingNumber.toLowerCase().includes(q) || s.destination.toLowerCase().includes(q) || s.requester.toLowerCase().includes(q)
       const matchStatus  = statusFilter === "all" || s.status === statusFilter
@@ -213,22 +247,24 @@ export default function SendingPage() {
       const av = a[sortKey] ?? "", bv = b[sortKey] ?? ""
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
-  }, [search, statusFilter, carrierFilter, sortKey, sortDir, shipments])
+  }, [search, statusFilter, carrierFilter, sortKey, sortDir, allVisibleShipments])
 
   const stats = useMemo(() => ({
-    total:       shipments.length,
-    new:         shipments.filter((s) => s.status === "new").length,
-    inProgress:  shipments.filter((s) => s.status === "in_progress").length,
-    inCustoms:   shipments.filter((s) => s.status === "in_customs").length,
-    delivered:   shipments.filter((s) => s.status === "delivered").length,
+    total:               shipments.length,
+    new:                 shipments.filter((s) => s.status === "new").length,
+    awaitingApproval:    shipments.filter((s) => s.status === "awaiting_approval").length,
+    inProgress:          shipments.filter((s) => s.status === "in_progress").length,
+    inCustoms:           shipments.filter((s) => s.status === "in_customs").length,
+    delivered:           shipments.filter((s) => s.status === "delivered").length,
   }), [shipments])
 
   const statCards = [
-    { key: "all",         label: "Total Shipments", value: stats.total,       icon: Package,      iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
-    { key: "new",         label: "New",             value: stats.new,         icon: Package,      iconBg: "bg-sky-50",    iconColor: "text-sky-600",    activeBg: "bg-sky-600",    activeBorder: "border-sky-600" },
-    { key: "in_progress", label: "In Progress",     value: stats.inProgress,  icon: Truck,        iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
-    { key: "in_customs",  label: "In Customs",      value: stats.inCustoms,   icon: Clock,        iconBg: "bg-amber-50",  iconColor: "text-amber-600",  activeBg: "bg-amber-600",  activeBorder: "border-amber-600" },
-    { key: "delivered",   label: "Delivered",       value: stats.delivered,   icon: CheckCircle2, iconBg: "bg-green-50",  iconColor: "text-green-600",  activeBg: "bg-green-600",  activeBorder: "border-green-600" },
+    { key: "all",                label: "Total Shipments",     value: stats.total,              icon: Package,      iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
+    { key: "new",                label: "New",                 value: stats.new,                icon: Package,      iconBg: "bg-sky-50",    iconColor: "text-sky-600",    activeBg: "bg-sky-600",    activeBorder: "border-sky-600" },
+    { key: "awaiting_approval",  label: "Awaiting Approval",   value: stats.awaitingApproval,   icon: Clock,        iconBg: "bg-amber-50",  iconColor: "text-amber-600",  activeBg: "bg-amber-500",  activeBorder: "border-amber-500" },
+    { key: "in_progress",        label: "In Progress",         value: stats.inProgress,         icon: Truck,        iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
+    { key: "in_customs",         label: "In Customs",          value: stats.inCustoms,          icon: Clock,        iconBg: "bg-amber-50",  iconColor: "text-amber-600",  activeBg: "bg-amber-600",  activeBorder: "border-amber-600" },
+    { key: "delivered",          label: "Delivered",           value: stats.delivered,          icon: CheckCircle2, iconBg: "bg-green-50",  iconColor: "text-green-600",  activeBg: "bg-green-600",  activeBorder: "border-green-600" },
   ] as const
 
   return (
@@ -338,8 +374,15 @@ export default function SendingPage() {
             </div>
           </div>
 
-          <p className="text-sm text-muted-foreground font-normal mt-1">
-            Showing {filtered.length} shipment{filtered.length !== 1 ? "s" : ""}
+          {/* CC Visibility Toggle */}
+          <div className="mt-3">
+            <CcVisibilityToggle checked={showCcRequests} onCheckedChange={toggleCcVisibility} />
+          </div>
+
+          <p className="text-sm text-muted-foreground font-normal mt-2">
+            {showCcRequests
+              ? `Showing ${filtered.length} shipment${filtered.length !== 1 ? "s" : ""} (including CC'd requests)`
+              : `Showing ${filtered.length} shipment${filtered.length !== 1 ? "s" : ""}`}
           </p>
         </CardHeader>
 
