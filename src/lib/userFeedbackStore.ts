@@ -107,4 +107,11 @@ export const userFeedbackStore = {
     writeFeedback(filtered)
     return deleted
   },
+
+  deleteAll(): number {
+    const all = readFeedback()
+    const count = all.length
+    writeFeedback([])
+    return count
+  },
 }

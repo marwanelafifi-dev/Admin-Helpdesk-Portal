@@ -79,3 +79,31 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Failed to submit feedback" }, { status: 500 })
   }
 }
+
+/**
+ * DELETE /api/feedback/user-feedback
+ * Clear all user feedback (admin only)
+ */
+export async function DELETE(req: Request) {
+  const session = await auth()
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  // Only Full Access and Administration Team can delete all feedback
+  if (session.user.role !== "Full Access" && session.user.role !== "Administration Team") {
+    return NextResponse.json({ error: "Forbidden: insufficient permissions" }, { status: 403 })
+  }
+
+  try {
+    const count = userFeedbackStore.deleteAll()
+    return NextResponse.json({
+      success: true,
+      message: `Deleted ${count} feedback records`,
+      deletedCount: count
+    })
+  } catch (error) {
+    console.error("[user-feedback] DELETE failed:", error)
+    return NextResponse.json({ error: "Failed to delete feedback" }, { status: 500 })
+  }
+}
