@@ -997,6 +997,10 @@ Status column preserves color styling with dot indicators; other columns use neu
 | `src/hooks/useCcVisibility.ts` | CC visibility toggle state | Persists to sessionStorage (`arp_show_cc_requests`), survives page reloads within session |
 | `src/modules/hr/HRForm.tsx` | HR create form | Toggle-based type selection, checkbox items, Direct Manager Select from companyDataStore |
 | `src/modules/shipping/ShippingForm.tsx` | Shipping form | All dropdowns (Supplier, Cost Center, Carrier, Manager) read from companyDataStore |
+| `src/modules/travel/TravelForm.tsx` | Travel create form | Request type toggle (Visa / Hotel & Flight), conditional fields, attachment validation, auto-CC Ap@si-ware.com |
+| `src/app/(dashboard)/system/notices/page.tsx` | System Notices & Feedback | Two-tab page: System Updates display + User Feedback submission with ratings |
+| `src/lib/noticeStore.ts` | System Notices persistence | Server-side storage of system announcements to `data/notices.json` |
+| `src/lib/userFeedbackStore.ts` | User Feedback persistence | Server-side storage of user comments to `data/user-feedback.json` |
 | `src/modules/travel/travel.schema.ts` | Travel request schema | Two discriminated request types: VisaTravelRequestSchema + HotelFlightTravelRequestSchema; conditional field validation via superRefine |
 | `src/modules/travel/TravelForm.tsx` | Travel create form | Request type toggle (Visa / Hotel & Flight), conditional form fields based on type, required attachment validation, SearchableSelect for manager/cost center |
 
@@ -1059,6 +1063,74 @@ Status column preserves color styling with dot indicators; other columns use neu
   - [x] Creator name + creation date visible for audit trail
   - [x] Next scheduled send time clearly labeled
   - [x] Full creator name visible (not abbreviated)
+
+## Phase 6p: System Notices & User Feedback (Completed — 23 Jun 2026)
+- [x] **System Notices tab** at `/system/notices`:
+  - [x] Two sub-tabs: System Updates (read-only) + Your Feedback (submit + view history)
+  - [x] System Updates shows 6 pre-populated notices (Features + Bug Fixes):
+    - [x] Event Module is ready
+    - [x] Announcements Page
+    - [x] CC'd Requests Visibility
+    - [x] Travel Module
+    - [x] Bug: Duplicate Shipping IDs fixed
+    - [x] Bug: Attachments disappear fixed
+  - [x] Notice type badges (Feature=green, Bug Fix=blue, Update=gray)
+  - [x] Expandable descriptions
+  - [x] Posted dates
+
+- [x] **User Feedback Collection:**
+  - [x] Submit Feedback form with:
+    - [x] Category dropdown (General, Bug Report, Feature Request, UI/UX)
+    - [x] Star rating selector (1-5 stars)
+    - [x] Title field (max 100 chars)
+    - [x] Comment field (max 1000 chars)
+    - [x] Real-time character counters
+  - [x] Feedback History section showing:
+    - [x] All user's submitted feedback
+    - [x] Status badges (New, Reviewed, Resolved)
+    - [x] Star ratings displayed
+    - [x] Category color-coded
+    - [x] Submitted dates
+
+- [x] **Server-side Storage:**
+  - [x] `src/lib/noticeStore.ts` — notices persistence to `data/notices.json`
+  - [x] `src/lib/userFeedbackStore.ts` — feedback persistence to `data/user-feedback.json`
+
+- [x] **API Routes:**
+  - [x] `GET /api/notices` — public notice listing
+  - [x] `POST/PUT/DELETE /api/admin/notices` — admin notice management (Full Access only)
+  - [x] `GET /api/feedback/user-feedback` — fetch user's feedback
+  - [x] `POST /api/feedback/user-feedback` — submit new feedback
+
+- [x] **Database Admin Page Integration:**
+  - [x] System Notices added to Clear & Backup sections
+  - [x] User Feedback added to Clear & Backup sections
+  - [x] Both included in Download Backup
+  - [x] Both included in Restore Backup
+  - [x] Both included in Auto-Backups
+  - [x] Both clearable in "Clear All Data" and "Clear by Data Type"
+  - [x] Updated `src/app/api/admin/server-data/route.ts` with both files
+
+- [x] **Permissions & Access Control:**
+  - [x] Added `page:system-notices` permission to `access.ts` RoutePermission type
+  - [x] Added route mapping: `/system/notices` → `page:system-notices`
+  - [x] Updated all 4 roles in `data/roles.json`:
+    - [x] Full Access: all permissions (view + manage notices)
+    - [x] Administration Team: can view + manage notices
+    - [x] People Team: can view system notices
+    - [x] Requester: can view system notices
+  - [x] All users can submit feedback with ratings
+  - [x] Full Access only can add/edit/delete system notices
+
+- [x] **UI Features:**
+  - [x] Full dark mode support
+  - [x] Mobile responsive design
+  - [x] Loading states (Loader2 spinner)
+  - [x] Success messages (green notifications)
+  - [x] Real-time validation
+  - [x] Expandable notice descriptions
+  - [x] Star rating visual feedback
+  - [x] Tab navigation with counts
 
 ---
 ### Development Loop (Repeat for each module)
