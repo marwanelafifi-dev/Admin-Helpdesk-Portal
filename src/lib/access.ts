@@ -45,6 +45,7 @@ export type RoutePermission =
   | "manage_users"
   | "manage_roles"
   | "manage_tasks"
+  | "manage_feedback"
   | "settings"
   | "update_status"
   | "cancel_request"

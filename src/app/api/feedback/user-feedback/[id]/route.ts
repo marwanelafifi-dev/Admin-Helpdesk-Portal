@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { userFeedbackStore, type FeedbackStatus } from "@/lib/userFeedbackStore"
+import { notificationStore } from "@/lib/notificationStore"
+import { sendFeedbackStatusChangeEmail } from "@/lib/emailService"
 
 export const runtime = "nodejs"
 
 /**
  * PATCH /api/feedback/user-feedback/[id]
  * Update feedback status (Full Access only)
+ * Triggers: in-app notification + email to feedback submitter
  */
 export async function PATCH(
   req: Request,
@@ -40,9 +43,44 @@ export async function PATCH(
       )
     }
 
+    // Get the feedback before update to check old status
+    const feedback = userFeedbackStore.getById(params.id)
+    if (!feedback) {
+      return NextResponse.json({ error: "Feedback not found" }, { status: 404 })
+    }
+
+    const oldStatus = feedback.status
+
+    // Update the status
     const updated = userFeedbackStore.updateStatus(params.id, status as FeedbackStatus)
     if (!updated) {
       return NextResponse.json({ error: "Feedback not found" }, { status: 404 })
+    }
+
+    // Only send notifications if status actually changed
+    if (oldStatus !== status) {
+      // Create in-app notification
+      try {
+        notificationStore.create({
+          userId: feedback.userId,
+          userEmail: feedback.userEmail,
+          type: "feedback_status_change",
+          title: `Feedback Status Changed to ${status.replace("_", " ").toUpperCase()}`,
+          message: `Your feedback "${feedback.title}" has been updated to ${status.replace("_", " ")}.`,
+          relatedId: params.id,
+          isRead: false,
+        })
+      } catch (err) {
+        console.warn("[feedback-notification] Failed to create in-app notification:", err)
+      }
+
+      // Send email notification
+      try {
+        await sendFeedbackStatusChangeEmail(feedback, status as FeedbackStatus, session.user.name || "Administrator")
+      } catch (err) {
+        console.warn("[feedback-email] Failed to send status change email:", err)
+        // Don't fail the request if email fails
+      }
     }
 
     return NextResponse.json({ feedback: updated })

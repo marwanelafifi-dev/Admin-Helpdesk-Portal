@@ -1156,3 +1156,66 @@ export async function sendTravelApprovalEmail(params: {
     })
   }
 }
+
+/**
+ * Send feedback status change notification email
+ * Notifies the feedback submitter when admin updates feedback status
+ */
+export async function sendFeedbackStatusChangeEmail(
+  feedback: { id: string; userId: string; userEmail: string; userName: string; title: string; comment: string },
+  newStatus: string,
+  updatedBy: string
+) {
+  const transporter = getTransporter()
+
+  const statusDisplay = newStatus
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ")
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%); color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+        <h1 style="margin: 0; font-size: 24px;">Feedback Status Updated</h1>
+      </div>
+
+      <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb;">
+        <p style="color: #374151; font-size: 16px; margin: 0 0 20px 0;">Hi ${feedback.userName},</p>
+
+        <p style="color: #374151; font-size: 14px; margin: 0 0 15px 0;">
+          Your feedback has been reviewed and updated by <strong>${updatedBy}</strong>.
+        </p>
+
+        <div style="background: white; border-left: 4px solid #14b8a6; padding: 15px; margin: 20px 0; border-radius: 4px;">
+          <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 12px; text-transform: uppercase;">Feedback</p>
+          <h3 style="margin: 0 0 8px 0; color: #111827; font-size: 16px;">${feedback.title}</h3>
+          <p style="margin: 0; color: #374151; font-size: 13px; line-height: 1.5;">${feedback.comment.substring(0, 200)}${feedback.comment.length > 200 ? "..." : ""}</p>
+        </div>
+
+        <div style="background: white; border: 1px solid #e5e7eb; padding: 15px; margin: 20px 0; border-radius: 4px;">
+          <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 12px; text-transform: uppercase;">New Status</p>
+          <div style="display: inline-block; background: #14b8a6; color: white; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 14px;">
+            ${statusDisplay}
+          </div>
+        </div>
+
+        <p style="color: #374151; font-size: 14px; margin: 20px 0 0 0;">
+          <a href="${process.env.NEXTAUTH_URL || "http://localhost:3003"}/system/notices" style="color: #14b8a6; text-decoration: none; font-weight: bold;">
+            View Feedback in Portal →
+          </a>
+        </p>
+      </div>
+
+      <div style="background: #f3f4f6; padding: 15px; text-align: center; border-radius: 0 0 8px 8px; font-size: 12px; color: #6b7280;">
+        <p style="margin: 0;">Admin Helpdesk Portal • Si-Ware Systems</p>
+      </div>
+    </div>
+  `
+
+  await sendMailWithRetry(transporter, {
+    from: resolveFromAddress("Si-Ware Admin Helpdesk"),
+    to: feedback.userEmail,
+    subject: `Feedback Status Updated: ${statusDisplay}`,
+    html,
+  })
+}
