@@ -1192,6 +1192,31 @@ Status column preserves color styling with dot indicators; other columns use neu
   - [x] Result: Consistent professional appearance across all approval workflows
   - [x] File: `src/lib/emailService.ts`
 
+## Phase 6s: Feedback System Cleanup & Simplification (Completed — 23 Jun 2026)
+- [x] **Removed Admin Team Survey from Database management:**
+  - [x] Removed "Admin Team Survey" entry from SERVER_FILE_STORES in Database admin page
+  - [x] Removed admin-survey.json from FILES array in `/api/admin/server-data`
+  - [x] Removed admin-survey clear handler from handleClearServerStore function
+  - [x] API and store files remain available (`src/app/api/feedback/admin-survey/route.ts`, `src/lib/adminSurveyStore.ts`) for future use
+  - [x] Simplified Database page "Clear by Data Type" section — focused on critical data only
+
+- [x] **Database page now shows 10 clearable data stores:**
+  1. Server Requests (data/requests.json)
+  2. Server Comments (data/comments.json)
+  3. Requests Feedback (data/feedback.json) — employee satisfaction responses
+  4. Server Announcements (data/announcements.json)
+  5. Server Company Data (data/company-data.json)
+  6. Platform Settings (data/platform-settings.json)
+  7. Backup Schedule (data/backup-schedule.json)
+  8. Email Configuration (data/email-config.json)
+  9. System Notices (data/notices.json)
+  10. System Notices Feedback (data/user-feedback.json) — user feedback on system updates
+
+- [x] **Updated CLAUDE.md documentation:**
+  - [x] Renamed "Server Feedback" to "Requests Feedback" — clarity that it's employee satisfaction on requests
+  - [x] Confirmed "System Notices Feedback" is user feedback on system notices and updates
+  - [x] Documented that Admin Team Survey was intentionally removed as not important to current platform needs
+
 ---
 ### Development Loop (Repeat for each module)
 1. **Sync Plan:** Update this `CLAUDE.md`.
