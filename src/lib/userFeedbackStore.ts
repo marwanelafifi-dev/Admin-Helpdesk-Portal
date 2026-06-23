@@ -2,7 +2,7 @@ import fs from "fs"
 import path from "path"
 
 export type FeedbackCategory = "general" | "bug" | "feature_request" | "ui_ux"
-export type FeedbackStatus = "new" | "reviewed" | "resolved"
+export type FeedbackStatus = "new" | "in_progress" | "completed" | "resolved" | "cancelled"
 
 export interface Attachment {
   id: string

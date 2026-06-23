@@ -37,7 +37,7 @@ interface UserFeedback {
   category: "general" | "bug" | "feature_request" | "ui_ux"
   title: string
   comment: string
-  status: "new" | "reviewed" | "resolved"
+  status: "new" | "in_progress" | "completed" | "resolved" | "cancelled"
   createdAt: string
   rating?: number
   attachments?: Attachment[]
@@ -58,6 +58,7 @@ export default function SystemNoticesPage() {
   const [editingNotice, setEditingNotice] = useState<SystemNotice | null>(null)
   const [showNoticeForm, setShowNoticeForm] = useState(false)
   const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [updatingFeedbackId, setUpdatingFeedbackId] = useState<string | null>(null)
 
   const isFullAccess = isSuperAdmin(session?.user?.role) || hasPermission(session?.user?.permissions, "manage_users")
   const permissions = session?.user?.permissions || []
@@ -281,6 +282,32 @@ export default function SystemNoticesPage() {
       description: notice.description || "",
     })
     setShowNoticeForm(true)
+  }
+
+  const updateFeedbackStatus = async (feedbackId: string, newStatus: string) => {
+    setUpdatingFeedbackId(feedbackId)
+    try {
+      const res = await fetch(`/api/feedback/user-feedback/${feedbackId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      })
+
+      if (res.ok) {
+        const { feedback } = await res.json()
+        // Update the feedback in the state
+        setAllUsersFeedback(allUsersFeedback.map((f) => (f.id === feedbackId ? feedback : f)))
+        setSuccessMessage("Feedback status updated successfully")
+        setTimeout(() => setSuccessMessage(""), 3000)
+      } else {
+        alert("Failed to update feedback status")
+      }
+    } catch (error) {
+      console.error("Failed to update feedback status:", error)
+      alert("Error updating feedback status")
+    } finally {
+      setUpdatingFeedbackId(null)
+    }
   }
 
   return (
@@ -732,9 +759,13 @@ export default function SystemNoticesPage() {
                             <Badge className="text-xs">
                               {feedback.status === "new"
                                 ? "New"
-                                : feedback.status === "reviewed"
-                                  ? "Reviewed"
-                                  : "Resolved"}
+                                : feedback.status === "in_progress"
+                                  ? "In Progress"
+                                  : feedback.status === "completed"
+                                    ? "Completed"
+                                    : feedback.status === "resolved"
+                                      ? "Resolved"
+                                      : "Cancelled"}
                             </Badge>
                           </div>
                           <p className="text-gray-600 dark:text-gray-400 text-sm mt-2">{feedback.comment}</p>
@@ -822,13 +853,33 @@ export default function SystemNoticesPage() {
                                     ? "UI/UX"
                                     : "General"}
                             </Badge>
-                            <Badge className="text-xs">
-                              {feedback.status === "new"
-                                ? "New"
-                                : feedback.status === "reviewed"
-                                  ? "Reviewed"
-                                  : "Resolved"}
-                            </Badge>
+                            {/* Status selector for Full Access users */}
+                            {isFullAccess ? (
+                              <select
+                                value={feedback.status}
+                                onChange={(e) => updateFeedbackStatus(feedback.id, e.target.value as any)}
+                                disabled={updatingFeedbackId === feedback.id}
+                                className="text-xs px-2 py-1 rounded border bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600 cursor-pointer hover:border-gray-400 dark:hover:border-gray-500 disabled:opacity-50"
+                              >
+                                <option value="new">New</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="completed">Completed</option>
+                                <option value="resolved">Resolved</option>
+                                <option value="cancelled">Cancelled</option>
+                              </select>
+                            ) : (
+                              <Badge className="text-xs">
+                                {feedback.status === "new"
+                                  ? "New"
+                                  : feedback.status === "in_progress"
+                                    ? "In Progress"
+                                    : feedback.status === "completed"
+                                      ? "Completed"
+                                      : feedback.status === "resolved"
+                                        ? "Resolved"
+                                        : "Cancelled"}
+                              </Badge>
+                            )}
                           </div>
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             Submitted by: <span className="font-medium">{feedback.userName}</span> ({feedback.userEmail})
