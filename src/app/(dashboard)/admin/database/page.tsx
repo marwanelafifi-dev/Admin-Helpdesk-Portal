@@ -1497,7 +1497,39 @@ export default function DatabasePage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setShowScheduledMaintenanceForm(!showScheduledMaintenanceForm)}
+                  onClick={() => {
+                    if (scheduledMaintenanceEnabled) {
+                      // Turn OFF - disable scheduled maintenance
+                      void (async () => {
+                        try {
+                          const res = await fetch("/api/admin/maintenance", {
+                            method: "PUT",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              scheduledMaintenance: {
+                                enabled: false,
+                                startTime: scheduledMaintenanceStart,
+                                endTime: scheduledMaintenanceEnd,
+                                announcementMessage: scheduledMaintenanceMessage,
+                              },
+                            }),
+                          })
+                          if (res.ok) {
+                            setScheduledMaintenanceEnabled(false)
+                            setShowScheduledMaintenanceForm(false)
+                            setScheduledMaintenanceStatus({ type: "success", message: "Scheduled maintenance disabled." })
+                            setTimeout(() => setScheduledMaintenanceStatus({ type: "idle", message: "" }), 3000)
+                          }
+                        } catch (error) {
+                          setScheduledMaintenanceStatus({ type: "error", message: "Failed to disable maintenance" })
+                        }
+                      })()
+                    } else {
+                      // Turn ON - show form
+                      setScheduledMaintenanceEnabled(true)
+                      setShowScheduledMaintenanceForm(true)
+                    }
+                  }}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${scheduledMaintenanceEnabled ? "bg-blue-600" : "bg-gray-300"}`}
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${scheduledMaintenanceEnabled ? "translate-x-6" : "translate-x-1"}`} />
