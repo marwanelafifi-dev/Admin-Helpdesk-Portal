@@ -54,14 +54,18 @@ const COLS: { key: SortKey; label: string; defaultW: number }[] = [
   { key: "title",         label: "Request Title",   defaultW: 200 },
   { key: "createdAt",     label: "Submission Date", defaultW: 140 },
   { key: "requesterName", label: "Requester Name",  defaultW: 160 },
-  { key: "status",        label: "Status",          defaultW: 130 },
-  { key: "updatedAt",     label: "Last Update Date",defaultW: 140 },
 ]
 
 // Type and Items are displayed but not sortable
 const EXTRA_COLS = [
   { label: "Type",   width: 120 },
   { label: "Items",  width: 140 },
+]
+
+// Status and Last Update Date columns
+const STATUS_COLS: { key: SortKey; label: string; defaultW: number }[] = [
+  { key: "status",        label: "Status",          defaultW: 130 },
+  { key: "updatedAt",     label: "Last Update Date",defaultW: 140 },
 ]
 
 
@@ -346,6 +350,24 @@ export default function TravelPage() {
                     {col.label}
                   </th>
                 ))}
+                {STATUS_COLS.map((col, idx) => (
+                  <th
+                    key={col.key}
+                    className="relative py-3 text-xs font-semibold text-slate-300 tracking-wide text-left select-none group"
+                    style={{ paddingLeft: 12, paddingRight: 8 }}
+                  >
+                    <button onClick={() => handleSort(col.key)} className="inline-flex items-center gap-0.5 hover:text-white transition-colors w-full">
+                      {col.label}
+                      <SortIcon col={col.key} />
+                    </button>
+                    <span
+                      onMouseDown={(e) => onResizeMouseDown(e, COLS.length + idx)}
+                      className="absolute right-0 top-0 h-full w-4 flex items-center justify-center cursor-col-resize z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <span className="w-px h-4 bg-slate-500 rounded" />
+                    </span>
+                  </th>
+                ))}
                 <th className="bg-slate-800" />
               </tr>
             </thead>
@@ -378,6 +400,18 @@ export default function TravelPage() {
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.requesterName}</span>
                   </td>
                   <td className="py-3 px-3">
+                    <span className="text-sm font-medium text-gray-700">
+                      {(req.payload as Record<string, unknown>).travelType === "visa_application" ? "Visa" : "Hotel & Flight"}
+                    </span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <span className="text-sm font-medium text-gray-700">
+                      {Array.isArray((req.payload as Record<string, unknown>).items)
+                        ? ((req.payload as Record<string, unknown>).items as string[]).join(", ")
+                        : "—"}
+                    </span>
+                  </td>
+                  <td className="py-3 px-3">
                     <InlineStatusSelect
                       currentStatus={req.status}
                       statuses={STATUSES}
@@ -390,18 +424,6 @@ export default function TravelPage() {
                   </td>
                   <td className="py-3 px-3">
                     <span className="text-sm font-medium text-gray-700">{fmtDateTime(req.updatedAt)}</span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="text-sm font-medium text-gray-700">
-                      {(req.payload as Record<string, unknown>).travelType === "visa_application" ? "Visa" : "Hotel & Flight"}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="text-sm font-medium text-gray-700">
-                      {Array.isArray((req.payload as Record<string, unknown>).items)
-                        ? ((req.payload as Record<string, unknown>).items as string[]).join(", ")
-                        : "—"}
-                    </span>
                   </td>
                   <td className="py-3 px-2 text-right">
                     <RequestActionsMenu
