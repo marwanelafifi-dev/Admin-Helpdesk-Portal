@@ -19,16 +19,27 @@ export function ScheduledMaintenanceBanner() {
   useEffect(() => {
     const fetchMaintenance = async () => {
       try {
-        const res = await fetch("/api/admin/maintenance")
-        if (res.ok) {
-          const data = await res.json()
-          if (data.scheduledMaintenance?.enabled) {
-            setMaintenance(data.scheduledMaintenance)
-            const startTime = new Date(data.scheduledMaintenance.startTime)
-            const now = new Date()
-            const hoursUntil = (startTime.getTime() - now.getTime()) / (1000 * 60 * 60)
-            setIsUpcoming(hoursUntil > 0 && hoursUntil <= 72) // Show banner if within 72 hours
+        // Try authenticated endpoint first (more up-to-date)
+        let data = null
+        try {
+          const res = await fetch("/api/admin/maintenance")
+          if (res.ok) {
+            data = await res.json()
           }
+        } catch {
+          // Fall back to public endpoint if admin endpoint fails or requires auth
+          const res = await fetch("/api/maintenance/scheduled")
+          if (res.ok) {
+            data = await res.json()
+          }
+        }
+
+        if (data?.scheduledMaintenance?.enabled) {
+          setMaintenance(data.scheduledMaintenance)
+          const startTime = new Date(data.scheduledMaintenance.startTime)
+          const now = new Date()
+          const hoursUntil = (startTime.getTime() - now.getTime()) / (1000 * 60 * 60)
+          setIsUpcoming(hoursUntil > 0 && hoursUntil <= 72) // Show banner if within 72 hours
         }
       } catch (error) {
         console.error("Failed to fetch maintenance schedule:", error)
