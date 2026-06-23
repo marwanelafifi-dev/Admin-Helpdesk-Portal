@@ -957,7 +957,7 @@ export async function sendShippingApprovalEmail(params: {
   <div style="max-width:640px;margin:0 auto;padding:32px 16px;">
     ${logoBuffer ? `<div style="text-align:center;margin-bottom:24px;"><img src="cid:siware-logo" alt="Si-Ware" style="height:36px;"></div>` : ""}
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.04);">
-      <div style="background:linear-gradient(135deg,#0369a1,#06b6d4);color:#fff;padding:24px 28px;">
+      <div style="background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;padding:24px 28px;">
         <p style="margin:0;font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:1px;">Shipping Approval Request</p>
         <h1 style="margin:6px 0 0;font-size:22px;font-weight:600;">${escapeHtml(params.requestTitle)}</h1>
         <p style="margin:8px 0 0;font-size:13px;opacity:.9;">${escapeHtml(params.requestId)}</p>
@@ -977,7 +977,7 @@ export async function sendShippingApprovalEmail(params: {
       <div style="padding:28px;text-align:center;background:#fff;">
         <a href="${params.approveUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Approve</a>
         <a href="${params.rejectUrl}"  style="display:inline-block;background:#ef4444;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Reject</a>
-        <p style="margin:18px 0 0;font-size:12px;color:#64748b;">Or <a href="${requestUrl}" style="color:#0369a1;">open the request in the portal</a> to take action there.</p>
+        <p style="margin:18px 0 0;font-size:12px;color:#64748b;">Or <a href="${requestUrl}" style="color:#2563eb;">open the request in the portal</a> to take action there.</p>
         <p style="margin:8px 0 0;font-size:11px;color:#94a3b8;">These buttons are single-use links; they stop working once a decision is recorded or the request status changes.</p>
       </div>`)
 
@@ -988,7 +988,7 @@ export async function sendShippingApprovalEmail(params: {
       </div>
       ${detailsTable}
       <div style="padding:20px 28px;text-align:center;background:#fff;">
-        <a href="${requestUrl}" style="display:inline-block;background:#0369a1;color:#fff;font-weight:600;padding:10px 28px;border-radius:8px;text-decoration:none;font-size:14px;">View Request in Portal</a>
+        <a href="${requestUrl}" style="display:inline-block;background:#2563eb;color:#fff;font-weight:600;padding:10px 28px;border-radius:8px;text-decoration:none;font-size:14px;">View Request in Portal</a>
       </div>`)
 
   const attachments = logoBuffer ? [{
@@ -1095,7 +1095,7 @@ export async function sendTravelApprovalEmail(params: {
   <div style="max-width:640px;margin:0 auto;padding:32px 16px;">
     ${logoBuffer ? `<div style="text-align:center;margin-bottom:24px;"><img src="cid:siware-logo" alt="Si-Ware" style="height:36px;"></div>` : ""}
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.04);">
-      <div style="background:linear-gradient(135deg,#0d9488,#14b8a6);color:#fff;padding:24px 28px;">
+      <div style="background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;padding:24px 28px;">
         <p style="margin:0;font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:1px;">Travel Approval Request</p>
         <h1 style="margin:6px 0 0;font-size:22px;font-weight:600;">${escapeHtml(params.requestTitle)}</h1>
         <p style="margin:8px 0 0;font-size:13px;opacity:.9;">${escapeHtml(params.requestId)}</p>
@@ -1115,7 +1115,7 @@ export async function sendTravelApprovalEmail(params: {
       <div style="padding:28px;text-align:center;background:#fff;">
         <a href="${params.approveUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Approve</a>
         <a href="${params.rejectUrl}"  style="display:inline-block;background:#ef4444;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Reject</a>
-        <p style="margin:18px 0 0;font-size:12px;color:#64748b;">Or <a href="${requestUrl}" style="color:#0d9488;">open the request in the portal</a> to take action there.</p>
+        <p style="margin:18px 0 0;font-size:12px;color:#64748b;">Or <a href="${requestUrl}" style="color:#2563eb;">open the request in the portal</a> to take action there.</p>
         <p style="margin:8px 0 0;font-size:11px;color:#94a3b8;">These buttons are single-use links; they stop working once a decision is recorded or the request status changes.</p>
       </div>`)
 
@@ -1126,7 +1126,7 @@ export async function sendTravelApprovalEmail(params: {
       </div>
       ${detailsTable}
       <div style="padding:20px 28px;text-align:center;background:#fff;">
-        <a href="${requestUrl}" style="display:inline-block;background:#0d9488;color:#fff;font-weight:600;padding:10px 28px;border-radius:8px;text-decoration:none;font-size:14px;">View Request in Portal</a>
+        <a href="${requestUrl}" style="display:inline-block;background:#2563eb;color:#fff;font-weight:600;padding:10px 28px;border-radius:8px;text-decoration:none;font-size:14px;">View Request in Portal</a>
       </div>`)
 
   const attachments = logoBuffer ? [{
