@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { AlertTriangle, X } from "lucide-react"
+import { AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface ScheduledMaintenance {
@@ -13,7 +13,6 @@ interface ScheduledMaintenance {
 
 export function ScheduledMaintenanceBanner() {
   const [maintenance, setMaintenance] = useState<ScheduledMaintenance | null>(null)
-  const [dismissed, setDismissed] = useState(false)
   const [isUpcoming, setIsUpcoming] = useState(false)
 
   useEffect(() => {
@@ -52,7 +51,7 @@ export function ScheduledMaintenanceBanner() {
     return () => clearInterval(interval)
   }, [])
 
-  if (!maintenance || !isUpcoming || dismissed) return null
+  if (!maintenance || !isUpcoming) return null
 
   const startTime = new Date(maintenance.startTime)
   const endTime = new Date(maintenance.endTime)
@@ -71,37 +70,19 @@ export function ScheduledMaintenanceBanner() {
   const durationHours = Math.ceil((endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60))
 
   return (
-    <div className="sticky top-0 z-50 border-b-2 border-amber-400 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950 dark:to-orange-950 px-4 py-4">
-      <div className="max-w-7xl mx-auto flex items-start gap-3">
-        <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-300 flex-shrink-0 mt-0.5" />
+    <div className="sticky top-0 z-50 border-b border-amber-300 dark:border-amber-700 bg-amber-100 dark:bg-amber-900 px-4 py-2">
+      <div className="max-w-7xl mx-auto flex items-center gap-2">
+        <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-300 flex-shrink-0" />
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-amber-900 dark:text-amber-100">
-            Scheduled Maintenance Notice
-          </h3>
-          <div className="mt-2 space-y-1 text-sm text-amber-800 dark:text-amber-200">
-            <p className="font-medium">{maintenance.announcementMessage}</p>
-            <div className="flex flex-wrap gap-x-4 gap-y-1">
-              <div>
-                <span className="opacity-75">Starts: </span>
-                <span className="font-medium">{formatDateTime(startTime)}</span>
-              </div>
-              <div>
-                <span className="opacity-75">Duration: </span>
-                <span className="font-medium">~{durationHours} hour{durationHours !== 1 ? "s" : ""}</span>
-              </div>
-            </div>
-            <p className="text-xs opacity-75 mt-2">
-              During this time, the system will be temporarily unavailable. We apologize for any inconvenience.
-            </p>
+          <div className="text-xs font-semibold text-amber-800 dark:text-amber-200">
+            <span className="inline-block">Scheduled Maintenance:</span>
+            <span className="mx-1">{maintenance.announcementMessage}</span>
+            <span className="mx-1">|</span>
+            <span className="inline-block">Starts: {formatDateTime(startTime)}</span>
+            <span className="mx-1">|</span>
+            <span className="inline-block">Duration: ~{durationHours}h</span>
           </div>
         </div>
-        <button
-          onClick={() => setDismissed(true)}
-          className="flex-shrink-0 text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 mt-0.5"
-          aria-label="Dismiss notification"
-        >
-          <X className="h-5 w-5" />
-        </button>
       </div>
     </div>
   )
