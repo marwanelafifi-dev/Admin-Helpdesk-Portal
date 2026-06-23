@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Search, Plus, Plane, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
 import { Card, CardHeader } from "@/components/ui/card"
@@ -62,6 +63,7 @@ const COLS: { key: SortKey; label: string; defaultW: number }[] = [
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function TravelPage() {
+  const router = useRouter()
   const { data: session } = useSession()
   const { showCcRequests, toggleCcVisibility } = useCcVisibility()
   const [requests, setRequests]           = useState<EngineRequest[]>([])
@@ -230,7 +232,10 @@ export default function TravelPage() {
         {(newRequestsCount > 0 || newTasksCount > 0) && (
           <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
         )}
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white ml-4" onClick={() => window.open("/travel/new", "_blank")}>
+        <Button
+          className="bg-blue-600 hover:bg-blue-700 text-white ml-4"
+          onClick={() => router.push("/travel/new")}
+        >
           <Plus className="h-4 w-4 mr-2" />
           New Travel Request
         </Button>
