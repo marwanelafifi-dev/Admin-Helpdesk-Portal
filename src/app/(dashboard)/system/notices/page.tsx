@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { AlertCircle, CheckCircle2, Star, Send, Loader2, Edit2, Trash2, Plus } from "lucide-react"
+import { AlertCircle, CheckCircle2, Star, Send, Loader2, Edit2, Trash2, Plus, FileUp, Download, Eye, Users, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { isSuperAdmin, hasPermission } from "@/lib/access"
 
@@ -18,6 +18,15 @@ interface SystemNotice {
   summary: string
   description?: string
   postedAt: string
+}
+
+interface Attachment {
+  id: string
+  name: string
+  type: string
+  size: number
+  url: string
+  uploadedAt: string
 }
 
 interface UserFeedback {
@@ -31,6 +40,7 @@ interface UserFeedback {
   status: "new" | "reviewed" | "resolved"
   createdAt: string
   rating?: number
+  attachments?: Attachment[]
 }
 
 type FeedbackCategory = "general" | "bug" | "feature_request" | "ui_ux"
@@ -39,13 +49,15 @@ export default function SystemNoticesPage() {
   const { data: session } = useSession()
   const [notices, setNotices] = useState<SystemNotice[]>([])
   const [userFeedback, setUserFeedback] = useState<UserFeedback[]>([])
+  const [allUsersFeedback, setAllUsersFeedback] = useState<UserFeedback[]>([])
   const [expandedNotice, setExpandedNotice] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<"notices" | "feedback">("notices")
+  const [activeTab, setActiveTab] = useState<"notices" | "feedback" | "all-feedback">("notices")
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
   const [editingNotice, setEditingNotice] = useState<SystemNotice | null>(null)
   const [showNoticeForm, setShowNoticeForm] = useState(false)
+  const [attachments, setAttachments] = useState<Attachment[]>([])
 
   const isFullAccess = isSuperAdmin(session?.user?.role) || hasPermission(session?.user?.permissions, "manage_users")
   const permissions = session?.user?.permissions || []
@@ -95,6 +107,56 @@ export default function SystemNoticesPage() {
     }
   }
 
+  const loadAllUsersFeedback = async () => {
+    try {
+      const res = await fetch("/api/feedback/user-feedback?mode=all")
+      if (res.ok) {
+        const data = await res.json()
+        setAllUsersFeedback(data.feedback || [])
+      }
+    } catch (error) {
+      console.error("Failed to load all users feedback:", error)
+    }
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.currentTarget.files
+    if (!files) return
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      const reader = new FileReader()
+
+      reader.onload = () => {
+        const attachment: Attachment = {
+          id: `att-${Date.now()}-${i}`,
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          url: reader.result as string,
+          uploadedAt: new Date().toISOString(),
+        }
+        setAttachments([...attachments, attachment])
+      }
+
+      reader.readAsDataURL(file)
+    }
+
+    e.currentTarget.value = ""
+  }
+
+  const removeAttachment = (id: string) => {
+    setAttachments(attachments.filter((a) => a.id !== id))
+  }
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return "0 Bytes"
+    const k = 1024
+    const sizes = ["Bytes", "KB", "MB"]
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i]
+  }
+
   const handleSubmitFeedback = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!feedbackForm.title.trim() || !feedbackForm.comment.trim()) {
@@ -107,12 +169,16 @@ export default function SystemNoticesPage() {
       const res = await fetch("/api/feedback/user-feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(feedbackForm),
+        body: JSON.stringify({
+          ...feedbackForm,
+          attachments,
+        }),
       })
 
       if (res.ok) {
         setSuccessMessage("Thank you! Your feedback has been submitted.")
         setFeedbackForm({ category: "general", title: "", comment: "", rating: 5 })
+        setAttachments([])
         setTimeout(() => setSuccessMessage(""), 3000)
         loadFeedback()
       } else {
@@ -251,6 +317,23 @@ export default function SystemNoticesPage() {
         >
           Your Feedback ({userFeedback.length})
         </button>
+        {isFullAccess && (
+          <button
+            onClick={() => {
+              setActiveTab("all-feedback")
+              loadAllUsersFeedback()
+            }}
+            className={cn(
+              "px-4 py-2 font-medium transition-colors flex items-center gap-1",
+              activeTab === "all-feedback"
+                ? "border-b-2 border-teal-500 text-teal-600 dark:text-teal-400"
+                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300"
+            )}
+          >
+            <Users className="h-4 w-4" />
+            All Users Feedback ({allUsersFeedback.length})
+          </button>
+        )}
       </div>
 
       {/* Notices Tab */}
@@ -552,6 +635,52 @@ export default function SystemNoticesPage() {
                   </p>
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Attachments (Photos, Videos, Files)
+                  </label>
+                  <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      id="feedback-file-input"
+                    />
+                    <label htmlFor="feedback-file-input" className="cursor-pointer flex flex-col items-center gap-2">
+                      <FileUp className="h-5 w-5 text-gray-400" />
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Click to upload or drag and drop
+                      </span>
+                      <span className="text-xs text-gray-500">PNG, JPG, MP4, PDF up to 10MB each</span>
+                    </label>
+                  </div>
+
+                  {attachments.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                        Attached: {attachments.length} file{attachments.length !== 1 ? "s" : ""}
+                      </p>
+                      {attachments.map((att) => (
+                        <div key={att.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-md">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{att.name}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-500">{formatFileSize(att.size)}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeAttachment(att.id)}
+                            className="ml-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <Button
                   type="submit"
                   disabled={submitting}
@@ -632,6 +761,99 @@ export default function SystemNoticesPage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* All Users Feedback Tab (Admin Only) */}
+      {activeTab === "all-feedback" && isFullAccess && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">All Users Feedback</h3>
+            <span className="text-sm text-gray-500 dark:text-gray-400">Total: {allUsersFeedback.length}</span>
+          </div>
+
+          {allUsersFeedback.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6 text-center text-gray-600 dark:text-gray-400">
+                No feedback submitted yet.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {allUsersFeedback.map((feedback) => (
+                <Card key={feedback.id}>
+                  <CardContent className="pt-6">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-medium text-gray-900 dark:text-white">{feedback.title}</h4>
+                            <Badge className={cn("text-xs border", getCategoryColor(feedback.category))}>
+                              {feedback.category === "bug"
+                                ? "Bug"
+                                : feedback.category === "feature_request"
+                                  ? "Feature Request"
+                                  : feedback.category === "ui_ux"
+                                    ? "UI/UX"
+                                    : "General"}
+                            </Badge>
+                            <Badge className="text-xs">
+                              {feedback.status === "new"
+                                ? "New"
+                                : feedback.status === "reviewed"
+                                  ? "Reviewed"
+                                  : "Resolved"}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Submitted by: <span className="font-medium">{feedback.userName}</span> ({feedback.userEmail})
+                          </p>
+                        </div>
+                        <div className="flex gap-0.5">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              className="h-4 w-4"
+                              fill={star <= (feedback.rating || 0) ? "currentColor" : "none"}
+                              color={star <= (feedback.rating || 0) ? "#fbbf24" : "#d1d5db"}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-gray-700 dark:text-gray-300 text-sm">{feedback.comment}</p>
+
+                      {feedback.attachments && feedback.attachments.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                          <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                            Attachments ({feedback.attachments.length})
+                          </p>
+                          <div className="space-y-1">
+                            {feedback.attachments.map((att) => (
+                              <a
+                                key={att.id}
+                                href={att.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              >
+                                <Download className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                <span className="text-xs font-medium text-gray-700 dark:text-gray-300 flex-1 truncate">
+                                  {att.name}
+                                </span>
+                                <span className="text-xs text-gray-500 dark:text-gray-500">({formatFileSize(att.size)})</span>
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">{formatDate(feedback.createdAt)}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
