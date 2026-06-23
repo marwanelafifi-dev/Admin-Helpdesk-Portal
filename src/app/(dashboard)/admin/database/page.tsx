@@ -75,8 +75,8 @@ const SERVER_FILE_STORES = [
   },
   {
     key: "server:feedback",
-    label: "Server Feedback",
-    description: "data/feedback.json — survey records and submitted responses",
+    label: "Requests Feedback",
+    description: "data/feedback.json — employee feedback and satisfaction responses on requests",
     icon: MessageSquare, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200",
   },
   {
