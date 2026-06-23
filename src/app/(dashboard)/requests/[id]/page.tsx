@@ -795,7 +795,13 @@ export default function RequestDetailPage() {
                         // ccEmails has its own panel; attachments has its own tab.
                         // Skip empty values so the grid doesn't show 20 blank rows.
                         .filter(([key, value]) => {
+                          // Skip ccEmails and all attachment-related fields
                           if (key === "ccEmails" || key === "attachments") return false
+                          // Skip individual attachment fields (travelRequestForm, passport, amanSticker, flightPhoto, visaDocument, etc.)
+                          if (key.includes("attachment") || key.includes("Attachment")) return false
+                          // Skip known file upload fields
+                          const fileFields = ["travelRequestForm", "passport", "amanSticker", "visaDocument", "aman_sticker", "flightPhoto", "flight_photo", "visaDoc", "visa_doc"]
+                          if (fileFields.includes(key)) return false
                           if (value == null) return false
                           if (typeof value === "string" && value.trim() === "") return false
                           if (Array.isArray(value) && value.length === 0) return false
@@ -1197,6 +1203,11 @@ function PayloadField({ fieldKey, value }: { fieldKey: string; value: unknown })
 }
 
 function PayloadValue({ fieldKey, value }: { fieldKey: string; value: unknown }) {
+  // Skip attachments — they have their own dedicated tab
+  if (fieldKey === "attachments") {
+    return <p className="text-sm text-gray-500 italic">See Attachments tab</p>
+  }
+
   // Approvers block — render Direct Manager + Tech/PM as a small named list.
   if (fieldKey === "approvers" && value && typeof value === "object") {
     const a = value as {
