@@ -1153,6 +1153,45 @@ Status column preserves color styling with dot indicators; other columns use neu
   - [x] All operation permissions properly distributed across role levels
   - [x] Permission type union fully defined and enforced
 
+## Phase 6r: Bug Fixes & UI Polish (Completed — 23 Jun 2026)
+- [x] **Feedback Attachment Downloads Fixed:**
+  - [x] Issue: Attachment links used base64 data URLs which fail in many email clients
+  - [x] Solution: Changed to use API proxy route `/api/feedback/attachments/{feedbackId}--{attachmentId}`
+  - [x] Applied to both "Your Feedback" and "All Users Feedback" tabs
+  - [x] Users can now download attachments with proper file names and types
+  - [x] Works across all browsers and email clients
+
+- [x] **Travel Module "New Request" Button Fixed:**
+  - [x] Issue: Clicking "New Travel Request" opened a new browser tab instead of navigating in-app
+  - [x] Root cause: Used `window.open('/travel/new', '_blank')` instead of `router.push()`
+  - [x] Solution: Added `useRouter` hook and changed to `router.push('/travel/new')`
+  - [x] Now navigates in same tab like all other modules
+  - [x] Consistent user experience across application
+
+- [x] **Travel Form Submit Button Not Working Fixed:**
+  - [x] Issue: Submit button was disabled/not responding when users tried to create travel requests
+  - [x] Root cause: Zod schema required attachment objects but files were in separate React state
+  - [x] Validation was failing before `onSubmit` could run, blocking form submission
+  - [x] Solution: Made attachment fields optional in form schema (validated at submit time)
+  - [x] Added `attachmentError` state for user-friendly error messages
+  - [x] Added red error box showing what attachments are missing
+  - [x] Form can't submit without required files, but users see WHY
+  - [x] Clear validation messages: "Aman Sticker and Passport are required for Visa Application"
+  - [x] Files: `src/modules/travel/TravelForm.tsx`, `src/modules/travel/travel.schema.ts`
+
+- [x] **Approval Email Color Standardization:**
+  - [x] Issue: Approval emails had inconsistent header colors across modules
+  - [x] Previous state:
+    - [x] Purchase: Blue gradient (#1e40af to #2563eb) ✅
+    - [x] Shipping: Cyan gradient (#0369a1 to #06b6d4) ❌
+    - [x] Travel: Teal gradient (#0d9488 to #14b8a6) ❌
+  - [x] Solution: Standardized all approval emails to use Purchase blue gradient
+  - [x] Updated Shipping approval email header: cyan → blue
+  - [x] Updated Travel approval email header: teal → blue
+  - [x] Updated all accent links and buttons to blue (#2563eb)
+  - [x] Result: Consistent professional appearance across all approval workflows
+  - [x] File: `src/lib/emailService.ts`
+
 ---
 ### Development Loop (Repeat for each module)
 1. **Sync Plan:** Update this `CLAUDE.md`.
