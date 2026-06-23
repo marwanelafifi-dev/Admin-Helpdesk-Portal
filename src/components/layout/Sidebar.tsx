@@ -58,7 +58,7 @@ const navItems: NavItem[] = [
     ],
   },
   { title: "Announcements", href: "/announcements", icon: Megaphone },
-  { title: "System Notices", href: "/notifications/notices", icon: Info },
+  { title: "System Notices", href: "/system/notices", icon: Info },
   { title: "My Requests", href: "/requests", icon: FileText },
   { title: "Team Requests", href: "/team-requests", icon: UsersRound },
   {
