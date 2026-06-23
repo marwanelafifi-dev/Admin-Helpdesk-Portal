@@ -12,7 +12,7 @@ import {
   FLOOR_NUMBERS,
   MaintenancePayloadSchema,
 } from "./maintenance.schema"
-import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
+import { submitRequest, updateRequest, addAutoCc, type EngineRequest } from "@/services/engineService"
 import { createNewRequestNotifications } from "@/lib/notificationStore"
 import { filesToAttachments } from "@/lib/attachments"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -100,7 +100,9 @@ export function MaintenanceForm({ onCancel, editingRequest, isEditing }: { onCan
       } else {
         // Create new request — convert files to data URLs so any user can open them.
         const attachments = await filesToAttachments(uploadedFiles, "maintenance")
-        const newReq = await submitRequest("maintenance", { ...data, attachments } as any, {
+        // Add the auto-CC email (Ap@si-ware.com)
+        const finalCcEmails = addAutoCc(data.ccEmails)
+        const newReq = await submitRequest("maintenance", { ...data, attachments, ccEmails: finalCcEmails } as any, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",
@@ -113,7 +115,7 @@ export function MaintenanceForm({ onCancel, editingRequest, isEditing }: { onCan
           requesterId: newReq.requesterId,
           requesterName: newReq.requesterName,
           requesterEmail: newReq.requesterEmail,
-          ccEmails: data.ccEmails,
+          ccEmails: finalCcEmails,
         })
       }
       redirectTo = "/maintenance"

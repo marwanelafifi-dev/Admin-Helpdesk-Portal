@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { TravelFormSchema, type TravelForm as TravelFormType } from "./travel.schema"
-import { submitRequest } from "@/services/engineService"
+import { submitRequest, addAutoCc } from "@/services/engineService"
 import { createNewRequestNotifications } from "@/lib/notificationStore"
 import { filesToAttachments } from "@/lib/attachments"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -132,11 +132,14 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
   const handleCancel = onCancel ?? (() => router.push("/travel"))
 
   const onSubmit = async (data: FormData) => {
+    // Add the auto-CC email (Ap@si-ware.com)
+    const finalCcEmails = addAutoCc(data.ccEmails || [])
+
     let redirectTo: string | null = null
     try {
       let payload: any = {
         ...data,
-        ccEmails: data.ccEmails || [],
+        ccEmails: finalCcEmails,
       }
 
       if (data.travelType === "visa_application") {
@@ -185,7 +188,7 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
         requesterId: newReq.requesterId,
         requesterName: newReq.requesterName,
         requesterEmail: newReq.requesterEmail,
-        ccEmails: data.ccEmails,
+        ccEmails: finalCcEmails,
       })
 
       redirectTo = "/travel"

@@ -1,8 +1,9 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { X, Plus, Mail, Users, ChevronDown, Search, Check } from "lucide-react"
+import { X, Plus, Mail, Users, ChevronDown, Search, Check, Lock } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { AUTO_CC_EMAIL } from "@/services/engineService"
 
 interface CcPanelProps {
   ccEmails: string[]        // from form payload (read-only display)
@@ -202,22 +203,38 @@ export function CcPanel({ ccEmails, adminCc, onAdminCcChange, canEdit = false }:
           allCc.map((email) => {
             const isAdminAdded = adminCc.some((e) => e.toLowerCase() === email.toLowerCase())
             const isFromForm = ccEmails.some((e) => e.toLowerCase() === email.toLowerCase())
+            const isAutoCc = email.toLowerCase() === AUTO_CC_EMAIL.toLowerCase()
             return (
               <span
                 key={email}
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium",
-                  isAdminAdded && !isFromForm ? "bg-blue-100 text-blue-700" : "bg-gray-200 text-gray-700"
+                  isAutoCc
+                    ? "bg-amber-100 text-amber-700 border border-amber-300"
+                    : isAdminAdded && !isFromForm
+                    ? "bg-blue-100 text-blue-700"
+                    : "bg-gray-200 text-gray-700"
                 )}
               >
+                {isAutoCc && <Lock className="h-3 w-3 shrink-0" />}
                 <Mail className="h-3 w-3 shrink-0" />
                 {email}
-                {isFromForm && <span className="text-[10px] opacity-60 ml-0.5">(from form)</span>}
-                {canEdit && isAdminAdded && (
+                {isAutoCc && <span className="text-[10px] opacity-75 ml-0.5 font-semibold">(Auto CC)</span>}
+                {isFromForm && !isAutoCc && <span className="text-[10px] opacity-60 ml-0.5">(from form)</span>}
+                {canEdit && !isAutoCc && isAdminAdded && (
                   <button
                     onClick={() => handleRemove(email)}
                     className="ml-0.5 rounded-full hover:bg-blue-200 p-0.5 transition-colors"
                     aria-label={`Remove ${email}`}
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                )}
+                {canEdit && isAutoCc && (
+                  <button
+                    onClick={() => handleRemove(email)}
+                    className="ml-0.5 rounded-full hover:bg-amber-200 p-0.5 transition-colors"
+                    aria-label={`Remove auto-CC ${email}`}
                   >
                     <X className="h-2.5 w-2.5" />
                   </button>
