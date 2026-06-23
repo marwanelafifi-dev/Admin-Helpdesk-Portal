@@ -61,6 +61,7 @@ export default function SystemNoticesPage() {
   const [updatingFeedbackId, setUpdatingFeedbackId] = useState<string | null>(null)
 
   const isFullAccess = isSuperAdmin(session?.user?.role) || hasPermission(session?.user?.permissions, "manage_users")
+  const canManageFeedback = hasPermission(session?.user?.permissions, "manage_feedback")
   const permissions = session?.user?.permissions || []
 
   const [noticeForm, setNoticeForm] = useState({
@@ -344,7 +345,7 @@ export default function SystemNoticesPage() {
         >
           Your Feedback ({userFeedback.length})
         </button>
-        {isFullAccess && (
+        {canManageFeedback && (
           <button
             onClick={() => {
               setActiveTab("all-feedback")
@@ -820,8 +821,8 @@ export default function SystemNoticesPage() {
         </div>
       )}
 
-      {/* All Users Feedback Tab (Admin Only) */}
-      {activeTab === "all-feedback" && isFullAccess && (
+      {/* All Users Feedback Tab (manage_feedback permission required) */}
+      {activeTab === "all-feedback" && canManageFeedback && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">All Users Feedback</h3>
@@ -853,8 +854,8 @@ export default function SystemNoticesPage() {
                                     ? "UI/UX"
                                     : "General"}
                             </Badge>
-                            {/* Status selector for Full Access users */}
-                            {isFullAccess ? (
+                            {/* Status selector for users with manage_feedback permission */}
+                            {canManageFeedback ? (
                               <select
                                 value={feedback.status}
                                 onChange={(e) => updateFeedbackStatus(feedback.id, e.target.value as any)}
