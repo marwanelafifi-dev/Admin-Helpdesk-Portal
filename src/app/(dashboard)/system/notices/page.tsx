@@ -780,7 +780,7 @@ export default function SystemNoticesPage() {
                                 {feedback.attachments.map((att) => (
                                   <a
                                     key={att.id}
-                                    href={att.url}
+                                    href={`/api/feedback/attachments/${feedback.id}--${att.id}`}
                                     download={att.name}
                                     className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                   >
@@ -908,9 +908,8 @@ export default function SystemNoticesPage() {
                             {feedback.attachments.map((att) => (
                               <a
                                 key={att.id}
-                                href={att.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                                href={`/api/feedback/attachments/${feedback.id}--${att.id}`}
+                                download={att.name}
                                 className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                               >
                                 <Download className="h-4 w-4 text-blue-600 dark:text-blue-400" />
