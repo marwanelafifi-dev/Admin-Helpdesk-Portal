@@ -1,7 +1,9 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { requestStore } from "@/lib/requestStore"
 import { commentsStore } from "@/lib/commentsStore"
+import { deleteFile } from "@/lib/fileStorage"
+import { attachmentStore } from "@/lib/attachmentStore"
 
 export const runtime = "nodejs"
 
@@ -93,4 +95,40 @@ export async function GET(
       "Cache-Control": "private, max-age=300",
     },
   })
+}
+
+/**
+ * DELETE /api/requests/:id/attachments/:index
+ * Delete attachment file and metadata (index can be attachmentId or numeric index)
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string; index: string }> }
+) {
+  try {
+    const session = await auth()
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { id, index } = await params
+
+    const req = requestStore.get(id)
+    if (!req) {
+      return NextResponse.json({ error: "Request not found" }, { status: 404 })
+    }
+
+    const attachment = attachmentStore.getById(index)
+    if (!attachment || attachment.requestId !== id) {
+      return NextResponse.json({ error: "Attachment not found" }, { status: 404 })
+    }
+
+    deleteFile(attachment.filePath)
+    attachmentStore.delete(index)
+
+    return NextResponse.json({ success: true })
+  } catch (err) {
+    console.error("Delete error:", err)
+    return NextResponse.json({ error: "Failed to delete file" }, { status: 500 })
+  }
 }
