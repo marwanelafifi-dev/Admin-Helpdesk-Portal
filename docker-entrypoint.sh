@@ -1,5 +1,11 @@
 #!/bin/sh
 
+# Ensure required data directories exist with proper permissions
+mkdir -p /app/data
+mkdir -p /app/backups
+mkdir -p /app/attachments
+chmod 755 /app/data /app/backups /app/attachments
+
 echo "Waiting for database to be ready..."
 max_attempts=60
 attempt=1
