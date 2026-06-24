@@ -7,10 +7,10 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { AlertCircle, CheckCircle2, Star, Send, Loader2, Edit2, Trash2, Plus, FileUp, Download, Eye, Users, X } from "lucide-react"
+import { AlertCircle, CheckCircle2, Star, Send, Loader2, Edit2, Trash2, Plus, FileUp, Download, Eye, Users, X, CheckCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { isSuperAdmin, hasPermission } from "@/lib/access"
-import { markNoticeAsRead } from "@/hooks/useUnreadNotices"
+import { markNoticeAsRead, getReadNoticeIds } from "@/hooks/useUnreadNotices"
 
 interface SystemNotice {
   id: string
@@ -49,6 +49,7 @@ type FeedbackCategory = "general" | "bug" | "feature_request" | "ui_ux"
 export default function SystemNoticesPage() {
   const { data: session } = useSession()
   const [notices, setNotices] = useState<SystemNotice[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
   const [userFeedback, setUserFeedback] = useState<UserFeedback[]>([])
   const [allUsersFeedback, setAllUsersFeedback] = useState<UserFeedback[]>([])
   const [expandedNotice, setExpandedNotice] = useState<string | null>(null)
@@ -92,15 +93,25 @@ export default function SystemNoticesPage() {
         const data = await res.json()
         const loadedNotices = data.data || data.notices || []
         setNotices(loadedNotices)
-        // Mark all notices as read when page loads
+        // Compute unread count before marking as read
+        const readIds = getReadNoticeIds()
+        const unread = loadedNotices.filter((n: SystemNotice) => !readIds.has(n.id)).length
+        setUnreadCount(unread)
+        // Mark all as read automatically on page load
         loadedNotices.forEach((notice: SystemNotice) => {
           markNoticeAsRead(notice.id)
         })
+        setUnreadCount(0)
       }
     } catch (error) {
       console.error("Failed to load notices:", error)
     }
     setLoading(false)
+  }
+
+  function markAllAsRead() {
+    notices.forEach((notice) => markNoticeAsRead(notice.id))
+    setUnreadCount(0)
   }
 
   const loadFeedback = async () => {
@@ -373,6 +384,24 @@ export default function SystemNoticesPage() {
       {/* Notices Tab */}
       {activeTab === "notices" && (
         <div className="space-y-4">
+          {/* Mark all as read button */}
+          {unreadCount > 0 && (
+            <div className="flex items-center justify-between p-3 bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800 rounded-lg">
+              <span className="text-sm text-teal-800 dark:text-teal-300 font-medium">
+                You have {unreadCount} unread notice{unreadCount !== 1 ? "s" : ""}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={markAllAsRead}
+                className="text-teal-700 border-teal-300 hover:bg-teal-100 dark:text-teal-300 dark:border-teal-700 dark:hover:bg-teal-900/40 gap-1.5"
+              >
+                <CheckCheck className="h-3.5 w-3.5" />
+                Mark all as read
+              </Button>
+            </div>
+          )}
+
           {/* Admin: New Notice Form */}
           {isFullAccess && (
             <>
