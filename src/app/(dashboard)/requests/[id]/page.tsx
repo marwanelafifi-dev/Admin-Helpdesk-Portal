@@ -339,7 +339,7 @@ export default function RequestDetailPage() {
       maintenance: ['new', 'in_progress', 'completed', 'cancelled'],
       purchase:    ['new', 'in_progress', 'awaiting_approval', 'delivered', 'cancelled'],
       event:       ['new', 'in_progress', 'delivered', 'completed', 'cancelled'],
-      travel:      ['new', 'in_progress', 'delivered', 'completed', 'cancelled'],
+      travel:      ['new', 'awaiting_approval', 'in_progress', 'completed', 'cancelled'],
       general:     ['new', 'in_progress', 'completed', 'cancelled'],
     }
     return moduleStatuses[module] || ['new', 'in_progress', 'completed', 'cancelled']
