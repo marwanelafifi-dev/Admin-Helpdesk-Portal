@@ -4,7 +4,8 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { Search, Plus, Plane, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
+import { Search, Plus, Plane, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle, Download } from "lucide-react"
+import { exportToCSV, exportToGoogleSheets } from "@/lib/travelExport"
 import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -303,8 +304,30 @@ export default function TravelPage() {
           </div>
 
           {/* CC Visibility Toggle */}
-          <div className="mt-3">
+          <div className="mt-3 flex items-center justify-between">
             <CcVisibilityToggle checked={showCcRequests} onCheckedChange={toggleCcVisibility} />
+
+            {/* Export Buttons */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportToCSV(filtered, `travel-requests-${new Date().toISOString().split("T")[0]}.csv`)}
+                className="text-xs"
+              >
+                <Download className="h-3.5 w-3.5 mr-1" />
+                Export CSV
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportToGoogleSheets(filtered)}
+                className="text-xs"
+              >
+                <Download className="h-3.5 w-3.5 mr-1" />
+                Export to Sheets
+              </Button>
+            </div>
           </div>
 
           <p className="text-sm text-muted-foreground font-normal mt-2">
