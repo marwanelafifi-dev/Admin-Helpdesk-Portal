@@ -2,9 +2,11 @@ export type CompanyDataKey =
   | "suppliers"
   | "cost_centers"
   | "managers"
+  | "authorized_managers"
   | "carriers"
   | "departments"
   | "sectors"
+  | "divisions"
 
 export interface Manager {
   name: string
@@ -18,9 +20,11 @@ interface StoredCompanyData {
   suppliers: string[]
   cost_centers: string[]
   managers: Array<string | Manager>
+  authorized_managers: Array<string | Manager>
   carriers: string[]
   departments: string[]
   sectors: string[]
+  divisions: string[]
 }
 
 const STORAGE_KEY = "arp_company_data"
@@ -29,9 +33,11 @@ const DEFAULTS: StoredCompanyData = {
   suppliers: [],
   cost_centers: [],
   managers: [],
+  authorized_managers: [],
   carriers: [],
   departments: [],
   sectors: [],
+  divisions: [],
 }
 
 function readRaw(): StoredCompanyData {
@@ -41,12 +47,14 @@ function readRaw(): StoredCompanyData {
     if (!raw) return { ...DEFAULTS }
     const parsed = JSON.parse(raw) as Partial<StoredCompanyData>
     return {
-      suppliers:    Array.isArray(parsed.suppliers)    ? parsed.suppliers    : DEFAULTS.suppliers,
-      cost_centers: Array.isArray(parsed.cost_centers) ? parsed.cost_centers : DEFAULTS.cost_centers,
-      managers:     Array.isArray(parsed.managers)     ? parsed.managers     : DEFAULTS.managers,
-      carriers:     Array.isArray(parsed.carriers)     ? parsed.carriers     : DEFAULTS.carriers,
-      departments:  Array.isArray(parsed.departments)  ? parsed.departments  : DEFAULTS.departments,
-      sectors:      Array.isArray(parsed.sectors)      ? parsed.sectors      : DEFAULTS.sectors,
+      suppliers:           Array.isArray(parsed.suppliers)           ? parsed.suppliers           : DEFAULTS.suppliers,
+      cost_centers:        Array.isArray(parsed.cost_centers)        ? parsed.cost_centers        : DEFAULTS.cost_centers,
+      managers:            Array.isArray(parsed.managers)            ? parsed.managers            : DEFAULTS.managers,
+      authorized_managers: Array.isArray(parsed.authorized_managers) ? parsed.authorized_managers : DEFAULTS.authorized_managers,
+      carriers:            Array.isArray(parsed.carriers)            ? parsed.carriers            : DEFAULTS.carriers,
+      departments:         Array.isArray(parsed.departments)         ? parsed.departments         : DEFAULTS.departments,
+      sectors:             Array.isArray(parsed.sectors)             ? parsed.sectors             : DEFAULTS.sectors,
+      divisions:           Array.isArray(parsed.divisions)           ? parsed.divisions           : DEFAULTS.divisions,
     }
   } catch {
     return { ...DEFAULTS }
@@ -86,12 +94,14 @@ export async function syncCompanyDataFromServer(): Promise<void> {
     const remote = json?.data as Partial<StoredCompanyData> | undefined
     if (!remote) return
     const next: StoredCompanyData = {
-      suppliers:    Array.isArray(remote.suppliers)    ? remote.suppliers    : [],
-      cost_centers: Array.isArray(remote.cost_centers) ? remote.cost_centers : [],
-      managers:     Array.isArray(remote.managers)     ? remote.managers     : [],
-      carriers:     Array.isArray(remote.carriers)     ? remote.carriers     : [],
-      departments:  Array.isArray(remote.departments)  ? remote.departments  : [],
-      sectors:      Array.isArray(remote.sectors)      ? remote.sectors      : [],
+      suppliers:           Array.isArray(remote.suppliers)           ? remote.suppliers           : [],
+      cost_centers:        Array.isArray(remote.cost_centers)        ? remote.cost_centers        : [],
+      managers:            Array.isArray(remote.managers)            ? remote.managers            : [],
+      authorized_managers: Array.isArray(remote.authorized_managers) ? remote.authorized_managers : [],
+      carriers:            Array.isArray(remote.carriers)            ? remote.carriers            : [],
+      departments:         Array.isArray(remote.departments)         ? remote.departments         : [],
+      sectors:             Array.isArray(remote.sectors)             ? remote.sectors             : [],
+      divisions:           Array.isArray(remote.divisions)           ? remote.divisions           : [],
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
   } catch {
@@ -200,5 +210,45 @@ export function upsertManager(name: string, email: string): boolean {
     list.push({ name: cleanName, email: cleanEmail })
   }
   saveManagers(list)
+  return true
+}
+
+// ── Authorized Managers (with email) ────────────────────────────────────────
+
+export function getAuthorizedManagers(): Manager[] {
+  return readRaw().authorized_managers.map((m) =>
+    typeof m === "string" ? { name: m, email: "" } : { name: m.name, email: m.email ?? "" }
+  )
+}
+
+export function saveAuthorizedManagers(managers: Manager[]): void {
+  const raw = readRaw()
+  raw.authorized_managers = managers.map((m) => ({ name: m.name.trim(), email: m.email.trim() }))
+  writeRaw(raw)
+}
+
+export function getAuthorizedManagerEmail(name: string): string | undefined {
+  const trimmed = name.trim().toLowerCase()
+  if (!trimmed) return undefined
+  for (const m of getAuthorizedManagers()) {
+    if (m.name.toLowerCase() === trimmed) return m.email || undefined
+  }
+  if (trimmed.includes("@")) return name.trim()
+  return undefined
+}
+
+export function upsertAuthorizedManager(name: string, email: string): boolean {
+  const cleanName = name.trim()
+  const cleanEmail = email.trim()
+  if (!cleanName) return false
+  const list = getAuthorizedManagers()
+  const idx = list.findIndex((m) => m.name.toLowerCase() === cleanName.toLowerCase())
+  if (idx >= 0) {
+    if (list[idx].email === cleanEmail) return false
+    list[idx] = { name: cleanName, email: cleanEmail }
+  } else {
+    list.push({ name: cleanName, email: cleanEmail })
+  }
+  saveAuthorizedManagers(list)
   return true
 }

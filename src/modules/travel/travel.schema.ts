@@ -4,9 +4,11 @@ import { z } from "zod"
 
 export const TRAVEL_REQUEST_TYPES = ["visa_application", "hotel_flight_reservation"] as const
 export const TRAVEL_STATUSES = ["new", "awaiting_approval", "in_progress", "completed", "cancelled"] as const
+export const CURRENCIES = ["EGP", "USD", "EUR", "GBP", "AED", "SAR"] as const
 
 export type TravelRequestType = (typeof TRAVEL_REQUEST_TYPES)[number]
 export type TravelStatus = (typeof TRAVEL_STATUSES)[number]
+export type Currency = (typeof CURRENCIES)[number]
 
 // ─── Shared Attachment Schema ─────────────────────────────────────────────────
 
@@ -19,66 +21,62 @@ export const AttachmentSchema = z.object({
   uploadedAt: z.string(),
 })
 
-// ─── Visa Application Schema ──────────────────────────────────────────────────
+// ─── Trip Details Schema (shared for both types) ───────────────────────────────
+
+const TripDetailsSchema = z.object({
+  division: z.string().min(1, "Division is required"),
+  purposeOfTrip: z.string().min(1, "Purpose of Trip is required").max(500),
+  destination: z.string().min(1, "Destination is required"),
+  dateFrom: z.string().min(1, "Date From is required"),
+  dateTo: z.string().min(1, "Date To is required"),
+  amanSticker: AttachmentSchema,
+  passport: AttachmentSchema,
+})
+
+// ─── Trip Costs Schema ─────────────────────────────────────────────────────────
+
+const TripCostsSchema = z.object({
+  tripAllowance: z.number().min(0, "Trip Allowance must be non-negative"),
+  airTicket: z.number().min(0, "Air Ticket must be non-negative"),
+  hotel: z.number().min(0, "Hotel must be non-negative"),
+  transportationCarRental: z.number().min(0, "Transportation/Car Rental must be non-negative"),
+  others: z.string().max(500).optional(),
+  othersAmount: z.number().min(0, "Others amount must be non-negative").default(0),
+  currency: z.enum(CURRENCIES),
+  estimatedTotalCosts: z.number().min(0),
+})
+
+// ─── Visa Application Payload Schema ───────────────────────────────────────────
 
 export const VisaApplicationPayloadSchema = z
   .object({
     requestTitle: z.string().min(1, "Request title is required"),
     travelType: z.literal("visa_application"),
-    directManager: z.string().min(1, "Direct Manager is required"),
+    authorizedManager: z.string().min(1, "Authorized Manager is required"),
     costCenter: z.string().min(1, "Cost Center is required"),
+    ...TripDetailsSchema.shape,
+    ...TripCostsSchema.shape,
     description: z.string().max(1000).optional(),
-    items: z.array(z.enum(["Visa"])).min(1, "Visa is required"),
-    // Required attachments for visa (Visa Document removed)
-    amanSticker: AttachmentSchema,
-    passport: AttachmentSchema,
-    // Optional additional attachments
     additionalAttachments: z.array(AttachmentSchema).default([]),
     ccEmails: z.array(z.string().email()).default([]),
     notes: z.string().max(500).optional(),
   })
   .strict()
 
-// ─── Hotel & Flight Reservation Schema ────────────────────────────────────────
+// ─── Hotel & Flight Reservation Payload Schema ─────────────────────────────────
 
 export const HotelFlightReservationPayloadSchema = z
   .object({
     requestTitle: z.string().min(1, "Request title is required"),
     travelType: z.literal("hotel_flight_reservation"),
-    directManager: z.string().min(1, "Direct Manager is required"),
+    authorizedManager: z.string().min(1, "Authorized Manager is required"),
     costCenter: z.string().min(1, "Cost Center is required"),
+    ...TripDetailsSchema.shape,
+    ...TripCostsSchema.shape,
     description: z.string().max(1000).optional(),
-    items: z
-      .array(z.enum(["Visa", "Hotel", "Flight"]))
-      .min(1, "Select at least one item (Visa, Hotel, or Flight)"),
-    // Conditional: Hotel fields
-    hotelUrl: z.union([z.literal(""), z.string().url("Please enter a valid URL")]).optional(),
-    // Conditional: Flight fields
-    flightCompany: z.string().optional(),
-    flightPhoto: AttachmentSchema.optional(),
-    // Required attachments (Aman Sticker removed)
-    travelRequestForm: AttachmentSchema,
-    passport: AttachmentSchema,
-    // Optional additional attachments
     additionalAttachments: z.array(AttachmentSchema).default([]),
     ccEmails: z.array(z.string().email()).default([]),
     notes: z.string().max(500).optional(),
-  })
-  .superRefine((val, ctx) => {
-    // If Hotel is checked, no additional validation needed (hotelUrl is optional)
-    // If Flight is checked, at least one of flightCompany or flightPhoto is required
-    if (val.items.includes("Flight")) {
-      const hasFlightCompany = val.flightCompany && val.flightCompany.trim()
-      const hasFlightPhoto = val.flightPhoto !== undefined && val.flightPhoto !== null
-
-      if (!hasFlightCompany && !hasFlightPhoto) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Flight Company name or Flight Photo is required when Flight is selected",
-          path: ["flightCompany"],
-        })
-      }
-    }
   })
   .strict()
 
@@ -95,14 +93,24 @@ export const VisaApplicationFormSchema = z
   .object({
     requestTitle: z.string().min(1, "Request title is required"),
     travelType: z.literal("visa_application"),
-    directManager: z.string().min(1, "Direct Manager is required"),
+    authorizedManager: z.string().min(1, "Authorized Manager is required"),
     costCenter: z.string().min(1, "Cost Center is required"),
-    description: z.string().max(1000).optional(),
-    items: z.array(z.enum(["Visa"])).min(1, "Visa is required"),
-    // Optional in form schema (validated at submit time when files are converted)
+    division: z.string().min(1, "Division is required"),
+    purposeOfTrip: z.string().min(1, "Purpose of Trip is required").max(500),
+    destination: z.string().min(1, "Destination is required"),
+    dateFrom: z.string().min(1, "Date From is required"),
+    dateTo: z.string().min(1, "Date To is required"),
     amanSticker: z.any().optional(),
     passport: z.any().optional(),
-    // Optional additional attachments
+    tripAllowance: z.union([z.string(), z.number()]).default(0).transform(v => Number(v) || 0),
+    airTicket: z.union([z.string(), z.number()]).default(0).transform(v => Number(v) || 0),
+    hotel: z.union([z.string(), z.number()]).default(0).transform(v => Number(v) || 0),
+    transportationCarRental: z.union([z.string(), z.number()]).default(0).transform(v => Number(v) || 0),
+    others: z.string().max(500).optional(),
+    othersAmount: z.union([z.string(), z.number()]).default(0).transform(v => Number(v) || 0),
+    currency: z.enum(CURRENCIES),
+    estimatedTotalCosts: z.union([z.string(), z.number()]).transform(v => Number(v) || 0),
+    description: z.string().max(1000).optional(),
     additionalAttachments: z.any().optional(),
     ccEmails: z.array(z.string().email()).default([]),
     notes: z.string().max(500).optional(),
@@ -113,39 +121,27 @@ export const HotelFlightReservationFormSchema = z
   .object({
     requestTitle: z.string().min(1, "Request title is required"),
     travelType: z.literal("hotel_flight_reservation"),
-    directManager: z.string().min(1, "Direct Manager is required"),
+    authorizedManager: z.string().min(1, "Authorized Manager is required"),
     costCenter: z.string().min(1, "Cost Center is required"),
-    description: z.string().max(1000).optional(),
-    items: z
-      .array(z.enum(["Visa", "Hotel", "Flight"]))
-      .min(1, "Select at least one item (Visa, Hotel, or Flight)"),
-    // Conditional: Hotel fields
-    hotelUrl: z.union([z.literal(""), z.string().url("Please enter a valid URL")]).optional(),
-    // Conditional: Flight fields
-    flightCompany: z.string().optional(),
-    flightPhoto: z.any().optional(),
-    // Optional in form schema (validated at submit time when files are converted)
-    travelRequestForm: z.any().optional(),
+    division: z.string().min(1, "Division is required"),
+    purposeOfTrip: z.string().min(1, "Purpose of Trip is required").max(500),
+    destination: z.string().min(1, "Destination is required"),
+    dateFrom: z.string().min(1, "Date From is required"),
+    dateTo: z.string().min(1, "Date To is required"),
+    amanSticker: z.any().optional(),
     passport: z.any().optional(),
-    // Optional additional attachments
+    tripAllowance: z.union([z.string(), z.number()]).default(0).transform(v => Number(v) || 0),
+    airTicket: z.union([z.string(), z.number()]).default(0).transform(v => Number(v) || 0),
+    hotel: z.union([z.string(), z.number()]).default(0).transform(v => Number(v) || 0),
+    transportationCarRental: z.union([z.string(), z.number()]).default(0).transform(v => Number(v) || 0),
+    others: z.string().max(500).optional(),
+    othersAmount: z.union([z.string(), z.number()]).default(0).transform(v => Number(v) || 0),
+    currency: z.enum(CURRENCIES),
+    estimatedTotalCosts: z.union([z.string(), z.number()]).transform(v => Number(v) || 0),
+    description: z.string().max(1000).optional(),
     additionalAttachments: z.any().optional(),
     ccEmails: z.array(z.string().email()).default([]),
     notes: z.string().max(500).optional(),
-  })
-  .superRefine((val, ctx) => {
-    // If Flight is checked, at least one of flightCompany or flightPhoto is required
-    if (val.items.includes("Flight")) {
-      const hasFlightCompany = val.flightCompany && val.flightCompany.trim()
-      const hasFlightPhoto = val.flightPhoto !== undefined && val.flightPhoto !== null
-
-      if (!hasFlightCompany && !hasFlightPhoto) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Flight Company name or Flight Photo is required when Flight is selected",
-          path: ["flightCompany"],
-        })
-      }
-    }
   })
   .strict()
 
