@@ -988,9 +988,13 @@ export default function RequestDetailPage() {
                   // attachments, so a positional index would be ambiguous.
                   const isDataUrl = (attachment.url ?? "").startsWith("data:")
                   const isBlobUrl = (attachment.url ?? "").startsWith("blob:")
-                  const previewUrl = isDataUrl
-                    ? `/api/requests/${request.id}/attachments/${encodeURIComponent(attachment.id)}`
-                    : attachment.url
+                  // Server-stored: url is /api/requests/{id}/attachments/{attId}/download
+                  // or we use the proxy route for both preview and download
+                  const proxyUrl = `/api/requests/${request.id}/attachments/${encodeURIComponent(attachment.id)}`
+                  const previewUrl = proxyUrl
+                  const downloadUrl = isDataUrl
+                    ? attachment.url  // data: URL downloads directly
+                    : `/api/requests/${request.id}/attachments/${encodeURIComponent(attachment.id)}/download`
                   // Legacy blob: URLs only exist in the browser tab that
                   // created them, so they can't be opened for anyone else.
                   // Render them as a disabled row with a hint instead.
@@ -1047,10 +1051,10 @@ export default function RequestDetailPage() {
                           Preview
                         </a>
                         <a
-                          href={attachment.url}
+                          href={downloadUrl}
                           download={attachment.name}
                           className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded transition-colors"
-                          title={isDataUrl ? "Download file" : "Download"}
+                          title="Download"
                           onClick={(e) => e.stopPropagation()}
                         >
                           Download

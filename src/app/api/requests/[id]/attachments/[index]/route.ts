@@ -2,27 +2,23 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { requestStore } from "@/lib/requestStore"
 import { commentsStore } from "@/lib/commentsStore"
-import { deleteFile } from "@/lib/fileStorage"
 import { attachmentStore } from "@/lib/attachmentStore"
+import { downloadFile } from "@/lib/fileStorage"
+import { deleteFile } from "@/lib/fileStorage"
 
 export const runtime = "nodejs"
 
 /**
  * GET /api/requests/:id/attachments/:index
  *
- * Returns the raw bytes of an attachment so the browser can preview it
- * inline when opened in a new tab. Chrome blocks top-level navigation to
- * `data:` URLs as a phishing protection, so we decode the data URL
- * server-side and serve it with the correct Content-Type.
+ * Serves an attachment for preview or download.
+ * Handles both:
+ * 1. Server-stored files (uploaded via the upload route) — served from disk
+ * 2. Legacy base64 data: URLs — decoded and served inline
  *
- * The `:index` segment can be:
+ * The :index segment can be:
+ *  - the attachment's `id` field (preferred)
  *  - a numeric index into the request's payload.attachments[] (legacy)
- *  - the attachment's own `id` field — works for BOTH request-level
- *    attachments and comment-level attachments. This is the form the
- *    detail page uses today because the visible attachments list mixes
- *    both sources.
- *
- * Auth-gated to any signed-in user.
  */
 export async function GET(
   _req: Request,
@@ -34,38 +30,62 @@ export async function GET(
   }
 
   const { id, index } = await params
-  const requests = requestStore.getAll()
-  const request = requests.find((r) => r.id === id)
+
+  // ── 1. Try server-stored attachment first (new system) ──────────────────────
+  const serverAtt = attachmentStore.getById(index)
+  if (serverAtt && serverAtt.requestId === id) {
+    try {
+      const buffer = downloadFile(serverAtt.filePath)
+      const mime = serverAtt.mimeType || "application/octet-stream"
+      const viewableTypes = ["image/", "application/pdf", "text/"]
+      const isViewable = viewableTypes.some((t) => mime.startsWith(t))
+      return new NextResponse(new Uint8Array(buffer), {
+        status: 200,
+        headers: {
+          "Content-Type": mime,
+          "Content-Disposition": `${isViewable ? "inline" : "attachment"}; filename="${encodeURIComponent(serverAtt.fileName)}"`,
+          "Cache-Control": "private, max-age=3600",
+        },
+      })
+    } catch {
+      return NextResponse.json({ error: "File not found on disk" }, { status: 404 })
+    }
+  }
+
+  // ── 2. Fall back to base64 data: URL in request payload (legacy) ────────────
+  const request = requestStore.getAll().find((r) => r.id === id)
   if (!request) {
     return NextResponse.json({ error: "Request not found" }, { status: 404 })
   }
 
-  const payloadAttachments = ((request.payload as any)?.attachments ?? []) as Array<{
-    id?: string; url: string; name: string; mimeType?: string
-  }>
-  const commentAttachments = commentsStore.getComments(id).flatMap((c) =>
+  // Collect all attachments from payload (handles all module formats)
+  const payloadAtts = collectPayloadAttachments(request.payload as any)
+
+  // Also check comment attachments
+  const commentAtts = commentsStore.getComments(id).flatMap((c) =>
     (c.attachments ?? []).map((a) => ({ id: a.id, url: a.url, name: a.name, mimeType: (a as any).mimeType }))
   )
 
-  // Try numeric index first (back-compat), then match by id across both
-  // payload and comment attachments.
+  const allAtts = [...payloadAtts, ...commentAtts]
+
+  // Match by id or numeric index
   let att: { url: string; name: string; mimeType?: string } | undefined
   const asNumber = Number(index)
-  if (Number.isInteger(asNumber) && asNumber >= 0 && payloadAttachments[asNumber]) {
-    att = payloadAttachments[asNumber]
+  if (Number.isInteger(asNumber) && asNumber >= 0) {
+    att = payloadAtts[asNumber]
   }
-  if (!att) {
-    att = payloadAttachments.find((a) => a.id === index)
-  }
-  if (!att) {
-    att = commentAttachments.find((a) => a.id === index)
-  }
+  if (!att) att = allAtts.find((a) => a.id === index)
   if (!att) {
     return NextResponse.json({ error: "Attachment not found" }, { status: 404 })
   }
 
   if (typeof att.url !== "string") {
     return NextResponse.json({ error: "Invalid attachment" }, { status: 400 })
+  }
+
+  // Server URL stored as /api/... path — redirect to download route
+  if (att.url.startsWith("/api/")) {
+    return NextResponse.redirect(new URL(att.url, process.env.NEXTAUTH_URL || "http://localhost:3003"))
   }
 
   if (!att.url.startsWith("data:")) {
@@ -87,16 +107,14 @@ export async function GET(
     return NextResponse.json({ error: "Failed to decode attachment" }, { status: 500 })
   }
 
-  // Use inline for viewable types (images, PDFs, text), attachment for others
   const viewableTypes = ["image/", "application/pdf", "text/"]
-  const isViewable = viewableTypes.some((type) => mime.startsWith(type))
-  const disposition = isViewable ? "inline" : "attachment"
+  const isViewable = viewableTypes.some((t) => mime.startsWith(t))
 
   return new NextResponse(new Uint8Array(buffer), {
     status: 200,
     headers: {
       "Content-Type": mime,
-      "Content-Disposition": `${disposition}; filename="${encodeURIComponent(att.name || "attachment")}"`,
+      "Content-Disposition": `${isViewable ? "inline" : "attachment"}; filename="${encodeURIComponent(att.name || "attachment")}"`,
       "Cache-Control": "private, max-age=300",
     },
   })
@@ -104,7 +122,7 @@ export async function GET(
 
 /**
  * DELETE /api/requests/:id/attachments/:index
- * Delete attachment file and metadata (index can be attachmentId or numeric index)
+ * Delete attachment file and metadata (index = attachmentId)
  */
 export async function DELETE(
   request: NextRequest,
@@ -117,11 +135,6 @@ export async function DELETE(
     }
 
     const { id, index } = await params
-
-    const req = requestStore.get(id)
-    if (!req) {
-      return NextResponse.json({ error: "Request not found" }, { status: 404 })
-    }
 
     const attachment = attachmentStore.getById(index)
     if (!attachment || attachment.requestId !== id) {
@@ -136,4 +149,32 @@ export async function DELETE(
     console.error("Delete error:", err)
     return NextResponse.json({ error: "Failed to delete file" }, { status: 500 })
   }
+}
+
+/**
+ * Collects all attachments from a request payload regardless of module format.
+ * Different modules store attachments differently:
+ * - Most modules: payload.attachments[]
+ * - Travel: named fields (amanSticker, passport, hotelPhoto, flightPhoto) + additionalAttachments[]
+ */
+function collectPayloadAttachments(payload: any): Array<{ id?: string; url: string; name: string; mimeType?: string }> {
+  if (!payload) return []
+  const result: Array<{ id?: string; url: string; name: string; mimeType?: string }> = []
+
+  if (Array.isArray(payload.attachments)) {
+    result.push(...payload.attachments.filter(Boolean))
+  }
+
+  // Travel named fields
+  for (const field of ["amanSticker", "passport", "hotelPhoto", "flightPhoto"]) {
+    if (payload[field] && typeof payload[field] === "object" && payload[field].url) {
+      result.push(payload[field])
+    }
+  }
+
+  if (Array.isArray(payload.additionalAttachments)) {
+    result.push(...payload.additionalAttachments.filter(Boolean))
+  }
+
+  return result
 }
