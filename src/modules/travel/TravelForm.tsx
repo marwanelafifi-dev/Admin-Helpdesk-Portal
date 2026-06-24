@@ -132,11 +132,13 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
     },
   })
 
-  // Load company data
+  // Load company data (client-only to avoid hydration mismatch)
   useEffect(() => {
-    setAuthorizedManagers(getAuthorizedManagers())
-    setDivisions(getList("sectors")) // Divisions use sectors from company data
-    setCostCenters(getList("cost_centers"))
+    if (typeof window !== "undefined") {
+      setAuthorizedManagers(getAuthorizedManagers())
+      setDivisions(getList("sectors")) // Divisions use sectors from company data
+      setCostCenters(getList("cost_centers"))
+    }
   }, [])
 
   // Watch cost fields and auto-calculate total
