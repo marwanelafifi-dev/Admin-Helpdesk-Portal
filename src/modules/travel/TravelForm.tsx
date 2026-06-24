@@ -333,9 +333,11 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
               name="purposeOfTrip"
               control={control}
               render={({ field }) => (
-                <MarkdownEditor
+                <Textarea
                   {...field}
                   placeholder="Describe the purpose of this trip"
+                  className="mt-2"
+                  rows={3}
                   maxLength={500}
                 />
               )}
