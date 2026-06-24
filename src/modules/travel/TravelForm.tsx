@@ -274,7 +274,7 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
                 control={control}
                 render={({ field }) => (
                   <SearchableSelect
-                    options={authorizedManagers.map((m) => m.name)}
+                    options={(authorizedManagers || []).map((m) => m.name)}
                     value={field.value}
                     onChange={field.onChange}
                     placeholder="Select Authorized Manager"
@@ -291,7 +291,7 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
                 control={control}
                 render={({ field }) => (
                   <SearchableSelect
-                    options={costCenters}
+                    options={costCenters || []}
                     value={field.value}
                     onChange={field.onChange}
                     placeholder="Select Cost Center"
@@ -315,7 +315,7 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
               control={control}
               render={({ field }) => (
                 <SearchableSelect
-                  options={divisions}
+                  options={divisions || []}
                   value={field.value}
                   onChange={field.onChange}
                   placeholder="Select Division"
