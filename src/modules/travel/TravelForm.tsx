@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { TravelFormSchema, type TravelForm as TravelFormType, CURRENCIES, PAYMENT_METHODS } from "./travel.schema"
+import { TravelFormSchema, type TravelForm as TravelFormType, CURRENCIES, PAYMENT_METHODS, TRIP_SERVICES } from "./travel.schema"
 import { submitRequest, updateRequest, pushToServer } from "@/services/engineService"
 import { createNewRequestNotifications } from "@/lib/notificationStore"
 import { filesToAttachments } from "@/lib/attachments"
@@ -97,6 +97,8 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
   // File states
   const [amanStickerFile, setAmanStickerFile] = useState<File | null>(null)
   const [passportFile, setPassportFile] = useState<File | null>(null)
+  const [hotelPhotoFile, setHotelPhotoFile] = useState<File | null>(null)
+  const [flightPhotoFile, setFlightPhotoFile] = useState<File | null>(null)
   const [additionalFiles, setAdditionalFiles] = useState<File[]>([])
 
   const {
@@ -118,6 +120,9 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
       destination: "",
       dateFrom: "",
       dateTo: "",
+      tripServices: [],
+      hotelNameOrLink: "",
+      flightNameOrLink: "",
       tripAllowance: 0,
       airTicket: 0,
       hotel: 0,
@@ -144,6 +149,10 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
       setCostCenters(getList("cost_centers"))
     }
   }, [])
+
+  const tripServices = watch("tripServices") || []
+  const hotelSelected = tripServices.includes("Hotel")
+  const flightSelected = tripServices.includes("Flight")
 
   // Watch cost fields and auto-calculate total
   const tripAllowance = watch("tripAllowance") || 0
@@ -188,16 +197,33 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
         }
       )
 
-      // Step 2: upload attachments using the real request ID
-      const uploadFiles = [amanStickerFile, passportFile, ...additionalFiles].filter(Boolean) as File[]
+      // Step 2: upload all attachments using the real request ID
+      // Order: amanSticker, passport, hotelPhoto (optional), flightPhoto (optional), additional...
+      const uploadFiles = [
+        amanStickerFile,
+        passportFile,
+        hotelPhotoFile,
+        flightPhotoFile,
+        ...additionalFiles,
+      ].filter(Boolean) as File[]
       const attachments = await filesToAttachments(uploadFiles, newReq.id)
+
+      // Map back to named fields
+      let idx = 0
+      const amanStickerAtt = attachments[idx++] ?? null
+      const passportAtt = attachments[idx++] ?? null
+      const hotelPhotoAtt = hotelPhotoFile ? (attachments[idx++] ?? null) : null
+      const flightPhotoAtt = flightPhotoFile ? (attachments[idx++] ?? null) : null
+      const additionalAtts = attachments.slice(idx)
 
       // Step 3: update payload with attachment metadata
       const updatedPayload = {
         ...data,
-        amanSticker: attachments[0] ?? null,
-        passport: attachments[1] ?? null,
-        additionalAttachments: attachments.slice(2),
+        amanSticker: amanStickerAtt,
+        passport: passportAtt,
+        hotelPhoto: hotelPhotoAtt,
+        flightPhoto: flightPhotoAtt,
+        additionalAttachments: additionalAtts,
       }
       const updated = updateRequest(newReq.id, updatedPayload, { title: data.requestTitle })
       if (updated) void pushToServer(updated)
@@ -397,6 +423,143 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
               <FieldError message={errors.dateTo?.message} />
             </div>
           </div>
+
+          {/* Trip Services — multi-select */}
+          <div>
+            <Label className="text-sm font-medium">Trip Services</Label>
+            <p className="text-xs text-muted-foreground mb-2">Select all that apply</p>
+            <div className="flex gap-3 flex-wrap">
+              {TRIP_SERVICES.map((service) => {
+                const checked = tripServices.includes(service)
+                return (
+                  <button
+                    key={service}
+                    type="button"
+                    onClick={() => {
+                      const current = watch("tripServices") || []
+                      if (checked) {
+                        setValue("tripServices", current.filter((s) => s !== service))
+                        if (service === "Hotel") setHotelPhotoFile(null)
+                        if (service === "Flight") setFlightPhotoFile(null)
+                      } else {
+                        setValue("tripServices", [...current, service])
+                      }
+                    }}
+                    className={cn(
+                      "px-4 py-2 rounded-lg border-2 font-medium text-sm transition-all",
+                      checked
+                        ? "border-teal-500 bg-teal-50 text-teal-900"
+                        : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                    )}
+                  >
+                    {service === "Hotel" ? "🏨" : "✈️"} {service}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Hotel fields */}
+          {hotelSelected && (
+            <div className="space-y-3 p-4 bg-teal-50/50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-800 rounded-lg">
+              <p className="text-sm font-semibold text-teal-800 dark:text-teal-300">🏨 Hotel Details</p>
+              <div>
+                <Label className="text-sm font-medium">Hotel Name or Link</Label>
+                <Controller
+                  name="hotelNameOrLink"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      placeholder="e.g., Hilton Cairo or https://booking.com/..."
+                      className="mt-2"
+                    />
+                  )}
+                />
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Hotel Photo / Screenshot (Optional)</Label>
+                <div className="mt-2">
+                  <input
+                    type="file"
+                    id="hotel-photo"
+                    accept="image/*,.pdf"
+                    className="hidden"
+                    onChange={(e) => setHotelPhotoFile(e.target.files?.[0] ?? null)}
+                  />
+                  {hotelPhotoFile ? (
+                    <div className="flex items-center gap-2 p-2 bg-white dark:bg-gray-800 border rounded-lg">
+                      <span className="text-sm flex-1 truncate">{hotelPhotoFile.name}</span>
+                      <span className="text-xs text-gray-400">{(hotelPhotoFile.size / 1024).toFixed(0)} KB</span>
+                      <button type="button" onClick={() => setHotelPhotoFile(null)} className="text-red-500 hover:text-red-700">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById("hotel-photo")?.click()}
+                      className="flex items-center gap-2 px-3 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                    >
+                      <Upload className="h-4 w-4" />
+                      Attach Photo
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Flight fields */}
+          {flightSelected && (
+            <div className="space-y-3 p-4 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">✈️ Flight Details</p>
+              <div>
+                <Label className="text-sm font-medium">Flight or Link</Label>
+                <Controller
+                  name="flightNameOrLink"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      placeholder="e.g., EgyptAir MS-777 or https://egyptair.com/..."
+                      className="mt-2"
+                    />
+                  )}
+                />
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Flight Photo / Screenshot (Optional)</Label>
+                <div className="mt-2">
+                  <input
+                    type="file"
+                    id="flight-photo"
+                    accept="image/*,.pdf"
+                    className="hidden"
+                    onChange={(e) => setFlightPhotoFile(e.target.files?.[0] ?? null)}
+                  />
+                  {flightPhotoFile ? (
+                    <div className="flex items-center gap-2 p-2 bg-white dark:bg-gray-800 border rounded-lg">
+                      <span className="text-sm flex-1 truncate">{flightPhotoFile.name}</span>
+                      <span className="text-xs text-gray-400">{(flightPhotoFile.size / 1024).toFixed(0)} KB</span>
+                      <button type="button" onClick={() => setFlightPhotoFile(null)} className="text-red-500 hover:text-red-700">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById("flight-photo")?.click()}
+                      className="flex items-center gap-2 px-3 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                    >
+                      <Upload className="h-4 w-4" />
+                      Attach Photo
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -23,6 +23,9 @@ export const AttachmentSchema = z.object({
   uploadedAt: z.string(),
 })
 
+export const TRIP_SERVICES = ["Hotel", "Flight"] as const
+export type TripService = (typeof TRIP_SERVICES)[number]
+
 // ─── Trip Details Schema (shared for both types) ───────────────────────────────
 
 const TripDetailsSchema = z.object({
@@ -31,6 +34,14 @@ const TripDetailsSchema = z.object({
   destination: z.string().min(1, "Destination is required"),
   dateFrom: z.string().min(1, "Date From is required"),
   dateTo: z.string().min(1, "Date To is required"),
+  // Multi-select services
+  tripServices: z.array(z.enum(TRIP_SERVICES)).default([]),
+  // Hotel fields (shown when Hotel selected)
+  hotelNameOrLink: z.string().optional(),
+  hotelPhoto: AttachmentSchema.optional().nullable(),
+  // Flight fields (shown when Flight selected)
+  flightNameOrLink: z.string().optional(),
+  flightPhoto: AttachmentSchema.optional().nullable(),
   amanSticker: AttachmentSchema,
   passport: AttachmentSchema,
 })
@@ -114,6 +125,11 @@ export const VisaApplicationFormSchema = z
     destination: z.string().min(1, "Destination is required"),
     dateFrom: z.string().min(1, "Date From is required"),
     dateTo: z.string().min(1, "Date To is required"),
+    tripServices: z.array(z.enum(TRIP_SERVICES)).default([]),
+    hotelNameOrLink: z.string().optional(),
+    hotelPhoto: z.any().optional(),
+    flightNameOrLink: z.string().optional(),
+    flightPhoto: z.any().optional(),
     amanSticker: z.any().optional(),
     passport: z.any().optional(),
     tripAllowance: z.union([z.string(), z.number()]).default(0).transform(v => Number(v) || 0),
@@ -146,6 +162,11 @@ export const HotelFlightReservationFormSchema = z
     destination: z.string().min(1, "Destination is required"),
     dateFrom: z.string().min(1, "Date From is required"),
     dateTo: z.string().min(1, "Date To is required"),
+    tripServices: z.array(z.enum(TRIP_SERVICES)).default([]),
+    hotelNameOrLink: z.string().optional(),
+    hotelPhoto: z.any().optional(),
+    flightNameOrLink: z.string().optional(),
+    flightPhoto: z.any().optional(),
     amanSticker: z.any().optional(),
     passport: z.any().optional(),
     tripAllowance: z.union([z.string(), z.number()]).default(0).transform(v => Number(v) || 0),
