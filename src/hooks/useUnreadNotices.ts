@@ -20,7 +20,7 @@ export function useUnreadNotices() {
         if (!res.ok) return
 
         const data = await res.json()
-        const notices = data?.notices || []
+        const notices = data?.data || data?.notices || []
 
         // Get read notice IDs from localStorage
         const readStr = localStorage.getItem(STORAGE_KEY)
