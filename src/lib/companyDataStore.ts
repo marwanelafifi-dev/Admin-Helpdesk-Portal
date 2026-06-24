@@ -6,7 +6,6 @@ export type CompanyDataKey =
   | "carriers"
   | "departments"
   | "sectors"
-  | "divisions"
 
 export interface Manager {
   name: string
@@ -24,7 +23,6 @@ interface StoredCompanyData {
   carriers: string[]
   departments: string[]
   sectors: string[]
-  divisions: string[]
 }
 
 const STORAGE_KEY = "arp_company_data"
@@ -37,7 +35,6 @@ const DEFAULTS: StoredCompanyData = {
   carriers: [],
   departments: [],
   sectors: [],
-  divisions: [],
 }
 
 function readRaw(): StoredCompanyData {
@@ -54,7 +51,6 @@ function readRaw(): StoredCompanyData {
       carriers:            Array.isArray(parsed.carriers)            ? parsed.carriers            : DEFAULTS.carriers,
       departments:         Array.isArray(parsed.departments)         ? parsed.departments         : DEFAULTS.departments,
       sectors:             Array.isArray(parsed.sectors)             ? parsed.sectors             : DEFAULTS.sectors,
-      divisions:           Array.isArray(parsed.divisions)           ? parsed.divisions           : DEFAULTS.divisions,
     }
   } catch {
     return { ...DEFAULTS }
@@ -101,7 +97,6 @@ export async function syncCompanyDataFromServer(): Promise<void> {
       carriers:            Array.isArray(remote.carriers)            ? remote.carriers            : [],
       departments:         Array.isArray(remote.departments)         ? remote.departments         : [],
       sectors:             Array.isArray(remote.sectors)             ? remote.sectors             : [],
-      divisions:           Array.isArray(remote.divisions)           ? remote.divisions           : [],
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
   } catch {
