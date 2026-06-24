@@ -35,6 +35,7 @@ import {
 import { cn } from "@/lib/utils"
 import { canAccessPath } from "@/lib/access"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
+import { useUnreadNotices } from "@/hooks/useUnreadNotices"
 import { useMobileNav } from "./MobileNavContext"
 
 interface NavItem {
@@ -197,6 +198,8 @@ export function Sidebar() {
   }, [])
 
   // Pre-compute the all-requests total once instead of recomputing on every call
+  const unreadNotices = useUnreadNotices()
+
   const allRequestsTotal = useMemo(() =>
     Object.entries(newRequestsByModule)
       .filter(([key]) => !key.includes("-"))
@@ -205,13 +208,14 @@ export function Sidebar() {
   )
 
   const badgeCountForHref = useCallback((href: string): number => {
+    if (href === "/system/notices") return unreadNotices
     if (!isAdminAudience) return 0
     if (href === "/tasks") return newTasksCount
     if (href === "/admin/all-requests") return allRequestsTotal
     const mod = moduleForHref(href)
     if (mod) return newRequestsByModule[mod] ?? 0
     return 0
-  }, [isAdminAudience, newTasksCount, allRequestsTotal, newRequestsByModule, moduleForHref])
+  }, [unreadNotices, isAdminAudience, newTasksCount, allRequestsTotal, newRequestsByModule, moduleForHref])
 
   const visibleNavItems = useMemo(() =>
     navItems.reduce<NavItem[]>((items, item) => {

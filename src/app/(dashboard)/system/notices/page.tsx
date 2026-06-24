@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { AlertCircle, CheckCircle2, Star, Send, Loader2, Edit2, Trash2, Plus, FileUp, Download, Eye, Users, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { isSuperAdmin, hasPermission } from "@/lib/access"
+import { markNoticeAsRead } from "@/hooks/useUnreadNotices"
 
 interface SystemNotice {
   id: string
@@ -89,7 +90,12 @@ export default function SystemNoticesPage() {
       const res = await fetch("/api/notices")
       if (res.ok) {
         const data = await res.json()
-        setNotices(data.data || data.notices || [])
+        const loadedNotices = data.data || data.notices || []
+        setNotices(loadedNotices)
+        // Mark all notices as read when page loads
+        loadedNotices.forEach((notice: SystemNotice) => {
+          markNoticeAsRead(notice.id)
+        })
       }
     } catch (error) {
       console.error("Failed to load notices:", error)
