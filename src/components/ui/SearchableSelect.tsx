@@ -78,7 +78,8 @@ export function SearchableSelect({
     const pinVal = pinnedOption?.value
     // Deduplicate case-insensitively, keeping first occurrence
     const seen = new Set<string>()
-    const unique = options.filter((o) => {
+    const optionsArray = Array.isArray(options) ? options : []
+    const unique = optionsArray.filter((o) => {
       if (o === pinVal) return false
       const key = o.toLowerCase()
       if (seen.has(key)) return false
