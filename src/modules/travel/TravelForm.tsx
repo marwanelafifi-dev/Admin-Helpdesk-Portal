@@ -710,7 +710,13 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
             />
           </div>
 
-          <CcEmailsField control={control} />
+          <Controller
+            name="ccEmails"
+            control={control}
+            render={({ field }) => (
+              <CcEmailsField value={field.value ?? []} onChange={field.onChange} />
+            )}
+          />
         </CardContent>
       </Card>
 
