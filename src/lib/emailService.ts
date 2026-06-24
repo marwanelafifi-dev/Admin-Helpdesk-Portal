@@ -1035,12 +1035,29 @@ export async function sendTravelApprovalEmail(params: {
   requestId: string
   requestTitle: string
   travelType?: string
-  directManager?: string
+  authorizedManager?: string
   costCenter?: string
-  description?: string
-  items?: string[]
-  hotelUrl?: string
-  flightCompany?: string
+  division?: string
+  destination?: string
+  dateFrom?: string
+  dateTo?: string
+  purposeOfTrip?: string
+  tripServices?: string[]
+  hotelNameOrLink?: string
+  flightNameOrLink?: string
+  tripAllowance?: number
+  airTicket?: number
+  hotel?: number
+  transportationCarRental?: number
+  others?: string
+  othersAmount?: number
+  currency?: string
+  estimatedTotalCosts?: number
+  paymentMethod?: string
+  paymentAmount?: number
+  cashAmount?: number
+  creditCardAmount?: number
+  paymentCurrency?: string
   notes?: string
   requesterName?: string
   requesterEmail?: string
@@ -1065,31 +1082,55 @@ export async function sendTravelApprovalEmail(params: {
 
   const linkRow = (label: string, value?: string | null) => {
     if (!value) return ""
+    // Check if it's a URL
+    const isUrl = value.startsWith("http://") || value.startsWith("https://")
     const safe = escapeHtml(value)
-    return `
+    if (isUrl) {
+      return `
       <tr>
         <td style="padding:8px 14px;color:#475569;font-size:12px;border-bottom:1px solid #e2e8f0;width:180px;vertical-align:top;">${escapeHtml(label)}</td>
         <td style="padding:8px 14px;font-size:13px;border-bottom:1px solid #e2e8f0;vertical-align:top;"><a href="${safe}" style="color:#14b8a6;text-decoration:none;word-break:break-all;">${safe}</a></td>
       </tr>`
+    }
+    return row(label, value)
   }
 
   const travelTypeDisplay = params.travelType === "visa_application" ? "Visa Application" : "Hotel & Flight Reservation"
-  const itemsDisplay = Array.isArray(params.items) ? params.items.join(", ") : params.items || "—"
+  const servicesDisplay = Array.isArray(params.tripServices) && params.tripServices.length > 0 ? params.tripServices.join(", ") : ""
+  const paymentMethodDisplay = params.paymentMethod === "cash" ? "Cash"
+    : params.paymentMethod === "company_credit_card" ? "Company Credit Card"
+    : params.paymentMethod === "both" ? "Both (Cash + Credit Card)" : params.paymentMethod || "—"
+  const cur = params.currency || "EGP"
+  const pcur = params.paymentCurrency || cur
 
   const detailsTable = `
       <table style="width:100%;border-collapse:collapse;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;background:#f8fafc;">
         ${row("Requested by", params.requesterName)}
         ${row("Requester email", params.requesterEmail)}
         ${row("Request Type", travelTypeDisplay)}
-        ${row("Items", itemsDisplay)}
-        ${row("Direct Manager", params.directManager)}
+        ${row("Authorized Manager", params.authorizedManager)}
         ${row("Cost Center", params.costCenter)}
-        ${params.hotelUrl ? linkRow("Hotel URL", params.hotelUrl) : ""}
-        ${row("Flight Company", params.flightCompany)}
-        ${params.description ? row("Description", params.description) : ""}
+        ${row("Division", params.division)}
+        ${row("Destination", params.destination)}
+        ${params.dateFrom && params.dateTo ? row("Travel Dates", `${params.dateFrom}  →  ${params.dateTo}`) : ""}
+        ${params.purposeOfTrip ? row("Purpose of Trip", params.purposeOfTrip) : ""}
+        ${servicesDisplay ? row("Trip Services", servicesDisplay) : ""}
+        ${params.hotelNameOrLink ? linkRow("Hotel", params.hotelNameOrLink) : ""}
+        ${params.flightNameOrLink ? linkRow("Flight", params.flightNameOrLink) : ""}
+        ${row("Trip Allowance", params.tripAllowance != null ? `${params.tripAllowance} ${cur}` : "")}
+        ${row("Air Ticket", params.airTicket != null ? `${params.airTicket} ${cur}` : "")}
+        ${row("Hotel Cost", params.hotel != null ? `${params.hotel} ${cur}` : "")}
+        ${row("Transportation / Car", params.transportationCarRental != null ? `${params.transportationCarRental} ${cur}` : "")}
+        ${params.others ? row(`Others (${params.others})`, `${params.othersAmount || 0} ${cur}`) : ""}
+        ${row("Estimated Total", params.estimatedTotalCosts != null ? `${params.estimatedTotalCosts} ${cur}` : "")}
+        ${row("Payment Method", paymentMethodDisplay)}
+        ${params.paymentMethod === "both"
+          ? row("Cash / Credit Card Split", `${params.cashAmount || 0} / ${params.creditCardAmount || 0} ${pcur}`)
+          : row("Payment Amount", `${params.paymentAmount || 0} ${pcur}`)}
         ${params.notes ? row("Notes", params.notes) : ""}
       </table>`
 
+  // Exact same wrapper as Purchase
   const wrapper = (body: string) => `<!doctype html>
 <html><body style="margin:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;">
   <div style="max-width:640px;margin:0 auto;padding:32px 16px;">
@@ -1106,7 +1147,6 @@ export async function sendTravelApprovalEmail(params: {
   </div>
 </body></html>`
 
-  // Manager email — has Approve / Reject action buttons
   const managerHtml = wrapper(`
       <div style="padding:24px 28px 8px;">
         <p style="margin:0 0 8px;font-size:14px;color:#334155;">${params.managerName ? `Hi ${escapeHtml(params.managerName)}, a` : "A"} travel request requires your approval. Please review the details below and click <strong>Approve</strong> or <strong>Reject</strong>.</p>
@@ -1119,10 +1159,9 @@ export async function sendTravelApprovalEmail(params: {
         <p style="margin:8px 0 0;font-size:11px;color:#94a3b8;">These buttons are single-use links; they stop working once a decision is recorded or the request status changes.</p>
       </div>`)
 
-  // CC email — read-only copy, no action buttons
   const ccHtml = wrapper(`
       <div style="padding:24px 28px 8px;">
-        <p style="margin:0 0 8px;font-size:14px;color:#334155;">A travel request is <strong>awaiting approval</strong> from the Direct Manager. This is an informational copy — no action is required from you.</p>
+        <p style="margin:0 0 8px;font-size:14px;color:#334155;">A travel request is <strong>awaiting approval</strong> from the Authorized Manager. This is an informational copy — no action is required from you.</p>
       </div>
       ${detailsTable}
       <div style="padding:20px 28px;text-align:center;background:#fff;">
@@ -1136,7 +1175,6 @@ export async function sendTravelApprovalEmail(params: {
     contentType: "image/png",
   }] : []
 
-  // Send action email to manager only (no CC on this one)
   await sendMailWithRetry(transporter, {
     from: resolveFromAddress("Si-Ware Admin Helpdesk"),
     to: params.to,
@@ -1145,7 +1183,6 @@ export async function sendTravelApprovalEmail(params: {
     attachments,
   })
 
-  // Send read-only notification to CC recipients (no action URLs exposed)
   if (params.cc && params.cc.length > 0) {
     await sendMailWithRetry(transporter, {
       from: resolveFromAddress("Si-Ware Admin Helpdesk"),

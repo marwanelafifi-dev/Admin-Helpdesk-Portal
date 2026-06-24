@@ -659,10 +659,10 @@ export default function RequestDetailPage() {
               </div>
             )}
 
-            {(request.module === "purchase" || request.module === "shipping") && request.status === "awaiting_approval" && (
+            {(request.module === "purchase" || request.module === "shipping" || request.module === "travel") && request.status === "awaiting_approval" && (
               <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-sm font-medium text-amber-800">Direct Manager approval is required</p>
+                  <p className="text-sm font-medium text-amber-800">{request.module === "travel" ? "Authorized Manager" : "Direct Manager"} approval is required</p>
                   {approvalEmailStatus.message && (
                     <p className={cn(
                       "mt-1 text-xs",

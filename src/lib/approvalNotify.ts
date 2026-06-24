@@ -20,11 +20,15 @@ export function resolveRequestManagerEmail(request: EngineRequest): string | und
     return storedManagerEmail.trim().toLowerCase()
   }
 
-  // Purchase / HR store the manager's NAME under payload.directManager
-  const name = typeof payload.directManager === "string" ? payload.directManager.trim() : ""
+  // Travel uses authorizedManager; Purchase/HR use directManager
+  const name = (
+    typeof payload.authorizedManager === "string" ? payload.authorizedManager.trim() :
+    typeof payload.directManager === "string" ? payload.directManager.trim() : ""
+  )
   if (!name) return undefined
+  // Check both managers and authorized_managers lists
   const cd = readCompanyData()
-  for (const m of cd.managers ?? []) {
+  for (const m of [...(cd.authorized_managers ?? []), ...(cd.managers ?? [])]) {
     if (typeof m === "string") {
       if (m.toLowerCase() === name.toLowerCase() && m.includes("@")) return m.toLowerCase()
     } else if (m && typeof m === "object") {
@@ -54,8 +58,11 @@ export function resolveRequestManagerName(request: EngineRequest): string | unde
   const shippingMgrName = payload?.approvers?.directManager?.name
   if (typeof shippingMgrName === "string" && shippingMgrName.trim()) return shippingMgrName.trim()
 
-  // Purchase / HR — payload.directManager is the name string
-  const name = typeof payload.directManager === "string" ? payload.directManager.trim() : ""
+  // Travel uses authorizedManager; Purchase/HR use directManager
+  const name = (
+    typeof payload.authorizedManager === "string" ? payload.authorizedManager.trim() :
+    typeof payload.directManager === "string" ? payload.directManager.trim() : ""
+  )
   if (name) return name
   return undefined
 }
