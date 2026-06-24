@@ -12,6 +12,7 @@ import {
 import { shippingFormDefaults } from "./shipping.mock"
 import { getList, addItem, getManagerEmail } from "@/lib/companyDataStore"
 import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
+import { filesToAttachments } from "@/lib/attachments"
 import { createNewRequestNotifications } from "@/lib/notificationStore"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -306,12 +307,25 @@ export function ShippingForm({ onCancel, editingRequest, isEditing, direction = 
         })
         redirectTo = `/requests/${editingRequest.id}`
       } else {
-        const created = await submitRequest("shipping", payload, {
+        const created = await submitRequest("shipping", { ...payload, attachments: [] }, {
           title: data.title,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",
           requesterEmail: session?.user?.email || "user@si-ware.com",
         })
+        if (stagedFiles.length > 0) {
+          const uploadedAttachments = await filesToAttachments(stagedFiles.map((sf) => sf.file), created.id)
+          const attachmentsWithCategory = uploadedAttachments.map((att, i) => ({
+            ...att,
+            category: stagedFiles[i].category,
+          }))
+          await updateRequest(created.id, { ...payload, attachments: attachmentsWithCategory }, {
+            title: data.title,
+            requesterId: created.requesterId,
+            requesterName: created.requesterName,
+            requesterEmail: created.requesterEmail,
+          })
+        }
         createNewRequestNotifications({
           requestId: created.id,
           requestTitle: created.title,

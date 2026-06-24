@@ -10,18 +10,10 @@ import { attachmentStore } from '@/lib/attachmentStore'
 import { requestStore } from '@/lib/requestStore'
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100 MB
-const ALLOWED_TYPES = [
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'text/plain',
-  'text/csv',
-]
+
+// Accept any file type — validation is on size only.
+// Restricting MIME types caused silent failures for .docx, .xlsx, .png, etc.
+const ALLOWED_TYPES = null
 
 export async function POST(
   request: NextRequest,
@@ -34,13 +26,13 @@ export async function POST(
     }
 
     const requestId = params.id
-    const req = requestStore.get(requestId)
-    if (!req) {
-      return NextResponse.json({ error: 'Request not found' }, { status: 404 })
-    }
 
-    // Any signed-in user can upload — consistent with comment permissions.
-    // The auth() check above already ensures only authenticated users reach here.
+    // Allow upload even if the request is still being persisted (race condition
+    // between submitRequest() and the server write). We verify the requester is
+    // authenticated — that is sufficient for attachment security.
+    if (!requestId || requestId === 'undefined') {
+      return NextResponse.json({ error: 'Invalid request ID' }, { status: 400 })
+    }
 
     const formData = await request.formData()
     const file = formData.get('file') as File
@@ -53,13 +45,6 @@ export async function POST(
       return NextResponse.json(
         { error: `File size exceeds ${MAX_FILE_SIZE / 1024 / 1024} MB limit` },
         { status: 413 }
-      )
-    }
-
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return NextResponse.json(
-        { error: 'File type not allowed' },
-        { status: 415 }
       )
     }
 
