@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { TravelFormSchema, type TravelForm as TravelFormType } from "./travel.schema"
-import { submitRequest, addAutoCcForTravel } from "@/services/engineService"
+import { submitRequest, updateRequest, pushToServer, addAutoCcForTravel } from "@/services/engineService"
 import { createNewRequestNotifications } from "@/lib/notificationStore"
 import { filesToAttachments } from "@/lib/attachments"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -141,31 +141,44 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
 
     let redirectTo: string | null = null
     try {
+      // 1. Create base payload without attachments
       let payload: any = {
         ...data,
         ccEmails: finalCcEmails,
       }
 
+      // Validate files early to fail fast
       if (data.travelType === "visa_application") {
-        // Validate visa application files
         if (!amanStickerFile || !passportFile) {
           setAttachmentError("Aman Sticker and Passport are required for Visa Application")
           return
         }
-        const visaAttachments = await filesToAttachments([amanStickerFile, passportFile], "travel")
-        const additionalAttachments = additionalFiles.length > 0 ? await filesToAttachments(additionalFiles, "travel") : []
+      } else {
+        if (!formFile || !passportFile2) {
+          setAttachmentError("Travel Request Form and Passport are required for Hotel & Flight Reservation")
+          return
+        }
+      }
+
+      // 2. Create request first (without file attachments)
+      const newReq = await submitRequest("travel", payload, {
+        title: data.requestTitle,
+        requesterId: session?.user?.id || "USR-001",
+        requesterName: session?.user?.name || session?.user?.email || "Current User",
+        requesterEmail: session?.user?.email || "user@si-ware.com",
+      })
+
+      // 3. Now upload all files using the request ID
+      if (data.travelType === "visa_application") {
+        const visaAttachments = await filesToAttachments([amanStickerFile!, passportFile!], newReq.id)
+        const additionalAttachments = additionalFiles.length > 0 ? await filesToAttachments(additionalFiles, newReq.id) : []
 
         payload.amanSticker = visaAttachments[0]
         payload.passport = visaAttachments[1]
         payload.additionalAttachments = additionalAttachments
       } else {
-        // Validate hotel & flight files
-        if (!formFile || !passportFile2) {
-          setAttachmentError("Travel Request Form and Passport are required for Hotel & Flight Reservation")
-          return
-        }
-        const requiredAttachments = await filesToAttachments([formFile, passportFile2], "travel")
-        const additionalAttachments = additionalFiles2.length > 0 ? await filesToAttachments(additionalFiles2, "travel") : []
+        const requiredAttachments = await filesToAttachments([formFile!, passportFile2!], newReq.id)
+        const additionalAttachments = additionalFiles2.length > 0 ? await filesToAttachments(additionalFiles2, newReq.id) : []
 
         payload.travelRequestForm = requiredAttachments[0]
         payload.passport = requiredAttachments[1]
@@ -173,17 +186,16 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
 
         // Handle optional flight photo
         if (flightPhotoFile) {
-          const flightAttachments = await filesToAttachments([flightPhotoFile], "travel")
+          const flightAttachments = await filesToAttachments([flightPhotoFile], newReq.id)
           payload.flightPhoto = flightAttachments[0]
         }
       }
 
-      const newReq = await submitRequest("travel", payload, {
-        title: data.requestTitle,
-        requesterId: session?.user?.id || "USR-001",
-        requesterName: session?.user?.name || session?.user?.email || "Current User",
-        requesterEmail: session?.user?.email || "user@si-ware.com",
-      })
+      // 4. Patch the request with the attachments
+      const updated = updateRequest(newReq.id, payload, { title: data.requestTitle })
+      if (updated) {
+        void pushToServer(updated)
+      }
 
       createNewRequestNotifications({
         requestId: newReq.id,

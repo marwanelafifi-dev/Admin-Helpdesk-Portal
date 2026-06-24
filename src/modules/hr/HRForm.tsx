@@ -14,7 +14,7 @@ import {
   OnboardingPayloadSchema,
   OffboardingPayloadSchema,
 } from "./hr.schema"
-import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
+import { submitRequest, updateRequest, pushToServer, type EngineRequest } from "@/services/engineService"
 import { createNewRequestNotifications } from "@/lib/notificationStore"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -117,13 +117,24 @@ function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCance
           requesterEmail: editingRequest.requesterEmail,
         })
       } else {
-        const attachments = await filesToAttachments(uploadedFiles, "hr")
-        const newReq = await submitRequest("hr", { ...data, attachments }, {
+        const newReq = await submitRequest("hr", { ...data, attachments: [] }, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",
           requesterEmail: session?.user?.email || "user@si-ware.com",
         })
+
+        // Upload files if any
+        if (uploadedFiles.length > 0) {
+          const attachments = await filesToAttachments(uploadedFiles, newReq.id)
+          if (attachments.length > 0) {
+            const updated = updateRequest(newReq.id, { ...data, attachments }, { title: data.requestTitle })
+            if (updated) {
+              void pushToServer(updated)
+            }
+          }
+        }
+
         createNewRequestNotifications({
           requestId: newReq.id,
           requestTitle: newReq.title,
@@ -470,13 +481,24 @@ function OffboardingFormFields({ onCancel, editingRequest, isEditing }: { onCanc
           requesterEmail: editingRequest.requesterEmail,
         })
       } else {
-        const attachments = await filesToAttachments(uploadedFiles, "hr")
-        const newReq = await submitRequest("hr", { ...data, attachments }, {
+        const newReq = await submitRequest("hr", { ...data, attachments: [] }, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",
           requesterEmail: session?.user?.email || "user@si-ware.com",
         })
+
+        // Upload files if any
+        if (uploadedFiles.length > 0) {
+          const attachments = await filesToAttachments(uploadedFiles, newReq.id)
+          if (attachments.length > 0) {
+            const updated = updateRequest(newReq.id, { ...data, attachments }, { title: data.requestTitle })
+            if (updated) {
+              void pushToServer(updated)
+            }
+          }
+        }
+
         createNewRequestNotifications({
           requestId: newReq.id,
           requestTitle: newReq.title,

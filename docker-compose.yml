@@ -55,6 +55,7 @@ services:
     volumes:
       - ~/admin-helpdesk-data:/app/data
       - ~/admin-helpdesk-Backup:/app/backups
+      - ~/admin-helpdesk-Attachments:/app/attachments
     ports:
       - "${APP_PORT:-3003}:3003"
     networks:

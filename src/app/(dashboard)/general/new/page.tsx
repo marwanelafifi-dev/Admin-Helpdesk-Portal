@@ -13,7 +13,7 @@ import { MarkdownEditor } from "@/components/ui/MarkdownEditor"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { Upload, X, Inbox, Mail } from "lucide-react"
-import { submitRequest, getRequests, type EngineRequest } from "@/services/engineService"
+import { submitRequest, getRequests, updateRequest, pushToServer, type EngineRequest } from "@/services/engineService"
 import { createRequestUpdateNotifications, createNewRequestNotifications } from "@/lib/notificationStore"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
 import { filesToAttachments } from "@/lib/attachments"
@@ -83,16 +83,25 @@ export default function NewGeneralRequestPage() {
       return
     }
 
-    // Convert files to base64 with the full attachment shape (id, mimeType,
-    // sizeBytes, uploadedAt) so the detail page's preview proxy can address
-    // each attachment by its id.
-    const attachments = await filesToAttachments(uploadedFiles, "general")
-
+    // 1. Submit request first (without attachments) to get server-assigned ID
     const saved = await submitRequest(
       "general",
-      { description: values.description ?? "", attachments, ccEmails },
+      { description: values.description ?? "", attachments: [], ccEmails },
       { title: values.title, requesterId: userId, requesterName: userName, requesterEmail: userEmail }
     )
+
+    // 2. Upload files if any
+    let attachments = []
+    if (uploadedFiles.length > 0) {
+      attachments = await filesToAttachments(uploadedFiles, saved.id)
+      // 3. Patch attachments back into the request
+      if (attachments.length > 0) {
+        const updated = updateRequest(saved.id, { description: values.description ?? "", attachments, ccEmails }, { title: values.title })
+        if (updated) {
+          void pushToServer(updated)
+        }
+      }
+    }
 
     createNewRequestNotifications({
       requestId: saved.id,

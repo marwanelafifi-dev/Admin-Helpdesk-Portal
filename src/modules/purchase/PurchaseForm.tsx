@@ -11,7 +11,7 @@ import {
   PURCHASE_PLATFORMS,
   PurchasePayloadSchema,
 } from "./purchase.schema"
-import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
+import { submitRequest, updateRequest, pushToServer, type EngineRequest } from "@/services/engineService"
 import { createNewRequestNotifications } from "@/lib/notificationStore"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -128,18 +128,29 @@ export function PurchaseForm({ onCancel, editingRequest, isEditing }: { onCancel
           requesterEmail: editingRequest.requesterEmail,
         })
       } else {
-        // Create new request — convert uploaded files to data URLs first.
-        const attachments = await filesToAttachments(uploadedFiles, "purchase")
+        // 1. Create new request first
         const newReq = await submitRequest("purchase", {
           ...data,
           directManagerEmail: managerEmail ?? "",
-          attachments,
+          attachments: [],
         } as any, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",
           requesterEmail: session?.user?.email || "user@si-ware.com",
         })
+
+        // 2. Upload files if any
+        if (uploadedFiles.length > 0) {
+          const attachments = await filesToAttachments(uploadedFiles, newReq.id)
+          if (attachments.length > 0) {
+            const updated = updateRequest(newReq.id, { ...data, directManagerEmail: managerEmail ?? "", attachments } as any, { title: data.requestTitle })
+            if (updated) {
+              void pushToServer(updated)
+            }
+          }
+        }
+
         createNewRequestNotifications({
           requestId: newReq.id,
           requestTitle: newReq.title,

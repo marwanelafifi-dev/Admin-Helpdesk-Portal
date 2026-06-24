@@ -57,6 +57,10 @@ class RequestStore {
     return [...this.store]
   }
 
+  get(id: string): EngineRequest | undefined {
+    return this.getAll().find((r) => r.id === id)
+  }
+
   upsert(request: EngineRequest): EngineRequest {
     this.store = readFromDisk()
     const idx = this.store.findIndex((r) => r.id === request.id)

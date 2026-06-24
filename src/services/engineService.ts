@@ -241,7 +241,7 @@ export async function retryPendingPushes(): Promise<void> {
   savePending()
 }
 
-async function pushToServer(request: EngineRequest): Promise<void> {
+export async function pushToServer(request: EngineRequest): Promise<void> {
   if (typeof window === "undefined") return
   // Callers mark pending before writing locally. Keep this as a fallback for
   // retries and older call paths.

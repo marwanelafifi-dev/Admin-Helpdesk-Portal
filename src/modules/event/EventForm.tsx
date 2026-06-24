@@ -7,7 +7,7 @@ import { useForm, Controller, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { EventPayloadSchema, FLOOR_NUMBERS } from "./event.schema"
-import { submitRequest, updateRequest, type EngineRequest } from "@/services/engineService"
+import { submitRequest, updateRequest, pushToServer, type EngineRequest } from "@/services/engineService"
 import { createNewRequestNotifications } from "@/lib/notificationStore"
 import { filesToAttachments } from "@/lib/attachments"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -100,13 +100,25 @@ export function EventForm({ onCancel, editingRequest, isEditing }: { onCancel?: 
           requesterEmail: editingRequest.requesterEmail,
         })
       } else {
-        const attachments = await filesToAttachments(uploadedFiles, "event")
-        const newReq = await submitRequest("event", { ...data, attachments } as any, {
+        // 1. Create new request first
+        const newReq = await submitRequest("event", { ...data, attachments: [] } as any, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",
           requesterEmail: session?.user?.email || "user@si-ware.com",
         })
+
+        // 2. Upload files if any
+        if (uploadedFiles.length > 0) {
+          const attachments = await filesToAttachments(uploadedFiles, newReq.id)
+          if (attachments.length > 0) {
+            const updated = updateRequest(newReq.id, { ...data, attachments } as any, { title: data.requestTitle })
+            if (updated) {
+              void pushToServer(updated)
+            }
+          }
+        }
+
         createNewRequestNotifications({
           requestId: newReq.id,
           requestTitle: newReq.title,
