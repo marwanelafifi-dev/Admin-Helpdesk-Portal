@@ -18,7 +18,7 @@ import { AlertCircle, Plane, DollarSign, Upload, X, CheckCircle2 } from "lucide-
 import { cn } from "@/lib/utils"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
-import { getList, getAuthorizedManagers } from "@/lib/companyDataStore"
+import { getList, getAuthorizedManagers, getAuthorizedManagerEmail } from "@/lib/companyDataStore"
 
 const BRAND = "#14b8a6" // teal-500
 
@@ -176,27 +176,42 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
     }
 
     try {
-      const attachments = await filesToAttachments([amanStickerFile, passportFile, ...additionalFiles])
+      // Step 1: create the request first to get a real ID
+      const newReq = await submitRequest(
+        "travel",
+        { ...data, amanSticker: null, passport: null, additionalAttachments: [] },
+        {
+          title: data.requestTitle,
+          requesterId: session?.user?.id || "USR-001",
+          requesterName: session?.user?.name || session?.user?.email || "Current User",
+          requesterEmail: session?.user?.email || "",
+        }
+      )
 
-      const payload = {
+      // Step 2: upload attachments using the real request ID
+      const uploadFiles = [amanStickerFile, passportFile, ...additionalFiles].filter(Boolean) as File[]
+      const attachments = await filesToAttachments(uploadFiles, newReq.id)
+
+      // Step 3: update payload with attachment metadata
+      const updatedPayload = {
         ...data,
-        amanSticker: attachments[0],
-        passport: attachments[1],
+        amanSticker: attachments[0] ?? null,
+        passport: attachments[1] ?? null,
         additionalAttachments: attachments.slice(2),
       }
+      const updated = updateRequest(newReq.id, updatedPayload, { title: data.requestTitle })
+      if (updated) void pushToServer(updated)
 
-      const request = await submitRequest({
+      void createNewRequestNotifications({
+        requestId: newReq.id,
+        requestTitle: newReq.title,
         module: "travel",
-        status: "new",
-        title: data.requestTitle,
-        description: data.description || "",
-        payload,
-        requesterEmail: session?.user?.email || "",
-        requesterName: session?.user?.name || "",
+        requesterId: newReq.requesterId,
+        requesterName: newReq.requesterName,
+        requesterEmail: newReq.requesterEmail,
+        ccEmails: data.ccEmails || [],
+        managerEmail: data.authorizedManager ? getAuthorizedManagerEmail(data.authorizedManager) : undefined,
       })
-
-      void pushToServer()
-      void createNewRequestNotifications(request)
 
       router.push("/travel")
     } catch (err) {
