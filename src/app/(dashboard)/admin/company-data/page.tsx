@@ -11,6 +11,8 @@ import {
   saveList,
   getManagers,
   saveManagers,
+  getAuthorizedManagers,
+  saveAuthorizedManagers,
   type CompanyDataKey,
   type CompanyData,
   type Manager,
@@ -52,6 +54,14 @@ const SECTIONS: SectionConfig[] = [
     iconBg: "bg-emerald-50",
   },
   {
+    key: "authorized_managers",
+    label: "Authorized Managers",
+    description: "Authorized managers with email — used in Travel approval requests",
+    icon: Users,
+    iconColor: "text-teal-600",
+    iconBg: "bg-teal-50",
+  },
+  {
     key: "carriers",
     label: "Carriers",
     description: "Shipping carrier options (e.g. DHL, FedEx, UPS)",
@@ -69,8 +79,8 @@ const SECTIONS: SectionConfig[] = [
   },
   {
     key: "sectors",
-    label: "Sectors",
-    description: "Sectors used in HR Onboarding and Offboarding forms",
+    label: "Sectors / Divisions",
+    description: "Sectors used in HR forms, and Divisions used in Travel requests",
     icon: Network,
     iconColor: "text-pink-600",
     iconBg: "bg-pink-50",
@@ -618,11 +628,13 @@ export default function CompanyDataPage() {
     sectors: [],
   })
   const [managers, setManagers] = useState<Manager[]>([])
+  const [authorizedManagers, setAuthorizedManagers] = useState<Manager[]>([])
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
     setData(getCompanyData())
     setManagers(getManagers())
+    setAuthorizedManagers(getAuthorizedManagers())
     setLoaded(true)
   }, [])
 
@@ -640,6 +652,11 @@ export default function CompanyDataPage() {
     setData((prev) => ({ ...prev, managers: next.map((m) => m.name) }))
   }
 
+  function handleAuthorizedManagersChange(next: Manager[]) {
+    setAuthorizedManagers(next)
+    saveAuthorizedManagers(next)
+  }
+
   if (!loaded) return null
 
   return (
@@ -652,23 +669,36 @@ export default function CompanyDataPage() {
       </div>
 
       <div className="space-y-5">
-        {SECTIONS.map((section) => (
-          section.key === "managers" ? (
-            <ManagersSection
-              key={section.key}
-              config={section}
-              managers={managers}
-              onChange={handleManagersChange}
-            />
-          ) : (
-            <LookupSection
-              key={section.key}
-              config={section}
-              items={data[section.key]}
-              onChange={handleChange}
-            />
-          )
-        ))}
+        {SECTIONS.map((section) => {
+          if (section.key === "managers") {
+            return (
+              <ManagersSection
+                key={section.key}
+                config={section}
+                managers={managers}
+                onChange={handleManagersChange}
+              />
+            )
+          } else if (section.key === "authorized_managers") {
+            return (
+              <ManagersSection
+                key={section.key}
+                config={section}
+                managers={authorizedManagers}
+                onChange={handleAuthorizedManagersChange}
+              />
+            )
+          } else {
+            return (
+              <LookupSection
+                key={section.key}
+                config={section}
+                items={data[section.key]}
+                onChange={handleChange}
+              />
+            )
+          }
+        })}
       </div>
     </div>
   )
