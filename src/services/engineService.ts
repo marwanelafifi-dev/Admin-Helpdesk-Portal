@@ -126,11 +126,31 @@ function readAll(): EngineRequest[] {
   }
 }
 
-function stripAttachments(requests: EngineRequest[]): EngineRequest[] {
+/**
+ * Strip attachment base64 data from a list of requests to make them fit in
+ * localStorage when quota is exceeded. Only strips from requests that have
+ * attachments; others are left untouched. The server is authoritative for the
+ * full attachment data (it received it via pushToServer before writeAll was
+ * called), and the next syncFromServer pull will restore full versions.
+ */
+function stripAttachmentDataToFitQuota(requests: EngineRequest[]): EngineRequest[] {
   return requests.map((r) => {
     const payload = r.payload as Record<string, unknown>
     if (!payload?.attachments) return r
-    return { ...r, payload: { ...payload, attachments: [] } }
+    // Mark as attachment-stripped so syncFromServer knows to pull fresh from server
+    const attachmentMetadata = (Array.isArray(payload.attachments) ? payload.attachments : [])
+      .map((a: any) => ({
+        id: a?.id,
+        name: a?.name,
+        mimeType: a?.mimeType,
+        sizeBytes: a?.sizeBytes,
+        uploadedAt: a?.uploadedAt,
+        // url intentionally omitted to save space
+      }))
+    return {
+      ...r,
+      payload: { ...payload, attachments: attachmentMetadata },
+    }
   })
 }
 
@@ -142,14 +162,15 @@ function writeAll(requests: EngineRequest[]): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(requests))
   } catch (e) {
-    // QuotaExceededError — attachments (base64 data URLs) are the usual culprit.
-    // The server already holds the full payload via pushToServer, so it's safe
-    // to strip attachment data from the local cache and retry.
+    // QuotaExceededError — attachments (base64 data URLs) are usually the culprit.
+    // The server already holds the full payload via pushToServer, so it's safe to
+    // compress attachment data by stripping base64 URLs and keeping only metadata.
+    // When syncFromServer runs next, it will pull full versions from the server.
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(stripAttachments(requests)))
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stripAttachmentDataToFitQuota(requests)))
     } catch {
       // Still full — wipe the cache entirely. The next syncFromServer() pull
-      // will restore all requests from the server.
+      // will restore all requests (with full attachments) from the server.
       localStorage.removeItem(STORAGE_KEY)
     }
   }
@@ -397,6 +418,9 @@ export async function submitRequest<T extends Record<string, unknown>>(
   }
 
   const saved = await createOnServer(request)
+  // Mark as pending BEFORE writeAll so if localStorage quota is exceeded
+  // and attachments are stripped, the next retryPendingPushes will restore them.
+  markPending(saved)
   const local = readAll().filter((existing) => existing.id !== saved.id)
   writeAll([...local, saved])
   clearCommentsForId(saved.id)
