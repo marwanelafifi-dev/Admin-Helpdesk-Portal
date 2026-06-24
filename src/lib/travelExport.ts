@@ -24,6 +24,9 @@ export interface TravelExportRow {
   "Others Amount": number | string
   "Currency": string
   "Estimated Total Costs": number | string
+  "Payment Method": string
+  "Payment Amount": number | string
+  "Payment Currency": string
   "Description": string
   "Notes": string
 }
@@ -54,6 +57,9 @@ export function extractTravelRequestData(request: EngineRequest): TravelExportRo
     "Others Amount": payload?.othersAmount ?? "",
     "Currency": payload?.currency || "EGP",
     "Estimated Total Costs": payload?.estimatedTotalCosts ?? "",
+    "Payment Method": payload?.paymentMethod ? (payload.paymentMethod === "cash" ? "Cash" : "Company Credit Card") : "",
+    "Payment Amount": payload?.paymentAmount ?? "",
+    "Payment Currency": payload?.paymentCurrency || "EGP",
     "Description": request.description || "",
     "Notes": payload?.notes || "",
   }
