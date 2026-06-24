@@ -15,7 +15,7 @@ export interface StoredFile {
   sizeBytes: number
 }
 
-const ATTACHMENTS_DIR = path.join(process.cwd(), 'attachments')
+const ATTACHMENTS_DIR = path.join(process.cwd(), 'data', 'attachments')
 
 function ensureDir(dirPath: string) {
   if (!fs.existsSync(dirPath)) {

@@ -2,7 +2,7 @@ import fs from "fs"
 import path from "path"
 
 const SCHEDULE_PATH = path.join(process.cwd(), "data", "backup-schedule.json")
-export const BACKUP_DIR = path.join(process.cwd(), "backups")
+export const BACKUP_DIR = path.join(process.cwd(), "data", "backups")
 
 export type BackupFrequency = "hourly" | "daily" | "weekly" | "monthly"
 
