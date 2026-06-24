@@ -87,11 +87,16 @@ export async function GET(
     return NextResponse.json({ error: "Failed to decode attachment" }, { status: 500 })
   }
 
+  // Use inline for viewable types (images, PDFs, text), attachment for others
+  const viewableTypes = ["image/", "application/pdf", "text/"]
+  const isViewable = viewableTypes.some((type) => mime.startsWith(type))
+  const disposition = isViewable ? "inline" : "attachment"
+
   return new NextResponse(new Uint8Array(buffer), {
     status: 200,
     headers: {
       "Content-Type": mime,
-      "Content-Disposition": `inline; filename="${encodeURIComponent(att.name || "attachment")}"`,
+      "Content-Disposition": `${disposition}; filename="${encodeURIComponent(att.name || "attachment")}"`,
       "Cache-Control": "private, max-age=300",
     },
   })
