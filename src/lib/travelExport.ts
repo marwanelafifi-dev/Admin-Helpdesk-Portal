@@ -20,14 +20,14 @@ export interface TravelExportRow {
   "Air Ticket": number | string
   "Hotel": number | string
   "Transportation / Car Rental": number | string
-  "Others": string
+  "Others (Specify)": string
   "Others Amount": number | string
   "Currency": string
   "Estimated Total Costs": number | string
   "Payment Method": string
-  "Payment Amount": number | string
+  "Cash Amount": number | string
+  "Credit Card Amount": number | string
   "Payment Currency": string
-  "Description": string
   "Notes": string
 }
 
@@ -53,14 +53,14 @@ export function extractTravelRequestData(request: EngineRequest): TravelExportRo
     "Air Ticket": payload?.airTicket ?? "",
     "Hotel": payload?.hotel ?? "",
     "Transportation / Car Rental": payload?.transportationCarRental ?? "",
-    "Others": payload?.others || "",
-    "Others Amount": payload?.othersAmount ?? "",
+    "Others (Specify)": payload?.others || "",
+    "Others Amount": payload?.others ? (payload?.othersAmount ?? "") : "",
     "Currency": payload?.currency || "EGP",
     "Estimated Total Costs": payload?.estimatedTotalCosts ?? "",
-    "Payment Method": payload?.paymentMethod ? (payload.paymentMethod === "cash" ? "Cash" : "Company Credit Card") : "",
-    "Payment Amount": payload?.paymentAmount ?? "",
+    "Payment Method": payload?.paymentMethod === "cash" ? "Cash" : payload?.paymentMethod === "company_credit_card" ? "Company Credit Card" : payload?.paymentMethod === "both" ? "Both (Cash + Credit Card)" : "",
+    "Cash Amount": payload?.paymentMethod === "cash" ? (payload?.paymentAmount ?? "") : payload?.paymentMethod === "both" ? (payload?.cashAmount ?? "") : "",
+    "Credit Card Amount": payload?.paymentMethod === "company_credit_card" ? (payload?.paymentAmount ?? "") : payload?.paymentMethod === "both" ? (payload?.creditCardAmount ?? "") : "",
     "Payment Currency": payload?.paymentCurrency || "EGP",
-    "Description": request.description || "",
     "Notes": payload?.notes || "",
   }
 }
@@ -95,37 +95,34 @@ export function exportToGoogleSheets(requests: EngineRequest[]) {
   const rows = requests.map(extractTravelRequestData)
   const headers = Object.keys(rows[0] || {})
 
-  // Create XLSX workbook
-  const workbook = XLSX.utils.book_new()
-  const worksheet = XLSX.utils.aoa_to_sheet([
-    headers,
-    ...rows.map((row) => headers.map((h) => row[h as keyof TravelExportRow])),
-  ])
+  // Build TSV (tab-separated) — pastes perfectly into Google Sheets
+  const tsvContent = [
+    headers.join("\t"),
+    ...rows.map((row) =>
+      headers.map((h) => {
+        const value = row[h as keyof TravelExportRow]
+        const str = String(value || "")
+        // Escape tabs and newlines in values
+        return str.replace(/\t/g, " ").replace(/\n/g, " ")
+      }).join("\t")
+    ),
+  ].join("\n")
 
-  // Set column widths for better readability
-  const columnWidths = headers.map((h) => ({
-    wch: Math.max(h.length, 15),
-  }))
-  worksheet["!cols"] = columnWidths
-
-  // Add some styling to header row (optional)
-  const headerStyle = {
-    fill: { fgColor: { rgb: "FF14B8A6" } }, // Teal background
-    font: { bold: true, color: { rgb: "FFFFFFFF" } }, // White text
-    alignment: { horizontal: "center", vertical: "center" },
-  }
-
-  // Apply header styling to first row
-  headers.forEach((_, colIndex) => {
-    const cellRef = XLSX.utils.encode_cell({ r: 0, c: colIndex })
-    if (!worksheet[cellRef]) worksheet[cellRef] = {}
-    worksheet[cellRef].s = headerStyle
+  // Copy to clipboard
+  navigator.clipboard.writeText(tsvContent).then(() => {
+    // Open a new Google Sheets tab
+    window.open("https://sheets.new", "_blank")
+  }).catch(() => {
+    // Fallback: download as XLSX if clipboard fails
+    const workbook = XLSX.utils.book_new()
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      headers,
+      ...rows.map((row) => headers.map((h) => row[h as keyof TravelExportRow])),
+    ])
+    worksheet["!cols"] = headers.map((h) => ({ wch: Math.max(h.length, 15) }))
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Travel Requests")
+    XLSX.writeFile(workbook, `travel-requests-${new Date().toISOString().split("T")[0]}.xlsx`)
   })
-
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Travel Requests")
-
-  // Generate Excel file
-  XLSX.writeFile(workbook, `travel-requests-${new Date().toISOString().split("T")[0]}.xlsx`)
 }
 
 export function exportToGoogleSheetsLink(requests: EngineRequest[]): string {

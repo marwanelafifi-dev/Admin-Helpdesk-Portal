@@ -5,7 +5,7 @@ import { z } from "zod"
 export const TRAVEL_REQUEST_TYPES = ["visa_application", "hotel_flight_reservation"] as const
 export const TRAVEL_STATUSES = ["new", "awaiting_approval", "in_progress", "completed", "cancelled"] as const
 export const CURRENCIES = ["EGP", "USD", "EUR", "GBP", "AED", "SAR"] as const
-export const PAYMENT_METHODS = ["cash", "company_credit_card"] as const
+export const PAYMENT_METHODS = ["cash", "company_credit_card", "both"] as const
 
 export type TravelRequestType = (typeof TRAVEL_REQUEST_TYPES)[number]
 export type TravelStatus = (typeof TRAVEL_STATUSES)[number]
@@ -54,8 +54,10 @@ const PaymentMethodSchema = z.object({
   paymentMethod: z.enum(PAYMENT_METHODS, {
     errorMap: () => ({ message: "Payment method is required" })
   }),
-  paymentAmount: z.number().min(0, "Payment Amount must match total costs"),
   paymentCurrency: z.enum(CURRENCIES),
+  paymentAmount: z.number().min(0).default(0),
+  cashAmount: z.number().min(0).default(0),
+  creditCardAmount: z.number().min(0).default(0),
 })
 
 // ─── Visa Application Payload Schema ───────────────────────────────────────────
@@ -69,7 +71,6 @@ export const VisaApplicationPayloadSchema = z
     ...TripDetailsSchema.shape,
     ...TripCostsSchema.shape,
     ...PaymentMethodSchema.shape,
-    description: z.string().max(1000).optional(),
     additionalAttachments: z.array(AttachmentSchema).default([]),
     ccEmails: z.array(z.string().email()).default([]),
     notes: z.string().max(500).optional(),
@@ -87,7 +88,6 @@ export const HotelFlightReservationPayloadSchema = z
     ...TripDetailsSchema.shape,
     ...TripCostsSchema.shape,
     ...PaymentMethodSchema.shape,
-    description: z.string().max(1000).optional(),
     additionalAttachments: z.array(AttachmentSchema).default([]),
     ccEmails: z.array(z.string().email()).default([]),
     notes: z.string().max(500).optional(),
@@ -125,9 +125,10 @@ export const VisaApplicationFormSchema = z
     currency: z.enum(CURRENCIES),
     estimatedTotalCosts: z.union([z.string(), z.number()]).transform(v => Number(v) || 0),
     paymentMethod: z.enum(PAYMENT_METHODS, { errorMap: () => ({ message: "Payment method is required" }) }),
-    paymentAmount: z.union([z.string(), z.number()]).transform(v => Number(v) || 0),
+    paymentAmount: z.union([z.string(), z.number()]).default(0).transform(v => Number(v) || 0),
+    cashAmount: z.union([z.string(), z.number()]).default(0).transform(v => Number(v) || 0),
+    creditCardAmount: z.union([z.string(), z.number()]).default(0).transform(v => Number(v) || 0),
     paymentCurrency: z.enum(CURRENCIES),
-    description: z.string().max(1000).optional(),
     additionalAttachments: z.any().optional(),
     ccEmails: z.array(z.string().email()).default([]),
     notes: z.string().max(500).optional(),
@@ -156,9 +157,10 @@ export const HotelFlightReservationFormSchema = z
     currency: z.enum(CURRENCIES),
     estimatedTotalCosts: z.union([z.string(), z.number()]).transform(v => Number(v) || 0),
     paymentMethod: z.enum(PAYMENT_METHODS, { errorMap: () => ({ message: "Payment method is required" }) }),
-    paymentAmount: z.union([z.string(), z.number()]).transform(v => Number(v) || 0),
+    paymentAmount: z.union([z.string(), z.number()]).default(0).transform(v => Number(v) || 0),
+    cashAmount: z.union([z.string(), z.number()]).default(0).transform(v => Number(v) || 0),
+    creditCardAmount: z.union([z.string(), z.number()]).default(0).transform(v => Number(v) || 0),
     paymentCurrency: z.enum(CURRENCIES),
-    description: z.string().max(1000).optional(),
     additionalAttachments: z.any().optional(),
     ccEmails: z.array(z.string().email()).default([]),
     notes: z.string().max(500).optional(),

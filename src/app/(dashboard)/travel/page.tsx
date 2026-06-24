@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { Search, Plus, Plane, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle, Download } from "lucide-react"
+import { Search, Plus, Plane, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle, Download, FileSpreadsheet, Sheet } from "lucide-react"
 import { exportToCSV, exportToGoogleSheets } from "@/lib/travelExport"
 import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -82,6 +82,8 @@ export default function TravelPage() {
   const [sortKey, setSortKey]             = useState<SortKey>("updatedAt")
   const [sortDir, setSortDir]             = useState<"asc" | "desc">("desc")
   const [colWidths, setColWidths]         = useState<(number | null)[]>(() => COLS.map(() => null))
+  const [exportOpen, setExportOpen]       = useState(false)
+  const exportRef                         = useRef<HTMLDivElement>(null)
   const tableRef = useRef<HTMLTableElement>(null)
 
   const canUpdateStatus = ((session?.user?.permissions as string[])?.includes("update_status") || (session?.user?.permissions as string[])?.includes("*")) ?? false
@@ -94,6 +96,15 @@ export default function TravelPage() {
   ) ?? false
 
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
+
+  useEffect(() => {
+    if (!exportOpen) return
+    const handler = (e: MouseEvent) => {
+      if (!exportRef.current?.contains(e.target as Node)) setExportOpen(false)
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [exportOpen])
 
   useEffect(() => {
     initializeMockData()
@@ -303,30 +314,66 @@ export default function TravelPage() {
             </div>
           </div>
 
-          {/* CC Visibility Toggle */}
+          {/* CC Visibility Toggle + Export */}
           <div className="mt-3 flex items-center justify-between">
             <CcVisibilityToggle checked={showCcRequests} onCheckedChange={toggleCcVisibility} />
 
-            {/* Export Buttons */}
-            <div className="flex gap-2">
+            {/* Export Dropdown */}
+            <div ref={exportRef} className="relative">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => exportToCSV(filtered, `travel-requests-${new Date().toISOString().split("T")[0]}.csv`)}
-                className="text-xs"
+                onClick={() => setExportOpen((o) => !o)}
+                className="gap-2"
               >
-                <Download className="h-3.5 w-3.5 mr-1" />
-                Export CSV
+                <Download className="h-4 w-4" />
+                Export
+                <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", exportOpen && "rotate-180")} />
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => exportToGoogleSheets(filtered)}
-                className="text-xs"
-              >
-                <Download className="h-3.5 w-3.5 mr-1" />
-                Export to Sheets
-              </Button>
+
+              {exportOpen && (
+                <div className="absolute right-0 mt-1 w-64 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 overflow-hidden">
+                  <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Export {filtered.length} Record{filtered.length !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                  <div className="p-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        exportToCSV(filtered, `travel-requests-${new Date().toISOString().split("T")[0]}.csv`)
+                        setExportOpen(false)
+                      }}
+                      className="w-full flex items-start gap-3 px-3 py-2.5 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 text-left transition-colors"
+                    >
+                      <div className="h-8 w-8 rounded-md bg-green-100 dark:bg-green-900/40 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <FileSpreadsheet className="h-4 w-4 text-green-700 dark:text-green-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Export as CSV</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Opens in Excel or any spreadsheet app</p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        exportToGoogleSheets(filtered)
+                        setExportOpen(false)
+                      }}
+                      className="w-full flex items-start gap-3 px-3 py-2.5 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 text-left transition-colors"
+                    >
+                      <div className="h-8 w-8 rounded-md bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <Sheet className="h-4 w-4 text-blue-700 dark:text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Open in Google Sheets</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Data copied to clipboard — paste in Sheets</p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

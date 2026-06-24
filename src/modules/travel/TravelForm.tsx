@@ -14,11 +14,10 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { AlertCircle, Plane, DollarSign, Upload, X } from "lucide-react"
+import { AlertCircle, Plane, DollarSign, Upload, X, CheckCircle2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
-import { MarkdownEditor } from "@/components/ui/MarkdownEditor"
 import { getList, getAuthorizedManagers } from "@/lib/companyDataStore"
 
 const BRAND = "#14b8a6" // teal-500
@@ -129,6 +128,8 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
       estimatedTotalCosts: 0,
       paymentMethod: "cash",
       paymentAmount: 0,
+      cashAmount: 0,
+      creditCardAmount: 0,
       paymentCurrency: "EGP",
       ccEmails: [],
       notes: "",
@@ -150,15 +151,16 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
   const hotel = watch("hotel") || 0
   const transportationCarRental = watch("transportationCarRental") || 0
   const othersAmount = watch("othersAmount") || 0
-  const estimatedTotal = watch("estimatedTotalCosts") || 0
-  const paymentCurrency = watch("paymentCurrency")
+  const othersText = watch("others") || ""
+  const paymentMethod = watch("paymentMethod")
 
   useEffect(() => {
-    const total = tripAllowance + airTicket + hotel + transportationCarRental + othersAmount
+    // Only include othersAmount if Others text is filled
+    const othersValue = othersText.trim() ? othersAmount : 0
+    const total = tripAllowance + airTicket + hotel + transportationCarRental + othersValue
     setValue("estimatedTotalCosts", total)
-    // Auto-sync payment amount with total
     setValue("paymentAmount", total)
-  }, [tripAllowance, airTicket, hotel, transportationCarRental, othersAmount, setValue])
+  }, [tripAllowance, airTicket, hotel, transportationCarRental, othersAmount, othersText, setValue])
 
   const onSubmit = async (data: FormData) => {
     setAttachmentError("")
@@ -459,7 +461,7 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-3">
             <div>
               <Label className="text-sm font-medium">Others (Specify)</Label>
               <Controller
@@ -468,30 +470,39 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
                 render={({ field }) => (
                   <Input
                     {...field}
-                    placeholder="e.g., Visa processing fee"
+                    placeholder="e.g., Visa processing fee — leave blank if none"
                     className="mt-2"
                   />
                 )}
               />
             </div>
 
-            <div>
-              <Label className="text-sm font-medium">Others Amount</Label>
-              <Controller
-                name="othersAmount"
-                control={control}
-                render={({ field }) => (
-                  <Input
-                    {...field}
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    className="mt-2"
-                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                  />
+            {othersText.trim() && (
+              <div>
+                <Label className="text-sm font-medium">Others Amount *</Label>
+                <Controller
+                  name="othersAmount"
+                  control={control}
+                  render={({ field }) => (
+                    <Input
+                      {...field}
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="mt-2"
+                      placeholder="Enter amount for the above"
+                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                    />
+                  )}
+                />
+                {othersText.trim() && !othersAmount && (
+                  <p className="flex items-center gap-1 text-xs text-red-500 mt-1">
+                    <AlertCircle className="h-3 w-3" />
+                    Amount is required when Others is specified
+                  </p>
                 )}
-              />
-            </div>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t">
@@ -528,10 +539,12 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
       {/* Payment Method */}
       <Card>
         <SectionHeader icon={DollarSign} title="Payment Method" subtitle="How will you receive the total trip amount?" />
-        <CardContent className="space-y-6 pt-6">
+        <CardContent className="space-y-5 pt-6">
+
+          {/* Method selector — 3 options */}
           <div>
-            <Label className="text-sm font-medium">Payment Method *</Label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+            <Label className="text-sm font-medium">Preferred Payment Method *</Label>
+            <div className="grid grid-cols-3 gap-3 mt-3">
               <Controller
                 name="paymentMethod"
                 control={control}
@@ -539,7 +552,7 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
                   <>
                     <button
                       type="button"
-                      onClick={() => field.onChange("cash")}
+                      onClick={() => { field.onChange("cash"); setValue("creditCardAmount", 0) }}
                       className={cn(
                         "px-4 py-3 rounded-lg border-2 font-medium transition-all text-left",
                         field.value === "cash"
@@ -548,11 +561,11 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
                       )}
                     >
                       💵 Cash
-                      <p className="text-xs text-muted-foreground mt-1">Receive in cash</p>
+                      <p className="text-xs text-muted-foreground mt-1">Full amount in cash</p>
                     </button>
                     <button
                       type="button"
-                      onClick={() => field.onChange("company_credit_card")}
+                      onClick={() => { field.onChange("company_credit_card"); setValue("cashAmount", 0) }}
                       className={cn(
                         "px-4 py-3 rounded-lg border-2 font-medium transition-all text-left",
                         field.value === "company_credit_card"
@@ -560,8 +573,21 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
                           : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
                       )}
                     >
-                      💳 Company Credit Card
-                      <p className="text-xs text-muted-foreground mt-1">Charged to company card</p>
+                      💳 Credit Card
+                      <p className="text-xs text-muted-foreground mt-1">Company credit card</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => field.onChange("both")}
+                      className={cn(
+                        "px-4 py-3 rounded-lg border-2 font-medium transition-all text-left",
+                        field.value === "both"
+                          ? "border-teal-500 bg-teal-50 text-teal-900"
+                          : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                      )}
+                    >
+                      💵💳 Both
+                      <p className="text-xs text-muted-foreground mt-1">Split between both</p>
                     </button>
                   </>
                 )}
@@ -570,48 +596,108 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
             <FieldError message={errors.paymentMethod?.message} />
           </div>
 
+          {/* Currency */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t">
-            <div>
-              <Label className="text-sm font-medium">Payment Amount *</Label>
-              <Controller
-                name="paymentAmount"
-                control={control}
-                render={({ field }) => (
-                  <div className="mt-2 px-3 py-2 border rounded-lg bg-gray-50">
-                    <p className="text-lg font-semibold text-gray-900">
-                      {field.value.toFixed(2)}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5">Auto-synced from total costs</p>
-                  </div>
-                )}
-              />
-            </div>
-
             <div>
               <Label className="text-sm font-medium">Currency *</Label>
               <Controller
                 name="paymentCurrency"
                 control={control}
                 render={({ field }) => (
-                  <select
-                    {...field}
-                    className="w-full px-3 py-2 border rounded-lg mt-2 text-sm"
-                  >
+                  <select {...field} className="w-full px-3 py-2 border rounded-lg mt-2 text-sm">
                     {CURRENCIES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
+                      <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
                 )}
               />
-              <FieldError message={errors.paymentCurrency?.message} />
             </div>
+
+            {/* Single method: show total auto-synced */}
+            {paymentMethod !== "both" && (
+              <div>
+                <Label className="text-sm font-medium">Total Amount</Label>
+                <div className="mt-2 px-3 py-2 border rounded-lg bg-blue-50 dark:bg-blue-950/30">
+                  <p className="text-lg font-semibold text-blue-900 dark:text-blue-200">
+                    {watch("paymentAmount").toFixed(2)} {watch("paymentCurrency")}
+                  </p>
+                  <p className="text-xs text-blue-600 mt-0.5">Auto-synced from estimated total</p>
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-900 text-xs">
-            ℹ️ The payment amount is automatically set to match your estimated total costs. Select your preferred payment method above.
-          </div>
+          {/* Split: Cash + Credit Card breakdown */}
+          {paymentMethod === "both" && (
+            <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-900/30 rounded-lg border">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Split the total of <span className="font-bold text-blue-700">{watch("paymentAmount").toFixed(2)} {watch("paymentCurrency")}</span> between:
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">💵 Cash Amount *</Label>
+                  <Controller
+                    name="cashAmount"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        {...field}
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="mt-2"
+                        placeholder="0.00"
+                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                      />
+                    )}
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">💳 Credit Card Amount *</Label>
+                  <Controller
+                    name="creditCardAmount"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        {...field}
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="mt-2"
+                        placeholder="0.00"
+                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                      />
+                    )}
+                  />
+                </div>
+              </div>
+              {/* Split validation */}
+              {(() => {
+                const cash = watch("cashAmount") || 0
+                const card = watch("creditCardAmount") || 0
+                const total = watch("paymentAmount") || 0
+                const splitTotal = cash + card
+                const diff = Math.abs(splitTotal - total)
+                if (diff > 0.01) {
+                  return (
+                    <p className="flex items-center gap-1.5 text-xs text-red-600">
+                      <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                      Cash + Credit Card ({splitTotal.toFixed(2)}) must equal the total ({total.toFixed(2)} {watch("paymentCurrency")})
+                    </p>
+                  )
+                }
+                if (splitTotal > 0) {
+                  return (
+                    <p className="flex items-center gap-1.5 text-xs text-emerald-600">
+                      <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" />
+                      Split matches total ✓
+                    </p>
+                  )
+                }
+                return null
+              })()}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -682,23 +768,12 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
         </CardContent>
       </Card>
 
-      {/* Description & CC */}
+      {/* Notes & CC */}
       <Card>
         <CardHeader className="pb-4 border-b">
           <CardTitle className="text-base">Additional Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 pt-6">
-          <div>
-            <Label className="text-sm font-medium">Description</Label>
-            <Controller
-              name="description"
-              control={control}
-              render={({ field }) => (
-                <MarkdownEditor {...field} placeholder="Add any additional details" maxLength={1000} />
-              )}
-            />
-          </div>
-
           <div>
             <Label className="text-sm font-medium">Notes</Label>
             <Controller
