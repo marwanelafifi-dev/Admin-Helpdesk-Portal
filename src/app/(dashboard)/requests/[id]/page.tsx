@@ -476,7 +476,7 @@ export default function RequestDetailPage() {
           createdAt: engineRequest.createdAt,
           updatedAt: engineRequest.updatedAt,
           approvals: [],
-          attachments: (Array.isArray(engineRequest.payload?.attachments) ? engineRequest.payload.attachments : []) as any[],
+          attachments: extractRequestAttachments(engineRequest) as any[],
           comments: [],
           history: allHistory,
         }
@@ -1029,6 +1029,11 @@ export default function RequestDetailPage() {
                               From comment by {attachment.commentAuthor}
                             </span>
                           )}
+                          {attachment._fieldLabel && (
+                            <span className="text-xs bg-teal-50 text-teal-700 px-2 py-0.5 rounded capitalize">
+                              {attachment._fieldLabel.replace(/([A-Z])/g, ' $1').trim()}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
@@ -1177,6 +1182,44 @@ export default function RequestDetailPage() {
       )}
     </div>
   )
+}
+
+// ─── extractRequestAttachments — collects all attachments from any module ────
+// Different modules store attachments differently:
+// - Most modules: payload.attachments[]
+// - Travel: payload.amanSticker, payload.passport, payload.hotelPhoto,
+//           payload.flightPhoto, payload.additionalAttachments[]
+
+function extractRequestAttachments(request: any): any[] {
+  const payload = request?.payload ?? {}
+  const result: any[] = []
+
+  // Standard array (HR, Maintenance, Purchase, Event, Shipping, General)
+  if (Array.isArray(payload.attachments)) {
+    result.push(...payload.attachments.filter(Boolean))
+  }
+
+  // Travel named fields
+  const namedFields = ["amanSticker", "passport", "hotelPhoto", "flightPhoto"]
+  for (const field of namedFields) {
+    if (payload[field] && typeof payload[field] === "object" && payload[field].id) {
+      result.push({ ...payload[field], _fieldLabel: field })
+    }
+  }
+
+  // Travel additional attachments
+  if (Array.isArray(payload.additionalAttachments)) {
+    result.push(...payload.additionalAttachments.filter(Boolean))
+  }
+
+  // Deduplicate by id
+  const seen = new Set<string>()
+  return result.filter((a) => {
+    if (!a?.id) return true
+    if (seen.has(a.id)) return false
+    seen.add(a.id)
+    return true
+  })
 }
 
 // ─── PayloadField — pretty renderer for request.payload entries ──────────────
