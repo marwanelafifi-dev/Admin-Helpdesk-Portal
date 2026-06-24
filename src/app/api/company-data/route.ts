@@ -44,24 +44,26 @@ export async function PUT(req: Request) {
   const before = readCompanyData()
 
   const next: CompanyDataShape = {
-    suppliers:    Array.isArray(body.suppliers)    ? body.suppliers    : [],
-    cost_centers: Array.isArray(body.cost_centers) ? body.cost_centers : [],
-    managers:     Array.isArray(body.managers)     ? body.managers     : [],
-    carriers:     Array.isArray(body.carriers)     ? body.carriers     : [],
-    departments:  Array.isArray(body.departments)  ? body.departments  : [],
-    sectors:      Array.isArray(body.sectors)      ? body.sectors      : [],
+    suppliers:           Array.isArray(body.suppliers)           ? body.suppliers           : [],
+    cost_centers:        Array.isArray(body.cost_centers)        ? body.cost_centers        : [],
+    managers:            Array.isArray(body.managers)            ? body.managers            : [],
+    authorized_managers: Array.isArray(body.authorized_managers) ? body.authorized_managers : [],
+    carriers:            Array.isArray(body.carriers)            ? body.carriers            : [],
+    departments:         Array.isArray(body.departments)         ? body.departments         : [],
+    sectors:             Array.isArray(body.sectors)             ? body.sectors             : [],
   }
 
   writeCompanyData(next)
 
   // Diff each list and log one audit entry per changed section
   const LABELS: Record<keyof CompanyDataShape, string> = {
-    suppliers:    "Suppliers",
-    cost_centers: "Cost Centers",
-    managers:     "Managers",
-    carriers:     "Carriers",
-    departments:  "Departments",
-    sectors:      "Sectors",
+    suppliers:           "Suppliers",
+    cost_centers:        "Cost Centers",
+    managers:            "Managers",
+    authorized_managers: "Authorized Managers",
+    carriers:            "Carriers",
+    departments:         "Departments",
+    sectors:             "Sectors",
   }
   const actor = session?.user?.name ?? session?.user?.email ?? "Admin"
   const actorEmail = session?.user?.email ?? ""

@@ -118,6 +118,7 @@ export function getCompanyData(): CompanyData {
     suppliers: raw.suppliers,
     cost_centers: raw.cost_centers,
     managers: raw.managers.map(managerName),
+    authorized_managers: raw.authorized_managers.map(managerName),
     carriers: raw.carriers,
     departments: raw.departments,
     sectors: raw.sectors,
@@ -127,6 +128,7 @@ export function getCompanyData(): CompanyData {
 export function saveCompanyData(data: CompanyData): void {
   // Preserve existing manager emails when callers save the names-only view.
   const existing = readRaw()
+
   const existingMap = new Map<string, Manager>()
   for (const m of existing.managers) {
     if (typeof m === "string") existingMap.set(m.toLowerCase(), { name: m, email: "" })
@@ -136,10 +138,22 @@ export function saveCompanyData(data: CompanyData): void {
     const prior = existingMap.get(name.toLowerCase())
     return prior ?? { name, email: "" }
   })
+
+  const existingAuthMap = new Map<string, Manager>()
+  for (const m of existing.authorized_managers) {
+    if (typeof m === "string") existingAuthMap.set(m.toLowerCase(), { name: m, email: "" })
+    else existingAuthMap.set(m.name.toLowerCase(), m)
+  }
+  const mergedAuth: Array<string | Manager> = (data.authorized_managers ?? []).map((name) => {
+    const prior = existingAuthMap.get(name.toLowerCase())
+    return prior ?? { name, email: "" }
+  })
+
   writeRaw({
     suppliers: data.suppliers,
     cost_centers: data.cost_centers,
     managers: merged,
+    authorized_managers: mergedAuth,
     carriers: data.carriers,
     departments: data.departments,
     sectors: data.sectors,

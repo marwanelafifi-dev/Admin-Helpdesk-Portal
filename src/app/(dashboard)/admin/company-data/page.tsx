@@ -623,6 +623,7 @@ export default function CompanyDataPage() {
     suppliers: [],
     cost_centers: [],
     managers: [],
+    authorized_managers: [],
     carriers: [],
     departments: [],
     sectors: [],
