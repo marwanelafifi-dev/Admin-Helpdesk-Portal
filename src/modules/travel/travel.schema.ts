@@ -5,10 +5,12 @@ import { z } from "zod"
 export const TRAVEL_REQUEST_TYPES = ["visa_application", "hotel_flight_reservation"] as const
 export const TRAVEL_STATUSES = ["new", "awaiting_approval", "in_progress", "completed", "cancelled"] as const
 export const CURRENCIES = ["EGP", "USD", "EUR", "GBP", "AED", "SAR"] as const
+export const PAYMENT_METHODS = ["cash", "company_credit_card"] as const
 
 export type TravelRequestType = (typeof TRAVEL_REQUEST_TYPES)[number]
 export type TravelStatus = (typeof TRAVEL_STATUSES)[number]
 export type Currency = (typeof CURRENCIES)[number]
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number]
 
 // ─── Shared Attachment Schema ─────────────────────────────────────────────────
 
@@ -46,6 +48,16 @@ const TripCostsSchema = z.object({
   estimatedTotalCosts: z.number().min(0),
 })
 
+// ─── Payment Method Schema ─────────────────────────────────────────────────────
+
+const PaymentMethodSchema = z.object({
+  paymentMethod: z.enum(PAYMENT_METHODS, {
+    errorMap: () => ({ message: "Payment method is required" })
+  }),
+  paymentAmount: z.number().min(0, "Payment Amount must match total costs"),
+  paymentCurrency: z.enum(CURRENCIES),
+})
+
 // ─── Visa Application Payload Schema ───────────────────────────────────────────
 
 export const VisaApplicationPayloadSchema = z
@@ -56,6 +68,7 @@ export const VisaApplicationPayloadSchema = z
     costCenter: z.string().min(1, "Cost Center is required"),
     ...TripDetailsSchema.shape,
     ...TripCostsSchema.shape,
+    ...PaymentMethodSchema.shape,
     description: z.string().max(1000).optional(),
     additionalAttachments: z.array(AttachmentSchema).default([]),
     ccEmails: z.array(z.string().email()).default([]),
@@ -73,6 +86,7 @@ export const HotelFlightReservationPayloadSchema = z
     costCenter: z.string().min(1, "Cost Center is required"),
     ...TripDetailsSchema.shape,
     ...TripCostsSchema.shape,
+    ...PaymentMethodSchema.shape,
     description: z.string().max(1000).optional(),
     additionalAttachments: z.array(AttachmentSchema).default([]),
     ccEmails: z.array(z.string().email()).default([]),
@@ -110,6 +124,9 @@ export const VisaApplicationFormSchema = z
     othersAmount: z.union([z.string(), z.number()]).default(0).transform(v => Number(v) || 0),
     currency: z.enum(CURRENCIES),
     estimatedTotalCosts: z.union([z.string(), z.number()]).transform(v => Number(v) || 0),
+    paymentMethod: z.enum(PAYMENT_METHODS, { errorMap: () => ({ message: "Payment method is required" }) }),
+    paymentAmount: z.union([z.string(), z.number()]).transform(v => Number(v) || 0),
+    paymentCurrency: z.enum(CURRENCIES),
     description: z.string().max(1000).optional(),
     additionalAttachments: z.any().optional(),
     ccEmails: z.array(z.string().email()).default([]),
@@ -138,6 +155,9 @@ export const HotelFlightReservationFormSchema = z
     othersAmount: z.union([z.string(), z.number()]).default(0).transform(v => Number(v) || 0),
     currency: z.enum(CURRENCIES),
     estimatedTotalCosts: z.union([z.string(), z.number()]).transform(v => Number(v) || 0),
+    paymentMethod: z.enum(PAYMENT_METHODS, { errorMap: () => ({ message: "Payment method is required" }) }),
+    paymentAmount: z.union([z.string(), z.number()]).transform(v => Number(v) || 0),
+    paymentCurrency: z.enum(CURRENCIES),
     description: z.string().max(1000).optional(),
     additionalAttachments: z.any().optional(),
     ccEmails: z.array(z.string().email()).default([]),

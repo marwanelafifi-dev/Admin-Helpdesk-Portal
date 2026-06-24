@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { TravelFormSchema, type TravelForm as TravelFormType, CURRENCIES } from "./travel.schema"
+import { TravelFormSchema, type TravelForm as TravelFormType, CURRENCIES, PAYMENT_METHODS } from "./travel.schema"
 import { submitRequest, updateRequest, pushToServer } from "@/services/engineService"
 import { createNewRequestNotifications } from "@/lib/notificationStore"
 import { filesToAttachments } from "@/lib/attachments"
@@ -127,6 +127,9 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
       othersAmount: 0,
       currency: "EGP",
       estimatedTotalCosts: 0,
+      paymentMethod: "cash",
+      paymentAmount: 0,
+      paymentCurrency: "EGP",
       ccEmails: [],
       notes: "",
     },
@@ -147,10 +150,14 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
   const hotel = watch("hotel") || 0
   const transportationCarRental = watch("transportationCarRental") || 0
   const othersAmount = watch("othersAmount") || 0
+  const estimatedTotal = watch("estimatedTotalCosts") || 0
+  const paymentCurrency = watch("paymentCurrency")
 
   useEffect(() => {
     const total = tripAllowance + airTicket + hotel + transportationCarRental + othersAmount
     setValue("estimatedTotalCosts", total)
+    // Auto-sync payment amount with total
+    setValue("paymentAmount", total)
   }, [tripAllowance, airTicket, hotel, transportationCarRental, othersAmount, setValue])
 
   const onSubmit = async (data: FormData) => {
@@ -514,6 +521,96 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
                 {watch("estimatedTotalCosts").toFixed(2)} {watch("currency")}
               </div>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Payment Method */}
+      <Card>
+        <SectionHeader icon={DollarSign} title="Payment Method" subtitle="How will you receive the total trip amount?" />
+        <CardContent className="space-y-6 pt-6">
+          <div>
+            <Label className="text-sm font-medium">Payment Method *</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+              <Controller
+                name="paymentMethod"
+                control={control}
+                render={({ field }) => (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => field.onChange("cash")}
+                      className={cn(
+                        "px-4 py-3 rounded-lg border-2 font-medium transition-all text-left",
+                        field.value === "cash"
+                          ? "border-teal-500 bg-teal-50 text-teal-900"
+                          : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                      )}
+                    >
+                      💵 Cash
+                      <p className="text-xs text-muted-foreground mt-1">Receive in cash</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => field.onChange("company_credit_card")}
+                      className={cn(
+                        "px-4 py-3 rounded-lg border-2 font-medium transition-all text-left",
+                        field.value === "company_credit_card"
+                          ? "border-teal-500 bg-teal-50 text-teal-900"
+                          : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                      )}
+                    >
+                      💳 Company Credit Card
+                      <p className="text-xs text-muted-foreground mt-1">Charged to company card</p>
+                    </button>
+                  </>
+                )}
+              />
+            </div>
+            <FieldError message={errors.paymentMethod?.message} />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t">
+            <div>
+              <Label className="text-sm font-medium">Payment Amount *</Label>
+              <Controller
+                name="paymentAmount"
+                control={control}
+                render={({ field }) => (
+                  <div className="mt-2 px-3 py-2 border rounded-lg bg-gray-50">
+                    <p className="text-lg font-semibold text-gray-900">
+                      {field.value.toFixed(2)}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">Auto-synced from total costs</p>
+                  </div>
+                )}
+              />
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium">Currency *</Label>
+              <Controller
+                name="paymentCurrency"
+                control={control}
+                render={({ field }) => (
+                  <select
+                    {...field}
+                    className="w-full px-3 py-2 border rounded-lg mt-2 text-sm"
+                  >
+                    {CURRENCIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              />
+              <FieldError message={errors.paymentCurrency?.message} />
+            </div>
+          </div>
+
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-900 text-xs">
+            ℹ️ The payment amount is automatically set to match your estimated total costs. Select your preferred payment method above.
           </div>
         </CardContent>
       </Card>
