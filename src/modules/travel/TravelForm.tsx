@@ -904,9 +904,6 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
                   />
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Amounts can be less than, equal to, or greater than the estimated total costs.
-              </p>
             </div>
           )}
         </CardContent>
