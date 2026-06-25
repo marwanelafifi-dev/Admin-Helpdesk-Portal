@@ -344,6 +344,25 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
             </div>
           </div>
 
+          {travelType === "hotel_flight_reservation" && (
+            <div>
+              <Label className="text-sm font-medium">Division *</Label>
+              <Controller
+                name="division"
+                control={control}
+                render={({ field }) => (
+                  <SearchableSelect
+                    options={divisions || []}
+                    value={field.value}
+                    onChange={field.onChange}
+                    placeholder="Select Division"
+                  />
+                )}
+              />
+              <FieldError message={errors.division?.message} />
+            </div>
+          )}
+
           {travelType === "visa_application" && (
             <>
               <div>
@@ -391,23 +410,6 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
         <CardContent className="space-y-4 pt-6">
           {travelType === "hotel_flight_reservation" && (
             <>
-              <div>
-                <Label className="text-sm font-medium">Division *</Label>
-                <Controller
-                  name="division"
-                  control={control}
-                  render={({ field }) => (
-                    <SearchableSelect
-                      options={divisions || []}
-                      value={field.value}
-                      onChange={field.onChange}
-                      placeholder="Select Division"
-                    />
-                  )}
-                />
-                <FieldError message={errors.division?.message} />
-              </div>
-
               <div>
                 <Label className="text-sm font-medium">Purpose of Trip *</Label>
                 <Controller
@@ -466,8 +468,8 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
             </div>
           </div>
 
-          {/* Trip Services — multi-select */}
-          <div>
+          {/* Trip Services — multi-select (Hotel & Flight only) */}
+          {travelType === "hotel_flight_reservation" && <div>
             <Label className="text-sm font-medium">Trip Services</Label>
             <p className="text-xs text-muted-foreground mb-2">Select all that apply</p>
             <div className="flex gap-3 flex-wrap">
@@ -499,10 +501,10 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
                 )
               })}
             </div>
-          </div>
+          </div>}
 
           {/* Hotel fields */}
-          {hotelSelected && (
+          {travelType === "hotel_flight_reservation" && hotelSelected && (
             <div className="space-y-3 p-4 bg-teal-50/50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-800 rounded-lg">
               <p className="text-sm font-semibold text-teal-800 dark:text-teal-300">🏨 Hotel Details</p>
               <div>
@@ -553,7 +555,7 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
           )}
 
           {/* Flight fields */}
-          {flightSelected && (
+          {travelType === "hotel_flight_reservation" && flightSelected && (
             <div className="space-y-3 p-4 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
               <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">✈️ Flight Details</p>
               <div>
@@ -844,7 +846,7 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
                   )}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Enter the amount you need in advance — can differ from the estimated total.
+                  Enter the amount you need in advance.
                 </p>
               </div>
             )}
