@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { MarkdownEditor } from "@/components/ui/MarkdownEditor"
-import { AlertCircle, Calendar, Upload, X, MapPin, Building2 } from "lucide-react"
+import { AlertCircle, Calendar, Upload, X, MapPin, Building2, FileText } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
@@ -336,30 +336,40 @@ export function EventForm({ onCancel, editingRequest, isEditing }: { onCancel?: 
               <button
                 type="button"
                 onClick={() => document.getElementById("attachments")?.click()}
-                className="w-full px-6 py-8 border-2 border-dashed border-orange-300 rounded-lg hover:border-orange-500 hover:bg-orange-50 transition-all duration-200 flex flex-col items-center justify-center gap-2 group"
+                className={`w-full px-6 py-8 border-2 border-dashed rounded-lg transition-all duration-200 flex flex-col items-center justify-center gap-2 ${uploadedFiles.length > 0 ? "border-orange-400 bg-orange-50/60 hover:bg-orange-50" : "border-orange-300 hover:border-orange-500 hover:bg-orange-50"}`}
               >
-                <Upload className="h-6 w-6 text-orange-600 group-hover:scale-110 transition-transform duration-200" />
-                <span className="text-sm font-medium text-gray-700">Click to browse files</span>
-                <span className="text-xs text-muted-foreground">Agenda, venue details, or supporting documents</span>
+                {uploadedFiles.length > 0 ? (
+                  <>
+                    <FileText className="h-5 w-5 text-orange-600" />
+                    <span className="text-sm font-semibold text-orange-700">
+                      {uploadedFiles.length === 1 ? uploadedFiles[0].name : `${uploadedFiles.length} files selected`}
+                    </span>
+                    <span className="text-xs text-orange-500">Click to add more</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-6 w-6 text-orange-600" />
+                    <span className="text-sm font-medium text-gray-700">Click to browse files</span>
+                    <span className="text-xs text-muted-foreground">Agenda, venue details, or supporting documents</span>
+                  </>
+                )}
               </button>
 
               {uploadedFiles.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-gray-700">{uploadedFiles.length} file(s) selected:</p>
-                  <div className="space-y-1.5">
-                    {uploadedFiles.map((file, idx) => (
-                      <div key={idx} className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-orange-50 border border-orange-200">
-                        <span className="text-sm text-gray-700 truncate">{file.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => setUploadedFiles(uploadedFiles.filter((_, i) => i !== idx))}
-                          className="p-1 hover:bg-orange-200 rounded transition-colors"
-                        >
-                          <X className="h-4 w-4 text-orange-600" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                <div className="space-y-1.5">
+                  {uploadedFiles.map((file, idx) => (
+                    <div key={idx} className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-orange-50 border border-orange-200">
+                      <span className="text-sm text-gray-700 truncate">{file.name}</span>
+                      <span className="text-xs text-gray-400 flex-shrink-0">{(file.size / 1024).toFixed(0)} KB</span>
+                      <button
+                        type="button"
+                        onClick={() => setUploadedFiles(uploadedFiles.filter((_, i) => i !== idx))}
+                        className="p-1 hover:bg-orange-200 rounded transition-colors flex-shrink-0"
+                      >
+                        <X className="h-4 w-4 text-orange-600" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
               <p className="text-xs text-muted-foreground">Optional: Upload supporting documents for faster approval</p>

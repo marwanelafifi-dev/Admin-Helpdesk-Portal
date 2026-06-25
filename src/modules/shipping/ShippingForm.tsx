@@ -156,6 +156,7 @@ function FileUploadZone({
   }
 
   const categoryFiles = files.filter((f) => f.category === category)
+  const hasFiles = categoryFiles.length > 0
 
   return (
     <div className="space-y-2">
@@ -164,20 +165,30 @@ function FileUploadZone({
         {label}
         {required && <span className="text-red-500">*</span>}
       </Label>
-      <label className="flex flex-col items-center justify-center gap-2 w-full h-28 border-2 border-dashed rounded-lg cursor-pointer border-gray-200 bg-gray-50 hover:border-blue-300 hover:bg-blue-50/50">
+      <label className={`flex flex-col items-center justify-center gap-1.5 w-full h-28 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${hasFiles ? "border-blue-400 bg-blue-50/60 hover:bg-blue-50" : "border-gray-200 bg-gray-50 hover:border-blue-300 hover:bg-blue-50/50"}`}>
         <input type="file" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
-        <Upload className="h-6 w-6 text-gray-400" />
-        <p className="text-xs font-medium text-gray-600">Click to browse files</p>
+        {hasFiles ? (
+          <>
+            <FileText className="h-5 w-5 text-blue-600" />
+            <p className="text-xs font-semibold text-blue-700">
+              {categoryFiles.length === 1 ? categoryFiles[0].file.name : `${categoryFiles.length} files selected`}
+            </p>
+            <p className="text-[11px] text-blue-500">Click to add more</p>
+          </>
+        ) : (
+          <>
+            <Upload className="h-6 w-6 text-gray-400" />
+            <p className="text-xs font-medium text-gray-600">Click to browse files</p>
+          </>
+        )}
       </label>
-      {categoryFiles.length > 0 && (
+      {hasFiles && (
         <ul className="space-y-1.5">
           {categoryFiles.map((sf) => (
             <li key={sf.id} className="flex items-center gap-2 p-2 rounded-md bg-white border border-gray-100 text-sm">
               <FileText className="h-4 w-4 text-blue-600 flex-shrink-0" />
               <span className="flex-1 truncate text-xs font-medium">{sf.file.name}</span>
-              <Badge variant="outline" className="text-[10px] flex-shrink-0">
-                {sf.category === "invoice" ? "Commercial Invoice" : sf.category === "awb" ? "AWB" : "Other"}
-              </Badge>
+              <span className="text-[10px] text-gray-400 flex-shrink-0">{(sf.file.size / 1024).toFixed(0)} KB</span>
               <button type="button" onClick={() => onRemove(sf.id)} className="text-gray-400 hover:text-red-500">
                 <X className="h-4 w-4" />
               </button>

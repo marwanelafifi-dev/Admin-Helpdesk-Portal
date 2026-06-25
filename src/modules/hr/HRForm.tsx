@@ -25,7 +25,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
-import { AlertCircle, UserPlus, UserMinus, User, Building2, Calendar, ClipboardList, Upload, X } from "lucide-react"
+import { AlertCircle, UserPlus, UserMinus, User, Building2, Calendar, ClipboardList, Upload, X, FileText } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
 import { getList, getManagerEmail } from "@/lib/companyDataStore"
@@ -368,30 +368,40 @@ function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCance
             <button
               type="button"
               onClick={() => document.getElementById("attachments")?.click()}
-              className="w-full px-6 py-8 border-2 border-dashed border-teal-300 rounded-lg hover:border-teal-500 hover:bg-teal-50 transition-all duration-200 flex flex-col items-center justify-center gap-2 group"
+              className={`w-full px-6 py-8 border-2 border-dashed rounded-lg transition-all duration-200 flex flex-col items-center justify-center gap-2 ${uploadedFiles.length > 0 ? "border-teal-400 bg-teal-50/60 hover:bg-teal-50" : "border-teal-300 hover:border-teal-500 hover:bg-teal-50"}`}
             >
-              <Upload className="h-6 w-6 text-teal-600 group-hover:scale-110 transition-transform duration-200" />
-              <span className="text-sm font-medium text-gray-700">Click to browse files</span>
-              <span className="text-xs text-muted-foreground">ID copies, contracts, or other documents</span>
+              {uploadedFiles.length > 0 ? (
+                <>
+                  <FileText className="h-5 w-5 text-teal-600" />
+                  <span className="text-sm font-semibold text-teal-700">
+                    {uploadedFiles.length === 1 ? uploadedFiles[0].name : `${uploadedFiles.length} files selected`}
+                  </span>
+                  <span className="text-xs text-teal-500">Click to add more</span>
+                </>
+              ) : (
+                <>
+                  <Upload className="h-6 w-6 text-teal-600" />
+                  <span className="text-sm font-medium text-gray-700">Click to browse files</span>
+                  <span className="text-xs text-muted-foreground">ID copies, contracts, or other documents</span>
+                </>
+              )}
             </button>
 
             {uploadedFiles.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-gray-700">{uploadedFiles.length} file(s) selected:</p>
-                <div className="space-y-1.5">
-                  {uploadedFiles.map((file, idx) => (
-                    <div key={idx} className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-teal-50 border border-teal-200">
-                      <span className="text-sm text-gray-700 truncate">{file.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => setUploadedFiles(uploadedFiles.filter((_, i) => i !== idx))}
-                        className="p-1 hover:bg-teal-200 rounded transition-colors"
-                      >
-                        <X className="h-4 w-4 text-teal-600" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+              <div className="space-y-1.5">
+                {uploadedFiles.map((file, idx) => (
+                  <div key={idx} className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-teal-50 border border-teal-200">
+                    <span className="text-sm text-gray-700 truncate">{file.name}</span>
+                    <span className="text-xs text-gray-400 flex-shrink-0">{(file.size / 1024).toFixed(0)} KB</span>
+                    <button
+                      type="button"
+                      onClick={() => setUploadedFiles(uploadedFiles.filter((_, i) => i !== idx))}
+                      className="p-1 hover:bg-teal-200 rounded transition-colors flex-shrink-0"
+                    >
+                      <X className="h-4 w-4 text-teal-600" />
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
             <p className="text-xs text-muted-foreground">Optional: Upload supporting documents for faster processing</p>

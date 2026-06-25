@@ -24,7 +24,7 @@ import { MarkdownEditor } from "@/components/ui/MarkdownEditor"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
-import { AlertCircle, Wrench, Upload, X } from "lucide-react"
+import { AlertCircle, Wrench, Upload, X, FileText } from "lucide-react"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
 import { cn } from "@/lib/utils"
 
@@ -263,30 +263,40 @@ export function MaintenanceForm({ onCancel, editingRequest, isEditing }: { onCan
               <button
                 type="button"
                 onClick={() => document.getElementById("attachments")?.click()}
-                className="w-full px-6 py-8 border-2 border-dashed border-purple-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-all duration-200 flex flex-col items-center justify-center gap-2 group"
+                className={`w-full px-6 py-8 border-2 border-dashed rounded-lg transition-all duration-200 flex flex-col items-center justify-center gap-2 ${uploadedFiles.length > 0 ? "border-purple-400 bg-purple-50/60 hover:bg-purple-50" : "border-purple-300 hover:border-purple-500 hover:bg-purple-50"}`}
               >
-                <Upload className="h-6 w-6 text-purple-600 group-hover:scale-110 transition-transform duration-200" />
-                <span className="text-sm font-medium text-gray-700">Click to browse files</span>
-                <span className="text-xs text-muted-foreground">Photos or supporting documents</span>
+                {uploadedFiles.length > 0 ? (
+                  <>
+                    <FileText className="h-5 w-5 text-purple-600" />
+                    <span className="text-sm font-semibold text-purple-700">
+                      {uploadedFiles.length === 1 ? uploadedFiles[0].name : `${uploadedFiles.length} files selected`}
+                    </span>
+                    <span className="text-xs text-purple-500">Click to add more</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-6 w-6 text-purple-600" />
+                    <span className="text-sm font-medium text-gray-700">Click to browse files</span>
+                    <span className="text-xs text-muted-foreground">Photos or supporting documents</span>
+                  </>
+                )}
               </button>
 
               {uploadedFiles.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-gray-700">{uploadedFiles.length} file(s) selected:</p>
-                  <div className="space-y-1.5">
-                    {uploadedFiles.map((file, idx) => (
-                      <div key={idx} className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-purple-50 border border-purple-200">
-                        <span className="text-sm text-gray-700 truncate">{file.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => setUploadedFiles(uploadedFiles.filter((_, i) => i !== idx))}
-                          className="p-1 hover:bg-purple-200 rounded transition-colors"
-                        >
-                          <X className="h-4 w-4 text-purple-600" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                <div className="space-y-1.5">
+                  {uploadedFiles.map((file, idx) => (
+                    <div key={idx} className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-purple-50 border border-purple-200">
+                      <span className="text-sm text-gray-700 truncate">{file.name}</span>
+                      <span className="text-xs text-gray-400 flex-shrink-0">{(file.size / 1024).toFixed(0)} KB</span>
+                      <button
+                        type="button"
+                        onClick={() => setUploadedFiles(uploadedFiles.filter((_, i) => i !== idx))}
+                        className="p-1 hover:bg-purple-200 rounded transition-colors flex-shrink-0"
+                      >
+                        <X className="h-4 w-4 text-purple-600" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
               <p className="text-xs text-muted-foreground">Optional: Upload issue photos for faster resolution</p>
