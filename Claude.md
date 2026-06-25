@@ -1217,6 +1217,19 @@ Status column preserves color styling with dot indicators; other columns use neu
   - [x] Confirmed "System Notices Feedback" is user feedback on system notices and updates
   - [x] Documented that Admin Team Survey was intentionally removed as not important to current platform needs
 
+## Phase 6t: Travel Form UX Improvements (Completed — 25 Jun 2026)
+- [x] **Currency restricted to USD and EUR only** — removed EGP, GBP, AED, SAR from `CURRENCIES` constant in `travel.schema.ts`. Default changed from EGP → USD.
+- [x] **Currency picker moved to top of Trip Costs** — user selects currency before entering any amounts. All cost fields show a live inline badge (e.g. `USD`) on the right that updates instantly when currency changes.
+- [x] **Currency auto-syncs to Advance Payment** — `paymentCurrency` always mirrors `currency`; no separate currency picker in the payment section.
+- [x] **Advance Payment section renamed** from "Payment Method". Subtitle: "If needed — specify how you'd like to receive the advance".
+- [x] **Advance amount is a free-input field** — no longer locked/synced to Estimated Total Costs. Users may enter any amount. Helper note below the field explains this.
+- [x] **Split validation note removed** — "Amounts can be less than, equal to, or greater than the estimated total costs." hint removed from the Both split UI.
+- [x] **Aman Sticker removed from Hotel & Flight Reservation** — upload zone and required validation now gated on `travelType === "visa_application"` only.
+- [x] **Hotel and Flight pre-selected by default** — `tripServices` default changed from `[]` to `["Hotel", "Flight"]` so both detail panels open immediately on the Hotel & Flight form.
+- [x] **Trip Costs and Advance Payment hidden on Visa Application** — both cards wrapped in `travelType === "hotel_flight_reservation"` conditional.
+- [x] **Division and Description added to Visa Application Basic Information** — shown after Cost Center, visa-only. Division uses existing `SearchableSelect` from company data; Description reuses `purposeOfTrip` field (required, 500-char max).
+- [x] **Division and Purpose of Trip in Trip Details now Hotel & Flight only** — wrapped in `travelType === "hotel_flight_reservation"` to avoid duplication.
+
 ---
 ### Development Loop (Repeat for each module)
 1. **Sync Plan:** Update this `CLAUDE.md`.
