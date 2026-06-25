@@ -120,7 +120,7 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
       destination: "",
       dateFrom: "",
       dateTo: "",
-      tripServices: [],
+      tripServices: ["Hotel", "Flight"],
       hotelNameOrLink: "",
       flightNameOrLink: "",
       tripAllowance: 0,
@@ -129,13 +129,13 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
       transportationCarRental: 0,
       others: "",
       othersAmount: 0,
-      currency: "EGP",
+      currency: "USD",
       estimatedTotalCosts: 0,
       paymentMethod: "cash",
       paymentAmount: 0,
       cashAmount: 0,
       creditCardAmount: 0,
-      paymentCurrency: "EGP",
+      paymentCurrency: "USD",
       ccEmails: [],
       notes: "",
     },
@@ -168,14 +168,13 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
     const othersValue = othersText.trim() ? othersAmount : 0
     const total = tripAllowance + airTicket + hotel + transportationCarRental + othersValue
     setValue("estimatedTotalCosts", total)
-    setValue("paymentAmount", total)
   }, [tripAllowance, airTicket, hotel, transportationCarRental, othersAmount, othersText, setValue])
 
   const onSubmit = async (data: FormData) => {
     setAttachmentError("")
 
     // Validate required attachments
-    if (!amanStickerFile) {
+    if (travelType === "visa_application" && !amanStickerFile) {
       setAttachmentError("Aman Sticker is required")
       return
     }
@@ -200,7 +199,7 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
       // Step 2: upload all attachments using the real request ID
       // Order: amanSticker, passport, hotelPhoto (optional), flightPhoto (optional), additional...
       const uploadFiles = [
-        amanStickerFile,
+        travelType === "visa_application" ? amanStickerFile : null,
         passportFile,
         hotelPhotoFile,
         flightPhotoFile,
@@ -344,6 +343,45 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
               <FieldError message={errors.costCenter?.message} />
             </div>
           </div>
+
+          {travelType === "visa_application" && (
+            <>
+              <div>
+                <Label className="text-sm font-medium">Division *</Label>
+                <Controller
+                  name="division"
+                  control={control}
+                  render={({ field }) => (
+                    <SearchableSelect
+                      options={divisions || []}
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="Select Division"
+                    />
+                  )}
+                />
+                <FieldError message={errors.division?.message} />
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium">Description *</Label>
+                <Controller
+                  name="purposeOfTrip"
+                  control={control}
+                  render={({ field }) => (
+                    <Textarea
+                      {...field}
+                      placeholder="Describe the purpose of this visa application"
+                      className="mt-2"
+                      rows={3}
+                      maxLength={500}
+                    />
+                  )}
+                />
+                <FieldError message={errors.purposeOfTrip?.message} />
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -351,40 +389,44 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
       <Card>
         <SectionHeader icon={Plane} title="Trip Details" />
         <CardContent className="space-y-4 pt-6">
-          <div>
-            <Label className="text-sm font-medium">Division *</Label>
-            <Controller
-              name="division"
-              control={control}
-              render={({ field }) => (
-                <SearchableSelect
-                  options={divisions || []}
-                  value={field.value}
-                  onChange={field.onChange}
-                  placeholder="Select Division"
+          {travelType === "hotel_flight_reservation" && (
+            <>
+              <div>
+                <Label className="text-sm font-medium">Division *</Label>
+                <Controller
+                  name="division"
+                  control={control}
+                  render={({ field }) => (
+                    <SearchableSelect
+                      options={divisions || []}
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="Select Division"
+                    />
+                  )}
                 />
-              )}
-            />
-            <FieldError message={errors.division?.message} />
-          </div>
+                <FieldError message={errors.division?.message} />
+              </div>
 
-          <div>
-            <Label className="text-sm font-medium">Purpose of Trip *</Label>
-            <Controller
-              name="purposeOfTrip"
-              control={control}
-              render={({ field }) => (
-                <Textarea
-                  {...field}
-                  placeholder="Describe the purpose of this trip"
-                  className="mt-2"
-                  rows={3}
-                  maxLength={500}
+              <div>
+                <Label className="text-sm font-medium">Purpose of Trip *</Label>
+                <Controller
+                  name="purposeOfTrip"
+                  control={control}
+                  render={({ field }) => (
+                    <Textarea
+                      {...field}
+                      placeholder="Describe the purpose of this trip"
+                      className="mt-2"
+                      rows={3}
+                      maxLength={500}
+                    />
+                  )}
                 />
-              )}
-            />
-            <FieldError message={errors.purposeOfTrip?.message} />
-          </div>
+                <FieldError message={errors.purposeOfTrip?.message} />
+              </div>
+            </>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
@@ -563,25 +605,54 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
         </CardContent>
       </Card>
 
-      {/* Trip Costs */}
-      <Card>
-        <SectionHeader icon={DollarSign} title="Trip Costs" subtitle="All amounts in selected currency" />
+      {/* Trip Costs & Advance Payment — Hotel & Flight only */}
+      {travelType === "hotel_flight_reservation" && <Card>
+        <SectionHeader icon={DollarSign} title="Trip Costs" subtitle="Enter all amounts in the selected currency or its equivalent" />
         <CardContent className="space-y-6 pt-6">
+
+          {/* Currency — top of section */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-sm font-medium">Currency *</Label>
+              <Controller
+                name="currency"
+                control={control}
+                render={({ field }) => (
+                  <select
+                    {...field}
+                    className="w-full px-3 py-2 border rounded-lg mt-2 text-sm"
+                    onChange={(e) => {
+                      field.onChange(e)
+                      setValue("paymentCurrency", e.target.value as "USD" | "EUR")
+                    }}
+                  >
+                    {CURRENCIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                )}
+              />
+            </div>
+            <div className="flex items-end pb-1">
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                All cost fields below must be entered in <span className="font-semibold text-foreground">{watch("currency")}</span>.
+                If a cost is in a different currency, please enter the equivalent amount in {watch("currency")} at the time of request.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t">
             <div>
               <Label className="text-sm font-medium">Trip Allowance *</Label>
               <Controller
                 name="tripAllowance"
                 control={control}
                 render={({ field }) => (
-                  <Input
-                    {...field}
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    className="mt-2"
-                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                  />
+                  <div className="relative mt-2">
+                    <Input {...field} type="number" min="0" step="0.01" className="pr-14"
+                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)} />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground pointer-events-none">{watch("currency")}</span>
+                  </div>
                 )}
               />
             </div>
@@ -592,14 +663,11 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
                 name="airTicket"
                 control={control}
                 render={({ field }) => (
-                  <Input
-                    {...field}
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    className="mt-2"
-                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                  />
+                  <div className="relative mt-2">
+                    <Input {...field} type="number" min="0" step="0.01" className="pr-14"
+                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)} />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground pointer-events-none">{watch("currency")}</span>
+                  </div>
                 )}
               />
             </div>
@@ -610,14 +678,11 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
                 name="hotel"
                 control={control}
                 render={({ field }) => (
-                  <Input
-                    {...field}
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    className="mt-2"
-                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                  />
+                  <div className="relative mt-2">
+                    <Input {...field} type="number" min="0" step="0.01" className="pr-14"
+                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)} />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground pointer-events-none">{watch("currency")}</span>
+                  </div>
                 )}
               />
             </div>
@@ -628,14 +693,11 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
                 name="transportationCarRental"
                 control={control}
                 render={({ field }) => (
-                  <Input
-                    {...field}
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    className="mt-2"
-                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                  />
+                  <div className="relative mt-2">
+                    <Input {...field} type="number" min="0" step="0.01" className="pr-14"
+                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)} />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground pointer-events-none">{watch("currency")}</span>
+                  </div>
                 )}
               />
             </div>
@@ -664,15 +726,18 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
                   name="othersAmount"
                   control={control}
                   render={({ field }) => (
+                    <div className="relative mt-2">
                     <Input
                       {...field}
                       type="number"
                       min="0"
                       step="0.01"
-                      className="mt-2"
+                      className="pr-14"
                       placeholder="Enter amount for the above"
                       onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                     />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground pointer-events-none">{watch("currency")}</span>
+                    </div>
                   )}
                 />
                 {othersText.trim() && !othersAmount && (
@@ -685,40 +750,17 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t">
-            <div>
-              <Label className="text-sm font-medium">Currency *</Label>
-              <Controller
-                name="currency"
-                control={control}
-                render={({ field }) => (
-                  <select
-                    {...field}
-                    className="w-full px-3 py-2 border rounded-lg mt-2 text-sm"
-                  >
-                    {CURRENCIES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              />
-            </div>
-
-            <div>
-              <Label className="text-sm font-medium font-semibold">Estimated Total Costs</Label>
-              <div className="mt-2 px-3 py-2 border rounded-lg bg-blue-50 text-blue-900 font-semibold">
-                {watch("estimatedTotalCosts").toFixed(2)} {watch("currency")}
-              </div>
+          <div className="pt-4 border-t">
+            <Label className="text-sm font-medium font-semibold">Estimated Total Costs</Label>
+            <div className="mt-2 px-3 py-2 border rounded-lg bg-blue-50 text-blue-900 font-semibold dark:bg-blue-950/30 dark:text-blue-200 w-full sm:w-1/2">
+              {watch("estimatedTotalCosts").toFixed(2)} {watch("currency")}
             </div>
           </div>
         </CardContent>
-      </Card>
+      </Card>}
 
-      {/* Payment Method */}
-      <Card>
-        <SectionHeader icon={DollarSign} title="Payment Method" subtitle="How will you receive the total trip amount?" />
+      {travelType === "hotel_flight_reservation" && <Card>
+        <SectionHeader icon={DollarSign} title="Advance Payment" subtitle="If needed — specify how you'd like to receive the advance" />
         <CardContent className="space-y-5 pt-6">
 
           {/* Method selector — 3 options */}
@@ -776,33 +818,34 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
             <FieldError message={errors.paymentMethod?.message} />
           </div>
 
-          {/* Currency */}
+          {/* Advance amount — free entry, not locked to estimated total */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t">
-            <div>
-              <Label className="text-sm font-medium">Currency *</Label>
-              <Controller
-                name="paymentCurrency"
-                control={control}
-                render={({ field }) => (
-                  <select {...field} className="w-full px-3 py-2 border rounded-lg mt-2 text-sm">
-                    {CURRENCIES.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                )}
-              />
-            </div>
-
-            {/* Single method: show total auto-synced */}
             {paymentMethod !== "both" && (
               <div>
-                <Label className="text-sm font-medium">Total Amount</Label>
-                <div className="mt-2 px-3 py-2 border rounded-lg bg-blue-50 dark:bg-blue-950/30">
-                  <p className="text-lg font-semibold text-blue-900 dark:text-blue-200">
-                    {watch("paymentAmount").toFixed(2)} {watch("paymentCurrency")}
-                  </p>
-                  <p className="text-xs text-blue-600 mt-0.5">Auto-synced from estimated total</p>
-                </div>
+                <Label className="text-sm font-medium">Advance Amount ({watch("currency")})</Label>
+                <Controller
+                  name="paymentAmount"
+                  control={control}
+                  render={({ field }) => (
+                    <div className="relative mt-2">
+                      <Input
+                        {...field}
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="pr-14"
+                        placeholder="0.00"
+                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground pointer-events-none">
+                        {watch("currency")}
+                      </span>
+                    </div>
+                  )}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Enter the amount you need in advance — can differ from the estimated total.
+                </p>
               </div>
             )}
           </div>
@@ -811,75 +854,63 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
           {paymentMethod === "both" && (
             <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-900/30 rounded-lg border">
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Split the total of <span className="font-bold text-blue-700">{watch("paymentAmount").toFixed(2)} {watch("paymentCurrency")}</span> between:
+                Enter the advance amount split between:
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm font-medium">💵 Cash Amount *</Label>
+                  <Label className="text-sm font-medium">💵 Cash Amount ({watch("currency")})</Label>
                   <Controller
                     name="cashAmount"
                     control={control}
                     render={({ field }) => (
-                      <Input
-                        {...field}
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        className="mt-2"
-                        placeholder="0.00"
-                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                      />
+                      <div className="relative mt-2">
+                        <Input
+                          {...field}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="pr-14"
+                          placeholder="0.00"
+                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground pointer-events-none">
+                          {watch("currency")}
+                        </span>
+                      </div>
                     )}
                   />
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">💳 Credit Card Amount *</Label>
+                  <Label className="text-sm font-medium">💳 Credit Card Amount ({watch("currency")})</Label>
                   <Controller
                     name="creditCardAmount"
                     control={control}
                     render={({ field }) => (
-                      <Input
-                        {...field}
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        className="mt-2"
-                        placeholder="0.00"
-                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                      />
+                      <div className="relative mt-2">
+                        <Input
+                          {...field}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="pr-14"
+                          placeholder="0.00"
+                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground pointer-events-none">
+                          {watch("currency")}
+                        </span>
+                      </div>
                     )}
                   />
                 </div>
               </div>
-              {/* Split validation */}
-              {(() => {
-                const cash = watch("cashAmount") || 0
-                const card = watch("creditCardAmount") || 0
-                const total = watch("paymentAmount") || 0
-                const splitTotal = cash + card
-                const diff = Math.abs(splitTotal - total)
-                if (diff > 0.01) {
-                  return (
-                    <p className="flex items-center gap-1.5 text-xs text-red-600">
-                      <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
-                      Cash + Credit Card ({splitTotal.toFixed(2)}) must equal the total ({total.toFixed(2)} {watch("paymentCurrency")})
-                    </p>
-                  )
-                }
-                if (splitTotal > 0) {
-                  return (
-                    <p className="flex items-center gap-1.5 text-xs text-emerald-600">
-                      <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" />
-                      Split matches total ✓
-                    </p>
-                  )
-                }
-                return null
-              })()}
+              <p className="text-xs text-muted-foreground">
+                Amounts can be less than, equal to, or greater than the estimated total costs.
+              </p>
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card>}
 
       {/* Attachments */}
       <Card>
@@ -894,12 +925,14 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
             </div>
           )}
 
-          <AttachmentUploadZone
-            label="Aman Sticker"
-            required
-            value={amanStickerFile || undefined}
-            onChange={setAmanStickerFile}
-          />
+          {travelType === "visa_application" && (
+            <AttachmentUploadZone
+              label="Aman Sticker"
+              required
+              value={amanStickerFile || undefined}
+              onChange={setAmanStickerFile}
+            />
+          )}
           <AttachmentUploadZone
             label="Passport"
             required

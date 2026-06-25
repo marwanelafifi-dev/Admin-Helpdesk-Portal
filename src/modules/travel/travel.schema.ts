@@ -4,7 +4,7 @@ import { z } from "zod"
 
 export const TRAVEL_REQUEST_TYPES = ["visa_application", "hotel_flight_reservation"] as const
 export const TRAVEL_STATUSES = ["new", "awaiting_approval", "in_progress", "completed", "cancelled"] as const
-export const CURRENCIES = ["EGP", "USD", "EUR", "GBP", "AED", "SAR"] as const
+export const CURRENCIES = ["USD", "EUR"] as const
 export const PAYMENT_METHODS = ["cash", "company_credit_card", "both"] as const
 
 export type TravelRequestType = (typeof TRAVEL_REQUEST_TYPES)[number]
