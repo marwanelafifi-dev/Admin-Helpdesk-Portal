@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { CcVisibilityToggle } from "@/components/ui/CcVisibilityToggle"
 import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, isUserInCc, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { useCcVisibility } from "@/hooks/useCcVisibility"
+import { useCommentSearch } from "@/hooks/useCommentSearch"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
@@ -139,6 +140,7 @@ export default function GeneralRequestPage() {
 
   const commentCounts = useCommentCounts(requests.map(r => r.id))
   const { viewedComments } = useViewedComments()
+  const commentMatchIds = useCommentSearch(search)
   const { expandedRows, toggleRow, isExpanded } = useExpandedRows()
 
   const onResizeMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
@@ -186,7 +188,8 @@ export default function GeneralRequestPage() {
     if (q) result = result.filter((r) =>
       r.id.toLowerCase().includes(q) ||
       r.title.toLowerCase().includes(q) ||
-      r.requesterName.toLowerCase().includes(q)
+      r.requesterName.toLowerCase().includes(q) ||
+      commentMatchIds.has(r.id)
     )
     return result.sort((a, b) => {
       if (sortKey === "createdAt" || sortKey === "updatedAt") {
@@ -197,7 +200,7 @@ export default function GeneralRequestPage() {
       const bv = (b[sortKey as keyof EngineRequest] as string) ?? ""
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
-  }, [allVisibleRequests, statusFilter, search, sortKey, sortDir])
+  }, [allVisibleRequests, statusFilter, search, sortKey, sortDir, commentMatchIds])
 
   const counts = useMemo(() => ({
     total:      requests.length,
@@ -267,7 +270,7 @@ export default function GeneralRequestPage() {
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by ID, title or requester…"
+                placeholder="Search by ID, title, requester, or comments…"
                 className="pl-9"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}

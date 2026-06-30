@@ -289,6 +289,7 @@ export default function DatabasePage() {
   const [maintenanceStatus, setMaintenanceStatus] = useState<Status>({ type: "idle", message: "" })
   const [signoutStatus, setSignoutStatus] = useState<Status>({ type: "idle", message: "" })
   const [showSignoutConfirm, setShowSignoutConfirm] = useState(false)
+  const [recoverStatus, setRecoverStatus] = useState<Status>({ type: "idle", message: "" })
 
   // ── Scheduled Maintenance Announcement state ──────────────────────────────
   const [scheduledMaintenanceEnabled, setScheduledMaintenanceEnabled] = useState(false)
@@ -426,6 +427,22 @@ export default function DatabasePage() {
       setMaintenanceStatus({ type: "success", message: "Message updated." })
     } catch (e: any) {
       setMaintenanceStatus({ type: "error", message: `Failed to save message: ${e?.message ?? "unknown"}` })
+    }
+  }
+
+  async function recoverAttachments() {
+    setRecoverStatus({ type: "idle", message: "" })
+    try {
+      const res = await fetch("/api/admin/recover-attachments", { method: "POST" })
+      if (!res.ok) throw new Error(await res.text())
+      const data = await res.json()
+      if (data.recovered === 0) {
+        setRecoverStatus({ type: "success", message: "No orphaned files found — all attachments are already registered." })
+      } else {
+        setRecoverStatus({ type: "success", message: `Recovered ${data.recovered} file(s) from disk. They will now appear in the Attachments tab.` })
+      }
+    } catch (e: any) {
+      setRecoverStatus({ type: "error", message: `Failed to recover attachments: ${e?.message ?? "unknown"}` })
     }
   }
 
@@ -1616,6 +1633,32 @@ export default function DatabasePage() {
                 )}
               </div>
               <StatusAlert status={signoutStatus} />
+            </div>
+
+            {/* Recover Attachments card */}
+            <div className="rounded-xl border-2 border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-950/30 flex items-center justify-center text-blue-700 dark:text-blue-300">
+                    <Wrench className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">Recover Missing Attachments</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Scans the attachments folder on disk and registers any files not yet in the metadata store. Use this if attachments exist on disk but don't appear in the portal.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={recoverAttachments}
+                  disabled={recoverStatus.type === "idle" && false}
+                  className="bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Recover
+                </Button>
+              </div>
+              <StatusAlert status={recoverStatus} />
             </div>
           </div>
 

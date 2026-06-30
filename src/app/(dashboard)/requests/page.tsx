@@ -14,6 +14,7 @@ import { requestsAPI } from "@/lib/apiClient"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
+import { useCommentSearch } from "@/hooks/useCommentSearch"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { LABEL_COLORS, LABEL_DOTS, buildLabelDrivenMaps } from "@/lib/statusPalette"
 
@@ -165,6 +166,7 @@ export default function RequestsPage() {
 
   const commentCounts = useCommentCounts(requests.map(r => r.id))
   const { viewedComments } = useViewedComments()
+  const commentMatchIds = useCommentSearch(search)
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
   useEffect(() => {
@@ -250,14 +252,14 @@ export default function RequestsPage() {
     if (moduleFilter !== "all") result = result.filter((r) => r.module === moduleFilter)
     const q = search.trim().toLowerCase()
     if (q) result = result.filter((r) =>
-      r.id.toLowerCase().includes(q) || r.title.toLowerCase().includes(q) || r.requesterName.toLowerCase().includes(q)
+      r.id.toLowerCase().includes(q) || r.title.toLowerCase().includes(q) || r.requesterName.toLowerCase().includes(q) || commentMatchIds.has(r.id)
     )
     return result.sort((a, b) => {
       const av = String(a[sortKey as keyof EngineRequest] ?? "")
       const bv = String(b[sortKey as keyof EngineRequest] ?? "")
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
-  }, [userRequests, statusFilter, moduleFilter, search, sortKey, sortDir])
+  }, [userRequests, statusFilter, moduleFilter, search, sortKey, sortDir, commentMatchIds])
 
   const counts = useMemo(() => ({
     total:       userRequests.length,
@@ -370,7 +372,7 @@ export default function RequestsPage() {
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search ID, title, requester…"
+                placeholder="Search ID, title, requester, or comments…"
                 className="pl-9"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}

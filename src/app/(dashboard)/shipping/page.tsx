@@ -16,6 +16,7 @@ import { mockUsers, type MockShipment } from "@/lib/mock-data"
 import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
+import { useCommentSearch } from "@/hooks/useCommentSearch"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { updateStatus, getRequestById, getAllCcEmails, getRequestsByModule, initializeMockData, isUserInCc } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
@@ -119,6 +120,7 @@ export default function ShippingPage() {
 
   const commentCounts = useCommentCounts(shipments.map(s => s.id))
   const { viewedComments } = useViewedComments()
+  const commentMatchIds = useCommentSearch(search)
   const { expandedRows, toggleRow, isExpanded } = useExpandedRows()
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
@@ -233,7 +235,7 @@ export default function ShippingPage() {
   const filtered = useMemo(() => {
     let result = allVisibleShipments.filter((s) => {
       const q = search.toLowerCase()
-      const matchSearch = s.id.toLowerCase().includes(q) || s.trackingNumber.toLowerCase().includes(q) || s.destination.toLowerCase().includes(q) || s.requester.toLowerCase().includes(q)
+      const matchSearch = s.id.toLowerCase().includes(q) || s.trackingNumber.toLowerCase().includes(q) || s.destination.toLowerCase().includes(q) || s.requester.toLowerCase().includes(q) || commentMatchIds.has(s.id)
       const matchStatus  = statusFilter === "all" || s.status === statusFilter
       const matchCarrier = carrierFilter === "all" || s.carrier === carrierFilter
       return matchSearch && matchStatus && matchCarrier
@@ -242,7 +244,7 @@ export default function ShippingPage() {
       const av = a[sortKey] ?? "", bv = b[sortKey] ?? ""
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
-  }, [allVisibleShipments, search, statusFilter, carrierFilter, sortKey, sortDir])
+  }, [allVisibleShipments, search, statusFilter, carrierFilter, sortKey, sortDir, commentMatchIds])
 
   const stats = useMemo(() => ({
     total:               shipments.length,
@@ -316,7 +318,7 @@ export default function ShippingPage() {
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by ID, tracking, requester, or destination..."
+                placeholder="Search by ID, tracking, requester, destination, or comments..."
                 className="pl-9"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}

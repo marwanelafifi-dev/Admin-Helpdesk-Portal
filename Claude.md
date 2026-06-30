@@ -995,6 +995,10 @@ Status column preserves color styling with dot indicators; other columns use neu
 | `src/components/ui/CcVisibilityToggle.tsx` | CC request discovery toggle | Checkbox with Mail icon, placed on all module list pages |
 | `src/hooks/useExpandedRows.ts` | Row expansion state hook | `toggleRow()`, `isExpanded()` per request ID |
 | `src/hooks/useCcVisibility.ts` | CC visibility toggle state | Persists to sessionStorage (`arp_show_cc_requests`), survives page reloads within session |
+| `src/hooks/useCommentSearch.ts` | Comment text search hook | Debounced 300ms, fetches `/api/requests/comments/search?q=`, returns `Set<string>` of matching request IDs; used by all 12 module/list pages |
+| `src/app/api/requests/comments/search/route.ts` | Comment search API | `GET ?q=` — delegates to `commentsStore.searchByContent()`; returns `{ requestIds: string[] }` |
+| `src/app/api/requests/[id]/attachments/route.ts` | Attachment list API | `GET` — returns all `attachmentStore` entries for a request; used by detail page to show disk-stored files independent of payload |
+| `src/app/api/admin/recover-attachments/route.ts` | Attachment recovery API | `POST` — admin-only; scans `data/attachments/` and registers orphaned files into `attachmentStore` |
 | `src/modules/hr/HRForm.tsx` | HR create form | Toggle-based type selection, checkbox items, Direct Manager Select from companyDataStore |
 | `src/modules/shipping/ShippingForm.tsx` | Shipping form | All dropdowns (Supplier, Cost Center, Carrier, Manager) read from companyDataStore |
 | `src/modules/travel/TravelForm.tsx` | Travel create form | Request type toggle (Visa / Hotel & Flight), conditional fields, attachment validation, auto-CC Ap@si-ware.com |
@@ -1229,6 +1233,32 @@ Status column preserves color styling with dot indicators; other columns use neu
 - [x] **Trip Costs and Advance Payment hidden on Visa Application** — both cards wrapped in `travelType === "hotel_flight_reservation"` conditional.
 - [x] **Division and Description added to Visa Application Basic Information** — shown after Cost Center, visa-only. Division uses existing `SearchableSelect` from company data; Description reuses `purposeOfTrip` field (required, 500-char max).
 - [x] **Division and Purpose of Trip in Trip Details now Hotel & Flight only** — wrapped in `travelType === "hotel_flight_reservation"` to avoid duplication.
+
+## Phase 6u: Comment Search Across All Pages (Completed — 30 Jun 2026)
+- [x] **Comment text included in every search box** — searching any module page or request list now matches against comment content, not just request ID/title/requester.
+  - [x] `searchByContent(query)` method added to `CommentsStoreManager` (`src/lib/commentsStore.ts`) — scans all request threads for matching text.
+  - [x] New API endpoint `GET /api/requests/comments/search?q=` — returns array of matching `requestId`s; never throws.
+  - [x] New `useCommentSearch(query)` hook (`src/hooks/useCommentSearch.ts`) — debounced 300ms, returns `Set<string>` for O(1) lookup, silent fallback on error.
+  - [x] All **12 module/list pages** updated: Shipping, Shipping Sending, Shipping Receiving, HR, Maintenance, Purchase, Event, Travel, General, My Requests, All Requests, Team Requests.
+  - [x] `commentMatchIds` added to each page's `useMemo` deps array — results update as comment search resolves.
+  - [x] Search placeholder text on all pages updated to include "or comments…".
+  - [x] Maintenance and Event pages also gained `requesterName` search (were only searching ID + title before).
+
+## Phase 6v: Attachment Category Labels & Missing Attachment Recovery (Completed — 30 Jun 2026)
+- [x] **Attachment type labels on request detail page** (`src/app/(dashboard)/requests/[id]/page.tsx`):
+  - [x] Blue badge displayed next to each attachment showing its document type.
+  - [x] Shipping attachments: **Commercial Invoice**, **AWB**, **Other** (from `attachment.category` stored at upload time).
+  - [x] Travel attachments: **Aman Sticker**, **Passport**, **Hotel Photo**, **Flight Photo / Booking**, **Travel Request Form**, **Visa Document** (from `attachment._fieldLabel` set in `extractRequestAttachments`).
+  - [x] Comment attachments: gray "From comment by [name]" badge unchanged.
+  - [x] Unknown/recovered files: no badge — clean fallback.
+- [x] **Missing attachment recovery system** — files on disk not in `attachments.json` now auto-register:
+  - [x] `scanOrphanedFiles()` added to `attachmentStore.ts` — walks `data/attachments/<year-month>/<requestId>/` tree.
+  - [x] `AttachmentStore` constructor calls `scanOrphanedFiles()` on every server boot; recovers and persists any orphaned files automatically.
+  - [x] New `GET /api/requests/[id]/attachments` endpoint — returns all `attachmentStore` entries for a request (independent of `payload.attachments`).
+  - [x] Request detail page now fetches this endpoint and **merges** server-stored attachments with payload attachments — attachments appear even if `pushToServer()` missed saving them in the request payload.
+  - [x] New `POST /api/admin/recover-attachments` endpoint — admin-only scan that registers all untracked disk files.
+  - [x] **"Recover Missing Attachments" button** added to Admin → Database → System Controls — triggers immediate scan without container restart.
+  - [x] All `filePath` values stored with forward-slash separators (`/`) for cross-platform consistency (Linux container reads paths written on any OS).
 
 ---
 ### Development Loop (Repeat for each module)

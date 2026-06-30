@@ -14,6 +14,7 @@ import { animationClasses } from "@/lib/animations"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
+import { useCommentSearch } from "@/hooks/useCommentSearch"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { buildLabelDrivenMaps } from "@/lib/statusPalette"
 
@@ -172,6 +173,7 @@ export default function TeamRequestsPage() {
 
   const commentCounts = useCommentCounts(requests.map(r => r.id))
   const { viewedComments } = useViewedComments()
+  const commentMatchIds = useCommentSearch(search)
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
   useEffect(() => {
@@ -241,14 +243,15 @@ export default function TeamRequestsPage() {
     if (q) result = result.filter((r) =>
       r.id.toLowerCase().includes(q) ||
       r.title.toLowerCase().includes(q) ||
-      r.requesterName.toLowerCase().includes(q)
+      r.requesterName.toLowerCase().includes(q) ||
+      commentMatchIds.has(r.id)
     )
     return result.sort((a, b) => {
       const av = String(a[sortKey as keyof EngineRequest] ?? "")
       const bv = String(b[sortKey as keyof EngineRequest] ?? "")
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
-  }, [teamRequests, statusFilter, moduleFilter, search, sortKey, sortDir])
+  }, [teamRequests, statusFilter, moduleFilter, search, sortKey, sortDir, commentMatchIds])
 
   const counts = useMemo(() => ({
     total:       teamRequests.length,
@@ -314,7 +317,7 @@ export default function TeamRequestsPage() {
             <div className="relative max-w-xs">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by ID, title, or requester..."
+                placeholder="Search by ID, title, requester, or comments..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-8 h-9"

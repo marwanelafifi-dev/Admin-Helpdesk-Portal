@@ -481,6 +481,27 @@ export default function RequestDetailPage() {
           history: allHistory,
         }
 
+        // Fetch server-stored attachments (disk-based, not in payload)
+        try {
+          const serverAttsRes = await fetch(`/api/requests/${id}/attachments`)
+          if (serverAttsRes.ok) {
+            const serverAttsData = await serverAttsRes.json()
+            const serverAtts = (serverAttsData.data ?? []) as any[]
+            // Merge: server attachments take priority; deduplicate by id
+            const existingIds = new Set((foundRequest.attachments || []).map((a: any) => a.id))
+            const newServerAtts = serverAtts.filter((a: any) => !existingIds.has(a.id))
+            foundRequest = {
+              ...foundRequest,
+              attachments: [
+                ...(foundRequest.attachments || []),
+                ...newServerAtts,
+              ],
+            }
+          }
+        } catch {
+          // Server attachments are a best-effort enhancement
+        }
+
         // Fetch comments for this request
         try {
           const commentsData = await commentsAPI.list(id)
@@ -972,10 +993,27 @@ export default function RequestDetailPage() {
           )}
 
           {/* Attachments Tab */}
-          {activeTab === "attachments" && (
+          {activeTab === "attachments" && (() => {
+            const CATEGORY_LABELS: Record<string, string> = {
+              // Shipping
+              invoice: "Commercial Invoice",
+              awb: "AWB",
+              other: "Other",
+              // Travel named fields
+              amanSticker: "Aman Sticker",
+              passport: "Passport",
+              hotelPhoto: "Hotel Photo",
+              flightPhoto: "Flight Photo / Booking",
+              travelRequestForm: "Travel Request Form",
+              visaDocument: "Visa Document",
+              additionalAttachments: "Additional",
+            }
+            return (
             <div className="space-y-2">
               {request.attachments && request.attachments.length > 0 ? (
                 request.attachments.map((attachment: any) => {
+                  const categoryKey = attachment.category ?? attachment._fieldLabel
+                  const categoryLabel = categoryKey ? (CATEGORY_LABELS[categoryKey] ?? categoryKey) : null
                   // For inline preview we proxy data: URLs through a server
                   // route so the browser sees a normal HTTPS URL (Chrome
                   // blocks top-level navigation to data: URLs as a phishing
@@ -1026,16 +1064,16 @@ export default function RequestDetailPage() {
                         </p>
                         <div className="flex items-center gap-2 mt-1">
                           <p className="text-xs text-gray-500">
-                            {(attachment.sizeBytes / 1024).toFixed(1)} KB
+                            {attachment.sizeBytes ? `${(attachment.sizeBytes / 1024).toFixed(1)} KB` : ""}
                           </p>
-                          {attachment.source === 'comment' && (
-                            <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded">
-                              From comment by {attachment.commentAuthor}
+                          {categoryLabel && (
+                            <span className="text-xs bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded font-medium">
+                              {categoryLabel}
                             </span>
                           )}
-                          {attachment._fieldLabel && (
-                            <span className="text-xs bg-teal-50 text-teal-700 px-2 py-0.5 rounded capitalize">
-                              {attachment._fieldLabel.replace(/([A-Z])/g, ' $1').trim()}
+                          {attachment.source === 'comment' && (
+                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                              From comment by {attachment.commentAuthor}
                             </span>
                           )}
                         </div>
@@ -1069,7 +1107,8 @@ export default function RequestDetailPage() {
                 </div>
               )}
             </div>
-          )}
+            )
+          })()}
         </CardContent>
       </Card>
 

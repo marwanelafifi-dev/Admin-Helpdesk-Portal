@@ -17,6 +17,7 @@ import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
 import { requestsAPI } from "@/lib/apiClient"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
+import { useCommentSearch } from "@/hooks/useCommentSearch"
 import { useExpandedRows } from "@/hooks/useExpandedRows"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
@@ -92,6 +93,7 @@ export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
 
   const commentCounts = useCommentCounts(requests.map(r => r.id))
   const { viewedComments } = useViewedComments()
+  const commentMatchIds = useCommentSearch(search)
   const { expandedRows, toggleRow, isExpanded } = useExpandedRows()
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
@@ -193,7 +195,7 @@ export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
       const p = r.payload as HRPayload
       return r.id.toLowerCase().includes(q) || r.title.toLowerCase().includes(q) ||
         p.employeeName.toLowerCase().includes(q) || p.employeeId.toLowerCase().includes(q) ||
-        p.department.toLowerCase().includes(q)
+        p.department.toLowerCase().includes(q) || commentMatchIds.has(r.id)
     })
     return result.sort((a, b) => {
       const pa = a.payload as HRPayload, pb = b.payload as HRPayload
@@ -213,7 +215,7 @@ export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
       const av = getVal(a, pa), bv = getVal(b, pb)
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
-  }, [allVisibleRequests, activeTab, statusFilter, search, sortKey, sortDir])
+  }, [allVisibleRequests, activeTab, statusFilter, search, sortKey, sortDir, commentMatchIds])
 
   const stats = useMemo(() => ({
     total:       hrRequests.length,
@@ -334,7 +336,7 @@ export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by ID, employee name, ID, or department..."
+                placeholder="Search by ID, employee name, department, or comments..."
                 className="pl-9"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}

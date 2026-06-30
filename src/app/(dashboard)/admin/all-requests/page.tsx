@@ -16,6 +16,7 @@ import { createRequestUpdateNotifications, createAssignmentNotifications } from 
 import { AssigneeSelect } from "@/components/ui/AssigneeSelect"
 import { getTasks, updateTaskStatus, type Task, type TaskStatus } from "@/services/taskService"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
+import { useCommentSearch } from "@/hooks/useCommentSearch"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
 import { animationClasses } from "@/lib/animations"
@@ -239,6 +240,7 @@ export default function AllRequestsPage() {
 
   const commentCounts = useCommentCounts(requests.map(r => r.id))
   const { viewedComments } = useViewedComments()
+  const commentMatchIds = useCommentSearch(search)
 
   const filtered = useMemo(() => {
     let result = requests
@@ -249,7 +251,8 @@ export default function AllRequestsPage() {
     if (q) result = result.filter((r) =>
       r.id.toLowerCase().includes(q) ||
       r.title.toLowerCase().includes(q) ||
-      r.requesterName.toLowerCase().includes(q)
+      r.requesterName.toLowerCase().includes(q) ||
+      commentMatchIds.has(r.id)
     )
     return result.sort((a, b) => {
       let av: string = "", bv: string = ""
@@ -261,7 +264,7 @@ export default function AllRequestsPage() {
       bv = (b[sortKey] as string) ?? ""
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
-  }, [requests, activeTab, statusFilter, search, sortKey, sortDir])
+  }, [requests, activeTab, statusFilter, search, sortKey, sortDir, commentMatchIds])
 
   const stats = useMemo(() => ({
     total:     requests.length,
@@ -475,7 +478,7 @@ export default function AllRequestsPage() {
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by ID, title, or requester..."
+                placeholder="Search by ID, title, requester, or comments..."
                 className="pl-9"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}

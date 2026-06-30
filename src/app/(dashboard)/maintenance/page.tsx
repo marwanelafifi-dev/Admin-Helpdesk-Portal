@@ -12,6 +12,7 @@ import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
+import { useCommentSearch } from "@/hooks/useCommentSearch"
 import { useExpandedRows } from "@/hooks/useExpandedRows"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
@@ -86,6 +87,7 @@ export default function MaintenancePage() {
 
   const commentCounts = useCommentCounts(requests.map(r => r.id))
   const { viewedComments } = useViewedComments()
+  const commentMatchIds = useCommentSearch(search)
   const { expandedRows, toggleRow, isExpanded } = useExpandedRows()
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
@@ -184,7 +186,7 @@ export default function MaintenancePage() {
     let result = allVisibleRequests
     if (statusFilter !== "all") result = result.filter((r) => r.status === statusFilter)
     const q = search.trim().toLowerCase()
-    if (q) result = result.filter((r) => r.id.toLowerCase().includes(q) || r.title.toLowerCase().includes(q))
+    if (q) result = result.filter((r) => r.id.toLowerCase().includes(q) || r.title.toLowerCase().includes(q) || r.requesterName.toLowerCase().includes(q) || commentMatchIds.has(r.id))
     return result.sort((a, b) => {
       let av: string, bv: string
       if (sortKey === "priority") {
@@ -199,7 +201,7 @@ export default function MaintenancePage() {
       }
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
-  }, [allVisibleRequests, statusFilter, search, sortKey, sortDir])
+  }, [allVisibleRequests, statusFilter, search, sortKey, sortDir, commentMatchIds])
 
   const counts = useMemo(() => ({
     total:     requests.length,
@@ -268,7 +270,7 @@ export default function MaintenancePage() {
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by ID or title…"
+                  placeholder="Search by ID, title, or comments…"
                   className="pl-9"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}

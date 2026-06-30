@@ -113,6 +113,18 @@ class CommentsStoreManager {
   getAllComments(): Record<string, StoredComment[]> {
     return { ...this.store }
   }
+
+  searchByContent(query: string): string[] {
+    const q = query.trim().toLowerCase()
+    if (!q) return []
+    const matchingIds: string[] = []
+    for (const [requestId, comments] of Object.entries(this.store)) {
+      if (comments.some((c) => c.content.toLowerCase().includes(q))) {
+        matchingIds.push(requestId)
+      }
+    }
+    return matchingIds
+  }
 }
 
 // Global singleton — survives Next.js hot-reload in dev, persists across API calls in prod
