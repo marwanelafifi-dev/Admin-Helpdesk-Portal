@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useNotifications } from "@/hooks/useNotifications"
 import { useAnnouncementNotifications } from "@/hooks/useAnnouncementNotifications"
+import { useNotificationSound } from "@/hooks/useNotificationSound"
 import { markNotificationAsRead } from "@/lib/notificationStore"
 
 function getInitials(name?: string | null, email?: string | null) {
@@ -51,6 +52,7 @@ export function TopBar() {
   const userId = user?.id
   const { notifications, unreadCount } = useNotifications(userId)
   useAnnouncementNotifications(userId)
+  useNotificationSound(unreadCount)
   const { theme, setTheme } = useTheme()
   const [isOpen, setIsOpen] = useState(false)
   const [headerShowLogo, setHeaderShowLogo] = useState(true)

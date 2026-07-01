@@ -139,6 +139,8 @@ export function hasNotification(notificationId: string) {
 // Cache of real admin users fetched from /api/users/admin-team
 let _adminUserCache: { id: string; name: string; email: string; role: string }[] | null = null
 let _adminUserCacheTime = 0
+let _fullAccessUserCache: { id: string; name: string; email: string; role: string }[] | null = null
+let _fullAccessUserCacheTime = 0
 const CACHE_TTL = 60_000 // 1 minute
 
 async function fetchAdminUsers() {
@@ -152,6 +154,22 @@ async function fetchAdminUsers() {
     return _adminUserCache
   } catch {
     return _adminUserCache ?? []
+  }
+}
+
+// Fetches Full Access users for in-app notification delivery only
+// (they are excluded from email queues but should receive in-app alerts).
+async function fetchFullAccessUsers() {
+  const now = Date.now()
+  if (_fullAccessUserCache && now - _fullAccessUserCacheTime < CACHE_TTL) return _fullAccessUserCache
+  try {
+    const res = await fetch("/api/users/full-access")
+    const { data } = await res.json()
+    _fullAccessUserCache = Array.isArray(data) ? data : []
+    _fullAccessUserCacheTime = now
+    return _fullAccessUserCache
+  } catch {
+    return _fullAccessUserCache ?? []
   }
 }
 
@@ -322,10 +340,12 @@ export function createRequestUpdateNotifications(params: {
     })
   })
 
-  // In-app: also notify real admin users (from data/users.json) by their actual IDs
-  void fetchAdminUsers().then((admins) => {
-    admins.forEach((admin) => {
-      if (admin.id !== actionUserId) {
+  // In-app: notify real admin users (Administration Team + Full Access)
+  void Promise.all([fetchAdminUsers(), fetchFullAccessUsers()]).then(([admins, fullAccess]) => {
+    const seen = new Set<string>()
+    ;[...admins, ...fullAccess].forEach((admin) => {
+      if (admin.id !== actionUserId && !seen.has(admin.id)) {
+        seen.add(admin.id)
         addNotification({
           userId: admin.id,
           type: updateType,
@@ -441,10 +461,12 @@ export function createNewRequestNotifications(params: {
     }
   })
 
-  // In-app: notify real admin users
-  void fetchAdminUsers().then((admins) => {
-    admins.forEach((admin) => {
-      if (admin.id !== params.requesterId) {
+  // In-app: notify real admin users (Administration Team + Full Access)
+  void Promise.all([fetchAdminUsers(), fetchFullAccessUsers()]).then(([admins, fullAccess]) => {
+    const seen = new Set<string>()
+    ;[...admins, ...fullAccess].forEach((admin) => {
+      if (admin.id !== params.requesterId && !seen.has(admin.id)) {
+        seen.add(admin.id)
         addNotification({
           userId: admin.id,
           type: "request_updated",
