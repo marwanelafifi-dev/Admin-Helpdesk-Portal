@@ -190,6 +190,38 @@ function getUserEmail(userId: string) {
   return mockUsers.find((u) => u.id === userId)?.email
 }
 
+// Cached user directory for resolving CC emails → user IDs
+let _directoryCache: { id: string; email: string }[] | null = null
+let _directoryCacheTime = 0
+
+async function fetchUserDirectory() {
+  const now = Date.now()
+  if (_directoryCache && now - _directoryCacheTime < CACHE_TTL) return _directoryCache
+  try {
+    const res = await fetch("/api/users/directory")
+    const { data } = await res.json()
+    _directoryCache = Array.isArray(data) ? data.map((u: { id: string; email: string }) => ({ id: u.id, email: u.email })) : []
+    _directoryCacheTime = now
+    return _directoryCache
+  } catch {
+    return _directoryCache ?? []
+  }
+}
+
+// Resolves a list of CC email addresses to portal user IDs (for in-app notifications).
+// Emails that don't match any portal user are silently skipped.
+async function resolveCcUserIds(ccEmails: string[], excludeIds: string[]): Promise<string[]> {
+  if (!ccEmails || ccEmails.length === 0) return []
+  const directory = await fetchUserDirectory()
+  const excludeSet = new Set(excludeIds.map((e) => e.toLowerCase()))
+  return directory
+    .filter((u) => {
+      const email = u.email?.toLowerCase()
+      return email && ccEmails.some((cc) => cc.toLowerCase() === email) && !excludeSet.has(u.id.toLowerCase())
+    })
+    .map((u) => u.id)
+}
+
 async function notifyByEmail(params: {
   recipientIds: string[]
   ccEmails?: string[]
@@ -341,13 +373,18 @@ export function createRequestUpdateNotifications(params: {
   })
 
   // In-app: notify real admin users (Administration Team + Full Access)
-  void Promise.all([fetchAdminUsers(), fetchFullAccessUsers()]).then(([admins, fullAccess]) => {
-    const seen = new Set<string>()
-    ;[...admins, ...fullAccess].forEach((admin) => {
-      if (admin.id !== actionUserId && !seen.has(admin.id)) {
-        seen.add(admin.id)
+  // and any CC'd portal users
+  void Promise.all([
+    fetchAdminUsers(),
+    fetchFullAccessUsers(),
+    resolveCcUserIds(ccEmails ?? [], [actionUserId ?? "", requestOwnerId]),
+  ]).then(([admins, fullAccess, ccUserIds]) => {
+    const seen = new Set<string>(recipientIds) // already notified above
+    ;[...admins, ...fullAccess, ...ccUserIds.map((id) => ({ id }))].forEach((u) => {
+      if (u.id !== actionUserId && !seen.has(u.id)) {
+        seen.add(u.id)
         addNotification({
-          userId: admin.id,
+          userId: u.id,
           type: updateType,
           title,
           description,
@@ -462,13 +499,18 @@ export function createNewRequestNotifications(params: {
   })
 
   // In-app: notify real admin users (Administration Team + Full Access)
-  void Promise.all([fetchAdminUsers(), fetchFullAccessUsers()]).then(([admins, fullAccess]) => {
+  // and any CC'd portal users
+  void Promise.all([
+    fetchAdminUsers(),
+    fetchFullAccessUsers(),
+    resolveCcUserIds(params.ccEmails ?? [], [params.requesterId]),
+  ]).then(([admins, fullAccess, ccUserIds]) => {
     const seen = new Set<string>()
-    ;[...admins, ...fullAccess].forEach((admin) => {
-      if (admin.id !== params.requesterId && !seen.has(admin.id)) {
-        seen.add(admin.id)
+    ;[...admins, ...fullAccess, ...ccUserIds.map((id) => ({ id }))].forEach((u) => {
+      if (u.id !== params.requesterId && !seen.has(u.id)) {
+        seen.add(u.id)
         addNotification({
-          userId: admin.id,
+          userId: u.id,
           type: "request_updated",
           title,
           description,
