@@ -29,6 +29,7 @@ const SERVER_FILES = [
   "backup-schedule.json",
   "email-config.json",
   "browser-data.json",   // browser localStorage snapshot pushed by the client before each backup
+  "notifications.json",  // server-side in-app notification store
 ]
 
 function readFileSafe(filename: string): unknown {

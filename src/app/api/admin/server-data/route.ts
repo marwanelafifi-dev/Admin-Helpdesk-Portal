@@ -40,6 +40,7 @@ const FILES: ServerDataFile[] = [
   { filename: "user-feedback.json", user_data: true,  clearable: true  },
   // Attachment metadata — clearable only; actual files live on disk in ~/admin-helpdesk-Attachments
   { filename: "attachments.json",  user_data: true,  clearable: true  },
+  { filename: "notifications.json", user_data: true,  clearable: true  },
   // Never clear these — admins would lock themselves out.
   { filename: "users.json",        user_data: true,  clearable: false },
   { filename: "roles.json",        user_data: true,  clearable: false },

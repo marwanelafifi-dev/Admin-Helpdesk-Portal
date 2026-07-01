@@ -129,6 +129,16 @@ export function addNotification(params: {
 
   const notifications = [notification, ...readAllNotifications()]
   writeAllNotifications(notifications)
+
+  // Mirror to server so other users' browsers can poll and receive it
+  if (typeof window !== "undefined") {
+    void fetch("/api/notifications/inapp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(notification),
+    }).catch(() => {})
+  }
+
   return notification
 }
 
