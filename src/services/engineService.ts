@@ -559,6 +559,23 @@ export async function updateStatus(
     })
   }
 
+  // When a Travel request enters "in_progress", ensure ap@si-ware.com is on the CC list.
+  if (
+    updated.module === "travel" &&
+    status === "in_progress" &&
+    previousStatus !== "in_progress"
+  ) {
+    const currentAdminCc = Array.isArray(updated.adminCc) ? updated.adminCc : []
+    const normalized = currentAdminCc.map((e) => e.toLowerCase().trim())
+    if (!normalized.includes(AUTO_CC_EMAIL.toLowerCase())) {
+      const withAutoCC = { ...updated, adminCc: [...currentAdminCc, AUTO_CC_EMAIL] }
+      requests[requests.findIndex((r) => r.id === id)] = withAutoCC
+      markPending(withAutoCC)
+      writeAll(requests)
+      void pushToServer(withAutoCC)
+    }
+  }
+
   // Purchase, Shipping, and Travel Approval workflow: when a request enters
   // "Awaiting Approval", fire the special approval email to the selected
   // Direct Manager with one-click Approve / Reject buttons.

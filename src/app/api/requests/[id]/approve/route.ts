@@ -54,10 +54,19 @@ export async function GET(
 
   const now = new Date().toISOString()
   const managerName = resolveRequestManagerName(request) ?? verified.managerEmail
+
+  // When a Travel request is approved (→ in_progress), ensure ap@si-ware.com is on CC.
+  const AUTO_CC = "ap@si-ware.com"
+  const existingAdminCc: string[] = Array.isArray(request.adminCc) ? request.adminCc : []
+  const adminCc = request.module === "travel" && !existingAdminCc.map(e => e.toLowerCase()).includes(AUTO_CC)
+    ? [...existingAdminCc, AUTO_CC]
+    : existingAdminCc
+
   const updated = {
     ...request,
     status: "in_progress" as const,
     updatedAt: now,
+    adminCc,
     statusHistory: [
       ...(request.statusHistory ?? []),
       { status: "in_progress" as const, changedBy: verified.managerEmail, changedAt: now, comment: "Approved by Direct Manager" },
