@@ -996,6 +996,11 @@ Status column preserves color styling with dot indicators; other columns use neu
 | `src/hooks/useExpandedRows.ts` | Row expansion state hook | `toggleRow()`, `isExpanded()` per request ID |
 | `src/hooks/useCcVisibility.ts` | CC visibility toggle state | Persists to sessionStorage (`arp_show_cc_requests`), survives page reloads within session |
 | `src/hooks/useCommentSearch.ts` | Comment text search hook | Debounced 300ms, fetches `/api/requests/comments/search?q=`, returns `Set<string>` of matching request IDs; used by all 12 module/list pages |
+| `src/hooks/useNotifications.ts` | Notification hook | Subscribes to localStorage + polls `/api/notifications/inapp` every 30s + on focus; merges server notifications for cross-user real-time delivery |
+| `src/hooks/useNotificationSound.ts` | Notification sound hook | Plays a two-tone Web Audio chime when `unreadCount` increases; skips on page load; no audio file required |
+| `src/lib/serverNotificationStore.ts` | Server-side notification store | Reads/writes `data/notifications.json`; max 2000 entries; used by `/api/notifications/inapp` |
+| `src/app/api/notifications/inapp/route.ts` | In-app notification API | `GET ?since=<iso>` incremental poll; `POST` mirror from client; `PATCH` mark read/all-read |
+| `src/app/api/users/full-access/route.ts` | Full Access users API | Returns active Full Access users for in-app notification fan-out (excluded from email queue) |
 | `src/app/api/requests/comments/search/route.ts` | Comment search API | `GET ?q=` — delegates to `commentsStore.searchByContent()`; returns `{ requestIds: string[] }` |
 | `src/app/api/requests/[id]/attachments/route.ts` | Attachment list API | `GET` — returns all `attachmentStore` entries for a request; used by detail page to show disk-stored files independent of payload |
 | `src/app/api/admin/recover-attachments/route.ts` | Attachment recovery API | `POST` — admin-only; scans `data/attachments/` and registers orphaned files into `attachmentStore` |
@@ -1259,6 +1264,35 @@ Status column preserves color styling with dot indicators; other columns use neu
   - [x] New `POST /api/admin/recover-attachments` endpoint — admin-only scan that registers all untracked disk files.
   - [x] **"Recover Missing Attachments" button** added to Admin → Database → System Controls — triggers immediate scan without container restart.
   - [x] All `filePath` values stored with forward-slash separators (`/`) for cross-platform consistency (Linux container reads paths written on any OS).
+
+## Phase 6w: Notifications, Permissions & Travel CC (Completed — 01 Jul 2026)
+- [x] **Travel auto-CC on In Progress:**
+  - [x] When a Travel request status changes to `in_progress` (manually via `updateStatus()` or via manager approval link), `ap@si-ware.com` is automatically added to `adminCc`.
+  - [x] Handled in both `engineService.ts` (client path) and `src/app/api/requests/[id]/approve/route.ts` (server path).
+  - [x] Travel module only — no other modules affected.
+- [x] **Notification sound:**
+  - [x] `src/hooks/useNotificationSound.ts` — new hook plays a two-tone Web Audio API chime (880 Hz → 660 Hz) when `unreadCount` increases.
+  - [x] Skips sound on page load (baseline recorded on first render, no sound for pre-existing notifications).
+  - [x] Wired into `TopBar.tsx` — no audio file required, works in all browsers.
+- [x] **Full Access users now receive in-app notifications:**
+  - [x] Root cause: `/api/users/admin-team` deliberately excludes Full Access (not a working queue), so `fetchAdminUsers()` never returned them for in-app delivery.
+  - [x] Fix: new `GET /api/users/full-access` endpoint + `fetchFullAccessUsers()` cache in `notificationStore.ts`.
+  - [x] Both `createRequestUpdateNotifications` and `createNewRequestNotifications` now fan out to Administration Team + Full Access (deduped).
+  - [x] Email queue unchanged — Full Access stays off the email list by design.
+- [x] **CC'd portal users receive in-app notifications:**
+  - [x] `fetchUserDirectory()` + `resolveCcUserIds()` helpers in `notificationStore.ts` — maps CC email list to portal user IDs via `/api/users/directory`.
+  - [x] Both `createRequestUpdateNotifications` and `createNewRequestNotifications` now also notify CC'd portal users in-app.
+  - [x] External emails (non-portal users) unaffected — email only.
+- [x] **Real-time cross-user bell notifications (server-side polling):**
+  - [x] `src/lib/serverNotificationStore.ts` — server-side `data/notifications.json` store (max 2000 entries).
+  - [x] `POST /api/notifications/inapp` — `addNotification()` mirrors every in-app notification to the server so other users' browsers can receive it.
+  - [x] `GET /api/notifications/inapp?since=<iso>` — incremental poll; returns only notifications newer than last poll timestamp.
+  - [x] `useNotifications` hook polls server every 30s + on tab focus; merges new notifications into localStorage via `addNotification()` (deduped by id) → triggers subscriber → `unreadCount` rises → sound plays.
+  - [x] `data/notifications.json` added to backup (`backupRunner.ts`) and server-data API (`/api/admin/server-data`).
+- [x] **Permission fixes — Administration Team:**
+  - [x] **Delete permanently** was incorrectly shown for Administration Team: `canPermanentDelete` was gated on `manage_users` (which Admin Team has). Now gated on `delete` permission only (wildcard `*` or explicit `delete`). Fixed across all 9 module/list pages + All Requests.
+  - [x] **Audit Trail** sidebar entry was visible even when `page:admin-audit` was unchecked in the role: `canAccessPath` had a fallback granting access via `manage_users`. Removed the fallback — access now driven purely by `page:admin-audit` in `roles.json`.
+- [x] **System Notices updated** (`data/notices.json`) with 4 new entries dated 01 Jul 2026: Real-Time Notifications, Full Access Notifications fix, CC'd User Notifications, Travel Auto-CC.
 
 ---
 ### Development Loop (Repeat for each module)
