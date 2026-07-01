@@ -1,6 +1,46 @@
 {
   "notices": [
     {
+      "id": "notice-realtime-bell-notifications",
+      "title": "Real-Time Bell Notifications for All Users",
+      "type": "feature",
+      "summary": "The notification bell now updates in real time across all users — new requests and comments trigger instant alerts with a sound.",
+      "description": "Notification delivery has been fully upgraded:\n- New requests now ring the bell for all Administration Team and Full Access users on any device\n- New comments on any request trigger an instant in-app notification\n- Notifications are stored server-side and polled every 30 seconds\n- Tab focus triggers an immediate refresh so you never miss an alert\n- A subtle two-tone chime plays whenever new notifications arrive",
+      "postedAt": "2026-07-01T00:00:00.000Z",
+      "postedBy": "System",
+      "lastUpdatedAt": "2026-07-01T00:00:00.000Z"
+    },
+    {
+      "id": "notice-full-access-notifications",
+      "title": "Full Access Users Now Receive In-App Notifications",
+      "type": "bug_fix",
+      "summary": "Full Access role users were missing request and comment notifications. This has been fixed.",
+      "description": "Fixed a gap in the notification system:\n- Root cause: The admin-team endpoint intentionally excluded Full Access users (not a working queue), but in-app notifications were also skipped as a result\n- Fix: Full Access users now receive all in-app notifications (new requests, status changes, comments) alongside Administration Team\n- Email queue is unchanged — Full Access remains off the email list by design\n- No action needed — notifications will appear automatically going forward",
+      "postedAt": "2026-07-01T00:00:00.000Z",
+      "postedBy": "System",
+      "lastUpdatedAt": "2026-07-01T00:00:00.000Z"
+    },
+    {
+      "id": "notice-cc-inapp-notifications",
+      "title": "CC'd Users Now Receive In-App Notifications",
+      "type": "feature",
+      "summary": "Portal users added to the CC list on any request now receive in-app bell notifications for updates and comments.",
+      "description": "CC notifications expanded to in-app:\n- Any portal user whose email is in the CC list will receive in-app notifications\n- Covers both new request submissions and subsequent updates (status changes, comments)\n- CC'd users are matched by email against the user directory automatically\n- External emails (non-portal users) continue to receive email notifications as before\n- The notification bell and sound will trigger for CC'd users just like for admins",
+      "postedAt": "2026-07-01T00:00:00.000Z",
+      "postedBy": "System",
+      "lastUpdatedAt": "2026-07-01T00:00:00.000Z"
+    },
+    {
+      "id": "notice-travel-auto-cc",
+      "title": "Travel Requests Auto-CC ap@si-ware.com on Approval",
+      "type": "feature",
+      "summary": "When a travel request moves to In Progress, ap@si-ware.com is automatically added to the CC list.",
+      "description": "New automatic CC rule for travel requests:\n- Triggered when status changes to In Progress (manually or via manager approval link)\n- ap@si-ware.com is added to the request CC list permanently\n- All future emails for that request (comments, status updates) will include ap@si-ware.com\n- Applies to Travel module only\n- No manual action required",
+      "postedAt": "2026-07-01T00:00:00.000Z",
+      "postedBy": "System",
+      "lastUpdatedAt": "2026-07-01T00:00:00.000Z"
+    },
+    {
       "id": "notice-event-live",
       "title": "Event Module Now Live",
       "type": "feature",
