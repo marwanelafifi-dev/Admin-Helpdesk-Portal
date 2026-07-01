@@ -161,9 +161,8 @@ export default function AllRequestsPage() {
   // Permanent-delete is admin-only. We gate the menu item here too so it
   // doesn't appear to non-admins, mirroring the server's DELETE auth check.
   const canPermanentDelete = (
-    session?.user?.role === "Full Access"
-    || (session?.user?.permissions as string[])?.includes("*")
-    || (session?.user?.permissions as string[])?.includes("manage_users")
+    (session?.user?.permissions as string[])?.includes("*")
+    || (session?.user?.permissions as string[])?.includes("delete")
   ) ?? false
 
   // ── Column resize ──────────────────────────────────────────────────────────

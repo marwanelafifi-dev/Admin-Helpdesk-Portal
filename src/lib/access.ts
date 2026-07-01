@@ -193,7 +193,7 @@ export function canAccessPath(pathname: string, permissions: string[] = [], role
   }
 
   if (permission === "page:admin-audit") {
-    return isSuperAdmin(role) || hasPermission(permissions, "manage_users")
+    return false
   }
 
   if (permission === "page:admin-database") {

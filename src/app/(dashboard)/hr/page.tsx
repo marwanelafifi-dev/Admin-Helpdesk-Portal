@@ -86,9 +86,8 @@ export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
   const canUpdateStatus = ((session?.user?.permissions as string[])?.includes("update_status") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canEditRequest = ((session?.user?.permissions as string[])?.includes("edit_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canPermanentDelete = (
-    session?.user?.role === "Full Access"
-    || (session?.user?.permissions as string[])?.includes("*")
-    || (session?.user?.permissions as string[])?.includes("manage_users")
+    (session?.user?.permissions as string[])?.includes("*")
+    || (session?.user?.permissions as string[])?.includes("delete")
   ) ?? false
 
   const commentCounts = useCommentCounts(requests.map(r => r.id))
