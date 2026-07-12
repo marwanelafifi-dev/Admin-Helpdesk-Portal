@@ -113,6 +113,7 @@ All modules feature:
 - Color-coded filters with active state
 - Inline actions (View Details, Edit)
 - Search functionality with debounce
+- All Requests admin view paginates at 50 requests per page after search/filter/sort are applied, so search results can surface records from any page
 - Responsive design (mobile/tablet/desktop)
 
 ---

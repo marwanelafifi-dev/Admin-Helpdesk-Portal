@@ -41,6 +41,7 @@ Open [http://localhost:3003](http://localhost:3003).
 - Concurrent submissions and retried network requests cannot overwrite or duplicate requests.
 - Pending status, assignee, and request edits are preserved during navigation and background synchronization.
 - Request pages re-render from the merged engine cache after server sync.
+- The All Requests admin view paginates filtered results at 50 requests per page, while search runs across the full matching request set before pagination.
 - Admin Database module counts come from the authoritative server request store and refresh after clear or restore operations.
 
 ---
@@ -125,7 +126,7 @@ SMTP_FROM=<display email>
 | `/dashboard` | KPI cards, charts, module workload table, recent feedback |
 | `/requests` | My Requests — all submissions by the logged-in user |
 | `/team-requests` | Team Requests — requests where the logged-in user is Direct Manager |
-| `/admin/all-requests` | All Requests admin view — full team requests + search + filters |
+| `/admin/all-requests` | All Requests admin view — full team requests + search + filters + 50-request pages |
 | `/tasks` | Team Tasks — Administration Team task management |
 | `/feedback-reports` | Employee feedback analytics and module ratings |
 | `/feedback-survey` | Public survey form (no auth required) |

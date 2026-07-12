@@ -3,15 +3,12 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
-import { Search, Layers, TrendingUp, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle, CheckSquare, ArrowRight, Download, FileSpreadsheet, ChevronDown as ChevronDownIcon } from "lucide-react"
+import { Search, TrendingUp, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsUpDown, MessageCircle, CheckSquare, ArrowRight, Download, FileSpreadsheet, ChevronDown as ChevronDownIcon } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table"
-import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, assignRequest, deleteRequestPermanently, type EngineRequest, type RequestStatus } from "@/services/engineService"
+import { getRequests, updateStatus, getRequestById, getAllCcEmails, assignRequest, deleteRequestPermanently, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { createRequestUpdateNotifications, createAssignmentNotifications } from "@/lib/notificationStore"
 import { AssigneeSelect } from "@/components/ui/AssigneeSelect"
 import { getTasks, updateTaskStatus, type Task, type TaskStatus } from "@/services/taskService"
@@ -76,6 +73,7 @@ const MODULE_DOT: Record<string, string> = {
 
 const MODULES  = ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"] as const
 const STATUSES = ["new", "in_progress", "in_customs", "awaiting_approval", "delivered", "completed", "cancelled"] as const
+const PAGE_SIZE = 50
 
 // Module-specific statuses — canonical code per UI label.
 // Each code maps 1:1 to exactly one UI label (see MODULE_STATUS_LABELS).
@@ -151,6 +149,7 @@ export default function AllRequestsPage() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [sortKey, setSortKey]           = useState<SortKey>("updatedAt")
   const [sortDir, setSortDir]           = useState<SortDir>("desc")
+  const [currentPage, setCurrentPage]   = useState(1)
   const { isExpanded, toggleRow } = useExpandedRows()
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
@@ -242,7 +241,7 @@ export default function AllRequestsPage() {
   const commentMatchIds = useCommentSearch(search)
 
   const filtered = useMemo(() => {
-    let result = requests
+    let result = [...requests]
     if (activeTab !== "all") result = result.filter((r) => r.module === activeTab)
     if (statusFilter === "active") result = result.filter((r) => !["cancelled", "completed", "delivered"].includes(r.status))
     else if (statusFilter !== "all") result = result.filter((r) => r.status === statusFilter)
@@ -264,6 +263,21 @@ export default function AllRequestsPage() {
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
   }, [requests, activeTab, statusFilter, search, sortKey, sortDir, commentMatchIds])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const activePage = Math.min(currentPage, totalPages)
+  const pageStartIndex = (activePage - 1) * PAGE_SIZE
+  const paginatedRequests = filtered.slice(pageStartIndex, pageStartIndex + PAGE_SIZE)
+  const showingStart = filtered.length === 0 ? 0 : pageStartIndex + 1
+  const showingEnd = Math.min(pageStartIndex + PAGE_SIZE, filtered.length)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeTab, statusFilter, search, sortKey, sortDir])
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages))
+  }, [totalPages])
 
   const stats = useMemo(() => ({
     total:     requests.length,
@@ -354,7 +368,6 @@ export default function AllRequestsPage() {
   function exportGoogleSheets() {
     const rows = buildCsvRows()
     const csv = rows.map((row) => row.join("\t")).join("\n")
-    const encoded = encodeURIComponent(csv)
     // Opens Google Sheets import dialog with the data pre-loaded via a data URI paste workaround
     // Best practice: copy TSV to clipboard then open sheets
     navigator.clipboard.writeText(rows.map((row) => row.join("\t")).join("\n")).then(() => {
@@ -564,7 +577,7 @@ export default function AllRequestsPage() {
           </div>
 
           <p className="text-sm text-muted-foreground font-normal mt-1">
-            Showing {filtered.length} request{filtered.length !== 1 ? "s" : ""}
+            Showing {showingStart}-{showingEnd} of {filtered.length} request{filtered.length !== 1 ? "s" : ""}
           </p>
         </CardHeader>
 
@@ -605,7 +618,7 @@ export default function AllRequestsPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((req, i) => {
+              {paginatedRequests.map((req, i) => {
                 const hasUnreadComments = (commentCounts[req.id] ?? 0) > (viewedComments[req.id] ?? 0)
                 const moduleStatuses = MODULE_STATUSES[req.module] || []
                 return (
@@ -794,8 +807,37 @@ export default function AllRequestsPage() {
           </table>
 
             {filtered.length > 0 && (
-              <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-[11px] text-gray-400 text-right">
-                Showing {filtered.length} of {requests.length} requests
+              <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 flex flex-col gap-3 text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between">
+                <span>
+                  Showing {showingStart}-{showingEnd} of {filtered.length} request{filtered.length !== 1 ? "s" : ""}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-2 text-xs"
+                    disabled={activePage === 1}
+                    onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  <span className="min-w-[96px] text-center text-[11px] text-gray-400">
+                    Page {activePage} of {totalPages}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-2 text-xs"
+                    disabled={activePage === totalPages}
+                    onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             )}
             </div>
