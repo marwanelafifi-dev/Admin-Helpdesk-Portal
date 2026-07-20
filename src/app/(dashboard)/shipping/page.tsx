@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { mockUsers, type MockShipment } from "@/lib/mock-data"
-import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
+import { cn, fmtDate, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { useCommentSearch } from "@/hooks/useCommentSearch"
@@ -234,8 +234,8 @@ export default function ShippingPage() {
 
   const filtered = useMemo(() => {
     let result = allVisibleShipments.filter((s) => {
-      const q = search.toLowerCase()
-      const matchSearch = s.id.toLowerCase().includes(q) || s.trackingNumber.toLowerCase().includes(q) || s.destination.toLowerCase().includes(q) || s.requester.toLowerCase().includes(q) || commentMatchIds.has(s.id)
+      const q = normalizeSearchText(search)
+      const matchSearch = normalizeSearchText(s.id).includes(q) || normalizeSearchText(s.trackingNumber).includes(q) || normalizeSearchText(s.destination).includes(q) || normalizeSearchText(s.requester).includes(q) || commentMatchIds.has(s.id)
       const matchStatus  = statusFilter === "all" || s.status === statusFilter
       const matchCarrier = carrierFilter === "all" || s.carrier === carrierFilter
       return matchSearch && matchStatus && matchCarrier

@@ -13,7 +13,7 @@ import {
 import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, isUserInCc, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import type { HRPayload } from "@/modules/hr/hr.schema"
-import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
+import { cn, fmtDate, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
 import { requestsAPI } from "@/lib/apiClient"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
@@ -189,12 +189,12 @@ export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
     let result = allVisibleRequests
     if (activeTab !== "all") result = result.filter((r) => (r.payload as HRPayload).hrType === activeTab)
     if (statusFilter !== "all") result = result.filter((r) => r.status === statusFilter)
-    const q = search.trim().toLowerCase()
+    const q = normalizeSearchText(search)
     if (q) result = result.filter((r) => {
       const p = r.payload as HRPayload
-      return r.id.toLowerCase().includes(q) || r.title.toLowerCase().includes(q) ||
-        p.employeeName.toLowerCase().includes(q) || p.employeeId.toLowerCase().includes(q) ||
-        p.department.toLowerCase().includes(q) || commentMatchIds.has(r.id)
+      return normalizeSearchText(r.id).includes(q) || normalizeSearchText(r.title).includes(q) ||
+        normalizeSearchText(p.employeeName).includes(q) || normalizeSearchText(p.employeeId).includes(q) ||
+        normalizeSearchText(p.department).includes(q) || normalizeSearchText(getSearchablePayloadText(r)).includes(q) || commentMatchIds.has(r.id)
     })
     return result.sort((a, b) => {
       const pa = a.payload as HRPayload, pb = b.payload as HRPayload

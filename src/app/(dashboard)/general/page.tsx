@@ -12,7 +12,7 @@ import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCc
 import { useCcVisibility } from "@/hooks/useCcVisibility"
 import { useCommentSearch } from "@/hooks/useCommentSearch"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
-import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
+import { cn, fmtDate, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { useExpandedRows } from "@/hooks/useExpandedRows"
@@ -183,11 +183,12 @@ export default function GeneralRequestPage() {
   const filtered = useMemo(() => {
     let result = allVisibleRequests
     if (statusFilter !== "all") result = result.filter((r) => (r.status as string) === statusFilter)
-    const q = search.trim().toLowerCase()
+    const q = normalizeSearchText(search)
     if (q) result = result.filter((r) =>
-      r.id.toLowerCase().includes(q) ||
-      r.title.toLowerCase().includes(q) ||
-      r.requesterName.toLowerCase().includes(q) ||
+      normalizeSearchText(r.id).includes(q) ||
+      normalizeSearchText(r.title).includes(q) ||
+      normalizeSearchText(r.requesterName).includes(q) ||
+      normalizeSearchText(getSearchablePayloadText(r)).includes(q) ||
       commentMatchIds.has(r.id)
     )
     return result.sort((a, b) => {

@@ -15,7 +15,7 @@ import { getTasks, updateTaskStatus, type Task, type TaskStatus } from "@/servic
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { useCommentSearch } from "@/hooks/useCommentSearch"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
-import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
+import { cn, fmtDate, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
 import { animationClasses } from "@/lib/animations"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
@@ -245,11 +245,12 @@ export default function AllRequestsPage() {
     if (activeTab !== "all") result = result.filter((r) => r.module === activeTab)
     if (statusFilter === "active") result = result.filter((r) => !["cancelled", "completed", "delivered"].includes(r.status))
     else if (statusFilter !== "all") result = result.filter((r) => r.status === statusFilter)
-    const q = search.trim().toLowerCase()
+    const q = normalizeSearchText(search)
     if (q) result = result.filter((r) =>
-      r.id.toLowerCase().includes(q) ||
-      r.title.toLowerCase().includes(q) ||
-      r.requesterName.toLowerCase().includes(q) ||
+      normalizeSearchText(r.id).includes(q) ||
+      normalizeSearchText(r.title).includes(q) ||
+      normalizeSearchText(r.requesterName).includes(q) ||
+      normalizeSearchText(getSearchablePayloadText(r)).includes(q) ||
       commentMatchIds.has(r.id)
     )
     return result.sort((a, b) => {
