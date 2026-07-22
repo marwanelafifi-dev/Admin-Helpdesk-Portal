@@ -4,6 +4,7 @@ import Credentials from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
 import { getPermissionsForRole } from "@/lib/userRoles"
 import { upsertGoogleUser, findUserByEmail } from "@/lib/userStore"
+import { findRoleByName } from "@/lib/rolesStore"
 import { z } from "zod"
 
 const credentialsSchema = z.object({
@@ -223,6 +224,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           session.user.image = stored?.image ?? null
         }
         session.user.permissions = await getPermissionsForRole(session.user.role)
+
+        // Load module access control from role
+        const role = findRoleByName(session.user.role)
+        if (role) {
+          ;(session.user as any).readModules = role.readModules || []
+          ;(session.user as any).readAllModules = role.readAllModules || []
+        }
       }
       return session
     },
