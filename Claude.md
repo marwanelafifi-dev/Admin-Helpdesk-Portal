@@ -1351,6 +1351,8 @@ Status column preserves color styling with dot indicators; other columns use neu
   - [x] **View ALL Requests From** (green box) — multi-select which modules show all requests
   - [x] Smart UX: "View ALL" checkboxes disabled for unselected modules
   - [x] Helper text explains the difference (all vs own)
+  - [x] **Auto-sync page permissions** — selecting a module automatically enables corresponding page access (e.g., "travel" → "page:travel", "page:travel-new")
+  - [x] **Simplified UX** — users only interact with Accessible Modules; Page Access is managed automatically in background
 - [x] **All Requests page integration**:
   - [x] Apply `scopeRequestsByModuleAccess()` on page load
   - [x] Users see only requests from modules they have access to
@@ -1388,11 +1390,18 @@ Status column preserves color styling with dot indicators; other columns use neu
 
 **Key Features Delivered:**
 1. ✅ Granular module-level permissions (`readModules`, `readAllModules`)
-2. ✅ Admin UI in Roles page with dual-select dropdowns
-3. ✅ Module filtering applied to all 12 list pages
-4. ✅ Sidebar navigation respects module restrictions
-5. ✅ Backward compatible with existing permission system
-6. ✅ Works seamlessly with `read_own` scope restriction
+2. ✅ Admin UI in Roles page with simplified single-selection workflow
+3. ✅ **Auto-sync page permissions** — selecting a module automatically enables/disables related page access
+4. ✅ Module filtering applied to all 12 list pages
+5. ✅ Sidebar navigation respects module restrictions
+6. ✅ Backward compatible with existing permission system
+7. ✅ Works seamlessly with `read_own` scope restriction
+
+**UX Improvement (20 Jul 2026):**
+- Removed redundancy: users no longer need to select modules in BOTH Page Access AND Accessible Modules
+- Auto-sync workflow: selecting "Travel" in Accessible Modules automatically checks "page:travel" and "page:travel-new"
+- Cleaner admin experience: Page Access permissions are managed automatically in the background
+- Single source of truth: Accessible Modules is the primary control point
 
 **Real-World Use Case:**
 Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: ["travel"]` can:
