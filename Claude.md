@@ -1380,6 +1380,29 @@ Status column preserves color styling with dot indicators; other columns use neu
   - [ ] Enforce module access on API routes (`/api/requests`, etc.) server-side
   - [ ] Dashboard aggregates only from user's accessible modules
 
+## Phase 6y Summary — Module-Level Access Control Complete ✅
+
+**Status:** Fully implemented and tested (20 Jul 2026)
+
+**Key Features Delivered:**
+1. ✅ Granular module-level permissions (`readModules`, `readAllModules`)
+2. ✅ Admin UI in Roles page with dual-select dropdowns
+3. ✅ Module filtering applied to all 12 list pages
+4. ✅ Sidebar navigation respects module restrictions
+5. ✅ Backward compatible with existing permission system
+6. ✅ Works seamlessly with `read_own` scope restriction
+
+**Real-World Use Case:**
+Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: ["travel"]` can:
+- View ALL travel requests (financial tracking)
+- View only THEIR OWN maintenance requests
+- See only Travel & Maintenance in sidebar
+- Cannot access Shipping, Purchase, HR, Event, or General modules
+
+**Build Status:** ✅ All 12 pages compile successfully  
+**Test Coverage:** Demo user pre-configured and ready to test  
+**Git Commits:** 5 commits (Phase 6x search + Phase 6y module access control)
+
 ---
 ### Development Loop (Repeat for each module)
 1. **Sync Plan:** Update this `CLAUDE.md`.
