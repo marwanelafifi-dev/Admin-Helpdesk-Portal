@@ -1382,7 +1382,9 @@ Status column preserves color styling with dot indicators; other columns use neu
 
 ## Phase 6y Summary — Module-Level Access Control Complete ✅
 
-**Status:** Fully implemented and tested (20 Jul 2026)
+**Status:** Fully implemented, tested, and UX simplified (20 Jul 2026)
+
+**Latest Update:** Auto-sync page permissions based on module selection — eliminates redundant dual-selection requirement.
 
 **Key Features Delivered:**
 1. ✅ Granular module-level permissions (`readModules`, `readAllModules`)
