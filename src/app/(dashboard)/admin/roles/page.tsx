@@ -232,12 +232,30 @@ export default function AdminRolesPage() {
   const MODULES = ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"] as const
 
   const toggleModule = (module: string) => {
-    setFormData((current) => ({
-      ...current,
-      readModules: current.readModules.includes(module)
+    setFormData((current) => {
+      const isSelected = current.readModules.includes(module)
+      const newReadModules = isSelected
         ? current.readModules.filter((m) => m !== module)
-        : [...current.readModules, module],
-    }))
+        : [...current.readModules, module]
+
+      // Auto-sync page permissions: add/remove corresponding page access when module is selected/deselected
+      const pagePermissions = [`${module}`, `${module}-new`]
+      let newPages = current.pages
+
+      if (isSelected) {
+        // Removing module - also remove its page permissions
+        newPages = newPages.filter((p) => !pagePermissions.includes(p))
+      } else {
+        // Adding module - also add its page permissions
+        newPages = [...new Set([...newPages, ...pagePermissions])]
+      }
+
+      return {
+        ...current,
+        readModules: newReadModules,
+        pages: newPages,
+      }
+    })
   }
 
   const toggleReadAllModule = (module: string) => {
@@ -445,7 +463,7 @@ export default function AdminRolesPage() {
               <div className="space-y-3 border-t pt-4">
                 <Label className="text-sm font-semibold block">Module Access Control</Label>
                 <p className="text-xs text-gray-600 mb-3">
-                  Select which modules users can access. In "View ALL Requests", users see all requests from that module. Otherwise, they only see their own.
+                  Select which modules users can access. Page access permissions are automatically enabled/disabled below based on your selections here. In "View ALL Requests", users see all requests from that module. Otherwise, they only see their own.
                 </p>
 
                 <div className="space-y-3">
