@@ -1331,6 +1331,46 @@ Status column preserves color styling with dot indicators; other columns use neu
   - [x] Comment content (via `useCommentSearch` hook)
   - [x] All of the above, **now with space normalization**
 
+## Phase 6y: Module-Level Access Control — Granular Read Permissions (Completed — 20 Jul 2026)
+- [x] **Flexible module-level permissions system:**
+  - [x] **New fields in `StoredUser`**:
+    - [x] `readModules?: string[]` — which modules a user can access
+    - [x] `readAllModules?: string[]` — which modules they see ALL requests from (subset of readModules)
+  - [x] **Example use case**: Finance user with:
+    - [x] `readModules: ["travel", "maintenance"]` — can access Travel and Maintenance pages
+    - [x] `readAllModules: ["travel"]` — sees all Travel requests
+    - [x] For Maintenance: only sees their own requests (read_own scope applies)
+- [x] **New access control functions** in `src/lib/access.ts`:
+  - [x] `canAccessModule(user, module)` — check if user can view a module page
+  - [x] `canReadAllInModule(user, module)` — check if user sees all vs own-only requests
+  - [x] `getAccessibleModules(user)` — get list of allowed modules
+  - [x] `scopeRequestsByModuleAccess(requests, user, session)` — filter requests by both module access + read scope
+- [x] **Admin UI in Roles page** (`/admin/roles`):
+  - [x] New "Module Access Control" section below Page Access
+  - [x] **Accessible Modules** (blue box) — multi-select which modules users can access
+  - [x] **View ALL Requests From** (green box) — multi-select which modules show all requests
+  - [x] Smart UX: "View ALL" checkboxes disabled for unselected modules
+  - [x] Helper text explains the difference (all vs own)
+- [x] **All Requests page integration**:
+  - [x] Apply `scopeRequestsByModuleAccess()` on page load
+  - [x] Users see only requests from modules they have access to
+  - [x] Scope varies by module: all requests vs own requests
+  - [x] Works seamlessly with existing status/search filters
+- [x] **Demo user added** to `data/users.json`:
+  - [x] Email: `finance.travel@si-ware.com`
+  - [x] Role: Administration Team
+  - [x] `readModules: ["travel", "maintenance"]`
+  - [x] `readAllModules: ["travel"]` — shows all travel requests but only own maintenance
+- [x] **Backward compatibility**:
+  - [x] Users without `readModules` set default to full access (super admin behavior)
+  - [x] No breaking changes to existing permissions system
+  - [x] Works with existing `read_own` scope restriction
+- [x] **Future improvements** (TODO):
+  - [ ] Apply same filtering to all 12 module list pages (Shipping, HR, etc.)
+  - [ ] Hide inaccessible modules from sidebar
+  - [ ] Add module filter pills to list pages with user's allowed modules only
+  - [ ] Enforce module access on API routes (`/api/requests`, etc.)
+
 ---
 ### Development Loop (Repeat for each module)
 1. **Sync Plan:** Update this `CLAUDE.md`.
