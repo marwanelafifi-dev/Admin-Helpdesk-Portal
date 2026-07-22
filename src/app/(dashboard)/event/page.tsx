@@ -23,7 +23,6 @@ import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { CcVisibilityToggle } from "@/components/ui/CcVisibilityToggle"
 import { useCcVisibility } from "@/hooks/useCcVisibility"
 import { LABEL_COLORS, LABEL_DOTS } from "@/lib/statusPalette"
-import { scopeRequests } from "@/lib/access"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -100,14 +99,7 @@ export default function EventPage() {
         readModules: (session?.user as any)?.readModules,
         readAllModules: (session?.user as any)?.readAllModules,
       }
-      all = scopeRequestsByModuleAccess(all, userWithModules, session?.user)
-
-      setRequests(scopeRequests(
-        all,
-        { id: session?.user?.id, email: session?.user?.email, name: session?.user?.name },
-        session?.user?.role,
-        (session?.user?.permissions as string[]) ?? [],
-      ))
+      setRequests(scopeRequestsByModuleAccess(all, userWithModules, session?.user))
     }
     sync()
     window.addEventListener("focus", sync)

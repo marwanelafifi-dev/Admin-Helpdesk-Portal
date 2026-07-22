@@ -22,7 +22,6 @@ import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { LABEL_COLORS, LABEL_DOTS } from "@/lib/statusPalette"
-import { scopeRequests } from "@/lib/access"
 import { MarkdownDisplay } from "@/components/ui/MarkdownDisplay"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -97,14 +96,7 @@ export default function GeneralRequestPage() {
       readModules: (session?.user as any)?.readModules,
       readAllModules: (session?.user as any)?.readAllModules,
     }
-    all = scopeRequestsByModuleAccess(all, userWithModules, session?.user)
-
-    setRequests(scopeRequests(
-      all,
-      { id: session?.user?.id, email: session?.user?.email, name: session?.user?.name },
-      session?.user?.role,
-      (session?.user?.permissions as string[]) ?? [],
-    ))
+    setRequests(scopeRequestsByModuleAccess(all, userWithModules, session?.user))
   }, [session?.user?.id, session?.user?.email, session?.user?.role])
 
   useEffect(() => {

@@ -24,7 +24,7 @@ import { CcVisibilityToggle } from "@/components/ui/CcVisibilityToggle"
 import { useCcVisibility } from "@/hooks/useCcVisibility"
 import { getList } from "@/lib/companyDataStore"
 import { LABEL_COLORS, LABEL_DOTS } from "@/lib/statusPalette"
-import { scopeRequests } from "@/lib/access"
+import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -103,12 +103,16 @@ export default function SendingPage() {
           // Sending bucket: only requests stamped with direction === "sending".
           return (r.payload as any)?.direction === "sending"
         })
-        const requests = scopeRequests(
-          allShipping,
-          { id: session?.user?.id, email: session?.user?.email, name: session?.user?.name },
-          session?.user?.role,
-          (session?.user?.permissions as string[]) ?? [],
-        )
+
+        // Apply module-level access control
+        const userWithModules: UserWithModuleAccess = {
+          id: session?.user?.id,
+          email: session?.user?.email,
+          role: session?.user?.role || "requester",
+          readModules: (session?.user as any)?.readModules,
+          readAllModules: (session?.user as any)?.readAllModules,
+        }
+        const requests = scopeRequestsByModuleAccess(allShipping, userWithModules, session?.user)
         const transformed = requests.map((req: any) => ({
           id: req.id,
           title: req.title || "Untitled Request",

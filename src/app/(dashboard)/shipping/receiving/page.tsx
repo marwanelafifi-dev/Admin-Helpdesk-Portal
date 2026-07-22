@@ -29,7 +29,6 @@ import { CcVisibilityToggle } from "@/components/ui/CcVisibilityToggle"
 import { useCcVisibility } from "@/hooks/useCcVisibility"
 import { getList } from "@/lib/companyDataStore"
 import { LABEL_COLORS, LABEL_DOTS } from "@/lib/statusPalette"
-import { scopeRequests } from "@/lib/access"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -112,7 +111,7 @@ export default function ReceivingPage() {
       const userWithModules: UserWithModuleAccess = {
         id: session?.user?.id,
         email: session?.user?.email,
-        role: session?.user?.role as string,
+        role: session?.user?.role || "requester",
         readModules: (session?.user as any)?.readModules,
         readAllModules: (session?.user as any)?.readAllModules,
       }
