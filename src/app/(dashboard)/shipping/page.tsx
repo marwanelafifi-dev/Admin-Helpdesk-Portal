@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { mockUsers, type MockShipment } from "@/lib/mock-data"
 import { cn, fmtDate, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
+import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { useCommentSearch } from "@/hooks/useCommentSearch"
@@ -91,7 +92,19 @@ export default function ShippingPage() {
   useEffect(() => {
     const loadShipments = () => {
       initializeMockData()
-      const transformed = getRequestsByModule("shipping").map((req: any) => ({
+      let requests = getRequestsByModule("shipping")
+
+      // Apply module-level access control if user has restrictions
+      const userWithModules: UserWithModuleAccess = {
+        id: session?.user?.id,
+        email: session?.user?.email,
+        role: session?.user?.role as string,
+        readModules: (session?.user as any)?.readModules,
+        readAllModules: (session?.user as any)?.readAllModules,
+      }
+      requests = scopeRequestsByModuleAccess(requests, userWithModules, session?.user)
+
+      const transformed = requests.map((req: any) => ({
         id: req.id,
         title: req.title || "Untitled Request",
         trackingNumber: req.payload?.trackingNumber || "",
@@ -116,7 +129,7 @@ export default function ShippingPage() {
       window.removeEventListener("storage", loadShipments)
       window.removeEventListener("arp:storage", loadShipments)
     }
-  }, [])
+  }, [session])
 
   const commentCounts = useCommentCounts(shipments.map(s => s.id))
   const { viewedComments } = useViewedComments()

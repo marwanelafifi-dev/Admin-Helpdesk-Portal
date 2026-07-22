@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, isUserInCc, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { cn, fmtDate, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
+import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { useCommentSearch } from "@/hooks/useCommentSearch"
@@ -92,7 +93,18 @@ export default function MaintenancePage() {
 
   const loadRequests = useCallback(() => {
     initializeMockData()
-    const all = getRequests().filter((r) => r.module === "maintenance")
+    let all = getRequests().filter((r) => r.module === "maintenance")
+
+    // Apply module-level access control if user has restrictions
+    const userWithModules: UserWithModuleAccess = {
+      id: session?.user?.id,
+      email: session?.user?.email,
+      role: session?.user?.role as string,
+      readModules: (session?.user as any)?.readModules,
+      readAllModules: (session?.user as any)?.readAllModules,
+    }
+    all = scopeRequestsByModuleAccess(all, userWithModules, session?.user)
+
     setRequests(scopeRequests(
       all,
       { id: session?.user?.id, email: session?.user?.email, name: session?.user?.name },

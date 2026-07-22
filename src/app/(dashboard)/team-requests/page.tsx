@@ -10,6 +10,7 @@ import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
 import { getManagerEmail } from "@/lib/companyDataStore"
 import { cn, fmtDate, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
+import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
 import { animationClasses } from "@/lib/animations"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
@@ -178,16 +179,31 @@ export default function TeamRequestsPage() {
 
   useEffect(() => {
     initializeMockData()
-    setRequests(getRequests())
+    const load = () => {
+      let requests = getRequests()
 
-    const onStorage = () => setRequests(getRequests())
+      // Apply module-level access control if user has restrictions
+      const userWithModules: UserWithModuleAccess = {
+        id: session?.user?.id,
+        email: session?.user?.email,
+        role: session?.user?.role as string,
+        readModules: (session?.user as any)?.readModules,
+        readAllModules: (session?.user as any)?.readAllModules,
+      }
+      requests = scopeRequestsByModuleAccess(requests, userWithModules, session?.user)
+
+      setRequests(requests)
+    }
+    load()
+
+    const onStorage = load
     window.addEventListener("storage", onStorage)
     window.addEventListener("arp:storage", onStorage)
     return () => {
       window.removeEventListener("storage", onStorage)
       window.removeEventListener("arp:storage", onStorage)
     }
-  }, [])
+  }, [session])
 
   const onResizeMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
     e.preventDefault(); e.stopPropagation()

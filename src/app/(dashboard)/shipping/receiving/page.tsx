@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { mockShipments, mockUsers, type MockShipment } from "@/lib/mock-data"
 import { cn, fmtDate, fmtDateTime, normalizeSearchText } from "@/lib/utils"
+import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
 import { getRequestsByModule, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, isUserInCc } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
@@ -102,10 +103,21 @@ export default function ReceivingPage() {
     try {
       setLoading(true)
       initializeMockData()
-      const allShipping = getRequestsByModule("shipping").filter((r: any) => {
+      let allShipping = getRequestsByModule("shipping").filter((r: any) => {
         const d = (r.payload as any)?.direction
         return !d || d === "receiving"
       })
+
+      // Apply module-level access control if user has restrictions
+      const userWithModules: UserWithModuleAccess = {
+        id: session?.user?.id,
+        email: session?.user?.email,
+        role: session?.user?.role as string,
+        readModules: (session?.user as any)?.readModules,
+        readAllModules: (session?.user as any)?.readAllModules,
+      }
+      allShipping = scopeRequestsByModuleAccess(allShipping, userWithModules, session?.user)
+
       const requests = scopeRequests(
         allShipping,
         { id: session?.user?.id, email: session?.user?.email, name: session?.user?.name },

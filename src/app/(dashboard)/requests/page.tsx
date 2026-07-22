@@ -9,6 +9,7 @@ import { Card, CardHeader } from "@/components/ui/card"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
 import { cn, fmtDate, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
+import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
 import { animationClasses } from "@/lib/animations"
 import { requestsAPI } from "@/lib/apiClient"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
@@ -170,7 +171,21 @@ export default function RequestsPage() {
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
   useEffect(() => {
-    const loadRequests = () => setRequests(getRequests())
+    const loadRequests = () => {
+      let requests = getRequests()
+
+      // Apply module-level access control if user has restrictions
+      const userWithModules: UserWithModuleAccess = {
+        id: session?.user?.id,
+        email: session?.user?.email,
+        role: session?.user?.role as string,
+        readModules: (session?.user as any)?.readModules,
+        readAllModules: (session?.user as any)?.readAllModules,
+      }
+      requests = scopeRequestsByModuleAccess(requests, userWithModules, session?.user)
+
+      setRequests(requests)
+    }
     loadRequests()
     window.addEventListener("storage", loadRequests)
     window.addEventListener("arp:storage", loadRequests)
@@ -178,7 +193,7 @@ export default function RequestsPage() {
       window.removeEventListener("storage", loadRequests)
       window.removeEventListener("arp:storage", loadRequests)
     }
-  }, [])
+  }, [session])
 
   // Load the set of request IDs that already have a submitted feedback response,
   // so we can detect which of the user's completed requests still need rating.

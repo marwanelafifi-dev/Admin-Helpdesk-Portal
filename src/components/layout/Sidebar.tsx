@@ -33,7 +33,7 @@ import {
   Info,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { canAccessPath } from "@/lib/access"
+import { canAccessPath, canAccessModule, type UserWithModuleAccess } from "@/lib/access"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { useUnreadNotices } from "@/hooks/useUnreadNotices"
 import { useMobileNav } from "./MobileNavContext"
@@ -177,11 +177,6 @@ export function Sidebar() {
   // Note: new-request and new-task tracking is centralized in useNewRequestsAndTasks
   // hook above. Storage events, focus, and a 30s interval keep it fresh.
 
-  const canSee = useCallback(
-    (href: string) => status === "authenticated" && canAccessPath(href, permissions, role),
-    [status, permissions, role]
-  )
-
   const moduleForHref = useCallback((href: string): string | null => {
     if (href === "/hr/onboarding" || href.startsWith("/hr/onboarding/")) return "hr-onboarding"
     if (href === "/hr/offboarding" || href.startsWith("/hr/offboarding/")) return "hr-offboarding"
@@ -196,6 +191,32 @@ export function Sidebar() {
     if (href.startsWith("/general")) return "general"
     return null
   }, [])
+
+  const canSee = useCallback(
+    (href: string) => {
+      if (status !== "authenticated" || !canAccessPath(href, permissions, role)) {
+        return false
+      }
+
+      // Check module-level access restrictions
+      const mod = moduleForHref(href)
+      if (mod) {
+        // Map submodule keys (hr-onboarding, shipping-receiving) back to base modules
+        const baseModule = mod.split("-")[0] as any
+        const userWithModules: UserWithModuleAccess = {
+          id: session?.user?.id,
+          email: session?.user?.email,
+          role: session?.user?.role as string,
+          readModules: (session?.user as any)?.readModules,
+          readAllModules: (session?.user as any)?.readAllModules,
+        }
+        return canAccessModule(userWithModules, baseModule)
+      }
+
+      return true
+    },
+    [status, permissions, role, session?.user?.id, session?.user?.email, session?.user?.role, moduleForHref]
+  )
 
   // Pre-compute the all-requests total once instead of recomputing on every call
   const unreadNotices = useUnreadNotices()
