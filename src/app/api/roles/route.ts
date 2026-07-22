@@ -9,6 +9,8 @@ const createRoleSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(50),
   description: z.string().trim().optional(),
   permissions: z.array(z.string()).default([]),
+  readModules: z.array(z.string()).optional(),
+  readAllModules: z.array(z.string()).optional(),
 })
 
 export async function GET() {
@@ -39,6 +41,8 @@ export async function POST(request: Request) {
     name: parsed.data.name,
     description: parsed.data.description || null,
     permissions: parsed.data.permissions,
+    readModules: parsed.data.readModules,
+    readAllModules: parsed.data.readAllModules,
   })
 
   logServerAudit({

@@ -6,6 +6,8 @@ export type StoredRole = {
   name: string
   description: string | null
   permissions: string[]
+  readModules?: string[]
+  readAllModules?: string[]
   createdAt: string
   updatedAt: string
 }

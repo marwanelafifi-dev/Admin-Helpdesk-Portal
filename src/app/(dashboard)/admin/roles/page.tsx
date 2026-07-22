@@ -151,6 +151,8 @@ export default function AdminRolesPage() {
       name: formData.name,
       description: formData.description || undefined,
       permissions: allPermissions,
+      readModules: formData.readModules,
+      readAllModules: formData.readAllModules,
     }
 
     const method = editingRole ? "PATCH" : "POST"

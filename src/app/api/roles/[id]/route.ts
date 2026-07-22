@@ -9,6 +9,8 @@ const updateRoleSchema = z.object({
   name: z.string().trim().min(1).max(50).optional(),
   description: z.string().trim().optional(),
   permissions: z.array(z.string()).optional(),
+  readModules: z.array(z.string()).optional(),
+  readAllModules: z.array(z.string()).optional(),
 })
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -41,6 +43,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     ...(parsed.data.name && { name: parsed.data.name }),
     ...(parsed.data.description !== undefined && { description: parsed.data.description || null }),
     ...(parsed.data.permissions !== undefined && { permissions: parsed.data.permissions }),
+    ...(parsed.data.readModules !== undefined && { readModules: parsed.data.readModules }),
+    ...(parsed.data.readAllModules !== undefined && { readAllModules: parsed.data.readAllModules }),
   })
 
   const changes: string[] = []
