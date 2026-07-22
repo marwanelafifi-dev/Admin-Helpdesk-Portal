@@ -242,3 +242,79 @@ const defaultRouteOrder = [
 export function getFirstAllowedPath(permissions: string[] = [], role?: string) {
   return defaultRouteOrder.find((path) => canAccessPath(path, permissions, role)) ?? "/unauthorized"
 }
+
+// ─── Module-Level Access Control ───────────────────────────────────────────
+
+export type RequestModule = "shipping" | "maintenance" | "purchase" | "event" | "travel" | "hr" | "general"
+
+export const ALL_MODULES: RequestModule[] = ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"]
+
+export interface UserWithModuleAccess {
+  id?: string
+  email?: string
+  name?: string
+  role?: string
+  readModules?: RequestModule[]
+  readAllModules?: RequestModule[]
+}
+
+/**
+ * Check if user can access a specific module page
+ */
+export function canAccessModule(user: UserWithModuleAccess | null | undefined, module: RequestModule): boolean {
+  if (!user) return false
+  if (isSuperAdmin(user.role)) return true
+  if (!user.readModules || user.readModules.length === 0) return false
+  return user.readModules.includes(module)
+}
+
+/**
+ * Check if user can see ALL requests in a module (vs only their own)
+ */
+export function canReadAllInModule(user: UserWithModuleAccess | null | undefined, module: RequestModule): boolean {
+  if (!user) return false
+  if (isSuperAdmin(user.role)) return true
+  if (!user.readAllModules || user.readAllModules.length === 0) return false
+  return user.readAllModules.includes(module)
+}
+
+/**
+ * Get list of modules this user has access to
+ */
+export function getAccessibleModules(user: UserWithModuleAccess | null | undefined): RequestModule[] {
+  if (!user) return []
+  if (isSuperAdmin(user.role)) return ALL_MODULES
+  return user.readModules ?? []
+}
+
+/**
+ * Filter requests by module access - user can only see requests from modules
+ * they have access to, and only see all requests from modules in readAllModules
+ */
+export function scopeRequestsByModuleAccess<T extends { module?: string; requesterId?: string; requesterEmail?: string; requesterName?: string }>(
+  requests: T[],
+  user: UserWithModuleAccess | null | undefined,
+  userSession: { id?: string | null; email?: string | null } | null | undefined = null,
+): T[] {
+  if (!user) return []
+  if (isSuperAdmin(user.role)) return requests
+
+  return requests.filter((req) => {
+    const module = req.module as RequestModule | undefined
+    if (!module) return false
+
+    // Must have access to this module
+    if (!canAccessModule(user, module)) return false
+
+    // If can read all in this module, show it
+    if (canReadAllInModule(user, module)) return true
+
+    // Otherwise, only show their own requests
+    const myId = (userSession?.id ?? "").trim()
+    const myEmail = (userSession?.email ?? "").trim().toLowerCase()
+    if (myId && req.requesterId === myId) return true
+    if (myEmail && (req.requesterEmail ?? "").trim().toLowerCase() === myEmail) return true
+
+    return false
+  })
+}

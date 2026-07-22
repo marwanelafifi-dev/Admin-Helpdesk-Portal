@@ -16,6 +16,7 @@ import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { useCommentSearch } from "@/hooks/useCommentSearch"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { cn, fmtDate, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
+import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
 import { animationClasses } from "@/lib/animations"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
@@ -210,7 +211,20 @@ export default function AllRequestsPage() {
 
   useEffect(() => {
     const loadFromCache = () => {
-      setRequests(getRequests())
+      let allRequests = getRequests()
+
+      // Apply module-level access control if user has restrictions
+      const userWithModules: UserWithModuleAccess = {
+        id: session?.user?.id,
+        email: session?.user?.email,
+        role: session?.user?.role as string,
+        readModules: (session?.user as any)?.readModules,
+        readAllModules: (session?.user as any)?.readAllModules,
+      }
+
+      allRequests = scopeRequestsByModuleAccess(allRequests, userWithModules, session?.user)
+
+      setRequests(allRequests)
       setTasks(getTasks())
     }
 
@@ -223,7 +237,7 @@ export default function AllRequestsPage() {
       window.removeEventListener("storage", loadFromCache)
       window.removeEventListener("arp:storage", loadFromCache)
     }
-  }, [])
+  }, [session])
 
   useEffect(() => {
     if (!exportOpen) return

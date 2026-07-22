@@ -41,5 +41,18 @@
     "active": true,
     "createdAt": "2026-05-13T14:06:45.922Z",
     "provider": "google"
+  },
+  {
+    "id": "USR-1779000000001",
+    "email": "finance.travel@si-ware.com",
+    "name": "Finance - Travel Access",
+    "role": "Administration Team",
+    "image": null,
+    "active": true,
+    "provider": "credentials",
+    "passwordHash": "$2b$12$bOYONJS9KCtX3noQz8earerXWvomv9GqpV0fAlcP0LNCuCSaIEQgO",
+    "createdAt": "2026-07-20T00:00:00.000Z",
+    "readModules": ["travel", "maintenance"],
+    "readAllModules": ["travel"]
   }
 ]

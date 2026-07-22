@@ -1294,6 +1294,43 @@ Status column preserves color styling with dot indicators; other columns use neu
   - [x] **Audit Trail** sidebar entry was visible even when `page:admin-audit` was unchecked in the role: `canAccessPath` had a fallback granting access via `manage_users`. Removed the fallback — access now driven purely by `page:admin-audit` in `roles.json`.
 - [x] **System Notices updated** (`data/notices.json`) with 4 new entries dated 01 Jul 2026: Real-Time Notifications, Full Access Notifications fix, CC'd User Notifications, Travel Auto-CC.
 
+## Phase 6x: Search Enhancements — Payload Fields & Space Normalization (Completed — 20 Jul 2026)
+- [x] **Search now includes module-specific payload fields:**
+  - [x] **New utility functions** in `src/lib/utils.ts`:
+    - [x] `normalizeSearchText(text)` — removes spaces and lowercases for comparison
+    - [x] `getSearchablePayloadText(request)` — extracts searchable fields from request payload based on module type
+  - [x] **Payload field coverage per module:**
+    - [x] **Shipping**: Tracking Number, Supplier, Carrier
+    - [x] **Purchase**: Supplier, Product URL, Item Name
+    - [x] **HR**: Employee ID, Employee Name (payload already searched, now normalized)
+    - [x] **Travel**: Destination (payload already searched, now normalized)
+    - [x] **Event**: Location (internal floor number / external URL)
+    - [x] **Maintenance**: Priority
+    - [x] **General**: N/A (no payload-specific fields)
+  - [x] **Space normalization applied:**
+    - [x] Searching `30 95 05 1 595` now matches tracking number `3095051595`
+    - [x] Spaces automatically removed from both query and field values during comparison
+    - [x] Case-insensitive matching (existing behavior preserved)
+- [x] **Updated search logic on all 12 list pages:**
+  - [x] `/admin/all-requests` — All Requests (admin view)
+  - [x] `/requests` — My Requests
+  - [x] `/team-requests` — Team Requests
+  - [x] `/shipping` — Shipping base
+  - [x] `/shipping/sending` — Shipping Sending (submodule)
+  - [x] `/shipping/receiving` — Shipping Receiving (submodule)
+  - [x] `/hr` — HR module
+  - [x] `/maintenance` — Maintenance module
+  - [x] `/purchase` — Purchase module
+  - [x] `/event` — Event module
+  - [x] `/travel` — Travel module
+  - [x] `/general` — General Request module
+- [x] **Search continues to include:**
+  - [x] Request ID
+  - [x] Request Title
+  - [x] Requester Name
+  - [x] Comment content (via `useCommentSearch` hook)
+  - [x] All of the above, **now with space normalization**
+
 ---
 ### Development Loop (Repeat for each module)
 1. **Sync Plan:** Update this `CLAUDE.md`.

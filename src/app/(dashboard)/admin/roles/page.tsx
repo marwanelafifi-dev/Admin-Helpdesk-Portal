@@ -94,6 +94,8 @@ export default function AdminRolesPage() {
     description: "",
     permissions: [] as string[],
     pages: [] as string[],
+    readModules: [] as string[],
+    readAllModules: [] as string[],
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
@@ -114,7 +116,7 @@ export default function AdminRolesPage() {
 
   const openCreateDialog = () => {
     setEditingRole(null)
-    setFormData({ name: "", description: "", permissions: [], pages: [] })
+    setFormData({ name: "", description: "", permissions: [], pages: [], readModules: [], readAllModules: [] })
     setError("")
     setShowDialog(true)
   }
@@ -130,6 +132,8 @@ export default function AdminRolesPage() {
       description: role.description || "",
       permissions: otherPermissions,
       pages,
+      readModules: (role as any).readModules || [],
+      readAllModules: (role as any).readAllModules || [],
     })
     setError("")
     setShowDialog(true)
@@ -222,6 +226,26 @@ export default function AdminRolesPage() {
     setFormData((current) => ({
       ...current,
       pages: allSelected ? [] : PAGES.map((p) => p.id),
+    }))
+  }
+
+  const MODULES = ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"] as const
+
+  const toggleModule = (module: string) => {
+    setFormData((current) => ({
+      ...current,
+      readModules: current.readModules.includes(module)
+        ? current.readModules.filter((m) => m !== module)
+        : [...current.readModules, module],
+    }))
+  }
+
+  const toggleReadAllModule = (module: string) => {
+    setFormData((current) => ({
+      ...current,
+      readAllModules: current.readAllModules.includes(module)
+        ? current.readAllModules.filter((m) => m !== module)
+        : [...current.readAllModules, module],
     }))
   }
 
@@ -414,6 +438,54 @@ export default function AdminRolesPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* Module Access Control */}
+              <div className="space-y-3 border-t pt-4">
+                <Label className="text-sm font-semibold block">Module Access Control</Label>
+                <p className="text-xs text-gray-600 mb-3">
+                  Select which modules users can access. In "View ALL Requests", users see all requests from that module. Otherwise, they only see their own.
+                </p>
+
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-gray-700">Accessible Modules (Which modules can they see?):</Label>
+                    <div className="grid grid-cols-3 gap-2 p-3 border rounded-lg bg-blue-50">
+                      {MODULES.map((module) => (
+                        <label
+                          key={module}
+                          className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded capitalize"
+                        >
+                          <Checkbox
+                            checked={formData.readModules.includes(module)}
+                            onCheckedChange={() => toggleModule(module)}
+                          />
+                          <span className="text-sm font-medium">{module}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-gray-700">View ALL Requests From (Which modules show all requests?):</Label>
+                    <div className="grid grid-cols-3 gap-2 p-3 border rounded-lg bg-emerald-50">
+                      {MODULES.map((module) => (
+                        <label
+                          key={`readall-${module}`}
+                          className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded capitalize"
+                        >
+                          <Checkbox
+                            checked={formData.readAllModules.includes(module)}
+                            onCheckedChange={() => toggleReadAllModule(module)}
+                            disabled={!formData.readModules.includes(module)}
+                          />
+                          <span className="text-sm font-medium text-gray-700">{module}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Note: Can only enable for modules they have access to above</p>
+                  </div>
                 </div>
               </div>
             </div>

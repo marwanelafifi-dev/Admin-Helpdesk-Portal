@@ -2,7 +2,18 @@
   "permissions": {
     "allow": [
       "Bash(npm run *)",
-      "Bash(docker info *)"
+      "Bash(docker info *)",
+      "Skill(run)",
+      "Skill(run:*)",
+      "Bash(curl -s http://localhost:3000)",
+      "Read(//tmp/**)",
+      "Bash(curl -s http://localhost:3003/login)",
+      "Bash(tail -100 /tmp/dev.log | grep -E \"\\(error|Error|BUILD|✓|○\\)\" | tail -20)",
+      "Bash(npx tsc *)",
+      "Bash(tail -200 /tmp/dev.log | grep -E \"admin/all-requests|requests/page|travel/page\" | tail -10)",
+      "Bash(curl -s http://localhost:3003)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
