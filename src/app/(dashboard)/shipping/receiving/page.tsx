@@ -117,13 +117,7 @@ export default function ReceivingPage() {
       }
       allShipping = scopeRequestsByModuleAccess(allShipping, userWithModules, session?.user)
 
-      const requests = scopeRequests(
-        allShipping,
-        { id: session?.user?.id, email: session?.user?.email, name: session?.user?.name },
-        session?.user?.role,
-        (session?.user?.permissions as string[]) ?? [],
-      )
-      const transformed = requests.map((req: any) => ({
+      const transformed = allShipping.map((req: any) => ({
         id: req.id,
         title: req.title || "Untitled Request",
         trackingNumber: req.payload?.trackingNumber || "",
