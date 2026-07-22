@@ -1365,11 +1365,20 @@ Status column preserves color styling with dot indicators; other columns use neu
   - [x] Users without `readModules` set default to full access (super admin behavior)
   - [x] No breaking changes to existing permissions system
   - [x] Works with existing `read_own` scope restriction
-- [x] **Future improvements** (TODO):
-  - [ ] Apply same filtering to all 12 module list pages (Shipping, HR, etc.)
-  - [ ] Hide inaccessible modules from sidebar
-  - [ ] Add module filter pills to list pages with user's allowed modules only
-  - [ ] Enforce module access on API routes (`/api/requests`, etc.)
+- [x] **Module filtering applied to all 12 list pages:**
+  - [x] All list pages now filter requests by `scopeRequestsByModuleAccess()`
+  - [x] Pages updated: Shipping (base, sending, receiving), HR, Maintenance, Purchase, Event, Travel, General, My Requests, Team Requests
+  - [x] Module access + read scope combined: users see only allowed modules AND only own vs all requests
+  - [x] Filter applied during `useEffect` load to ensure fresh data
+- [x] **Sidebar navigation respects module restrictions:**
+  - [x] `canSee()` function updated to check `canAccessModule()`
+  - [x] Modules hidden from sidebar if user's `readModules` doesn't include them
+  - [x] Smart submodule handling: hr-onboarding, shipping-receiving map to base modules
+  - [x] Example: Finance user sees only Travel & Maintenance nav items
+- [x] **Future improvements** (Deferred):
+  - [ ] Add module filter pills to list pages showing only user's accessible modules
+  - [ ] Enforce module access on API routes (`/api/requests`, etc.) server-side
+  - [ ] Dashboard aggregates only from user's accessible modules
 
 ---
 ### Development Loop (Repeat for each module)
