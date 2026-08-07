@@ -230,7 +230,7 @@ function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCance
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label>Sector</Label>
+              <Label>Sector <span className="text-red-500">*</span></Label>
               <Controller
                 name="sector"
                 control={control}
@@ -240,9 +240,11 @@ function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCance
                     onChange={field.onChange}
                     options={sectors}
                     placeholder="Select sector"
+                    hasError={!!errors.sector}
                   />
                 )}
               />
+              <FieldError message={errors.sector?.message} />
             </div>
             <div className="space-y-1.5">
               <Label>Department <span className="text-red-500">*</span></Label>
@@ -264,7 +266,7 @@ function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCance
           </div>
 
           <div className="space-y-1.5">
-            <Label>Direct Manager</Label>
+            <Label>Direct Manager <span className="text-red-500">*</span></Label>
             <Controller
               name="directManager"
               control={control}
@@ -274,9 +276,11 @@ function OnboardingFormFields({ onCancel, editingRequest, isEditing }: { onCance
                   onChange={field.onChange}
                   options={managers}
                   placeholder="Select direct manager"
+                  hasError={!!errors.directManager}
                 />
               )}
             />
+            <FieldError message={errors.directManager?.message} />
           </div>
 
           <div className="space-y-1.5">
@@ -627,7 +631,7 @@ function OffboardingFormFields({ onCancel, editingRequest, isEditing }: { onCanc
           </div>
 
           <div className="space-y-1.5">
-            <Label>Direct Manager</Label>
+            <Label>Direct Manager <span className="text-red-500">*</span></Label>
             <Controller
               name="directManager"
               control={control}
@@ -637,9 +641,11 @@ function OffboardingFormFields({ onCancel, editingRequest, isEditing }: { onCanc
                   onChange={field.onChange}
                   options={managers}
                   placeholder="Select direct manager"
+                  hasError={!!errors.directManager}
                 />
               )}
             />
+            <FieldError message={errors.directManager?.message} />
           </div>
 
           <div className="space-y-1.5">

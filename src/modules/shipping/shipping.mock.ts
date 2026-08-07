@@ -54,6 +54,7 @@ export const shippingFormDefaults = {
   },
   ccEmails: [],
   direction: "receiving" as ShippingRequestForm["direction"],
+  importType: "supplier_ship" as ShippingRequestForm["importType"],
   supplier: "" as ShippingRequestForm["supplier"],
   supplierName: "",
   costCenter: "" as ShippingRequestForm["costCenter"],

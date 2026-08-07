@@ -15,7 +15,7 @@ export const OFFBOARDING_ITEMS = [
   "Collect Access Card",
 ] as const
 
-export const HR_STATUSES = ["new", "on_hold", "completed"] as const
+export const HR_STATUSES = ["new", "in_progress", "completed", "cancelled"] as const
 
 export const EMPLOYMENT_TYPES = ["Full Time", "Part Time", "Fixed Hours", "Internship", "Consultant/Freelancer"] as const
 export const ENTITIES = ["USA", "KSA", "Egypt", "France"] as const
@@ -34,8 +34,8 @@ export const OnboardingPayloadSchema = z.object({
   nationalIdNumber: z.string().min(1, "National ID number is required"),
   jobTitle: z.string().optional(),
   employmentType: z.enum(EMPLOYMENT_TYPES),
-  directManager: z.string().optional(),
-  sector: z.string().optional(),
+  directManager: z.string().min(1, "Direct manager is required"),
+  sector: z.string().min(1, "Sector is required"),
   department: z.string().min(1, "Department is required"),
   entity: z.enum(ENTITIES),
   startDate: z.string().min(1, "Start date is required"),
@@ -63,7 +63,7 @@ export const OffboardingPayloadSchema = z.object({
   employeeId: z.string().min(1, "Employee ID is required"),
   jobTitle: z.string().optional(),
   employmentType: z.enum(EMPLOYMENT_TYPES),
-  directManager: z.string().optional(),
+  directManager: z.string().min(1, "Direct manager is required"),
   department: z.string().min(1, "Department is required"),
   sector: z.string().min(1, "Sector is required"),
   lastWorkingDay: z.string().min(1, "Last working day is required"),

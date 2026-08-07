@@ -30,10 +30,10 @@ import { LABEL_COLORS, LABEL_DOTS } from "@/lib/statusPalette"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const HR_STATUSES = ["new", "in_progress", "completed"] as const
+const HR_STATUSES = ["new", "in_progress", "completed", "cancelled"] as const
 
 const STATUS_LABELS: Record<string, string> = {
-  new: "New", in_progress: "In Progress", completed: "Completed",
+  new: "New", in_progress: "In Progress", completed: "Completed", cancelled: "Cancelled",
 }
 
 // Derived from canonical palette via STATUS_LABELS so "In Progress" stays
@@ -49,6 +49,7 @@ const STATUS_PILL_ACTIVE: Record<string, string> = {
   new:       "bg-sky-500 border-sky-500 text-white",
   in_progress:   "bg-blue-600 border-blue-600 text-white",
   completed: "bg-emerald-600 border-emerald-600 text-white",
+  cancelled: "bg-red-600 border-red-600 text-white",
 }
 
 

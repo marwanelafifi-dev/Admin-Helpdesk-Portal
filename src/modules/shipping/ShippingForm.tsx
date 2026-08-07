@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import {
   ShippingRequestFormSchema,
   type ShippingRequestForm,
+  type ImportType,
 } from "./shipping.schema"
 import { shippingFormDefaults } from "./shipping.mock"
 import { getList, addItem, getManagerEmail } from "@/lib/companyDataStore"
@@ -44,6 +45,7 @@ import {
   Plane,
   Mail,
   Plus,
+  ClipboardList,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -52,7 +54,7 @@ const BRAND = "#1565C0"
 interface StagedFile {
   id: string
   file: File
-  category: "invoice" | "awb" | "other"
+  category: "invoice" | "awb" | "other" | "packing_list"
 }
 
 function FieldError({ message }: { message?: string }) {
@@ -107,9 +109,28 @@ async function buildAttachmentPayload(files: StagedFile[]) {
   })))
 }
 
-function hasRequiredDocs(files: StagedFile[]) {
-  // Only the Commercial Invoice is required. AWB is optional.
-  return files.some((f) => f.category === "invoice")
+function isSiwareShip(direction: "sending" | "receiving", importType: ImportType) {
+  return direction === "receiving" && importType === "siware_ship"
+}
+
+function hasRequiredDocs(files: StagedFile[], direction: "sending" | "receiving", importType: ImportType) {
+  const hasInvoice = files.some((f) => f.category === "invoice")
+  if (direction !== "receiving") {
+    // Export (sending): only the Commercial Invoice is required. AWB is optional.
+    return hasInvoice
+  }
+  if (isSiwareShip(direction, importType)) {
+    // Si-Ware Will Ship: Commercial Invoice + Packing List are required.
+    return hasInvoice && files.some((f) => f.category === "packing_list")
+  }
+  // Supplier Will Ship: Commercial Invoice + AWB are required.
+  return hasInvoice && files.some((f) => f.category === "awb")
+}
+
+function missingDocsMessage(direction: "sending" | "receiving", importType: ImportType) {
+  if (direction !== "receiving") return "Commercial Invoice is required."
+  if (isSiwareShip(direction, importType)) return "Commercial Invoice and Packing List are required."
+  return "Commercial Invoice and AWB are required."
 }
 
 function mapApprovers(approvers: ShippingRequestForm["approvers"]) {
@@ -200,7 +221,7 @@ function FileUploadZone({
   )
 }
 
-export function ShippingForm({ onCancel, editingRequest, isEditing, direction = "receiving" }: { onCancel?: () => void; editingRequest?: EngineRequest | null; isEditing?: boolean; direction?: "sending" | "receiving" }) {
+export function ShippingForm({ onCancel, editingRequest, isEditing, direction: directionProp = "receiving" }: { onCancel?: () => void; editingRequest?: EngineRequest | null; isEditing?: boolean; direction?: "sending" | "receiving" }) {
   const router = useRouter()
   const { data: session } = useSession()
   const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([])
@@ -208,6 +229,15 @@ export function ShippingForm({ onCancel, editingRequest, isEditing, direction = 
   const [costCenters, setCostCenters] = useState<string[]>([])
   const [carriers, setCarriers] = useState<string[]>([])
   const [managers, setManagers] = useState<{ id: string; name: string; email: string }[]>([])
+  const [importType, setImportType] = useState<ImportType>("supplier_ship")
+
+  // When editing, the request's own stored direction wins over the page's
+  // default prop — otherwise editing a "sending" request through the generic
+  // edit route would incorrectly show Import-only fields.
+  const direction: "sending" | "receiving" =
+    isEditing && editingRequest?.payload
+      ? ((editingRequest.payload as any).direction ?? directionProp)
+      : directionProp
 
   useEffect(() => {
     setSuppliers(getList("suppliers"))
@@ -245,6 +275,7 @@ export function ShippingForm({ onCancel, editingRequest, isEditing, direction = 
         },
         ccEmails: payload.ccEmails || [],
       })
+      setImportType(payload.importType || "supplier_ship")
     }
   }, [editingRequest, isEditing, reset])
 
@@ -256,11 +287,17 @@ export function ShippingForm({ onCancel, editingRequest, isEditing, direction = 
   const removeStagedFile = useCallback((id: string) => setStagedFiles((prev) => prev.filter((f) => f.id !== id)), [])
 
   const onSubmit = async (data: ShippingRequestForm) => {
-    if (!isEditing && !hasRequiredDocs(stagedFiles)) {
-      setError("attachments", { type: "manual", message: "Commercial Invoice is required." })
+    if (!isEditing && !hasRequiredDocs(stagedFiles, direction, importType)) {
+      setError("attachments", { type: "manual", message: missingDocsMessage(direction, importType) })
       return
     }
     clearErrors("attachments")
+
+    if (!isSiwareShip(direction, importType) && !data.carrier?.trim()) {
+      setError("carrier", { type: "manual", message: "Select a carrier" })
+      return
+    }
+    clearErrors("carrier")
 
     // If the user picked "Other" and typed a new supplier, push the typed
     // value into the Company Data suppliers list so it's there next time —
@@ -305,6 +342,7 @@ export function ShippingForm({ onCancel, editingRequest, isEditing, direction = 
         // filter to their own bucket. When editing, keep whatever direction
         // was already on the request.
         direction: isEditing ? ((editingRequest?.payload as any)?.direction ?? direction) : direction,
+        importType: direction === "receiving" ? importType : undefined,
         approvers: mapApprovers(data.approvers),
         attachments: attachmentsPayload,
       }
@@ -367,6 +405,42 @@ export function ShippingForm({ onCancel, editingRequest, isEditing, direction = 
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 max-w-4xl mx-auto">
+      {direction === "receiving" && (
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base">Import Request Type</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-4">
+              <button
+                type="button"
+                onClick={() => setImportType("supplier_ship")}
+                className={cn(
+                  "flex-1 px-4 py-3 rounded-lg border-2 font-medium transition-all",
+                  importType === "supplier_ship"
+                    ? "border-blue-500 bg-blue-50 text-blue-900"
+                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                )}
+              >
+                Supplier Will Ship
+              </button>
+              <button
+                type="button"
+                onClick={() => setImportType("siware_ship")}
+                className={cn(
+                  "flex-1 px-4 py-3 rounded-lg border-2 font-medium transition-all",
+                  importType === "siware_ship"
+                    ? "border-blue-500 bg-blue-50 text-blue-900"
+                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                )}
+              >
+                Si-Ware Will Ship
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <SectionHeader icon={FileText} title="Request Details" subtitle="General information about this request" />
         <CardContent className="space-y-4">
@@ -453,35 +527,39 @@ export function ShippingForm({ onCancel, editingRequest, isEditing, direction = 
       </Card>
 
       <Card>
-        <SectionHeader icon={Package} title="Shipment Details" subtitle="Carrier and tracking information" />
+        <SectionHeader icon={Package} title="Shipment Details" subtitle={isSiwareShip(direction, importType) ? "Shipment description and dates" : "Carrier and tracking information"} />
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Carrier <span className="text-red-500">*</span></Label>
-              <Controller name="carrier" control={control} render={({ field }) => (
-                <SearchableSelect
-                  value={field.value}
-                  onChange={field.onChange}
-                  options={carriers}
-                  placeholder="Select carrier"
-                  hasError={!!errors.carrier}
-                />
-              )} />
-              <FieldError message={errors.carrier?.message} />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="trackingNumber">Tracking Number <span className="text-muted-foreground text-xs">(optional)</span></Label>
-              <Input id="trackingNumber" {...register("trackingNumber")} className={cn(errors.trackingNumber && "border-red-400")} />
-              <FieldError message={errors.trackingNumber?.message} />
-            </div>
-          </div>
+          {!isSiwareShip(direction, importType) && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Carrier <span className="text-red-500">*</span></Label>
+                  <Controller name="carrier" control={control} render={({ field }) => (
+                    <SearchableSelect
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                      options={carriers}
+                      placeholder="Select carrier"
+                      hasError={!!errors.carrier}
+                    />
+                  )} />
+                  <FieldError message={errors.carrier?.message} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="trackingNumber">Tracking Number <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                  <Input id="trackingNumber" {...register("trackingNumber")} className={cn(errors.trackingNumber && "border-red-400")} />
+                  <FieldError message={errors.trackingNumber?.message} />
+                </div>
+              </div>
 
-          {carrier === "Other" && (
-            <div className="space-y-1.5">
-              <Label htmlFor="carrierName">Carrier Name <span className="text-red-500">*</span></Label>
-              <Input id="carrierName" {...register("carrierName")} className={cn(errors.carrierName && "border-red-400")} />
-              <FieldError message={errors.carrierName?.message} />
-            </div>
+              {carrier === "Other" && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="carrierName">Carrier Name <span className="text-red-500">*</span></Label>
+                  <Input id="carrierName" {...register("carrierName")} className={cn(errors.carrierName && "border-red-400")} />
+                  <FieldError message={errors.carrierName?.message} />
+                </div>
+              )}
+            </>
           )}
 
           <div className="space-y-1.5">
@@ -507,11 +585,25 @@ export function ShippingForm({ onCancel, editingRequest, isEditing, direction = 
       </Card>
 
       <Card>
-        <SectionHeader icon={Receipt} title="Attachments" subtitle="Commercial Invoice is required; AWB is optional" />
+        <SectionHeader
+          icon={Receipt}
+          title="Attachments"
+          subtitle={
+            direction !== "receiving"
+              ? "Commercial Invoice is required; AWB is optional"
+              : isSiwareShip(direction, importType)
+                ? "Commercial Invoice and Packing List are required"
+                : "Commercial Invoice and AWB are required"
+          }
+        />
         <CardContent>
           <div className="space-y-4">
             <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-6 p-3 rounded-lg", (errors.attachments as { message?: string })?.message ? "bg-red-50 border border-red-200" : "")}>
-              <FileUploadZone category="awb" label="AWB" icon={Plane} files={stagedFiles} onAdd={addStagedFiles} onRemove={removeStagedFile} />
+              {isSiwareShip(direction, importType) ? (
+                <FileUploadZone category="packing_list" label="Packing List" icon={ClipboardList} files={stagedFiles} onAdd={addStagedFiles} onRemove={removeStagedFile} required />
+              ) : (
+                <FileUploadZone category="awb" label="AWB" icon={Plane} files={stagedFiles} onAdd={addStagedFiles} onRemove={removeStagedFile} required={direction === "receiving"} />
+              )}
               <FileUploadZone category="invoice" label="Commercial Invoice" icon={FileText} files={stagedFiles} onAdd={addStagedFiles} onRemove={removeStagedFile} required />
             </div>
             <div className="mt-4">

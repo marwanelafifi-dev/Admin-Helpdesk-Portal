@@ -1415,6 +1415,36 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 **Git Commits:** 5 commits (Phase 6x search + Phase 6y module access control)
 
 ---
+
+## Phase 7 — Login Polish, HR Form Consistency, Shipping Import/Export Rebrand (07 Aug 2026)
+
+**Status:** Fully implemented and verified against `tsc --noEmit` (no new errors vs. baseline)
+
+**Login Page (`src/app/login/page.tsx`):**
+- [x] "Continue with Google" button restyled to the standard white/bordered Google button pattern.
+- [x] Email field relabeled "Email address" with placeholder `you@si-ware.com`.
+- [x] "Sign in" button restyled to bold blue (`#337ab7` / hover `#2e6da4`).
+- [x] "Admin Helpdesk Portal" title, "Sign in securely" card title, and the "Email address"/"Password" labels unified to the same navy (`#1b3a5c`); "Email address"/"Password" set to bold.
+
+**HR Module (`src/modules/hr/hr.schema.ts`, `src/modules/hr/HRForm.tsx`):**
+- [x] **Sector** and **Direct Manager** are now required (with validation + red asterisk + error state) in both Onboarding and Offboarding forms — previously only Department was consistently required across both.
+- [x] Added **Cancelled** as a 4th status (alongside New / In Progress / Completed) for HR requests in `src/app/(dashboard)/hr/page.tsx`, using the shared red "Cancelled" palette from `src/lib/statusPalette.ts`.
+
+**Shipping Rebrand — "Sending"/"Receiving" → "Export"/"Import" (display-only):**
+- [x] Sidebar labels, list-page headers, "Add … Request" buttons, "New Request" page titles/back-links, direction badges (All Requests / My Requests), global search/command-palette labels (`src/lib/pageRegistry.ts`), and the shipping notification email's "Direction" field all now read Export/Import.
+- [x] Routes (`/shipping/sending`, `/shipping/receiving`), the underlying `direction: "sending" | "receiving"` schema/database values, and internal function/variable names were deliberately left unchanged — only user-facing text changed, so no existing data or links were affected.
+
+**Import Request Type — Supplier Will Ship vs. Si-Ware Will Ship (`src/modules/shipping/shipping.schema.ts`, `ShippingForm.tsx`):**
+- [x] New "Import Request Type" selector on the Import (`/shipping/receiving/new`) form only, mirroring the Travel form's type-toggle pattern.
+- [x] **Supplier Will Ship** (default): unchanged fields, but **AWB attachment is now mandatory** (previously optional).
+- [x] **Si-Ware Will Ship**: **Carrier** and **Tracking Number** fields are hidden/not required; **AWB is removed**; a mandatory **Packing List** attachment is added instead.
+- [x] Export (`/shipping/sending/new`) form is completely unaffected — Carrier/Tracking Number still required, AWB still optional.
+- [x] `importType` persisted on the shipping payload (`supplier_ship` | `siware_ship`), restored correctly when editing.
+- [x] New **Type** filter pill row added to the Import list page (`src/app/(dashboard)/shipping/receiving/page.tsx`), alongside the existing Carrier filter — requests created before this feature default to "Supplier Will Ship" for filtering purposes.
+
+**Verified untouched:** Database/backup/restore admin page (`src/app/(dashboard)/admin/database/page.tsx`) — no references to Sending/Receiving existed there and it was not modified.
+
+---
 ### Development Loop (Repeat for each module)
 1. **Sync Plan:** Update this `CLAUDE.md`.
 2. **Define Schema:** Create/Update `Zod` schemas.

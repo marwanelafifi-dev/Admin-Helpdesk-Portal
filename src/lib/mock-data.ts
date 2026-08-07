@@ -79,6 +79,7 @@ export interface MockShipment {
   poNumber: string
   costCenter: string
   lastUpdate: string
+  importType?: string
 }
 
 export const mockShipments: MockShipment[] = []

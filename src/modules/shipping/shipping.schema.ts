@@ -6,6 +6,9 @@ export const COST_CENTERS = NETSUITE_COST_CENTERS as [string, ...string[]]
 
 export const CARRIERS = ["DHL", "FedEx", "UPS", "Aramex", "Other"] as const
 
+export const IMPORT_TYPES = ["supplier_ship", "siware_ship"] as const
+export type ImportType = (typeof IMPORT_TYPES)[number]
+
 export const REQUEST_STATUSES = [
   "new",
   "awaiting_approval",
@@ -79,6 +82,7 @@ export const ShippingApproversFormSchema = z.object({
 export const ShippingPayloadSchema = z
   .object({
     direction: z.enum(["sending", "receiving"]).default("receiving"),
+    importType: z.enum(IMPORT_TYPES).optional(),
     supplier: z.string().min(1, "Supplier is required"),
     supplierName: z.string().optional(),
     costCenter: z.enum(COST_CENTERS, { error: "Select a valid cost center" }),
@@ -87,7 +91,7 @@ export const ShippingPayloadSchema = z
     approvers: ShippingApproversSchema,
     ccEmails: z.array(z.email({ error: "Invalid email address" })).default([]),
 
-    carrier: z.enum(CARRIERS),
+    carrier: z.enum(CARRIERS).optional(),
     carrierName: z.string().optional(),
     trackingNumber: z.string().optional(),
     trackingLink: z.string().optional(),
@@ -127,12 +131,13 @@ export const ShippingRequestFormSchema = z
     ccEmails: z.array(z.email({ error: "Must be a valid email address" })).default([]),
 
     direction: z.enum(["sending", "receiving"]).default("receiving"),
+    importType: z.enum(IMPORT_TYPES).optional(),
     supplier: z.string().min(1, "Select a valid supplier"),
     supplierName: z.string().optional(),
     costCenter: z.string().min(1, "Select a valid cost center"),
     poNumber: z.string().min(1, "PO number is required"),
 
-    carrier: z.string().min(1, "Select a carrier"),
+    carrier: z.string().optional(),
     carrierName: z.string().optional(),
     trackingNumber: z.string().optional(),
     trackingLink: z.string().optional(),

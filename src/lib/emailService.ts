@@ -942,7 +942,7 @@ export async function sendShippingApprovalEmail(params: {
       <table style="width:100%;border-collapse:collapse;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;background:#f8fafc;">
         ${row("Requested by", params.requesterName)}
         ${row("Requester email", params.requesterEmail)}
-        ${row("Direction", params.direction === "sending" ? "Sending (Outgoing)" : "Receiving (Incoming)")}
+        ${row("Direction", params.direction === "sending" ? "Export (Outgoing)" : "Import (Incoming)")}
         ${row("Carrier", params.carrier)}
         ${row("Tracking Number", params.trackingNumber)}
         ${row("PO Number", params.poNumber)}

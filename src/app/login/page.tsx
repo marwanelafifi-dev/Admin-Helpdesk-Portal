@@ -89,26 +89,24 @@ function LoginFormContent({ callbackUrl, oauthError }: LoginFormProps) {
             )}
           </div>
           <div className="space-y-1 text-center">
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">{cfg.loginTitle}</h1>
+            <h1 className="text-3xl font-semibold tracking-tight text-[#1b3a5c] dark:text-slate-100">{cfg.loginTitle}</h1>
             <p className="text-sm text-slate-700 dark:text-slate-400 max-w-md mx-auto">{cfg.loginSubtitle}</p>
           </div>
         </div>
 
         <Card className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/50 dark:shadow-black/40 rounded-[1.75rem] animate-slide-up">
           <CardHeader className="space-y-2 pb-5 text-center">
-            <CardTitle className="text-2xl text-slate-900 dark:text-slate-100">{cfg.loginCardTitle}</CardTitle>
-            <CardDescription className="text-slate-600 dark:text-slate-400">
+            <CardTitle className="text-2xl text-[#1b3a5c] dark:text-slate-100">{cfg.loginCardTitle}</CardTitle>
+            <CardDescription className="text-gray-500 dark:text-slate-400">
               {cfg.loginCardSubtitle.split("\n").map((line, i) => (
                 <span key={i}>{line}{i < cfg.loginCardSubtitle.split("\n").length - 1 && <br />}</span>
               ))}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {cfg.showGoogleLogin && <Button
+            {cfg.showGoogleLogin && <button
               type="button"
-              variant="secondary"
-              className="w-full rounded-xl border-slate-300 dark:border-slate-700 bg-slate-950 dark:bg-slate-800 text-white hover:bg-slate-800 dark:hover:bg-slate-700"
-              size="lg"
+              className="w-full h-11 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
               onClick={handleGoogleSignIn}
               disabled={loadingProvider !== null}
             >
@@ -116,18 +114,16 @@ function LoginFormContent({ callbackUrl, oauthError }: LoginFormProps) {
                 "Opening Google..."
               ) : (
                 <>
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white text-sm">
-                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M21.35 11.1H12v2.8h5.35c-.23 1.2-.92 2.22-1.96 2.9v2.4h3.17c1.86-1.72 2.95-4.24 2.95-7.3 0-.52-.05-1.03-.14-1.52z" fill="#4285F4"/>
-                      <path d="M12 22c2.64 0 4.86-.87 6.48-2.35l-3.17-2.4c-.88.6-2.02.95-3.31.95-2.55 0-4.71-1.72-5.48-4.04H3.1v2.53C4.75 19.95 8.12 22 12 22z" fill="#34A853"/>
-                      <path d="M6.52 13.16a5.99 5.99 0 010-3.28V7.35H3.1a9.997 9.997 0 000 9.3l3.42-2.4z" fill="#FBBC04"/>
-                      <path d="M12 6.02c1.43 0 2.72.49 3.74 1.45l2.8-2.8C16.84 3.15 14.64 2 12 2 8.12 2 4.75 4.05 3.1 7.35l3.42 2.53C7.29 7.74 9.45 6.02 12 6.02z" fill="#EA4335"/>
-                    </svg>
-                  </span>
+                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M21.35 11.1H12v2.8h5.35c-.23 1.2-.92 2.22-1.96 2.9v2.4h3.17c1.86-1.72 2.95-4.24 2.95-7.3 0-.52-.05-1.03-.14-1.52z" fill="#4285F4"/>
+                    <path d="M12 22c2.64 0 4.86-.87 6.48-2.35l-3.17-2.4c-.88.6-2.02.95-3.31.95-2.55 0-4.71-1.72-5.48-4.04H3.1v2.53C4.75 19.95 8.12 22 12 22z" fill="#34A853"/>
+                    <path d="M6.52 13.16a5.99 5.99 0 010-3.28V7.35H3.1a9.997 9.997 0 000 9.3l3.42-2.4z" fill="#FBBC04"/>
+                    <path d="M12 6.02c1.43 0 2.72.49 3.74 1.45l2.8-2.8C16.84 3.15 14.64 2 12 2 8.12 2 4.75 4.05 3.1 7.35l3.42 2.53C7.29 7.74 9.45 6.02 12 6.02z" fill="#EA4335"/>
+                  </svg>
                   Continue with Google
                 </>
               )}
-            </Button>}
+            </button>}
 
             {cfg.showGoogleLogin && <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -140,13 +136,13 @@ function LoginFormContent({ callbackUrl, oauthError }: LoginFormProps) {
 
             <form onSubmit={handleCredentialsSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="font-bold text-[#1b3a5c] dark:text-slate-100">Email address</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="email"
                     type="email"
-                    placeholder="you@example.com"
+                    placeholder="you@si-ware.com"
                     className="pl-9"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -156,7 +152,7 @@ function LoginFormContent({ callbackUrl, oauthError }: LoginFormProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password" className="font-bold text-[#1b3a5c] dark:text-slate-100">Password</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -183,7 +179,7 @@ function LoginFormContent({ callbackUrl, oauthError }: LoginFormProps) {
 
               <Button
                 type="submit"
-                className="w-full"
+                className="w-full bg-[#337ab7] hover:bg-[#2e6da4] text-white font-semibold"
                 size="lg"
                 disabled={loadingProvider !== null}
               >

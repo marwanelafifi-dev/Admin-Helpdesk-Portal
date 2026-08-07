@@ -20,9 +20,9 @@ export default function NewReceivingRequestPage() {
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Receiving
+          Back to Import
         </Link>
-        <h1 className="text-2xl font-bold tracking-tight">New Receiving Request</h1>
+        <h1 className="text-2xl font-bold tracking-tight">New Import Request</h1>
         <p className="text-muted-foreground text-sm mt-0.5">
           Fill in the details below and submit for approval
         </p>

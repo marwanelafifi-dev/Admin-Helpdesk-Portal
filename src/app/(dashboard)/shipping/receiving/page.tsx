@@ -54,6 +54,12 @@ const STATUS_PILL_ACTIVE: Record<string, string> = {
   cancelled:          "bg-red-600 border-red-600 text-white",
 }
 
+const IMPORT_TYPES = ["supplier_ship", "siware_ship"] as const
+const IMPORT_TYPE_LABELS: Record<string, string> = {
+  supplier_ship: "Supplier Will Ship",
+  siware_ship: "Si-Ware Will Ship",
+}
+
 type SortKey = keyof Pick<MockShipment, "id" | "title" | "pickupDate" | "trackingNumber" | "poNumber" | "costCenter" | "carrier" | "requester" | "status" | "expectedDelivery" | "lastUpdate">
 
 const COLS: { key: SortKey; label: string; defaultW: number }[] = [
@@ -78,6 +84,7 @@ export default function ReceivingPage() {
   const [search, setSearch]           = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [carrierFilter, setCarrierFilter] = useState("all")
+  const [typeFilter, setTypeFilter] = useState("all")
   const [dynamicCarriers, setDynamicCarriers] = useState<string[]>([])
   useEffect(() => { setDynamicCarriers(getList("carriers")) }, [])
   const [sortKey, setSortKey]         = useState<SortKey>("id")
@@ -131,6 +138,7 @@ export default function ReceivingPage() {
         poNumber: req.payload?.poNumber || "",
         costCenter: req.payload?.costCenter || "",
         lastUpdate: fmtDateTime(req.updatedAt),
+        importType: req.payload?.importType || "supplier_ship",
       }))
       setShipments(transformed)
       setError(null)
@@ -249,6 +257,7 @@ export default function ReceivingPage() {
       poNumber: r.payload?.poNumber || "",
       costCenter: r.payload?.costCenter || "",
       lastUpdate: fmtDateTime(r.updatedAt),
+      importType: r.payload?.importType || "supplier_ship",
     }))
     return [...shipments, ...ccRequests]
   }, [shipments, showCcRequests, session?.user?.email, session?.user?.id])
@@ -259,13 +268,14 @@ export default function ReceivingPage() {
       const matchSearch = normalizeSearchText(s.id).includes(q) || normalizeSearchText(s.trackingNumber).includes(q) || normalizeSearchText(s.destination).includes(q) || normalizeSearchText(s.requester).includes(q) || commentMatchIds.has(s.id)
       const matchStatus  = statusFilter === "all" || s.status === statusFilter
       const matchCarrier = carrierFilter === "all" || s.carrier === carrierFilter
-      return matchSearch && matchStatus && matchCarrier
+      const matchType    = typeFilter === "all" || s.importType === typeFilter
+      return matchSearch && matchStatus && matchCarrier && matchType
     })
     return result.sort((a, b) => {
       const av = a[sortKey] ?? "", bv = b[sortKey] ?? ""
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
-  }, [search, statusFilter, carrierFilter, sortKey, sortDir, allVisibleShipments, commentMatchIds])
+  }, [search, statusFilter, carrierFilter, typeFilter, sortKey, sortDir, allVisibleShipments, commentMatchIds])
 
   const stats = useMemo(() => ({
     total:               shipments.length,
@@ -291,7 +301,7 @@ export default function ReceivingPage() {
       {/* Header */}
       <div className={cn("flex items-center justify-between", animationClasses.headerFadeIn)}>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight">Receiving</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Import</h1>
           <p className="text-muted-foreground text-sm mt-0.5">Track incoming shipments and deliveries</p>
         </div>
         {(newRequestsCount > 0 || newTasksCount > 0) && (
@@ -300,7 +310,7 @@ export default function ReceivingPage() {
         <Button asChild className={cn("bg-blue-600 hover:bg-blue-700 text-white ml-4", animationClasses.buttonHoverScale)}>
           <Link href="/shipping/receiving/new">
             <Plus className="h-4 w-4 mr-2" />
-            Add Receiving Request
+            Add Import Request
           </Link>
         </Button>
       </div>
@@ -394,6 +404,27 @@ export default function ReceivingPage() {
                   )}
                 >
                   {c === "all" ? "All" : c}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Type pills */}
+          <div className="flex items-center gap-3 flex-wrap mt-1">
+            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest w-12 shrink-0">Type</span>
+            <div className="flex flex-wrap gap-1.5">
+              {(["all", ...IMPORT_TYPES] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTypeFilter(t)}
+                  className={cn(
+                    "h-6 px-2.5 rounded text-[11px] font-medium border transition-all",
+                    typeFilter === t
+                      ? "bg-gray-900 border-gray-900 text-white"
+                      : "bg-white border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700"
+                  )}
+                >
+                  {t === "all" ? "All" : IMPORT_TYPE_LABELS[t]}
                 </button>
               ))}
             </div>

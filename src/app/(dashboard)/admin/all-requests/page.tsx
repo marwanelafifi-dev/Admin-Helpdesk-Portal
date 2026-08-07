@@ -684,7 +684,7 @@ export default function AllRequestsPage() {
                               ? "bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/30 dark:border-purple-900 dark:text-purple-300"
                               : "bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/30 dark:border-blue-900 dark:text-blue-300"
                           )}>
-                            {isSending ? "Sending" : "Receiving"}
+                            {isSending ? "Export" : "Import"}
                           </span>
                         )
                       })()}

@@ -77,8 +77,8 @@ const navItems: NavItem[] = [
     href: "/shipping",
     icon: Package,
     children: [
-      { title: "Receiving", href: "/shipping/receiving", icon: Package },
-      { title: "Sending", href: "/shipping/sending", icon: Package },
+      { title: "Import", href: "/shipping/receiving", icon: Package },
+      { title: "Export", href: "/shipping/sending", icon: Package },
     ],
   },
   { title: "Maintenance", href: "/maintenance", icon: Wrench },

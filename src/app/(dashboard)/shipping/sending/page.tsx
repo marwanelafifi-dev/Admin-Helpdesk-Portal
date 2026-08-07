@@ -277,7 +277,7 @@ export default function SendingPage() {
 
       <div className={cn("flex items-center justify-between", animationClasses.headerFadeIn)}>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight">Sending</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Export</h1>
           <p className="text-muted-foreground text-sm mt-0.5">Track outgoing shipments and deliveries</p>
         </div>
         {(newRequestsCount > 0 || newTasksCount > 0) && (
@@ -286,7 +286,7 @@ export default function SendingPage() {
         <Button asChild className={cn("bg-blue-600 hover:bg-blue-700 text-white ml-4", animationClasses.buttonHoverScale)}>
           <Link href="/shipping/sending/new">
             <Plus className="h-4 w-4 mr-2" />
-            Add Sending Request
+            Add Export Request
           </Link>
         </Button>
       </div>
