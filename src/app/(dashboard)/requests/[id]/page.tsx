@@ -402,7 +402,7 @@ export default function RequestDetailPage() {
       <body>
         <div class="container">
           <div class="logo-section">
-            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 60'%3E%3Ctext x='10' y='45' font-family='Arial, sans-serif' font-size='32' font-weight='bold' fill='%232563eb'%3ESi-Ware%3C/text%3E%3C/svg%3E" alt="Si-Ware Systems">
+            <img src="/siware-logo.png" alt="Si-Ware Systems" style="max-height: 50px;">
           </div>
 
           <div class="header">
