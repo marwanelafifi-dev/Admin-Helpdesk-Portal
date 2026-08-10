@@ -253,7 +253,7 @@ async function notifyByEmail(params: {
   let uniqueRecipients: string[]
   let ccEmails: string[]
 
-  // For comments: TO = Request Owner + adminhelpdesk, CC = form CCs
+  // For comments: TO = Request Owner + adminhelpdesk + CC recipients
   if (params.updateType === "comment") {
     const ownerEmail =
       params.requestOwnerEmail &&
@@ -261,19 +261,17 @@ async function notifyByEmail(params: {
         ? params.requestOwnerEmail
         : undefined
 
-    // TO: owner + adminhelpdesk (ensure at least adminhelpdesk gets the notification)
+    // TO: owner + adminhelpdesk + all CC recipients
     uniqueRecipients = Array.from(new Set([
       ownerEmail,
       ADMIN_HELPDESK_EMAIL,
+      ...(params.ccEmails ?? []).filter((e): e is string => Boolean(e)),
     ].filter((e): e is string => Boolean(e))))
       .filter((e) => !actionUserEmail || e.toLowerCase() !== actionUserEmail)
 
-    ccEmails = (params.ccEmails ?? [])
-      .filter((e): e is string => Boolean(e))
-      .filter((e) => !actionUserEmail || e.toLowerCase() !== actionUserEmail)
-      .filter((e) => !uniqueRecipients.some((r) => r.toLowerCase() === e.toLowerCase()))
+    ccEmails = []  // No separate CC since all are in TO
   } else {
-    // For status changes: TO = Admin Team + Owner, CC = form CCs
+    // For status changes: TO = Admin Team + Owner + CC recipients
     const realAdmins = await fetchAdminUsers()
     const realAdminEmails = realAdmins.map((u) => u.email)
 
@@ -287,16 +285,14 @@ async function notifyByEmail(params: {
       ...realAdminEmails,
       ownerEmail,
       ADMIN_HELPDESK_EMAIL,
+      ...(params.ccEmails ?? []).filter((e): e is string => Boolean(e)),
     ].filter((e): e is string => Boolean(e))))
 
     uniqueRecipients = allEmails.filter(
       (e) => !actionUserEmail || e.toLowerCase() !== actionUserEmail
     )
 
-    ccEmails = (params.ccEmails ?? [])
-      .filter((e): e is string => Boolean(e))
-      .filter((e) => e.toLowerCase() !== actionUserEmail)
-      .filter((e) => !uniqueRecipients.some((r) => r.toLowerCase() === e.toLowerCase()))
+    ccEmails = []  // No separate CC since all are in TO
   }
 
   if (uniqueRecipients.length === 0) return
