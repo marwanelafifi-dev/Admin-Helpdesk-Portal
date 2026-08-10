@@ -22,7 +22,8 @@
       "Bash(git commit -m 'fix: comment notifications and travel auto-CC consistency *)",
       "Bash(git push *)",
       "Bash(git commit -m 'feat: add print button to request detail page *)",
-      "Bash(git commit -m 'feat: add Si-Ware logo to print document *)"
+      "Bash(git commit -m 'feat: add Si-Ware logo to print document *)",
+      "Bash(git commit -m 'feat: optimize print layout for single-page documents *)"
     ]
   }
 }

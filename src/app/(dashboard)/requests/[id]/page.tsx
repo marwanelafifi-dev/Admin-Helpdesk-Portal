@@ -365,31 +365,37 @@ export default function RequestDetailPage() {
         <title>${request.title} - ${request.id}</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1f2937; line-height: 1.6; }
-          .container { max-width: 900px; margin: 0 auto; padding: 40px 20px; }
-          .logo-section { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #e5e7eb; }
-          .logo-section img { height: 50px; width: auto; }
-          .header { border-bottom: 3px solid #2563eb; margin-bottom: 30px; padding-bottom: 20px; }
-          .header h1 { font-size: 28px; margin-bottom: 8px; }
-          .header .meta { display: flex; gap: 30px; flex-wrap: wrap; font-size: 14px; color: #6b7280; }
-          .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+          html, body { height: 100%; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1f2937; line-height: 1.5; }
+          .container { max-width: 900px; margin: 0 auto; padding: 30px 20px; display: flex; flex-direction: column; min-height: 100%; }
+          .logo-section { text-align: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #e5e7eb; }
+          .logo-section img { height: 40px; width: auto; }
+          .header { border-bottom: 3px solid #2563eb; margin-bottom: 20px; padding-bottom: 15px; }
+          .header h1 { font-size: 24px; margin-bottom: 6px; }
+          .header .meta { display: flex; gap: 20px; flex-wrap: wrap; font-size: 13px; color: #6b7280; }
+          .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
           .badge.new { background-color: #dbeafe; color: #0c4a6e; }
           .badge.in_progress { background-color: #bfdbfe; color: #1e40af; }
           .badge.completed { background-color: #d1fae5; color: #065f46; }
           .badge.cancelled { background-color: #fee2e2; color: #7f1d1d; }
           .badge.delivered { background-color: #dcfce7; color: #166534; }
           .badge.awaiting_approval { background-color: #fed7aa; color: #92400e; }
-          .section { margin-bottom: 25px; }
-          .section-title { font-size: 14px; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
-          .details-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
-          .detail-item { }
-          .detail-label { font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px; }
-          .detail-value { font-size: 14px; color: #1f2937; font-weight: 500; }
-          .description-box { background-color: #f9fafb; padding: 15px; border-radius: 6px; border-left: 3px solid #2563eb; }
-          .print-date { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; }
+          .content { flex: 1; }
+          .section { margin-bottom: 18px; page-break-inside: avoid; }
+          .section-title { font-size: 12px; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+          .details-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+          .detail-item { page-break-inside: avoid; }
+          .detail-label { font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 3px; }
+          .detail-value { font-size: 13px; color: #1f2937; font-weight: 500; }
+          .description-box { background-color: #f9fafb; padding: 12px; border-radius: 6px; border-left: 3px solid #2563eb; font-size: 13px; }
+          .print-date { text-align: center; margin-top: auto; padding-top: 15px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; }
           @media print {
+            * { page-break-inside: avoid; }
+            html, body { margin: 0; padding: 0; }
             body { background: white; }
-            .container { padding: 20px; }
+            .container { padding: 15px; margin: 0; }
+            .section { page-break-inside: avoid; }
+            .detail-item { page-break-inside: avoid; }
           }
         </style>
       </head>
@@ -408,6 +414,7 @@ export default function RequestDetailPage() {
             </div>
           </div>
 
+          <div class="content">
           <div class="section">
             <div class="section-title">Request Information</div>
             <div class="details-grid">
@@ -466,6 +473,7 @@ export default function RequestDetailPage() {
               </div>
             </div>
           ` : ""}
+          </div>
 
           <div class="print-date">
             Printed on ${new Date().toLocaleString()}
