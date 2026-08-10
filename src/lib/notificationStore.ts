@@ -253,7 +253,7 @@ async function notifyByEmail(params: {
   let uniqueRecipients: string[]
   let ccEmails: string[]
 
-  // For comments: TO = Request Owner, CC = adminhelpdesk + form CCs
+  // For comments: TO = Request Owner + adminhelpdesk, CC = form CCs
   if (params.updateType === "comment") {
     const ownerEmail =
       params.requestOwnerEmail &&
@@ -261,12 +261,15 @@ async function notifyByEmail(params: {
         ? params.requestOwnerEmail
         : undefined
 
-    uniqueRecipients = ownerEmail ? [ownerEmail] : []
-
-    ccEmails = Array.from(new Set([
+    // TO: owner + adminhelpdesk (ensure at least adminhelpdesk gets the notification)
+    uniqueRecipients = Array.from(new Set([
+      ownerEmail,
       ADMIN_HELPDESK_EMAIL,
-      ...(params.ccEmails ?? []).filter((e): e is string => Boolean(e)),
-    ]))
+    ].filter((e): e is string => Boolean(e))))
+      .filter((e) => !actionUserEmail || e.toLowerCase() !== actionUserEmail)
+
+    ccEmails = (params.ccEmails ?? [])
+      .filter((e): e is string => Boolean(e))
       .filter((e) => !actionUserEmail || e.toLowerCase() !== actionUserEmail)
       .filter((e) => !uniqueRecipients.some((r) => r.toLowerCase() === e.toLowerCase()))
   } else {
