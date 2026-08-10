@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
-import { ArrowLeft, Calendar, User, FileText, Clock, CheckCircle2, AlertCircle, ChevronDown, Star, Send } from "lucide-react"
+import { ArrowLeft, Calendar, User, FileText, Clock, CheckCircle2, AlertCircle, ChevronDown, Star, Send, Printer } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -330,6 +330,151 @@ export default function RequestDetailPage() {
         message: error instanceof Error ? error.message : "Approval email failed",
       })
     }
+  }
+
+  const handlePrint = () => {
+    if (!request) return
+
+    const printWindow = window.open("", "_blank")
+    if (!printWindow) return
+
+    const moduleLabel = request.module.charAt(0).toUpperCase() + request.module.slice(1)
+    const statusLabel = getStatusLabel(request.status, request.module)
+
+    const requesterInfo = request.requester
+      ? `${request.requester.name} (${request.requester.email})`
+      : "Not specified"
+
+    const assigneeInfo = request.assignedToName
+      ? `${request.assignedToName}${request.assignedToEmail ? ` (${request.assignedToEmail})` : ""}`
+      : "Unassigned"
+
+    const ccList = request.ccEmails && request.ccEmails.length > 0
+      ? request.ccEmails.join(", ")
+      : "None"
+
+    const adminCcList = request.adminCc && request.adminCc.length > 0
+      ? request.adminCc.join(", ")
+      : "None"
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>${request.title} - ${request.id}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1f2937; line-height: 1.6; }
+          .container { max-width: 900px; margin: 0 auto; padding: 40px 20px; }
+          .header { border-bottom: 3px solid #2563eb; margin-bottom: 30px; padding-bottom: 20px; }
+          .header h1 { font-size: 28px; margin-bottom: 8px; }
+          .header .meta { display: flex; gap: 30px; flex-wrap: wrap; font-size: 14px; color: #6b7280; }
+          .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+          .badge.new { background-color: #dbeafe; color: #0c4a6e; }
+          .badge.in_progress { background-color: #bfdbfe; color: #1e40af; }
+          .badge.completed { background-color: #d1fae5; color: #065f46; }
+          .badge.cancelled { background-color: #fee2e2; color: #7f1d1d; }
+          .badge.delivered { background-color: #dcfce7; color: #166534; }
+          .badge.awaiting_approval { background-color: #fed7aa; color: #92400e; }
+          .section { margin-bottom: 25px; }
+          .section-title { font-size: 14px; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+          .details-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+          .detail-item { }
+          .detail-label { font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px; }
+          .detail-value { font-size: 14px; color: #1f2937; font-weight: 500; }
+          .description-box { background-color: #f9fafb; padding: 15px; border-radius: 6px; border-left: 3px solid #2563eb; }
+          .print-date { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; }
+          @media print {
+            body { background: white; }
+            .container { padding: 20px; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>${request.title}</h1>
+            <div class="meta">
+              <div><strong>Request ID:</strong> ${request.id}</div>
+              <div><strong>Module:</strong> ${moduleLabel}</div>
+              <div><strong>Status:</strong> <span class="badge ${request.status}">${statusLabel}</span></div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Request Information</div>
+            <div class="details-grid">
+              <div class="detail-item">
+                <div class="detail-label">Requester</div>
+                <div class="detail-value">${requesterInfo}</div>
+              </div>
+              <div class="detail-item">
+                <div class="detail-label">Created</div>
+                <div class="detail-value">${fmtDateTime(request.createdAt)}</div>
+              </div>
+              <div class="detail-item">
+                <div class="detail-label">Last Updated</div>
+                <div class="detail-value">${fmtDateTime(request.updatedAt)}</div>
+              </div>
+              <div class="detail-item">
+                <div class="detail-label">Assigned To</div>
+                <div class="detail-value">${assigneeInfo}</div>
+              </div>
+              <div class="detail-item">
+                <div class="detail-label">CC Recipients</div>
+                <div class="detail-value">${ccList}</div>
+              </div>
+              <div class="detail-item">
+                <div class="detail-label">Admin CC</div>
+                <div class="detail-value">${adminCcList}</div>
+              </div>
+            </div>
+          </div>
+
+          ${request.description ? `
+            <div class="section">
+              <div class="section-title">Description</div>
+              <div class="description-box">${request.description.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+            </div>
+          ` : ""}
+
+          ${Object.keys(request.payload || {}).length > 0 ? `
+            <div class="section">
+              <div class="section-title">Request Details</div>
+              <div class="details-grid">
+                ${Object.entries(request.payload || {})
+                  .filter(([key]) => !["attachments", "ccEmails", "adminCc"].includes(key))
+                  .map(([key, value]) => {
+                    if (value === null || value === undefined || value === "") return ""
+                    const label = key.replace(/([A-Z])/g, " $1").trim()
+                    const displayValue = Array.isArray(value) ? value.join(", ") : String(value)
+                    return `
+                      <div class="detail-item">
+                        <div class="detail-label">${label}</div>
+                        <div class="detail-value">${displayValue.substring(0, 100)}</div>
+                      </div>
+                    `
+                  })
+                  .join("")}
+              </div>
+            </div>
+          ` : ""}
+
+          <div class="print-date">
+            Printed on ${new Date().toLocaleString()}
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+
+    printWindow.document.write(html)
+    printWindow.document.close()
+
+    setTimeout(() => {
+      printWindow.print()
+    }, 250)
   }
 
   const getStatusesByModule = (module: string): string[] => {
@@ -658,16 +803,26 @@ export default function RequestDetailPage() {
                     </DropdownMenuContent>
                   </DropdownMenu>
 
-                  {/* Edit Button */}
-                  {canEditRequest && (
+                  {/* Print and Edit Buttons */}
+                  <div className="ml-auto flex gap-2">
                     <Button
                       variant="outline"
-                      onClick={() => window.open(`/${request.module}/new?id=${request.id}`, '_blank')}
-                      className="ml-auto"
+                      onClick={handlePrint}
+                      title="Print request summary"
+                      className="gap-2"
                     >
-                      Edit
+                      <Printer className="h-4 w-4" />
+                      Print
                     </Button>
-                  )}
+                    {canEditRequest && (
+                      <Button
+                        variant="outline"
+                        onClick={() => window.open(`/${request.module}/new?id=${request.id}`, '_blank')}
+                      >
+                        Edit
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 <h1 className="text-3xl font-bold tracking-tight">{request.title}</h1>
                 <p className="text-sm text-muted-foreground mt-1">Request ID: {request.id}</p>
