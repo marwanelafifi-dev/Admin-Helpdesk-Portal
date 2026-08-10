@@ -250,35 +250,53 @@ async function notifyByEmail(params: {
 
   const actionUserEmail = params.actionUserEmail?.toLowerCase()
 
-  // Administration Team users + adminhelpdesk get ALL notifications
-  const realAdmins = await fetchAdminUsers()
-  const realAdminEmails = realAdmins.map((u) => u.email)
+  let uniqueRecipients: string[]
+  let ccEmails: string[]
 
-  // Request owner gets notified only when someone else acted on their request
-  const ownerEmail =
-    params.requestOwnerEmail &&
-    params.requestOwnerEmail.toLowerCase() !== actionUserEmail
-      ? params.requestOwnerEmail
-      : undefined
+  // For comments: TO = Request Owner, CC = adminhelpdesk + form CCs
+  if (params.updateType === "comment") {
+    const ownerEmail =
+      params.requestOwnerEmail &&
+      params.requestOwnerEmail.toLowerCase() !== actionUserEmail
+        ? params.requestOwnerEmail
+        : undefined
 
-  // Recipients: Administration Team + helpdesk + request owner (if not the actor)
-  const allEmails = Array.from(new Set([
-    ...realAdminEmails,
-    ownerEmail,
-    ADMIN_HELPDESK_EMAIL,
-  ].filter((e): e is string => Boolean(e))))
+    uniqueRecipients = ownerEmail ? [ownerEmail] : []
 
-  // Remove the person who triggered the action (don't self-notify)
-  const uniqueRecipients = allEmails.filter(
-    (e) => !actionUserEmail || e.toLowerCase() !== actionUserEmail
-  )
+    ccEmails = Array.from(new Set([
+      ADMIN_HELPDESK_EMAIL,
+      ...(params.ccEmails ?? []).filter((e): e is string => Boolean(e)),
+    ]))
+      .filter((e) => !actionUserEmail || e.toLowerCase() !== actionUserEmail)
+      .filter((e) => !uniqueRecipients.some((r) => r.toLowerCase() === e.toLowerCase()))
+  } else {
+    // For status changes: TO = Admin Team + Owner, CC = form CCs
+    const realAdmins = await fetchAdminUsers()
+    const realAdminEmails = realAdmins.map((u) => u.email)
+
+    const ownerEmail =
+      params.requestOwnerEmail &&
+      params.requestOwnerEmail.toLowerCase() !== actionUserEmail
+        ? params.requestOwnerEmail
+        : undefined
+
+    const allEmails = Array.from(new Set([
+      ...realAdminEmails,
+      ownerEmail,
+      ADMIN_HELPDESK_EMAIL,
+    ].filter((e): e is string => Boolean(e))))
+
+    uniqueRecipients = allEmails.filter(
+      (e) => !actionUserEmail || e.toLowerCase() !== actionUserEmail
+    )
+
+    ccEmails = (params.ccEmails ?? [])
+      .filter((e): e is string => Boolean(e))
+      .filter((e) => e.toLowerCase() !== actionUserEmail)
+      .filter((e) => !uniqueRecipients.some((r) => r.toLowerCase() === e.toLowerCase()))
+  }
 
   if (uniqueRecipients.length === 0) return
-
-  const ccEmails = (params.ccEmails ?? [])
-    .filter((e): e is string => Boolean(e))
-    .filter((e) => e.toLowerCase() !== actionUserEmail)
-    .filter((e) => !uniqueRecipients.some((r) => r.toLowerCase() === e.toLowerCase()))
 
   console.info("[notifications] Sending request update email", {
     requestId: params.requestId,

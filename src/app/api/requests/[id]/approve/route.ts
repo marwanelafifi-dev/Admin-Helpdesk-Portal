@@ -3,6 +3,7 @@ import { verifyApprovalToken } from "@/lib/approvalToken"
 import { requestStore } from "@/lib/requestStore"
 import { resolveRequestManagerEmail, resolveRequestManagerName, notifyDecision } from "@/lib/approvalNotify"
 import { commentsStore } from "@/lib/commentsStore"
+import { AUTO_CC_EMAIL } from "@/services/engineService"
 
 export const runtime = "nodejs"
 
@@ -56,10 +57,9 @@ export async function GET(
   const managerName = resolveRequestManagerName(request) ?? verified.managerEmail
 
   // When a Travel request is approved (→ in_progress), ensure ap@si-ware.com is on CC.
-  const AUTO_CC = "ap@si-ware.com"
   const existingAdminCc: string[] = Array.isArray(request.adminCc) ? request.adminCc : []
-  const adminCc = request.module === "travel" && !existingAdminCc.map(e => e.toLowerCase()).includes(AUTO_CC)
-    ? [...existingAdminCc, AUTO_CC]
+  const adminCc = request.module === "travel" && !existingAdminCc.map(e => e.toLowerCase()).includes(AUTO_CC_EMAIL.toLowerCase())
+    ? [...existingAdminCc, AUTO_CC_EMAIL]
     : existingAdminCc
 
   const updated = {

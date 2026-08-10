@@ -15,7 +15,10 @@
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Bash(git commit *)",
-      "Bash(xargs grep -l \"roles\")"
+      "Bash(xargs grep -l \"roles\")",
+      "Bash(timeout 30 powershell -Command 'while \\($true\\) { try { $response = curl -s -o /dev/null -w '\\\\''%{http_code}'\\\\'' http://localhost:3003/login -H '\\\\''User-Agent: curl'\\\\''; if \\($response -eq '\\\\''200'\\\\'' -or $response -eq '\\\\''307'\\\\''\\) { Write-Host '\\\\''Server is running!'\\\\''; exit 0 } } catch {} Start-Sleep -Milliseconds 500 }')",
+      "PowerShell(try { $response = Invoke-WebRequest -Uri \"http://localhost:3003/login\" -UseBasicParsing -TimeoutSec 5; Write-Host \"✓ Server is responding\"; Write-Host \"Status: $\\($response.StatusCode\\)\"; Write-Host \"Content length: $\\($response.Content.Length\\) bytes\" } catch { Write-Host \"✗ Failed to reach server: $_\" })",
+      "Bash(curl -s -I http://localhost:3003/login)"
     ]
   }
 }
