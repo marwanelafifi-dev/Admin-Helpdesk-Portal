@@ -69,6 +69,8 @@ interface RequestDetail {
   status: string
   payload: Record<string, any>
   requesterId: string
+  requesterEmail?: string
+  requesterName?: string
   createdAt: string
   updatedAt: string
   ccEmails: string[]
@@ -622,6 +624,8 @@ export default function RequestDetailPage() {
           status: engineRequest.status,
           payload: engineRequest.payload || {},
           requesterId: engineRequest.requesterId,
+          requesterEmail: engineRequest.requesterEmail,
+          requesterName: engineRequest.requesterName,
           ccEmails: Array.isArray((engineRequest.payload as any)?.ccEmails) ? (engineRequest.payload as any).ccEmails : [],
           adminCc: Array.isArray(engineRequest.adminCc) ? engineRequest.adminCc : [],
           requester: {
