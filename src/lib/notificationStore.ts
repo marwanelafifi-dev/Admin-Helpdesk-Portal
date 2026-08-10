@@ -255,19 +255,15 @@ async function notifyByEmail(params: {
 
   // For comments: TO = Request Owner + adminhelpdesk + CC recipients
   if (params.updateType === "comment") {
-    const ownerEmail =
-      params.requestOwnerEmail &&
-      params.requestOwnerEmail.toLowerCase() !== actionUserEmail
-        ? params.requestOwnerEmail
-        : undefined
+    // Always include the requester, even if they're the one adding the comment
+    const ownerEmail = params.requestOwnerEmail ? params.requestOwnerEmail : undefined
 
-    // TO: owner + adminhelpdesk + all CC recipients
+    // TO: owner + adminhelpdesk + all CC recipients (always include requester)
     uniqueRecipients = Array.from(new Set([
       ownerEmail,
       ADMIN_HELPDESK_EMAIL,
       ...(params.ccEmails ?? []).filter((e): e is string => Boolean(e)),
     ].filter((e): e is string => Boolean(e))))
-      .filter((e) => !actionUserEmail || e.toLowerCase() !== actionUserEmail)
 
     ccEmails = []  // No separate CC since all are in TO
   } else {
@@ -275,11 +271,8 @@ async function notifyByEmail(params: {
     const realAdmins = await fetchAdminUsers()
     const realAdminEmails = realAdmins.map((u) => u.email)
 
-    const ownerEmail =
-      params.requestOwnerEmail &&
-      params.requestOwnerEmail.toLowerCase() !== actionUserEmail
-        ? params.requestOwnerEmail
-        : undefined
+    // Always include the requester, even if they made the status change
+    const ownerEmail = params.requestOwnerEmail ? params.requestOwnerEmail : undefined
 
     const allEmails = Array.from(new Set([
       ...realAdminEmails,
@@ -288,9 +281,7 @@ async function notifyByEmail(params: {
       ...(params.ccEmails ?? []).filter((e): e is string => Boolean(e)),
     ].filter((e): e is string => Boolean(e))))
 
-    uniqueRecipients = allEmails.filter(
-      (e) => !actionUserEmail || e.toLowerCase() !== actionUserEmail
-    )
+    uniqueRecipients = allEmails
 
     ccEmails = []  // No separate CC since all are in TO
   }
