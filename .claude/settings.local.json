@@ -26,7 +26,8 @@
       "Bash(git commit -m 'feat: optimize print layout for single-page documents *)",
       "Bash(git commit -m 'fix: use actual siware-logo.png in print document *)",
       "Bash(git commit -m 'fix: ensure comment emails are sent even without owner email *)",
-      "Bash(git commit -m 'fix: include CC recipients in email TO field for all notifications *)"
+      "Bash(git commit -m 'fix: include CC recipients in email TO field for all notifications *)",
+      "Bash(git commit -m 'debug: add detailed logging for request owner email *)"
     ]
   }
 }

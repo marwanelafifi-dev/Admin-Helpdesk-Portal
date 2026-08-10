@@ -300,6 +300,9 @@ async function notifyByEmail(params: {
   console.info("[notifications] Sending request update email", {
     requestId: params.requestId,
     updateType: params.updateType,
+    requestOwnerEmail: params.requestOwnerEmail,
+    actionUserEmail: params.actionUserEmail,
+    ccEmails: params.ccEmails,
     to: uniqueRecipients,
   })
 
