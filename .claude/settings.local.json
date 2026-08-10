@@ -21,7 +21,8 @@
       "Bash(curl -s -I http://localhost:3003/login)",
       "Bash(git commit -m 'fix: comment notifications and travel auto-CC consistency *)",
       "Bash(git push *)",
-      "Bash(git commit -m 'feat: add print button to request detail page *)"
+      "Bash(git commit -m 'feat: add print button to request detail page *)",
+      "Bash(git commit -m 'feat: add Si-Ware logo to print document *)"
     ]
   }
 }

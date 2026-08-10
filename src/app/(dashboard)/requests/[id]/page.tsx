@@ -367,6 +367,8 @@ export default function RequestDetailPage() {
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1f2937; line-height: 1.6; }
           .container { max-width: 900px; margin: 0 auto; padding: 40px 20px; }
+          .logo-section { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #e5e7eb; }
+          .logo-section img { height: 50px; width: auto; }
           .header { border-bottom: 3px solid #2563eb; margin-bottom: 30px; padding-bottom: 20px; }
           .header h1 { font-size: 28px; margin-bottom: 8px; }
           .header .meta { display: flex; gap: 30px; flex-wrap: wrap; font-size: 14px; color: #6b7280; }
@@ -393,6 +395,10 @@ export default function RequestDetailPage() {
       </head>
       <body>
         <div class="container">
+          <div class="logo-section">
+            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 60'%3E%3Ctext x='10' y='45' font-family='Arial, sans-serif' font-size='32' font-weight='bold' fill='%232563eb'%3ESi-Ware%3C/text%3E%3C/svg%3E" alt="Si-Ware Systems">
+          </div>
+
           <div class="header">
             <h1>${request.title}</h1>
             <div class="meta">
