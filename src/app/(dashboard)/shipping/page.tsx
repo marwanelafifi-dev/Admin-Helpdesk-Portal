@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { mockUsers, type MockShipment } from "@/lib/mock-data"
 import { cn, fmtDate, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
+import { getRequests } from "@/services/engineService"
 import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
@@ -245,19 +246,38 @@ export default function ShippingPage() {
     return [...shipments, ...ccRequests]
   }, [shipments, showCcRequests, session?.user?.email, session?.user?.id])
 
+  // Keep track of original requests for comprehensive search
+  const originalRequestsMap = useMemo(() => {
+    const map = new Map<string, any>()
+    let allShipping = getRequestsByModule("shipping")
+    allShipping.forEach((r: any) => map.set(r.id, r))
+    return map
+  }, [])
+
   const filtered = useMemo(() => {
     let result = allVisibleShipments.filter((s) => {
       const q = normalizeSearchText(search)
-      const matchSearch = normalizeSearchText(s.id).includes(q) || normalizeSearchText(s.trackingNumber).includes(q) || normalizeSearchText(s.destination).includes(q) || normalizeSearchText(s.requester).includes(q) || commentMatchIds.has(s.id)
+      const originalRequest = originalRequestsMap.get(s.id)
+
+      // Check all searchable fields like All Requests page does
+      const matchSearch = q === "" ||
+        normalizeSearchText(s.id).includes(q) ||
+        normalizeSearchText(s.title).includes(q) ||
+        normalizeSearchText(s.requester).includes(q) ||
+        normalizeSearchText(s.trackingNumber).includes(q) ||
+        normalizeSearchText(s.destination).includes(q) ||
+        (originalRequest ? normalizeSearchText(getSearchablePayloadText(originalRequest)).includes(q) : false) ||
+        commentMatchIds.has(s.id)
+
       const matchStatus  = statusFilter === "all" || s.status === statusFilter
       const matchCarrier = carrierFilter === "all" || s.carrier === carrierFilter
       return matchSearch && matchStatus && matchCarrier
     })
     return result.sort((a, b) => {
-      const av = a[sortKey] ?? "", bv = b[sortKey] ?? ""
+      const av = (a[sortKey] as string) ?? "", bv = (b[sortKey] as string) ?? ""
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
-  }, [allVisibleShipments, search, statusFilter, carrierFilter, sortKey, sortDir, commentMatchIds])
+  }, [allVisibleShipments, search, statusFilter, carrierFilter, sortKey, sortDir, commentMatchIds, originalRequestsMap])
 
   const stats = useMemo(() => ({
     total:               shipments.length,

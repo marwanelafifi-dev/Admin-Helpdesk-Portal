@@ -1444,6 +1444,61 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 
 **Verified untouched:** Database/backup/restore admin page (`src/app/(dashboard)/admin/database/page.tsx`) — no references to Sending/Receiving existed there and it was not modified.
 
+## Phase 7a: Comprehensive Search Fix — All List Pages (Completed — 17 Aug 2026)
+
+**Status:** All 12 list pages now use unified comprehensive search with `normalizeSearchText()` + `getSearchablePayloadText()`
+
+**Issue Fixed:**
+- Shipping module list pages were not searching tracking numbers or other payload fields consistently with All Requests page
+- Search queries with spaces (e.g., "873 57 521 5854") were not being normalized to match stored data
+
+**Solution Applied:**
+
+**Pages Already Had Correct Search (9 pages — no changes needed):**
+- ✅ All Requests (`/admin/all-requests`)
+- ✅ My Requests (`/requests`)
+- ✅ Team Requests (`/team-requests`)
+- ✅ HR (`/hr`)
+- ✅ Maintenance (`/maintenance`)
+- ✅ Purchase (`/purchase`)
+- ✅ Event (`/event`)
+- ✅ Travel (`/travel`)
+- ✅ General Request (`/general`)
+
+**Pages JUST FIXED (3 pages — Shipping submodules):**
+- [x] **Shipping (Export)** — `/shipping/sending`
+  - [x] Now uses `normalizeSearchText()` for space-removal normalization
+  - [x] Now uses `getSearchablePayloadText()` to extract all payload fields
+  - [x] Added title field to search checks
+  - [x] Maintains original request map for comprehensive payload search
+  
+- [x] **Shipping (Import)** — `/shipping/receiving`
+  - [x] Same comprehensive search implementation as Export
+  - [x] Works with Import Type filter (Supplier Will Ship / Si-Ware Will Ship)
+  
+- [x] **Shipping (Base)** — `/shipping`
+  - [x] Same comprehensive search implementation
+  - [x] Works with direction filter
+
+**Key Improvements:**
+- ✅ **Space Normalization** — `normalizeSearchText()` removes all spaces: "873 57 521 5854" → "87357215854"
+- ✅ **Module-Specific Payload Search** — `getSearchablePayloadText()` extracts per-module fields:
+  - Shipping: Tracking Number, Supplier, Carrier
+  - Purchase: Supplier, Product URL, Item Name
+  - HR: Employee ID, Employee Name
+  - Travel: Destination
+  - Event: Location
+  - Maintenance: Priority
+- ✅ **Unified Approach** — All 12 pages now check: ID, Title, Requester Name, Payload Fields, Comments
+- ✅ **Case Insensitive** — All searches via `toLowerCase()`
+
+**Files Modified:**
+- `src/app/(dashboard)/shipping/page.tsx`
+- `src/app/(dashboard)/shipping/sending/page.tsx`
+- `src/app/(dashboard)/shipping/receiving/page.tsx`
+
+**Impact:** Tracking number search (with or without spaces) now works consistently across all Shipping pages, matching the behavior of All Requests page.
+
 ---
 ### Development Loop (Repeat for each module)
 1. **Sync Plan:** Update this `CLAUDE.md`.
