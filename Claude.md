@@ -1554,3 +1554,5 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] Both role pages remain protected by the existing `page:admin-roles` permission.
 - [x] Admin → Users now includes an **All Companies / Si-Ware Systems / BUCHI** filter beside search; both filters combine and update the displayed row count while summary cards retain platform-wide totals.
 - [x] Added an idempotent built-in **Manager - BUCHI** role derived from the existing manager role, with Shipping permissions removed, BUCHI module scope applied, and Admin Users assignment support.
+- [x] Added independent Page Access permissions for **Roles - BUCHI (Admin)** and **Company Data - BUCHI (Admin)** so access to BUCHI administration pages can be granted separately from Si-Ware pages.
+- [x] Fixed the Docker PostgreSQL health check to pass `-d ${DB_NAME:-admin_request_platform}`, preventing repeated `database "admin" does not exist` errors without changing or recreating database volumes.

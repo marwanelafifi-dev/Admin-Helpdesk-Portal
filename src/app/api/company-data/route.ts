@@ -24,6 +24,7 @@ export async function GET(req: Request) {
     || hasPermission(perms, "settings")
     || hasPermission(perms, "page:admin-database")
     || hasPermission(perms, "page:admin-company-data")
+    || hasPermission(perms, "page:admin-company-data-buchi")
     || canManageUsers(role, perms)
   const company = requested && canChooseCompany
     ? normalizeCompany(requested)
@@ -45,6 +46,7 @@ export async function PUT(req: Request) {
     || hasPermission(perms, "settings")
     || hasPermission(perms, "page:admin-database")
     || hasPermission(perms, "page:admin-company-data")
+    || hasPermission(perms, "page:admin-company-data-buchi")
     || canManageUsers(role, perms)
   if (!canEdit) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })

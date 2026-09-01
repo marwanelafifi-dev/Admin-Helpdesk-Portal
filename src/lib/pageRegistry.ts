@@ -65,10 +65,12 @@ export const PAGES: PageDefinition[] = [
   // Admin
   { id: "admin-users",         label: "Users (Admin)",         path: "/admin/users",          group: "Admin" },
   { id: "admin-roles",         label: "Roles - Si-Ware Systems (Admin)", path: "/admin/roles", group: "Admin" },
+  { id: "admin-roles-buchi",   label: "Roles - BUCHI (Admin)", path: "/admin/roles/buchi", group: "Admin" },
   { id: "admin-settings",      label: "Settings (Admin)",      path: "/admin/settings",       group: "Admin" },
   { id: "admin-notifications", label: "Notifications (Admin)", path: "/admin/notifications",  group: "Admin" },
   { id: "admin-announcements", label: "Send Announcements",    path: "/admin/announcements", group: "Core" },
   { id: "admin-company-data",  label: "Company Data - Si-Ware (Admin)", path: "/admin/company-data", group: "Admin" },
+  { id: "admin-company-data-buchi", label: "Company Data - BUCHI (Admin)", path: "/admin/company-data/buchi", group: "Admin" },
   { id: "admin-audit",         label: "Audit Trail (Admin)",   path: "/admin/audit-trail",    group: "Admin" },
   { id: "admin-database",      label: "Database (Admin)",      path: "/admin/database",       group: "Admin" },
 ]
