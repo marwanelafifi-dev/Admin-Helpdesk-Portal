@@ -507,7 +507,7 @@ export default function TeamRequestsPage() {
                         {/* Requester */}
                         <td className="px-4 py-3 text-sm font-medium text-gray-700">
                           {request.requesterName}
-                          {request.module !== "shipping" && <CompanyBadge className="mt-1 block w-fit" module={request.module} requesterEmail={request.requesterEmail} companyId={request.companyId} companyName={request.companyName} />}
+                          <CompanyBadge className="mt-1 block w-fit" module={request.module} requesterEmail={request.requesterEmail} companyId={request.companyId} companyName={request.companyName} />
                         </td>
 
                         {/* Module */}

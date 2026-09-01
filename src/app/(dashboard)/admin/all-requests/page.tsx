@@ -263,7 +263,6 @@ export default function AllRequestsPage() {
     if (statusFilter === "active") result = result.filter((r) => !["cancelled", "completed", "delivered"].includes(r.status))
     else if (statusFilter !== "all") result = result.filter((r) => r.status === statusFilter)
     if (companyFilter !== "all") result = result.filter((r) =>
-      r.module !== "shipping" &&
       (r.companyId ?? getRequestCompany(r.module, r.requesterEmail)?.id) === companyFilter
     )
     const q = normalizeSearchText(search)
@@ -618,7 +617,6 @@ export default function AllRequestsPage() {
                 {label}
               </button>
             ))}
-            <span className="text-xs text-gray-400">Shipping is excluded</span>
           </div>
 
           <p className="text-sm text-muted-foreground font-normal mt-1">
@@ -697,7 +695,7 @@ export default function AllRequestsPage() {
                   <td className="py-3 px-3 overflow-hidden">
                     <div className="text-sm font-medium text-gray-700 truncate">{req.requesterName}</div>
                     <div className="text-sm font-medium text-gray-600 truncate">{req.requesterEmail}</div>
-                    {req.module !== "shipping" && <CompanyBadge className="mt-1" module={req.module} requesterEmail={req.requesterEmail} companyId={req.companyId} companyName={req.companyName} />}
+                    <CompanyBadge className="mt-1" module={req.module} requesterEmail={req.requesterEmail} companyId={req.companyId} companyName={req.companyName} />
                   </td>
                   <td className="py-3 px-3">
                     <div className="flex items-center gap-2">

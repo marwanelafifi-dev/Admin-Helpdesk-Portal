@@ -547,9 +547,7 @@ export default function RequestsPage() {
                         )
                       })()}
                     </div>
-                    {req.module !== "shipping" && (
-                      <CompanyBadge className="mt-1" module={req.module} requesterEmail={req.requesterEmail} companyId={req.companyId} companyName={req.companyName} />
-                    )}
+                    <CompanyBadge className="mt-1" module={req.module} requesterEmail={req.requesterEmail} companyId={req.companyId} companyName={req.companyName} />
                   </td>
                   <td className="py-3 px-3">
                     {(() => {

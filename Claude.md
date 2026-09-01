@@ -1519,7 +1519,8 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] Shipping is always classified as **Si-Ware Systems**, regardless of the requester's account company.
 - [x] Company badges are visible on General, Maintenance, Purchase, Event, Travel, HR, My Requests, Team Requests, and Admin All Requests list pages.
 - [x] General and Admin All Requests include All Companies / Si-Ware Systems / BUCHI filters.
-- [x] Shipping list pages are excluded from company badges and company filtering.
+- [x] Shipping requests are always shown as **Si-Ware Systems** in All Requests and are included in the Si-Ware company filter.
+- [x] Shipping rows also display the Si-Ware Systems badge in My Requests and Team Requests.
 - [x] Existing Requester role renamed to **Requester - Si-Ware**; legacy Requester users auto-migrate by email domain.
 - [x] Added **Requester - BUCHI** with Shipping page permissions and Shipping module access removed.
 - [x] New local users automatically receive Requester - Si-Ware or Requester - BUCHI based on email domain; Google OAuth remains Si-Ware-only.
