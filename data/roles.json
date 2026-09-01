@@ -165,7 +165,7 @@
   },
   {
     "id": "role-requester",
-    "name": "Requester",
+    "name": "Requester - Si-Ware",
     "description": "Can submit and track their own requests",
     "permissions": [
       "create",
@@ -193,6 +193,24 @@
       "page:general-new"
     ],
     "createdAt": "2026-05-13T07:43:15.697Z",
-    "updatedAt": "2026-06-23T12:00:00.000Z"
+    "readModules": ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"],
+    "readAllModules": [],
+    "updatedAt": "2026-09-01T00:00:00.000Z"
+  },
+  {
+    "id": "role-requester-buchi",
+    "name": "Requester - BUCHI",
+    "description": "BUCHI users can submit and track their own requests (Shipping excluded)",
+    "permissions": [
+      "create", "read_own", "view_details", "activity", "manage_cc",
+      "page:announcements", "page:system-notices", "page:my-requests", "page:request-detail",
+      "page:maintenance", "page:maintenance-new", "page:purchase", "page:purchase-new",
+      "page:event", "page:event-new", "page:travel", "page:travel-new",
+      "page:general", "page:general-new"
+    ],
+    "readModules": ["maintenance", "purchase", "event", "travel", "hr", "general"],
+    "readAllModules": [],
+    "createdAt": "2026-09-01T00:00:00.000Z",
+    "updatedAt": "2026-09-01T00:00:00.000Z"
   }
 ]

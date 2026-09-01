@@ -7,6 +7,7 @@ import { readUsers, createUser, findUserByEmail } from "@/lib/userStore"
 import { sendWelcomeEmail } from "@/lib/emailService"
 import { logServerAudit } from "@/lib/serverAuditLog"
 import { getCompanyFromEmail } from "@/lib/userCompany"
+import { getDefaultRequesterRoleForEmail } from "@/lib/userCompany"
 
 const createUserSchema = z.object({
   name: z.string().trim().min(1, "Name is required"),
@@ -75,7 +76,7 @@ export async function POST(request: Request) {
     const user = createUser({
       email,
       name: parsed.data.name,
-      role: "requester",
+      role: getDefaultRequesterRoleForEmail(email),
       image: null,
       active: true,
       provider: "credentials",
@@ -102,7 +103,7 @@ export async function POST(request: Request) {
       action: "user_created",
       targetId: user.email,
       targetTitle: user.name,
-      details: `New user created: ${user.name} <${user.email}> with role "${parsed.data.role || "requester"}"`,
+      details: `New user created: ${user.name} <${user.email}> with role "${user.role}"`,
       category: "user",
     })
 

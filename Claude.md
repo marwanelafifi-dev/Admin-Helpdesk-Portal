@@ -1520,3 +1520,7 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] Company badges are visible on General, Maintenance, Purchase, Event, Travel, HR, My Requests, Team Requests, and Admin All Requests list pages.
 - [x] General and Admin All Requests include All Companies / Si-Ware Systems / BUCHI filters.
 - [x] Shipping list pages are excluded from company badges and company filtering.
+- [x] Existing Requester role renamed to **Requester - Si-Ware**; legacy Requester users auto-migrate by email domain.
+- [x] Added **Requester - BUCHI** with Shipping page permissions and Shipping module access removed.
+- [x] New local users automatically receive Requester - Si-Ware or Requester - BUCHI based on email domain; Google OAuth remains Si-Ware-only.
+- [x] Persistent Ubuntu `roles.json` and `users.json` stores migrate idempotently when read after deployment.

@@ -24,3 +24,7 @@ export function getRequestCompany(module: string, requesterEmail?: string | null
   if (module === "shipping") return COMPANY_BY_DOMAIN["si-ware.com"]
   return getCompanyFromEmail(requesterEmail)
 }
+
+export function getDefaultRequesterRoleForEmail(email?: string | null): "Requester - Si-Ware" | "Requester - BUCHI" {
+  return getCompanyFromEmail(email)?.id === "buchi" ? "Requester - BUCHI" : "Requester - Si-Ware"
+}

@@ -14,6 +14,14 @@ export type StoredRole = {
 
 const STORE_PATH = path.join(process.cwd(), "data", "roles.json")
 
+const REQUESTER_SI_WARE = "Requester - Si-Ware"
+const REQUESTER_BUCHI = "Requester - BUCHI"
+const SHIPPING_PERMISSIONS = new Set([
+  "page:shipping", "page:shipping-new", "page:shipping-sending", "page:shipping-receiving",
+])
+const SI_WARE_MODULES = ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"]
+const BUCHI_MODULES = SI_WARE_MODULES.filter((module) => module !== "shipping")
+
 const DEFAULT_ROLES: StoredRole[] = [
   {
     id: "role-super-admin",
@@ -56,12 +64,14 @@ const DEFAULT_ROLES: StoredRole[] = [
   },
   {
     id: "role-requester",
-    name: "requester",
+    name: REQUESTER_SI_WARE,
     description: "Can submit and track their own requests",
     permissions: [
       "page:dashboard","page:my-requests","page:request-detail",
       "page:shipping","page:shipping-receiving","page:purchase","page:purchase-new","page:travel",
     ],
+    readModules: SI_WARE_MODULES,
+    readAllModules: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -86,7 +96,43 @@ function ensureStore() {
 export function readRoles(): StoredRole[] {
   try {
     ensureStore()
-    return JSON.parse(fs.readFileSync(STORE_PATH, "utf-8"))
+    const parsed = JSON.parse(fs.readFileSync(STORE_PATH, "utf-8")) as StoredRole[]
+    const roles = Array.isArray(parsed) ? parsed : [...DEFAULT_ROLES]
+    let changed = false
+
+    let siWare = roles.find((role) => role.id === "role-requester" || role.name.toLowerCase() === "requester")
+    if (!siWare) {
+      siWare = DEFAULT_ROLES.find((role) => role.id === "role-requester")!
+      roles.push({ ...siWare })
+      changed = true
+    }
+    if (siWare.name !== REQUESTER_SI_WARE) {
+      siWare.name = REQUESTER_SI_WARE
+      changed = true
+    }
+    if (JSON.stringify(siWare.readModules) !== JSON.stringify(SI_WARE_MODULES)) {
+      siWare.readModules = [...SI_WARE_MODULES]
+      siWare.readAllModules = []
+      changed = true
+    }
+
+    if (!roles.some((role) => role.name.toLowerCase() === REQUESTER_BUCHI.toLowerCase())) {
+      roles.push({
+        ...siWare,
+        id: "role-requester-buchi",
+        name: REQUESTER_BUCHI,
+        description: "BUCHI users can submit and track their own requests (Shipping excluded)",
+        permissions: siWare.permissions.filter((permission) => !SHIPPING_PERMISSIONS.has(permission)),
+        readModules: [...BUCHI_MODULES],
+        readAllModules: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+      changed = true
+    }
+
+    if (changed) writeRoles(roles)
+    return roles
   } catch {
     return DEFAULT_ROLES
   }

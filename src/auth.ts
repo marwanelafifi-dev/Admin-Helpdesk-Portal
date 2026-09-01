@@ -149,7 +149,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       if (user) {
-        const role = (user as any).role || "requester"
+        const role = (user as any).role || "Requester - Si-Ware"
         const { getPermissionsForRole } = await import("@/lib/userRoles")
         token.userId = user.id
         token.email = user.email
@@ -214,7 +214,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.userId as string
-        session.user.role = (token.role as string) || "requester"
+        session.user.role = (token.role as string) || "Requester - Si-Ware"
         session.user.name = (token.name as string) ?? session.user.name
         // Read the avatar from the user store on each request instead of
         // pulling it from the JWT. Keeps the cookie small even with large

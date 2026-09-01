@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma"
 
-export const DEFAULT_USER_ROLES = ["Full Access", "admin", "manager", "requester", "viewer"] as const
+export const DEFAULT_USER_ROLES = ["Full Access", "admin", "manager", "Requester - Si-Ware", "Requester - BUCHI", "viewer"] as const
 
 const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   "Full Access": ["*"],
@@ -59,7 +59,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "cancel_request",
     "edit_request",
   ],
-  requester: [
+  "requester - si-ware": [
     "page:dashboard",
     "page:my-requests",
     "page:request-detail",
@@ -68,6 +68,20 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "page:purchase",
     "page:purchase-new",
     "page:travel",
+  ],
+  "requester - buchi": [
+    "page:my-requests",
+    "page:request-detail",
+    "page:maintenance",
+    "page:maintenance-new",
+    "page:purchase",
+    "page:purchase-new",
+    "page:event",
+    "page:event-new",
+    "page:travel",
+    "page:travel-new",
+    "page:general",
+    "page:general-new",
   ],
   viewer: ["page:dashboard", "page:my-requests", "page:request-detail"],
 }

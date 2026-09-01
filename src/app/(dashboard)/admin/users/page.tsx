@@ -58,14 +58,16 @@ const fallbackRoles: RoleOption[] = [
   { value: "Full Access", label: "Full Access" },
   { value: "Administration Team", label: "Administration Team" },
   { value: "People Team", label: "People Team" },
-  { value: "Requester", label: "Requester" },
+  { value: "Requester - Si-Ware", label: "Requester - Si-Ware" },
+  { value: "Requester - BUCHI", label: "Requester - BUCHI" },
 ]
 
 const ROLE_COLORS: Record<string, string> = {
   "Full Access": "bg-purple-100 text-purple-800",
   "Administration Team": "bg-blue-100 text-blue-800",
   "People Team": "bg-indigo-100 text-indigo-800",
-  "Requester": "bg-gray-100 text-gray-700",
+  "Requester - Si-Ware": "bg-blue-100 text-blue-800",
+  "Requester - BUCHI": "bg-orange-100 text-orange-800",
 }
 
 function roleLabel(role: string, roles: RoleOption[]) {
@@ -83,13 +85,13 @@ function getInitials(name: string) {
 
 
 function getDefaultRoleValue(roles: RoleOption[]) {
-  const requester = roles.find((role) => role.value.toLowerCase() === "requester")
+  const requester = roles.find((role) => role.value === "Requester - Si-Ware")
   if (requester) {
     return requester.value
   }
 
   const safeRole = roles.find((role) => !["Full Access", "Administration Team"].includes(role.value))
-  return safeRole?.value ?? roles[0]?.value ?? "requester"
+  return safeRole?.value ?? roles[0]?.value ?? "Requester - Si-Ware"
 }
 
 export default function AdminUsersPage() {
@@ -113,7 +115,7 @@ export default function AdminUsersPage() {
     name: "",
     email: "",
     password: "",
-    role: "requester",
+    role: "Requester - Si-Ware",
     department: "",
   })
   const [departments, setDepartments] = useState<string[]>([])
@@ -308,7 +310,7 @@ export default function AdminUsersPage() {
 
     setShowEditDialog(false)
     setEditingUser(null)
-    setForm({ name: "", email: "", password: "", role: "requester", department: "" })
+    setForm({ name: "", email: "", password: "", role: "Requester - Si-Ware", department: "" })
     setEditDefaultAssignee(false)
   }
 
@@ -693,7 +695,7 @@ export default function AdminUsersPage() {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                New users are assigned the <strong>Requester</strong> role by default. You can change their role after creation.
+                New users are assigned automatically by email domain: <strong>Requester - Si-Ware</strong> or <strong>Requester - BUCHI</strong>.
               </p>
 
               {createError && <p className="text-sm text-destructive">{createError}</p>}

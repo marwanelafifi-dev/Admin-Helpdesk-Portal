@@ -1,6 +1,6 @@
 import fs from "fs"
 import path from "path"
-import { getCompanyFromEmail, type CompanyId } from "@/lib/userCompany"
+import { getCompanyFromEmail, getDefaultRequesterRoleForEmail, type CompanyId } from "@/lib/userCompany"
 
 export type StoredUser = {
   id: string
@@ -34,7 +34,22 @@ function ensureStore() {
 export function readUsers(): StoredUser[] {
   try {
     ensureStore()
-    return JSON.parse(fs.readFileSync(STORE_PATH, "utf-8"))
+    const users = JSON.parse(fs.readFileSync(STORE_PATH, "utf-8")) as StoredUser[]
+    let changed = false
+    for (const user of users) {
+      if (["requester", "Requester"].includes(user.role)) {
+        user.role = getDefaultRequesterRoleForEmail(user.email)
+        changed = true
+      }
+      const company = getCompanyFromEmail(user.email)
+      if (company && (user.companyId !== company.id || user.companyName !== company.name)) {
+        user.companyId = company.id
+        user.companyName = company.name
+        changed = true
+      }
+    }
+    if (changed) writeUsers(users)
+    return users
   } catch {
     return []
   }
@@ -65,7 +80,7 @@ export function upsertGoogleUser(email: string, name: string, image: string | nu
     id: `USR-${Date.now()}`,
     email: email.toLowerCase(),
     name,
-    role: "Requester",
+    role: getDefaultRequesterRoleForEmail(email),
     image,
     active: true,
     createdAt: new Date().toISOString(),
