@@ -1552,3 +1552,4 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] Roles API supports company-filtered administration while its unfiltered endpoint remains backward compatible for the Admin Users role selector.
 - [x] New roles inherit the company of the administration page where they are created.
 - [x] Both role pages remain protected by the existing `page:admin-roles` permission.
+- [x] Admin → Users now includes an **All Companies / Si-Ware Systems / BUCHI** filter beside search; both filters combine and update the displayed row count while summary cards retain platform-wide totals.

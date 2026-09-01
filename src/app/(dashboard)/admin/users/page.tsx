@@ -96,6 +96,7 @@ function getDefaultRoleValue(roles: RoleOption[]) {
 
 export default function AdminUsersPage() {
   const [search, setSearch] = useState("")
+  const [companyFilter, setCompanyFilter] = useState<"all" | "si_ware" | "buchi">("all")
   const [users, setUsers] = useState<PlatformUser[]>([])
   const [onlineIds, setOnlineIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -179,6 +180,7 @@ export default function AdminUsersPage() {
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
     return users.filter((user) => {
+      if (companyFilter !== "all" && user.companyId !== companyFilter) return false
       const name = user.name ?? ""
       return (
         name.toLowerCase().includes(q) ||
@@ -186,7 +188,7 @@ export default function AdminUsersPage() {
         roleLabel(user.role, roles).toLowerCase().includes(q)
       )
     })
-  }, [search, users, roles])
+  }, [search, companyFilter, users, roles])
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -536,14 +538,26 @@ export default function AdminUsersPage() {
             All Users{" "}
             <span className="text-muted-foreground font-normal text-sm">({filtered.length})</span>
           </CardTitle>
-          <div className="relative mt-2 max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search users..."
-              className="pl-9"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="relative w-full sm:max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search users..."
+                className="pl-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <Select value={companyFilter} onValueChange={(value) => setCompanyFilter(value as "all" | "si_ware" | "buchi")}>
+              <SelectTrigger className="w-full sm:w-[210px]">
+                <SelectValue placeholder="Filter by company" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Companies</SelectItem>
+                <SelectItem value="si_ware">Si-Ware Systems</SelectItem>
+                <SelectItem value="buchi">BUCHI</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardHeader>
 
