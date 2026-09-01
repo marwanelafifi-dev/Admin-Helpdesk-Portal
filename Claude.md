@@ -1581,3 +1581,15 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] Added a Team Effort section with contributors, assigned workload, active and overdue work, completed output, average resolution, unassigned active requests, and assignment coverage.
 - [x] Replaced raw-completion ranking with a **module-balanced contribution** score: every represented module receives equal weight, preventing high-volume Shipping work from hiding strong performance in Travel, HR, Event, Maintenance, Purchase, or General.
 - [x] Preserved raw completed totals and added each contributor's completed module mix for transparent context; the balanced score is not presented as a standalone employee-performance judgment.
+
+## Phase 7f: Formal Operational and SLA Dashboard (Completed — 02 Sep 2026)
+
+- [x] Added root-cause notes to **Active Requests** and **Overdue (7d+)**, identifying the module with the largest current-versus-prior count change; Average Resolution retains its module driver explanation.
+- [x] Added an **All Time** date option and separated **All Requests** from **Created in Period**, eliminating ambiguity between database totals and date-filtered analytics.
+- [x] Added formal service-delivery KPIs for **SLA Compliance** and **SLA Exceptions**.
+- [x] Established initial module SLA defaults: Shipping 14 days; Purchase and Travel 7 days; HR, Event, and General 5 days; Maintenance varies by priority (Critical 1, High 2, Medium 5, Low 7 days).
+- [x] Completion timestamps use the first `completed` or `delivered` status-history event when available, with `updatedAt` retained as a safe fallback for legacy completed records.
+- [x] Extended Module Workload with SLA compliance and active SLA-exception columns, while preserving total, active, overdue, completed, and average-resolution context.
+- [x] Added an operational data-quality notice for active requests without ownership and legacy records missing company-identifying data or status history.
+- [x] Kept performance reporting professional and non-gamified: balanced contribution, raw output, module mix, workload, SLA, overdue exposure, and resolution time are presented together rather than as a simplistic employee leaderboard.
+- [x] All new analytics respect the selected company; Shipping continues to be classified as Si-Ware Systems only.

@@ -69,11 +69,11 @@ const MODULES = ["shipping", "maintenance", "purchase", "event", "travel", "hr",
 const ACTIVE_STATUSES = new Set(["new", "in_progress", "on_hold", "in_customs", "awaiting_approval"])
 const COMPLETED_STATUSES = new Set(["completed", "delivered"])
 
-type TimeRange = "7d" | "15d" | "30d" | "90d" | "1y" | "custom"
+type TimeRange = "7d" | "15d" | "30d" | "90d" | "1y" | "all" | "custom"
 
 interface DateRange { from: string; to: string }
 
-const RANGE_DAYS: Record<Exclude<TimeRange, "custom">, number> = {
+const RANGE_DAYS: Record<Exclude<TimeRange, "custom" | "all">, number> = {
   "7d": 7, "15d": 15, "30d": 30, "90d": 90, "1y": 365,
 }
 
@@ -83,7 +83,18 @@ const RANGE_LABELS: Record<TimeRange, string> = {
   "30d": "Last 30 Days",
   "90d": "Last Quarter",
   "1y": "Last Year",
+  "all": "All Time",
   "custom": "Custom Range",
+}
+
+const MODULE_SLA_DAYS: Record<string, number> = {
+  shipping: 14,
+  maintenance: 5,
+  purchase: 7,
+  event: 5,
+  travel: 7,
+  hr: 5,
+  general: 5,
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -118,6 +129,49 @@ function pct(part: number, whole: number): number {
 function delta(current: number, prior: number): number | null {
   if (prior === 0) return null
   return Math.round(((current - prior) / prior) * 100)
+}
+
+function completionDate(request: EngineRequest): Date | null {
+  const completedChange = [...(request.statusHistory ?? [])]
+    .filter((change) => COMPLETED_STATUSES.has(change.status))
+    .sort((a, b) => new Date(a.changedAt).getTime() - new Date(b.changedAt).getTime())[0]
+  if (completedChange) return new Date(completedChange.changedAt)
+  return COMPLETED_STATUSES.has(request.status) ? new Date(request.updatedAt) : null
+}
+
+function requestSlaDays(request: EngineRequest): number {
+  if (request.module === "maintenance") {
+    const priority = String((request.payload as Record<string, unknown>)?.priority ?? "").toLowerCase()
+    if (priority === "critical") return 1
+    if (priority === "high") return 2
+    if (priority === "medium") return 5
+    if (priority === "low") return 7
+  }
+  return MODULE_SLA_DAYS[request.module] ?? 7
+}
+
+function isWithinSla(request: EngineRequest): boolean {
+  const closedAt = completionDate(request)
+  if (!closedAt) return false
+  return daysBetween(new Date(request.createdAt), closedAt) <= requestSlaDays(request)
+}
+
+function moduleCountDriver(
+  currentRequests: EngineRequest[],
+  priorRequests: EngineRequest[],
+  predicate: (request: EngineRequest) => boolean,
+  metric: string,
+): string | null {
+  const candidates = MODULES.map((module) => {
+    const currentCount = currentRequests.filter((request) => request.module === module && predicate(request)).length
+    const priorCount = priorRequests.filter((request) => request.module === module && predicate(request)).length
+    return { module, currentCount, priorCount, change: currentCount - priorCount }
+  }).filter((item) => item.change !== 0)
+  const driver = candidates.sort((a, b) => Math.abs(b.change) - Math.abs(a.change))[0]
+  if (!driver) return null
+  const label = driver.module.charAt(0).toUpperCase() + driver.module.slice(1)
+  const signedChange = `${driver.change > 0 ? "+" : ""}${driver.change}`
+  return `Main driver: ${label} ${metric} ${driver.priorCount} → ${driver.currentCount} (${signedChange})`
 }
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
@@ -254,7 +308,12 @@ export default function DashboardPage() {
     const now = new Date()
     let from: Date, to: Date, priorFrom: Date, priorTo: Date
 
-    if (timeRange === "custom") {
+    if (timeRange === "all") {
+      from = new Date(0)
+      to = now
+      priorFrom = new Date(0)
+      priorTo = new Date(0)
+    } else if (timeRange === "custom") {
       from = new Date(customRange.from)
       to = new Date(customRange.to)
       const spanMs = to.getTime() - from.getTime()
@@ -335,6 +394,11 @@ export default function DashboardPage() {
         ACTIVE_STATUSES.has(r.status) && (now - new Date(r.createdAt).getTime()) > 7 * 24 * 60 * 60 * 1000
       ).length
       const avgDays = avgDaysToCompletion(reqs)
+      const closed = reqs.filter((request) => COMPLETED_STATUSES.has(request.status))
+      const slaCompliance = pct(closed.filter(isWithinSla).length, closed.length)
+      const slaExceptions = reqs.filter((request) =>
+        ACTIVE_STATUSES.has(request.status) && daysBetween(new Date(request.createdAt), new Date()) > requestSlaDays(request)
+      ).length
       return {
         module: mod,
         label: mod.charAt(0).toUpperCase() + mod.slice(1),
@@ -343,6 +407,8 @@ export default function DashboardPage() {
         completed,
         overdue,
         avgDays,
+        slaCompliance,
+        slaExceptions,
       }
     })
   }, [currentRequests])
@@ -357,6 +423,23 @@ export default function DashboardPage() {
     if (!driver) return null
     const label = driver.module.charAt(0).toUpperCase() + driver.module.slice(1)
     return `Main driver: ${label} resolution ${driver.priorAverage.toFixed(1)}d → ${driver.currentAverage.toFixed(1)}d`
+  }, [currentRequests, priorRequests])
+
+  const activeDriver = useMemo(() => moduleCountDriver(
+    currentRequests,
+    priorRequests,
+    (request) => ACTIVE_STATUSES.has(request.status),
+    "active",
+  ), [currentRequests, priorRequests])
+
+  const overdueDriver = useMemo(() => {
+    const now = Date.now()
+    return moduleCountDriver(
+      currentRequests,
+      priorRequests,
+      (request) => ACTIVE_STATUSES.has(request.status) && (now - new Date(request.createdAt).getTime()) > 7 * 24 * 60 * 60 * 1000,
+      "overdue",
+    )
   }, [currentRequests, priorRequests])
 
   const teamWorkload = useMemo(() => {
@@ -430,6 +513,26 @@ export default function DashboardPage() {
       completed: teamWorkload.reduce((sum, member) => sum + member.completed, 0),
     }
   }, [currentRequests, teamWorkload])
+
+  const serviceMetrics = useMemo(() => {
+    const closed = currentRequests.filter((request) => COMPLETED_STATUSES.has(request.status))
+    const completedWithinSla = closed.filter(isWithinSla).length
+    const active = companyRequests.filter((request) => ACTIVE_STATUSES.has(request.status))
+    const slaOverdue = active.filter((request) =>
+      daysBetween(new Date(request.createdAt), new Date()) > requestSlaDays(request)
+    )
+    const missingAssignee = active.filter((request) => !request.assignedToEmail).length
+    const missingCompany = companyRequests.filter((request) => !request.companyId && !request.requesterEmail).length
+    const missingHistory = companyRequests.filter((request) => !request.statusHistory?.length).length
+    return {
+      slaCompliance: pct(completedWithinSla, closed.length),
+      completedWithinSla,
+      closed: closed.length,
+      slaOverdue: slaOverdue.length,
+      missingAssignee,
+      dataIssues: missingCompany + missingHistory,
+    }
+  }, [currentRequests, companyRequests])
 
   // Top 5 oldest open requests (across full request set, not date-filtered —
   // the oldest backlog matters regardless of when it was filed)
@@ -509,7 +612,7 @@ export default function DashboardPage() {
 
       {/* Time Range Filter */}
       <div className="flex flex-wrap gap-2 items-center">
-        {(["7d", "15d", "30d", "90d", "1y"] as const).map((range) => (
+        {(["7d", "15d", "30d", "90d", "1y", "all"] as const).map((range) => (
           <button
             key={range}
             type="button"
@@ -550,6 +653,7 @@ export default function DashboardPage() {
           title="Active Requests"
           numericValue={stats.active}
           subtitle="Open right now"
+          insight={activeDriver}
           icon={Activity}
           iconColor="text-blue-600"
           iconBg="bg-blue-50"
@@ -561,6 +665,7 @@ export default function DashboardPage() {
           title="Overdue (7d+)"
           numericValue={stats.overdue}
           subtitle="Active for over 7 days"
+          insight={overdueDriver}
           icon={AlertCircle}
           iconColor="text-red-600"
           iconBg="bg-red-50"
@@ -650,12 +755,27 @@ export default function DashboardPage() {
       </Card>
 
       {/* Secondary KPI strip — totals */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <SecondaryStat index={0} label="Total in Period"   numericValue={stats.total}            tone="blue"    icon={FileText} />
-        <SecondaryStat index={1} label="Completed"          numericValue={stats.completed}        tone="emerald" icon={CheckCircle2} />
-        <SecondaryStat index={2} label="Cancelled"          numericValue={stats.cancelled}        tone="red"     icon={AlertCircle} />
-        <SecondaryStat index={3} label="Completion Rate"    numericValue={stats.completionRate} suffix="%" tone="purple" icon={TrendingUp} />
+      <div className="grid grid-cols-2 xl:grid-cols-6 gap-3">
+        <SecondaryStat index={0} label="All Requests" numericValue={companyRequests.length} tone="blue" icon={FileText} />
+        <SecondaryStat index={1} label="Created in Period" numericValue={stats.total} tone="blue" icon={FileText} />
+        <SecondaryStat index={2} label="Completed" numericValue={stats.completed} tone="emerald" icon={CheckCircle2} />
+        <SecondaryStat index={3} label="Completion Rate" numericValue={stats.completionRate} suffix="%" tone="purple" icon={TrendingUp} />
+        <SecondaryStat index={4} label="SLA Compliance" numericValue={serviceMetrics.slaCompliance} suffix="%" tone="emerald" icon={CheckCircle2} />
+        <SecondaryStat index={5} label="SLA Exceptions" numericValue={serviceMetrics.slaOverdue} tone="red" icon={AlertCircle} />
       </div>
+
+      {(serviceMetrics.missingAssignee > 0 || serviceMetrics.dataIssues > 0) && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
+          <div>
+            <p className="font-semibold text-amber-900">Operational data quality requires attention</p>
+            <p className="mt-0.5 text-xs text-amber-800">Reliable workload and SLA reporting depends on complete ownership and status history.</p>
+          </div>
+          <div className="flex gap-2 text-xs font-semibold text-amber-900">
+            {serviceMetrics.missingAssignee > 0 && <span className="rounded border border-amber-300 bg-white px-2.5 py-1">{serviceMetrics.missingAssignee} active unassigned</span>}
+            {serviceMetrics.dataIssues > 0 && <span className="rounded border border-amber-300 bg-white px-2.5 py-1">{serviceMetrics.dataIssues} incomplete records</span>}
+          </div>
+        </div>
+      )}
 
       {/* Charts: Status distribution + Module pie */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
@@ -765,12 +885,14 @@ export default function DashboardPage() {
                   <th className="text-right font-semibold px-3 py-3">Active</th>
                   <th className="text-right font-semibold px-3 py-3">Overdue</th>
                   <th className="text-right font-semibold px-3 py-3">Completed</th>
+                  <th className="text-right font-semibold px-3 py-3">SLA</th>
+                  <th className="text-right font-semibold px-3 py-3">Exceptions</th>
                   <th className="text-right font-semibold px-5 py-3">Avg Days</th>
                 </tr>
               </thead>
               <tbody>
                 {moduleWorkload.every((m) => m.total === 0) ? (
-                  <tr><td colSpan={6} className="text-center text-sm text-gray-400 py-8">No requests in this period yet</td></tr>
+                  <tr><td colSpan={8} className="text-center text-sm text-gray-400 py-8">No requests in this period yet</td></tr>
                 ) : (
                   moduleWorkload.map((m) => (
                     <tr key={m.module} className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors">
@@ -786,6 +908,8 @@ export default function DashboardPage() {
                         {m.overdue || "—"}
                       </td>
                       <td className="text-right px-3 py-3 tabular-nums text-emerald-700">{m.completed || "—"}</td>
+                      <td className="text-right px-3 py-3 tabular-nums font-semibold text-gray-700">{m.completed ? `${m.slaCompliance}%` : "—"}</td>
+                      <td className={cn("text-right px-3 py-3 tabular-nums font-semibold", m.slaExceptions ? "text-red-600" : "text-gray-400")}>{m.slaExceptions || "—"}</td>
                       <td className="text-right px-5 py-3 tabular-nums text-gray-700">{m.avgDays > 0 ? `${m.avgDays}d` : "—"}</td>
                     </tr>
                   ))
