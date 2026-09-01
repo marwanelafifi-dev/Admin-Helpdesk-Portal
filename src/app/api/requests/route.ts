@@ -4,7 +4,8 @@ import { requestStore } from "@/lib/requestStore"
 import { deletedRequestStore } from "@/lib/deletedRequestStore"
 import { getDefaultAssignee } from "@/lib/userStore"
 import type { EngineRequest } from "@/services/engineService"
-import { getRequestCompany } from "@/lib/userCompany"
+import { getCompanyFromEmail, getRequestCompany } from "@/lib/userCompany"
+import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
 
 export const runtime = "nodejs"
 
@@ -95,7 +96,19 @@ export async function GET(req: Request) {
   const id = new URL(req.url).searchParams.get("id")
   // Classify legacy records at read time as well as new writes. This keeps old
   // requests usable without a destructive data migration.
-  const requests = requestStore.getAll().map(withCompanyClassification)
+  const classifiedRequests = requestStore.getAll().map(withCompanyClassification)
+  const userWithModules: UserWithModuleAccess = {
+    id: session.user.id,
+    email: session.user.email ?? undefined,
+    role: session.user.role,
+    readModules: (session.user as any).readModules,
+    readAllModules: (session.user as any).readAllModules,
+  }
+  const isBuchiSession = session.user.role?.toLowerCase().includes("buchi")
+    || getCompanyFromEmail(session.user.email)?.id === "buchi"
+  const requests = isBuchiSession
+    ? scopeRequestsByModuleAccess(classifiedRequests, userWithModules, session.user)
+    : classifiedRequests
   if (id) {
     const request = requests.find((item) => item.id === id)
     if (!request) {

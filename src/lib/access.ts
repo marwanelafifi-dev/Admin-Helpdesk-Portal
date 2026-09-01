@@ -1,3 +1,5 @@
+import { getCompanyFromEmail, getRequestCompany } from "@/lib/userCompany"
+
 export type RoutePermission =
   | "page:dashboard"
   | "page:feedback-reports"
@@ -295,7 +297,7 @@ export function getAccessibleModules(user: UserWithModuleAccess | null | undefin
  * Filter requests by module access - user can only see requests from modules
  * they have access to, and only see all requests from modules in readAllModules
  */
-export function scopeRequestsByModuleAccess<T extends { module?: string; requesterId?: string; requesterEmail?: string; requesterName?: string }>(
+export function scopeRequestsByModuleAccess<T extends { module?: string; requesterId?: string; requesterEmail?: string; requesterName?: string; companyId?: string; companyName?: string }>(
   requests: T[],
   user: UserWithModuleAccess | null | undefined,
   userSession: { id?: string | null; email?: string | null } | null | undefined = null,
@@ -303,9 +305,20 @@ export function scopeRequestsByModuleAccess<T extends { module?: string; request
   if (!user) return []
   if (isSuperAdmin(user.role)) return requests
 
+  // A BUCHI-owned role may read all requests in a selected module, but only
+  // within BUCHI. This company boundary is applied before module/read scope
+  // so "View ALL HR Requests" never exposes Si-Ware HR records.
+  const isBuchiUser = user.role?.toLowerCase().includes("buchi")
+    || getCompanyFromEmail(user.email)?.id === "buchi"
+
   return requests.filter((req) => {
     const module = req.module as RequestModule | undefined
     if (!module) return false
+
+    if (isBuchiUser) {
+      const requestCompany = req.companyId ?? getRequestCompany(module, req.requesterEmail)?.id
+      if (requestCompany !== "buchi") return false
+    }
 
     // Must have access to this module
     if (!canAccessModule(user, module)) return false
