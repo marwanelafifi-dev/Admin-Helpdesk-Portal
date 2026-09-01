@@ -60,6 +60,7 @@ const fallbackRoles: RoleOption[] = [
   { value: "People Team", label: "People Team" },
   { value: "Requester - Si-Ware", label: "Requester - Si-Ware" },
   { value: "Requester - BUCHI", label: "Requester - BUCHI" },
+  { value: "Manager - BUCHI", label: "Manager - BUCHI" },
 ]
 
 const ROLE_COLORS: Record<string, string> = {
@@ -68,6 +69,7 @@ const ROLE_COLORS: Record<string, string> = {
   "People Team": "bg-indigo-100 text-indigo-800",
   "Requester - Si-Ware": "bg-blue-100 text-blue-800",
   "Requester - BUCHI": "bg-orange-100 text-orange-800",
+  "Manager - BUCHI": "bg-orange-100 text-orange-800",
 }
 
 function roleLabel(role: string, roles: RoleOption[]) {

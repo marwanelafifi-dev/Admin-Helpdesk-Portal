@@ -18,6 +18,7 @@ const STORE_PATH = path.join(process.cwd(), "data", "roles.json")
 
 const REQUESTER_SI_WARE = "Requester - Si-Ware"
 const REQUESTER_BUCHI = "Requester - BUCHI"
+const MANAGER_BUCHI = "Manager - BUCHI"
 const SHIPPING_PERMISSIONS = new Set([
   "page:shipping", "page:shipping-new", "page:shipping-sending", "page:shipping-receiving",
 ])
@@ -137,6 +138,24 @@ export function readRoles(): StoredRole[] {
         readAllModules: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        companyId: "buchi",
+      })
+      changed = true
+    }
+
+    if (!roles.some((role) => role.name.toLowerCase() === MANAGER_BUCHI.toLowerCase())) {
+      const sourceManager = roles.find((role) => role.id === "role-manager")
+        ?? roles.find((role) => role.name.toLowerCase() === "manager")
+      const now = new Date().toISOString()
+      roles.push({
+        id: "role-manager-buchi",
+        name: MANAGER_BUCHI,
+        description: "BUCHI management access to team requests (Shipping excluded)",
+        permissions: (sourceManager?.permissions ?? []).filter((permission) => !SHIPPING_PERMISSIONS.has(permission)),
+        readModules: (sourceManager?.readModules ?? BUCHI_MODULES).filter((module) => module !== "shipping"),
+        readAllModules: (sourceManager?.readAllModules ?? BUCHI_MODULES).filter((module) => module !== "shipping"),
+        createdAt: now,
+        updatedAt: now,
         companyId: "buchi",
       })
       changed = true

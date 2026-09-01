@@ -76,6 +76,7 @@ const ROLE_COLORS: Record<string, string> = {
   Manager: "border-indigo-200 bg-indigo-50",
   "Requester - Si-Ware": "border-blue-200 bg-blue-50",
   "Requester - BUCHI": "border-orange-200 bg-orange-50",
+  "Manager - BUCHI": "border-orange-200 bg-orange-50",
   Viewer: "border-slate-200 bg-slate-50",
 }
 
@@ -85,6 +86,7 @@ const ICON_COLORS: Record<string, string> = {
   Manager: "text-indigo-600 bg-indigo-100",
   "Requester - Si-Ware": "text-blue-700 bg-blue-100",
   "Requester - BUCHI": "text-orange-700 bg-orange-100",
+  "Manager - BUCHI": "text-orange-700 bg-orange-100",
   Viewer: "text-slate-600 bg-slate-100",
 }
 
