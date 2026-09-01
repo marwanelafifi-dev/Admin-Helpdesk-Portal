@@ -1543,3 +1543,12 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] Persistent Ubuntu `roles.json` and `users.json` stores migrate idempotently when read after deployment.
 - [x] Admin Users supports bulk local-account creation from CSV with a downloadable `name,email,password,department` template.
 - [x] CSV imports validate every row before creation, reject duplicates, support up to 500 users, hash passwords, send welcome emails, and assign the company requester role from the email domain.
+
+## Phase 7c: Company-Scoped Role Administration (Completed — 01 Sep 2026)
+
+- [x] Split Admin navigation into **Roles - Si-Ware Systems** (`/admin/roles`) and **Roles - BUCHI** (`/admin/roles/buchi`).
+- [x] Added persistent `companyId` ownership to roles while preserving globally unique role names and existing user assignments.
+- [x] Existing roles migrate safely: BUCHI-named roles belong to BUCHI; all other legacy roles default to Si-Ware Systems.
+- [x] Roles API supports company-filtered administration while its unfiltered endpoint remains backward compatible for the Admin Users role selector.
+- [x] New roles inherit the company of the administration page where they are created.
+- [x] Both role pages remain protected by the existing `page:admin-roles` permission.

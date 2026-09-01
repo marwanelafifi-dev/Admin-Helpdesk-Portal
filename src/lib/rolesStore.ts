@@ -1,5 +1,6 @@
 import fs from "fs"
 import path from "path"
+import type { CompanyId } from "@/lib/userCompany"
 
 export type StoredRole = {
   id: string
@@ -10,6 +11,7 @@ export type StoredRole = {
   readAllModules?: string[]
   createdAt: string
   updatedAt: string
+  companyId?: CompanyId
 }
 
 const STORE_PATH = path.join(process.cwd(), "data", "roles.json")
@@ -100,6 +102,14 @@ export function readRoles(): StoredRole[] {
     const roles = Array.isArray(parsed) ? parsed : [...DEFAULT_ROLES]
     let changed = false
 
+    for (const role of roles) {
+      const expectedCompany: CompanyId = role.name.toLowerCase().includes("buchi") ? "buchi" : "si_ware"
+      if (!role.companyId) {
+        role.companyId = expectedCompany
+        changed = true
+      }
+    }
+
     let siWare = roles.find((role) => role.id === "role-requester" || role.name.toLowerCase() === "requester")
     if (!siWare) {
       siWare = DEFAULT_ROLES.find((role) => role.id === "role-requester")!
@@ -127,6 +137,7 @@ export function readRoles(): StoredRole[] {
         readAllModules: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        companyId: "buchi",
       })
       changed = true
     }

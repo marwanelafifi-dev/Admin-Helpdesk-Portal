@@ -102,7 +102,7 @@ export function permissionForPath(pathname: string): RoutePermission | null {
   if (path === "/general") return "page:general"
   if (path === "/general/new") return "page:general-new"
   if (path === "/admin/users") return "page:admin-users"
-  if (path === "/admin/roles") return "page:admin-roles"
+  if (path === "/admin/roles" || path === "/admin/roles/buchi") return "page:admin-roles"
   if (path === "/admin/settings") return "page:admin-settings"
   if (path === "/admin/audit-trail") return "page:admin-audit"
   if (path === "/admin/database") return "page:admin-database"

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { usePathname } from "next/navigation"
 import { Shield, Plus, Users, Check, X, Edit2, Trash2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -22,6 +23,7 @@ type Role = {
   description: string | null
   permissions: string[]
   createdAt: string
+  companyId?: "si_ware" | "buchi"
 }
 
 const PERMISSION_LABELS: Record<string, string> = {
@@ -87,6 +89,9 @@ const ICON_COLORS: Record<string, string> = {
 }
 
 export default function AdminRolesPage() {
+  const pathname = usePathname()
+  const companyId = pathname.endsWith("/buchi") ? "buchi" : "si_ware"
+  const companyName = companyId === "buchi" ? "BUCHI" : "Si-Ware Systems"
   const [roles, setRoles] = useState<Role[]>([])
   const [loading, setLoading] = useState(true)
   const [showDialog, setShowDialog] = useState(false)
@@ -104,7 +109,7 @@ export default function AdminRolesPage() {
 
   const loadRoles = async () => {
     setLoading(true)
-    const response = await fetch("/api/roles", { credentials: "include" })
+    const response = await fetch(`/api/roles?company=${companyId}`, { credentials: "include" })
     const data = await response.json()
     if (response.ok) {
       setRoles(data.roles || [])
@@ -114,7 +119,7 @@ export default function AdminRolesPage() {
 
   useEffect(() => {
     loadRoles()
-  }, [])
+  }, [companyId])
 
   const openCreateDialog = () => {
     setEditingRole(null)
@@ -155,6 +160,7 @@ export default function AdminRolesPage() {
       permissions: allPermissions,
       readModules: formData.readModules,
       readAllModules: formData.readAllModules,
+      companyId,
     }
 
     const method = editingRole ? "PATCH" : "POST"
@@ -275,9 +281,9 @@ export default function AdminRolesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Roles</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Roles - {companyName}</h1>
           <p className="text-muted-foreground text-sm mt-0.5">
-            Define roles and manage access permissions
+            Define roles and manage access permissions for {companyName}
           </p>
         </div>
         <Button onClick={openCreateDialog}>

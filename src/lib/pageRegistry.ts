@@ -64,7 +64,7 @@ export const PAGES: PageDefinition[] = [
 
   // Admin
   { id: "admin-users",         label: "Users (Admin)",         path: "/admin/users",          group: "Admin" },
-  { id: "admin-roles",         label: "Roles (Admin)",         path: "/admin/roles",          group: "Admin" },
+  { id: "admin-roles",         label: "Roles - Si-Ware Systems (Admin)", path: "/admin/roles", group: "Admin" },
   { id: "admin-settings",      label: "Settings (Admin)",      path: "/admin/settings",       group: "Admin" },
   { id: "admin-notifications", label: "Notifications (Admin)", path: "/admin/notifications",  group: "Admin" },
   { id: "admin-announcements", label: "Send Announcements",    path: "/admin/announcements", group: "Core" },

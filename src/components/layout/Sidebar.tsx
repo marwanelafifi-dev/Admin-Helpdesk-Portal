@@ -91,7 +91,8 @@ const navItems: NavItem[] = [
     icon: Settings,
     children: [
       { title: "Users", href: "/admin/users", icon: Users },
-      { title: "Roles", href: "/admin/roles", icon: Shield },
+      { title: "Roles - Si-Ware Systems", href: "/admin/roles", icon: Shield },
+      { title: "Roles - BUCHI", href: "/admin/roles/buchi", icon: Shield },
       { title: "Settings", href: "/admin/settings", icon: Settings },
       { title: "Notifications", href: "/admin/notifications", icon: Bell },
       { title: "Company Data - Si-Ware", href: "/admin/company-data", icon: Building2 },
@@ -259,6 +260,7 @@ export function Sidebar() {
     }
     if (href === "/admin") return pathname.startsWith("/admin") && pathname !== "/admin/all-requests" && pathname !== "/admin/announcements"
     if (href === "/admin/company-data") return pathname === href
+    if (href === "/admin/roles") return pathname === href
     if (href === "/admin/all-requests") return pathname === "/admin/all-requests"
     if (href === "/requests") return pathname === "/requests"
     return pathname.startsWith(href)
