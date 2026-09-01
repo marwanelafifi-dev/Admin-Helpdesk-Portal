@@ -11,6 +11,7 @@ const updateUserSchema = z.object({
   role: z.string().trim().min(1).optional(),
   department: z.string().trim().optional(),
   active: z.boolean().optional(),
+  mustChangePassword: z.boolean().optional(),
   // Avatar as a data URL or null to clear. Capped at ~2.7 MB encoded (~ 2 MB raw),
   // matching the client-side upload limit.
   image: z.union([z.string().max(3_000_000), z.null()]).optional(),
@@ -61,6 +62,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     ...(isAdmin && parsed.data.email && { email: parsed.data.email.toLowerCase() }),
     ...(isAdmin && parsed.data.role && { role: parsed.data.role }),
     ...(isAdmin && parsed.data.active !== undefined && { active: parsed.data.active }),
+    ...(isAdmin && user.provider === "credentials" && parsed.data.mustChangePassword !== undefined && { mustChangePassword: parsed.data.mustChangePassword }),
   })
 
   // Log role change separately for clarity in audit trail

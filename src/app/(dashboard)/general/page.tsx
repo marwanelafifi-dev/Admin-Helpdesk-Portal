@@ -217,13 +217,16 @@ export default function GeneralRequestPage() {
     })
   }, [allVisibleRequests, statusFilter, companyFilter, search, sortKey, sortDir, commentMatchIds])
 
+  const companyRequests = useMemo(() => requests.filter((r) =>
+    companyFilter === "all" || (r.companyId ?? getRequestCompany(r.module, r.requesterEmail)?.id) === companyFilter
+  ), [requests, companyFilter])
   const counts = useMemo(() => ({
-    total:      requests.length,
-    new:        requests.filter((r) => (r.status as string) === "new").length,
-    inProgress: requests.filter((r) => (r.status as string) === "in_progress").length,
-    completed:  requests.filter((r) => (r.status as string) === "completed").length,
-    cancelled:  requests.filter((r) => (r.status as string) === "cancelled").length,
-  }), [requests])
+    total:      companyRequests.length,
+    new:        companyRequests.filter((r) => (r.status as string) === "new").length,
+    inProgress: companyRequests.filter((r) => (r.status as string) === "in_progress").length,
+    completed:  companyRequests.filter((r) => (r.status as string) === "completed").length,
+    cancelled:  companyRequests.filter((r) => (r.status as string) === "cancelled").length,
+  }), [companyRequests])
 
   const statCards = [
     { key: "all",         label: "Total Requests", value: counts.total,      icon: Inbox,        iconBg: "bg-indigo-50",  iconColor: "text-indigo-600",  activeBg: "bg-slate-800",   activeBorder: "border-slate-800" },

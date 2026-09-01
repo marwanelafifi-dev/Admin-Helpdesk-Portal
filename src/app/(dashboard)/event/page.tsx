@@ -22,6 +22,7 @@ import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { CompanyBadge } from "@/components/ui/CompanyBadge"
 import { CcVisibilityToggle } from "@/components/ui/CcVisibilityToggle"
+import { CompanyFilter, matchesCompanyFilter, type CompanyFilterValue } from "@/components/ui/CompanyFilter"
 import { useCcVisibility } from "@/hooks/useCcVisibility"
 import { LABEL_COLORS, LABEL_DOTS } from "@/lib/statusPalette"
 
@@ -72,6 +73,7 @@ export default function EventPage() {
   const [requests, setRequests]           = useState<EngineRequest[]>([])
   const [search, setSearch]               = useState("")
   const [statusFilter, setStatusFilter]   = useState("all")
+  const [companyFilter, setCompanyFilter] = useState<CompanyFilterValue>("all")
   const [sortKey, setSortKey]             = useState<SortKey>("updatedAt")
   const [sortDir, setSortDir]             = useState<"asc" | "desc">("desc")
   const [colWidths, setColWidths]         = useState<(number | null)[]>(() => COLS.map(() => null))
@@ -186,6 +188,7 @@ export default function EventPage() {
 
   const filtered = useMemo(() => {
     let result = allVisibleRequests
+    result = result.filter((r) => matchesCompanyFilter(r, companyFilter))
     if (statusFilter !== "all") result = result.filter((r) => r.status === statusFilter)
     const q = normalizeSearchText(search)
     if (q) result = result.filter((r) => normalizeSearchText(r.id).includes(q) || normalizeSearchText(r.title).includes(q) || normalizeSearchText(r.requesterName).includes(q) || normalizeSearchText(getSearchablePayloadText(r)).includes(q) || commentMatchIds.has(r.id))
@@ -206,14 +209,15 @@ export default function EventPage() {
       }
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
-  }, [allVisibleRequests, statusFilter, search, sortKey, sortDir, commentMatchIds])
+  }, [allVisibleRequests, statusFilter, companyFilter, search, sortKey, sortDir, commentMatchIds])
 
+  const companyRequests = useMemo(() => requests.filter((r) => matchesCompanyFilter(r, companyFilter)), [requests, companyFilter])
   const counts = useMemo(() => ({
-    total:     requests.length,
-    upcoming:  requests.filter((r) => r.status === "new").length,
-    inProgress:requests.filter((r) => r.status === "in_progress").length,
-    completed: requests.filter((r) => r.status === "completed").length,
-  }), [requests])
+    total:     companyRequests.length,
+    upcoming:  companyRequests.filter((r) => r.status === "new").length,
+    inProgress:companyRequests.filter((r) => r.status === "in_progress").length,
+    completed: companyRequests.filter((r) => r.status === "completed").length,
+  }), [companyRequests])
 
   const statCards = [
     { key: "all",          label: "Total Events",  value: counts.total,      icon: CalendarDays, iconBg: "bg-orange-50", iconColor: "text-orange-600", activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
@@ -299,6 +303,7 @@ export default function EventPage() {
           </div>
 
           {/* CC Visibility Toggle */}
+          <CompanyFilter value={companyFilter} onChange={setCompanyFilter} className="mt-3" />
           <div className="mt-3">
             <CcVisibilityToggle checked={showCcRequests} onCheckedChange={toggleCcVisibility} />
           </div>
@@ -458,7 +463,7 @@ export default function EventPage() {
 
           {filtered.length > 0 && (
             <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-[11px] text-gray-400 text-right">
-              Showing {filtered.length} of {requests.length} events
+              Showing {filtered.length} of {companyRequests.length} events
             </div>
           )}
             </div>

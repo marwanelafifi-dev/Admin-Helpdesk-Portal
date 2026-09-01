@@ -60,6 +60,17 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", publicBase))
   }
 
+  // Credential users with a temporary password may only access Account
+  // Settings until they complete the required first-login password change.
+  if (
+    token
+    && (token as any).mustChangePassword === true
+    && !isPublicRoute
+    && pathname !== "/account/settings"
+  ) {
+    return NextResponse.redirect(new URL("/account/settings", publicBase))
+  }
+
   // Maintenance mode — block every dashboard route for non-admins. Full
   // Access users keep access so they can flip the flag back off. The
   // flag is stamped on the token by the auth jwt callback.

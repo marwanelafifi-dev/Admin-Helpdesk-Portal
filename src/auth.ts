@@ -141,6 +141,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.name = stored.name
         // image deliberately omitted — see note in refresh branch below
         token.permissions = await getPermissionsForRole(stored.role)
+        ;(token as any).mustChangePassword = false
         // Stamp issue time explicitly so the force-signout check has a
         // reliable comparison value. NextAuth sets `iat` internally but
         // mixing that with our refresh path was unreliable.
@@ -156,6 +157,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = role
         token.name = user.name
         token.permissions = await getPermissionsForRole(role)
+        const stored = user.email ? findUserByEmail(user.email) : undefined
+        ;(token as any).mustChangePassword = stored?.provider === "credentials" && stored.mustChangePassword === true
         ;(token as any).issuedAtSec = Math.floor(Date.now() / 1000)
         return token
       }
@@ -179,6 +182,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
           token.role = stored.role
           token.name = stored.name
+          ;(token as any).mustChangePassword = stored.provider === "credentials" && stored.mustChangePassword === true
           const { getPermissionsForRole } = await import("@/lib/userRoles")
           token.permissions = await getPermissionsForRole(stored.role)
         } else {
@@ -224,6 +228,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           session.user.image = stored?.image ?? null
         }
         session.user.permissions = await getPermissionsForRole(session.user.role)
+        ;(session.user as any).mustChangePassword = (token as any).mustChangePassword === true
 
         // Load module access control from role
         const role = findRoleByName(session.user.role)

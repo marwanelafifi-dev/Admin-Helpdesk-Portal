@@ -46,6 +46,7 @@ type PlatformUser = {
   defaultAssignee?: boolean
   companyId?: "si_ware" | "buchi" | null
   companyName?: string
+  mustChangePassword?: boolean
 }
 
 type RoleOption = {
@@ -115,6 +116,7 @@ export default function AdminUsersPage() {
   // Tracks the "Default Assignee" checkbox in the Edit User dialog. Only
   // meaningful when the chosen role is "Administration Team".
   const [editDefaultAssignee, setEditDefaultAssignee] = useState(false)
+  const [editMustChangePassword, setEditMustChangePassword] = useState(false)
   const [updating, setUpdating] = useState(false)
   const [updateError, setUpdateError] = useState("")
   const [form, setForm] = useState({
@@ -241,7 +243,7 @@ export default function AdminUsersPage() {
   }
 
   const downloadCsvTemplate = () => {
-    const content = "name,email,password,department\nBUCHI User,user@buchi.com,ChangeMe123!,Sales\n"
+    const content = "name,email,password,department,company,role,require_password_change\nBUCHI User,user@buchi.com,ChangeMe123!,Sales,BUCHI,Requester - BUCHI,TRUE\nSi-Ware User,user@si-ware.com,ChangeMe123!,Engineering,Si-Ware Systems,Requester - Si-Ware,FALSE\n"
     const url = URL.createObjectURL(new Blob([content], { type: "text/csv;charset=utf-8" }))
     const anchor = document.createElement("a")
     anchor.href = url
@@ -258,14 +260,38 @@ export default function AdminUsersPage() {
       const lines = (await file.text()).replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.trim())
       if (lines.length < 2) throw new Error("CSV must contain a header and at least one user row.")
       const headers = parseCsvLine(lines[0]).map((header) => header.toLowerCase())
-      const required = ["name", "email", "password"]
+      const required = ["name", "email", "password", "company", "role"]
       const missing = required.filter((header) => !headers.includes(header))
       if (missing.length) throw new Error(`Missing CSV column${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}`)
 
       const importedUsers = lines.slice(1).map((line) => {
         const values = parseCsvLine(line)
         const row = Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ""]))
-        return { name: row.name, email: row.email, password: row.password, department: row.department || undefined }
+        const hasPasswordChangeColumn = headers.includes("require_password_change")
+        const rawPasswordChange = row.require_password_change?.trim().toLowerCase() ?? ""
+        const trueValues = ["true", "yes", "1", "x", "checked"]
+        const falseValues = ["false", "no", "0", "", "unchecked"]
+        if (hasPasswordChangeColumn && !trueValues.includes(rawPasswordChange) && !falseValues.includes(rawPasswordChange)) {
+          throw new Error(`Invalid require_password_change value for ${row.email || "a user"}. Use TRUE or FALSE.`)
+        }
+        const normalizedCompany = row.company?.trim().toLowerCase() ?? ""
+        const company = normalizedCompany === "buchi"
+          ? "BUCHI"
+          : ["si-ware systems", "si-ware", "siware"].includes(normalizedCompany)
+            ? "Si-Ware Systems"
+            : null
+        if (!company) {
+          throw new Error(`Invalid company for ${row.email || "a user"}. Use Si-Ware Systems or BUCHI.`)
+        }
+        return {
+          name: row.name,
+          email: row.email,
+          password: row.password,
+          department: row.department || undefined,
+          company,
+          role: row.role?.trim(),
+          requirePasswordChange: hasPasswordChangeColumn ? trueValues.includes(rawPasswordChange) : true,
+        }
       })
 
       const response = await fetch("/api/users/import", {
@@ -312,6 +338,7 @@ export default function AdminUsersPage() {
       department: user.department || "",
     })
     setEditDefaultAssignee(Boolean((user as any).defaultAssignee))
+    setEditMustChangePassword(Boolean(user.mustChangePassword))
     setUpdateError("")
     setShowEditDialog(true)
   }
@@ -329,6 +356,7 @@ export default function AdminUsersPage() {
     if (form.password) payload.password = form.password
     if (form.role) payload.role = form.role
     if (form.department !== undefined) payload.department = form.department
+    if (editingUser.provider === "credentials") payload.mustChangePassword = editMustChangePassword
 
     const response = await fetch(`/api/users/${editingUser.id}`, {
       method: "PATCH",
@@ -904,6 +932,25 @@ export default function AdminUsersPage() {
                   </Select>
                 </div>
               </div>
+
+              {editingUser.provider === "credentials" && (
+                <div className="rounded-md border border-amber-200 bg-amber-50/50 px-4 py-3 dark:border-amber-900 dark:bg-amber-950/20">
+                  <label className="flex cursor-pointer select-none items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={editMustChangePassword}
+                      onChange={(e) => setEditMustChangePassword(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                    />
+                    <span className="text-sm">
+                      <span className="font-medium text-amber-900 dark:text-amber-200">Require password change on next login</span>
+                      <span className="block text-xs text-amber-700/80 dark:text-amber-300/80">
+                        Clear this option to let the user continue using their current password.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              )}
 
               {/* Default Assignee — only meaningful for Administration Team. */}
               {form.role === "Administration Team" && (

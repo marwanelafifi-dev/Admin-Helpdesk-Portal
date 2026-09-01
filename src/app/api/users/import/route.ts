@@ -4,9 +4,10 @@ import { z } from "zod"
 import { auth } from "@/auth"
 import { canManageUsers } from "@/lib/access"
 import { createUser, findUserByEmail } from "@/lib/userStore"
-import { getCompanyFromEmail, getDefaultRequesterRoleForEmail } from "@/lib/userCompany"
+import { getCompanyFromEmail } from "@/lib/userCompany"
 import { sendWelcomeEmail } from "@/lib/emailService"
 import { logServerAudit } from "@/lib/serverAuditLog"
+import { findRoleByName } from "@/lib/rolesStore"
 
 const rowSchema = z.object({
   name: z.string().trim().min(1, "Name is required"),
@@ -16,6 +17,35 @@ const rowSchema = z.object({
   ),
   password: z.string().min(8, "Password must be at least 8 characters"),
   department: z.string().trim().optional(),
+  company: z.enum(["Si-Ware Systems", "BUCHI"]),
+  role: z.string().trim().min(1, "Role is required"),
+  requirePasswordChange: z.boolean().default(true),
+}).superRefine((row, ctx) => {
+  const emailCompany = getCompanyFromEmail(row.email)?.name
+  if (emailCompany !== row.company) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["company"],
+      message: `Company must match the email domain (${emailCompany ?? "unknown"})`,
+    })
+  }
+  const role = findRoleByName(row.role)
+  if (!role) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["role"],
+      message: `Role \"${row.role}\" does not exist`,
+    })
+  } else {
+    const companyId = row.company === "BUCHI" ? "buchi" : "si_ware"
+    if ((role.companyId ?? "si_ware") !== companyId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["role"],
+        message: `Role \"${role.name}\" does not belong to ${row.company}`,
+      })
+    }
+  }
 })
 
 const importSchema = z.object({
@@ -51,10 +81,11 @@ export async function POST(request: Request) {
   const created = parsed.data.users.map((row, index) => createUser({
     email: row.email.toLowerCase(),
     name: row.name,
-    role: getDefaultRequesterRoleForEmail(row.email),
+    role: findRoleByName(row.role)!.name,
     image: null,
     active: true,
     provider: "credentials",
+    mustChangePassword: row.requirePasswordChange,
     passwordHash: passwordHashes[index],
     ...(row.department && { department: row.department }),
   }))
@@ -65,6 +96,7 @@ export async function POST(request: Request) {
     name: user.name,
     password: parsed.data.users[index].password,
     loginUrl,
+    mustChangePassword: parsed.data.users[index].requirePasswordChange,
   })))
 
   logServerAudit({
@@ -73,7 +105,7 @@ export async function POST(request: Request) {
     action: "user_created",
     targetId: `csv-import-${Date.now()}`,
     targetTitle: `${created.length} local users`,
-    details: `Imported ${created.length} local users from CSV (${created.filter((u) => u.role === "Requester - BUCHI").length} BUCHI, ${created.filter((u) => u.role === "Requester - Si-Ware").length} Si-Ware)`,
+    details: `Imported ${created.length} local users from CSV (${created.filter((u) => getCompanyFromEmail(u.email)?.id === "buchi").length} BUCHI, ${created.filter((u) => getCompanyFromEmail(u.email)?.id === "si_ware").length} Si-Ware)`,
     category: "user",
   })
 

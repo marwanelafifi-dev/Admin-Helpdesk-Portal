@@ -39,6 +39,7 @@ export async function GET() {
     image: u.image,
     provider: u.provider,
     defaultAssignee: u.defaultAssignee ?? false,
+    mustChangePassword: u.provider === "credentials" ? (u.mustChangePassword ?? false) : false,
     companyId: u.companyId ?? company?.id ?? null,
     companyName: u.companyName ?? company?.name ?? "Unclassified",
   })})
@@ -80,6 +81,7 @@ export async function POST(request: Request) {
       image: null,
       active: true,
       provider: "credentials",
+      mustChangePassword: true,
       ...(passwordHash && { passwordHash }),
     })
 
@@ -91,6 +93,7 @@ export async function POST(request: Request) {
         name: parsed.data.name,
         password: parsed.data.password!,
         loginUrl,
+        mustChangePassword: true,
       })
     } catch (emailErr) {
       console.error("Failed to send welcome email:", emailErr)

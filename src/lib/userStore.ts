@@ -22,6 +22,8 @@ export type StoredUser = {
    * Only meaningful for Administration Team members.
    */
   defaultAssignee?: boolean
+  /** Credential users must change their temporary password before using the portal. */
+  mustChangePassword?: boolean
 }
 
 const STORE_PATH = path.join(process.cwd(), "data", "users.json")

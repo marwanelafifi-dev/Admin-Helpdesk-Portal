@@ -56,10 +56,14 @@ export async function POST(
       }
     }
 
-    const passwordHash = await bcrypt.hash(password, 12)
-    updateUser(userId, { passwordHash })
-
     const isAdminReset = session.user.id !== userId
+    const passwordHash = await bcrypt.hash(password, 12)
+    updateUser(userId, {
+      passwordHash,
+      // Self-service completes first-login setup; an admin reset creates a
+      // new temporary password and requires another change.
+      mustChangePassword: isAdminReset,
+    })
     logServerAudit({
       actor: session.user.name ?? session.user.email ?? "Unknown",
       actorEmail: session.user.email ?? "",

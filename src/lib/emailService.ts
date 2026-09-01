@@ -219,6 +219,7 @@ export async function sendWelcomeEmail(params: {
   name: string
   password: string
   loginUrl: string
+  mustChangePassword?: boolean
 }) {
   const transporter = createTransporter()
 
@@ -276,7 +277,9 @@ export async function sendWelcomeEmail(params: {
       <a href="${params.loginUrl}" class="btn">Sign in to Portal</a>
 
       <div class="warning">
-        ⚠️ Please change your password after your first login. Keep your credentials confidential and do not share them with anyone.
+        ${params.mustChangePassword === false
+          ? "Keep this password confidential and do not share it with anyone."
+          : "This is a temporary password for your first login only. You will be required to create a new password immediately after signing in. Do not share this temporary password with anyone."}
       </div>
     </div>
     <div class="footer">

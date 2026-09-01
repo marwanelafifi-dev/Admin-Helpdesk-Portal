@@ -21,6 +21,7 @@ import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { CompanyBadge } from "@/components/ui/CompanyBadge"
 import { CcVisibilityToggle } from "@/components/ui/CcVisibilityToggle"
+import { CompanyFilter, matchesCompanyFilter, type CompanyFilterValue } from "@/components/ui/CompanyFilter"
 import { useCcVisibility } from "@/hooks/useCcVisibility"
 import { LABEL_COLORS, LABEL_DOTS } from "@/lib/statusPalette"
 import { MarkdownDisplay } from "@/components/ui/MarkdownDisplay"
@@ -72,6 +73,7 @@ export default function PurchasePage() {
   const [requests, setRequests]           = useState<EngineRequest[]>([])
   const [search, setSearch]               = useState("")
   const [statusFilter, setStatusFilter]   = useState("all")
+  const [companyFilter, setCompanyFilter] = useState<CompanyFilterValue>("all")
   const [sortKey, setSortKey]             = useState<SortKey>("updatedAt")
   const [sortDir, setSortDir]             = useState<"asc" | "desc">("desc")
   const [colWidths, setColWidths]         = useState<(number | null)[]>(() => COLS.map(() => null))
@@ -192,6 +194,7 @@ export default function PurchasePage() {
 
   const filtered = useMemo(() => {
     let result = allVisibleRequests
+    result = result.filter((r) => matchesCompanyFilter(r, companyFilter))
     if (statusFilter !== "all") result = result.filter((r) => r.status === statusFilter)
     const q = normalizeSearchText(search)
     if (q) result = result.filter((r) =>
@@ -216,15 +219,16 @@ export default function PurchasePage() {
       bv = (b[sortKey as keyof EngineRequest] as string) ?? ""
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
-  }, [allVisibleRequests, statusFilter, search, sortKey, sortDir, commentMatchIds])
+  }, [allVisibleRequests, statusFilter, companyFilter, search, sortKey, sortDir, commentMatchIds])
 
+  const companyRequests = useMemo(() => requests.filter((r) => matchesCompanyFilter(r, companyFilter)), [requests, companyFilter])
   const counts = useMemo(() => ({
-    total:   requests.length,
-    new:     requests.filter((r) => r.status === "new").length,
-    inProgress: requests.filter((r) => r.status === "in_progress").length,
-    awaitingApproval: requests.filter((r) => r.status === "awaiting_approval").length,
-    delivered: requests.filter((r) => r.status === "delivered").length,
-  }), [requests])
+    total:   companyRequests.length,
+    new:     companyRequests.filter((r) => r.status === "new").length,
+    inProgress: companyRequests.filter((r) => r.status === "in_progress").length,
+    awaitingApproval: companyRequests.filter((r) => r.status === "awaiting_approval").length,
+    delivered: companyRequests.filter((r) => r.status === "delivered").length,
+  }), [companyRequests])
 
   const statCards = [
     { key: "all",         label: "Total Orders",       value: counts.total,               icon: ShoppingCart, iconBg: "bg-blue-50",   iconColor: "text-blue-600",    activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
@@ -327,6 +331,7 @@ export default function PurchasePage() {
           </div>
 
           {/* CC Visibility Toggle */}
+          <CompanyFilter value={companyFilter} onChange={setCompanyFilter} className="mt-3" />
           <div className="mt-3">
             <CcVisibilityToggle checked={showCcRequests} onCheckedChange={toggleCcVisibility} />
           </div>
@@ -501,7 +506,7 @@ export default function PurchasePage() {
 
           {filtered.length > 0 && (
             <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-[11px] text-gray-400 text-right">
-              Showing {filtered.length} of {requests.length} orders
+              Showing {filtered.length} of {companyRequests.length} orders
             </div>
           )}
             </div>

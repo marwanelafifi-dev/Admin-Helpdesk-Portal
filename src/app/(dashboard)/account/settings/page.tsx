@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
 export default function AccountSettingsPage() {
-  const { data: session } = useSession()
+  const { data: session, update: updateSession } = useSession()
   const router = useRouter()
   const user = session?.user
 
@@ -24,7 +24,8 @@ export default function AccountSettingsPage() {
   const [pwSaved, setPwSaved] = useState(false)
   const [pwError, setPwError] = useState("")
 
-  const isGoogleUser = !!(user?.image && !(user?.image ?? "").startsWith("data:"))
+  const mustChangePassword = Boolean((user as any)?.mustChangePassword)
+  const isGoogleUser = !mustChangePassword && !!(user?.image && !(user?.image ?? "").startsWith("data:"))
 
   const handlePasswordSave = async () => {
     setPwError("")
@@ -45,7 +46,13 @@ export default function AccountSettingsPage() {
       }
       setCurrentPw(""); setNewPw(""); setConfirmPw("")
       setPwSaved(true)
-      setTimeout(() => setPwSaved(false), 3000)
+      await updateSession()
+      if ((user as any)?.mustChangePassword) {
+        router.replace("/dashboard")
+        router.refresh()
+      } else {
+        setTimeout(() => setPwSaved(false), 3000)
+      }
     } catch (err) {
       setPwError(err instanceof Error ? err.message : "Failed to update password")
     } finally {
@@ -59,6 +66,12 @@ export default function AccountSettingsPage() {
         <h1 className="text-2xl font-bold text-gray-900">Account Settings</h1>
         <p className="text-sm text-gray-500 mt-1">Manage your password and notification preferences.</p>
       </div>
+
+      {(user as any)?.mustChangePassword && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <strong>Password change required.</strong> Replace your temporary password before continuing to the portal.
+        </div>
+      )}
 
       {/* Change Password */}
       <Card>

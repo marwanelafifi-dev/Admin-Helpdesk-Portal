@@ -1557,3 +1557,17 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] Added independent Page Access permissions for **Roles - BUCHI (Admin)** and **Company Data - BUCHI (Admin)** so access to BUCHI administration pages can be granted separately from Si-Ware pages.
 - [x] Fixed the Docker PostgreSQL health check to pass `-d ${DB_NAME:-admin_request_platform}`, preventing repeated `database "admin" does not exist` errors without changing or recreating database volumes.
 - [x] Enforced BUCHI request isolation: **View ALL Requests** now means all requests in the selected module for BUCHI only; Si-Ware records are excluded in both shared client scoping and `/api/requests`, while Full Access remains cross-company.
+
+## Phase 7d: Company Filters and Local-Account Onboarding (Completed — 02 Sep 2026)
+
+- [x] Added reusable **All Companies / Si-Ware Systems / BUCHI** filters to HR, General, Maintenance, Purchase, Event, and Travel list pages; Shipping remains intentionally excluded and always belongs to Si-Ware Systems.
+- [x] Company filters scope visible rows, summary/status totals, and displayed result counts consistently.
+- [x] Added a persistent per-user `mustChangePassword` flag for local credential accounts; existing users default safely to no forced change.
+- [x] New manually created local users and admin password resets require a password change on the next login by default.
+- [x] Users with a required password change are redirected to Account Settings until they successfully replace the temporary password; completing the change clears the requirement.
+- [x] Admin → Users exposes **Require password change on next login** for each local user, allowing an administrator to enable or disable the requirement independently.
+- [x] Welcome emails state clearly when the supplied credential is a temporary, first-login-only password; accounts without the requirement receive a normal confidentiality notice.
+- [x] Expanded the downloadable CSV template to `name,email,password,department,company,role,require_password_change` with BUCHI and Si-Ware examples.
+- [x] CSV import accepts common boolean representations for `require_password_change` (`TRUE/FALSE`, `Yes/No`, `1/0`, `X`, `Checked/Unchecked`); legacy templates without the column default to requiring a password change.
+- [x] CSV imports require an explicit company and role, validate company against the email domain, validate that the role exists, and reject roles owned by a different company.
+- [x] CSV imports support company-specific custom roles in addition to the built-in Requester and Manager roles.

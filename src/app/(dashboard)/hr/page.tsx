@@ -26,6 +26,7 @@ import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { CompanyBadge } from "@/components/ui/CompanyBadge"
 import { CcVisibilityToggle } from "@/components/ui/CcVisibilityToggle"
+import { CompanyFilter, matchesCompanyFilter, type CompanyFilterValue } from "@/components/ui/CompanyFilter"
 import { useCcVisibility } from "@/hooks/useCcVisibility"
 import { LABEL_COLORS, LABEL_DOTS } from "@/lib/statusPalette"
 
@@ -79,6 +80,7 @@ export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
   const [requests, setRequests]         = useState<EngineRequest[]>([])
   const [search, setSearch]             = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [companyFilter, setCompanyFilter] = useState<CompanyFilterValue>("all")
   const [activeTab, setActiveTab]       = useState<Tab>(defaultTab)
   const [sortKey, setSortKey]           = useState<SortKey>("id")
   const [sortDir, setSortDir]           = useState<SortDir>("asc")
@@ -193,6 +195,7 @@ export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
 
   const filtered = useMemo(() => {
     let result = allVisibleRequests
+    result = result.filter((r) => matchesCompanyFilter(r, companyFilter))
     if (activeTab !== "all") result = result.filter((r) => (r.payload as HRPayload).hrType === activeTab)
     if (statusFilter !== "all") result = result.filter((r) => r.status === statusFilter)
     const q = normalizeSearchText(search)
@@ -220,14 +223,15 @@ export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
       const av = getVal(a, pa), bv = getVal(b, pb)
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
-  }, [allVisibleRequests, activeTab, statusFilter, search, sortKey, sortDir, commentMatchIds])
+  }, [allVisibleRequests, activeTab, statusFilter, companyFilter, search, sortKey, sortDir, commentMatchIds])
 
+  const companyRequests = useMemo(() => hrRequests.filter((r) => matchesCompanyFilter(r, companyFilter)), [hrRequests, companyFilter])
   const stats = useMemo(() => ({
-    total:       hrRequests.length,
-    onboarding:  hrRequests.filter((r) => (r.payload as HRPayload).hrType === "onboarding").length,
-    offboarding: hrRequests.filter((r) => (r.payload as HRPayload).hrType === "offboarding").length,
-    completed:   hrRequests.filter((r) => r.status === "completed").length,
-  }), [hrRequests])
+    total:       companyRequests.length,
+    onboarding:  companyRequests.filter((r) => (r.payload as HRPayload).hrType === "onboarding").length,
+    offboarding: companyRequests.filter((r) => (r.payload as HRPayload).hrType === "offboarding").length,
+    completed:   companyRequests.filter((r) => r.status === "completed").length,
+  }), [companyRequests])
 
   const tabCount = (tab: Tab) =>
     tab === "all" ? hrRequests.length : hrRequests.filter((r) => (r.payload as HRPayload).hrType === tab).length
@@ -371,6 +375,7 @@ export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
           </div>
 
           {/* CC Visibility Toggle */}
+          <CompanyFilter value={companyFilter} onChange={setCompanyFilter} className="mt-3" />
           <div className="mt-3">
             <CcVisibilityToggle checked={showCcRequests} onCheckedChange={toggleCcVisibility} />
           </div>
@@ -597,7 +602,7 @@ export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
 
           {filtered.length > 0 && (
             <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-[11px] text-gray-400 text-right">
-              Showing {filtered.length} of {hrRequests.length} requests
+              Showing {filtered.length} of {companyRequests.length} requests
             </div>
           )}
             </div>
