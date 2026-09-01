@@ -71,6 +71,8 @@ interface RequestDetail {
   requesterId: string
   requesterEmail?: string
   requesterName?: string
+  companyId?: "si_ware" | "buchi"
+  companyName?: string
   createdAt: string
   updatedAt: string
   ccEmails: string[]
@@ -626,6 +628,8 @@ export default function RequestDetailPage() {
           requesterId: engineRequest.requesterId,
           requesterEmail: engineRequest.requesterEmail,
           requesterName: engineRequest.requesterName,
+          companyId: engineRequest.companyId,
+          companyName: engineRequest.companyName,
           ccEmails: Array.isArray((engineRequest.payload as any)?.ccEmails) ? (engineRequest.payload as any).ccEmails : [],
           adminCc: Array.isArray(engineRequest.adminCc) ? engineRequest.adminCc : [],
           requester: {
@@ -926,6 +930,19 @@ export default function RequestDetailPage() {
                     <p className="text-xs text-muted-foreground">{request.requester?.email || request.requesterId}</p>
                   </CardContent>
                 </Card>
+
+                {request.companyName && (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-medium">Company Name</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Badge className={request.companyId === "buchi" ? "bg-orange-100 text-orange-800" : "bg-blue-100 text-blue-800"}>
+                        {request.companyName}
+                      </Badge>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Created Date */}
                 <Card>

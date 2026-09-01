@@ -44,6 +44,8 @@ type PlatformUser = {
   provider?: string
   image?: string | null
   defaultAssignee?: boolean
+  companyId?: "si_ware" | "buchi" | null
+  companyName?: string
 }
 
 type RoleOption = {
@@ -464,6 +466,7 @@ export default function AdminUsersPage() {
               <TableHeader>
                 <TableRow className="bg-gray-50">
                   <TableHead>User</TableHead>
+                  <TableHead>Company</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Auth Type</TableHead>
                   <TableHead>Status</TableHead>
@@ -490,6 +493,15 @@ export default function AdminUsersPage() {
                             <p className="text-xs text-muted-foreground">{user.email}</p>
                           </div>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          user.companyId === "buchi"
+                            ? "bg-orange-100 text-orange-800"
+                            : "bg-blue-100 text-blue-800"
+                        }`}>
+                          {user.companyName ?? "Unclassified"}
+                        </span>
                       </TableCell>
                       <TableCell>
                         <span

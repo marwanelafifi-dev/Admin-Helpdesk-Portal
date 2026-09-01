@@ -1505,3 +1505,15 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 2. **Define Schema:** Create/Update `Zod` schemas.
 3. **Execute:** Write NestJS code & DB migrations.
 4. **Verify:** Test against Audit Logs and JSONB validation.
+
+## Phase 7b: Multi-Company User and Request Classification (Completed — 01 Sep 2026)
+
+- [x] Users are classified by email domain: `@si-ware.com` → **Si-Ware Systems**, `@buchi.com` → **BUCHI**.
+- [x] Local account creation accepts only the two supported company domains.
+- [x] Admin Users displays a Company badge for every user, including legacy users classified at read time.
+- [x] New requests store stable `companyId` and `companyName` snapshots; Shipping always stores Si-Ware Systems.
+- [x] The requests API derives company from the authenticated requester and does not trust a client-editable form field.
+- [x] Imported requests are classified consistently; Shipping defaults to Si-Ware Systems.
+- [x] Legacy requests are classified at read time without a destructive migration.
+- [x] Request Details displays Company Name across every module, including Shipping.
+- [x] Shipping is always classified as **Si-Ware Systems**, regardless of the requester's account company.

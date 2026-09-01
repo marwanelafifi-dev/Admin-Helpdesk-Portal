@@ -4,6 +4,7 @@ import { requestStore } from "@/lib/requestStore"
 import { deletedRequestStore } from "@/lib/deletedRequestStore"
 import { getDefaultAssignee } from "@/lib/userStore"
 import type { EngineRequest } from "@/services/engineService"
+import { getRequestCompany } from "@/lib/userCompany"
 
 export const runtime = "nodejs"
 
@@ -19,6 +20,15 @@ const REQUEST_MODULES = new Set([
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0
+}
+
+function withCompanyClassification(request: EngineRequest): EngineRequest {
+  const company = getRequestCompany(request.module, request.requesterEmail)
+  return {
+    ...request,
+    companyId: company?.id,
+    companyName: company?.name,
+  }
 }
 
 function normalizeImportedRequest(value: unknown, moduleId: string): EngineRequest {
@@ -49,6 +59,7 @@ function normalizeImportedRequest(value: unknown, moduleId: string): EngineReque
     throw new Error(`Request ${request.id} has an invalid updatedAt date`)
   }
 
+  const company = getRequestCompany(moduleId, request.requesterEmail)
   return {
     ...request,
     id: request.id.trim(),
@@ -58,6 +69,7 @@ function normalizeImportedRequest(value: unknown, moduleId: string): EngineReque
     requesterId: request.requesterId.trim(),
     requesterName: request.requesterName.trim(),
     requesterEmail: request.requesterEmail.trim(),
+    ...(company ? { companyId: company.id, companyName: company.name } : {}),
     payload: request.payload,
     statusHistory: request.statusHistory,
     commentHistory: Array.isArray(request.commentHistory) ? request.commentHistory : [],
@@ -81,7 +93,9 @@ export async function GET(req: Request) {
   }
 
   const id = new URL(req.url).searchParams.get("id")
-  const requests = requestStore.getAll()
+  // Classify legacy records at read time as well as new writes. This keeps old
+  // requests usable without a destructive data migration.
+  const requests = requestStore.getAll().map(withCompanyClassification)
   if (id) {
     const request = requests.find((item) => item.id === id)
     if (!request) {
@@ -181,9 +195,16 @@ export async function POST(req: Request) {
     }
   }
 
+  const requesterEmail = isNew
+    ? (session.user.email ?? incoming.requesterEmail)
+    : (existing?.requesterEmail ?? incoming.requesterEmail)
+  const company = getRequestCompany(incoming.module, requesterEmail)
   const requestToSave = {
     ...incoming,
     ...assignee,
+    requesterEmail,
+    companyId: company?.id,
+    companyName: company?.name,
     updatedAt: incoming.updatedAt || new Date().toISOString(),
   }
 

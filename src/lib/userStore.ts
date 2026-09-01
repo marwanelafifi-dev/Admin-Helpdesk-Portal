@@ -1,5 +1,6 @@
 import fs from "fs"
 import path from "path"
+import { getCompanyFromEmail, type CompanyId } from "@/lib/userCompany"
 
 export type StoredUser = {
   id: string
@@ -10,6 +11,8 @@ export type StoredUser = {
   active: boolean
   createdAt: string
   provider: "google" | "credentials"
+  companyId?: CompanyId
+  companyName?: "Si-Ware Systems" | "BUCHI"
   passwordHash?: string
   /**
    * If true, new requests submitted via any module form are auto-assigned to
@@ -57,6 +60,7 @@ export function upsertGoogleUser(email: string, name: string, image: string | nu
   const existing = users.find((u) => u.email.toLowerCase() === email.toLowerCase())
   if (existing) return existing
 
+  const company = getCompanyFromEmail(email)
   const newUser: StoredUser = {
     id: `USR-${Date.now()}`,
     email: email.toLowerCase(),
@@ -66,6 +70,7 @@ export function upsertGoogleUser(email: string, name: string, image: string | nu
     active: true,
     createdAt: new Date().toISOString(),
     provider: "google",
+    ...(company && { companyId: company.id, companyName: company.name }),
   }
   users.push(newUser)
   writeUsers(users)
@@ -124,10 +129,12 @@ export function deleteUser(id: string): boolean {
 
 export function createUser(data: Omit<StoredUser, "id" | "createdAt">): StoredUser {
   const users = readUsers()
+  const company = getCompanyFromEmail(data.email)
   const newUser: StoredUser = {
     ...data,
     id: `USR-${Date.now()}`,
     createdAt: new Date().toISOString(),
+    ...(company && { companyId: company.id, companyName: company.name }),
   }
   users.push(newUser)
   writeUsers(users)

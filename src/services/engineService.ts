@@ -7,6 +7,7 @@
  */
 
 import { logAuditEvent } from "@/lib/auditLog"
+import { getRequestCompany, type CompanyId } from "@/lib/userCompany"
 
 // â"€â"€â"€ Types â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
@@ -54,6 +55,9 @@ export interface EngineRequest<T = Record<string, unknown>> {
   requesterId: string
   requesterName: string
   requesterEmail: string
+  /** Company snapshot. Shipping always defaults to Si-Ware Systems. */
+  companyId?: CompanyId
+  companyName?: "Si-Ware Systems" | "BUCHI"
   /** Module-specific fields live here — the "Extension" layer */
   payload: T
   statusHistory: StatusChange[]
@@ -389,6 +393,7 @@ export async function submitRequest<T extends Record<string, unknown>>(
   meta: SubmitMeta
 ): Promise<EngineRequest<T>> {
   const now = new Date().toISOString()
+  const company = getRequestCompany(module, meta.requesterEmail)
   const clientRequestId = typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `${now}-${Math.random().toString(36).slice(2)}`
@@ -402,6 +407,7 @@ export async function submitRequest<T extends Record<string, unknown>>(
     requesterId:    meta.requesterId    ?? "USR-UNKNOWN",
     requesterName:  meta.requesterName  ?? "Unknown User",
     requesterEmail: meta.requesterEmail ?? "",
+    ...(company && { companyId: company.id, companyName: company.name }),
     payload,
     statusHistory: [
       {
@@ -482,6 +488,7 @@ export function saveDraft<T extends Record<string, unknown>>(
 ): EngineRequest<T> {
   const id  = generateId(module)
   const now = new Date().toISOString()
+  const company = getRequestCompany(module, meta.requesterEmail)
 
   const request: EngineRequest<T> = {
     id,
@@ -491,6 +498,7 @@ export function saveDraft<T extends Record<string, unknown>>(
     requesterId:    meta.requesterId    ?? "USR-UNKNOWN",
     requesterName:  meta.requesterName  ?? "Unknown User",
     requesterEmail: meta.requesterEmail ?? "",
+    ...(company && { companyId: company.id, companyName: company.name }),
     payload,
     statusHistory: [
       {

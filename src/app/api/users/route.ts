@@ -6,10 +6,14 @@ import { canManageUsers } from "@/lib/access"
 import { readUsers, createUser, findUserByEmail } from "@/lib/userStore"
 import { sendWelcomeEmail } from "@/lib/emailService"
 import { logServerAudit } from "@/lib/serverAuditLog"
+import { getCompanyFromEmail } from "@/lib/userCompany"
 
 const createUserSchema = z.object({
   name: z.string().trim().min(1, "Name is required"),
-  email: z.string().trim().email("Valid email is required"),
+  email: z.string().trim().email("Valid email is required").refine(
+    (email) => getCompanyFromEmail(email) !== null,
+    "Only @si-ware.com and @buchi.com accounts are supported"
+  ),
   password: z.string().min(8, "Password must be at least 8 characters").optional(),
   role: z.string().trim().min(1),
   department: z.string().trim().optional(),
@@ -22,7 +26,9 @@ export async function GET() {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  const users = readUsers().map((u) => ({
+  const users = readUsers().map((u) => {
+    const company = getCompanyFromEmail(u.email)
+    return ({
     id: u.id,
     email: u.email,
     name: u.name,
@@ -32,7 +38,9 @@ export async function GET() {
     image: u.image,
     provider: u.provider,
     defaultAssignee: u.defaultAssignee ?? false,
-  }))
+    companyId: u.companyId ?? company?.id ?? null,
+    companyName: u.companyName ?? company?.name ?? "Unclassified",
+  })})
 
   return NextResponse.json({ users })
 }
