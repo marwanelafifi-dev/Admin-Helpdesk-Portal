@@ -38,7 +38,7 @@ export function CompanyFilter({
             "h-8 rounded-md border px-3 text-xs font-medium transition-all",
             value === option
               ? option === "buchi"
-                ? "border-orange-600 bg-orange-600 text-white"
+                ? "border-green-600 bg-green-600 text-white"
                 : "border-blue-700 bg-blue-700 text-white"
               : "border-gray-200 bg-white text-gray-500 hover:border-gray-400 hover:text-gray-700",
           )}

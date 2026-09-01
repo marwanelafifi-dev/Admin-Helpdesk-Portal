@@ -17,6 +17,7 @@ import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { useCountUp } from "@/hooks/useCountUp"
 import { cn } from "@/lib/utils"
 import { useTheme } from "next-themes"
+import { CompanyFilter, matchesCompanyFilter, type CompanyFilterValue } from "@/components/ui/CompanyFilter"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -26,7 +27,7 @@ const STATUS_COLORS: Record<string, string> = {
   on_hold:           "bg-blue-50 text-blue-700", // legacy alias
   in_customs:        "bg-amber-50 text-amber-700",
   awaiting_approval: "bg-amber-50 text-amber-700",
-  delivered:         "bg-green-50 text-green-700",
+  delivered:         "bg-emerald-50 text-emerald-700",
   completed:         "bg-emerald-50 text-emerald-700",
   cancelled:         "bg-red-50 text-red-600",
 }
@@ -37,7 +38,7 @@ const STATUS_DOT: Record<string, string> = {
   on_hold:           "bg-blue-500",
   in_customs:        "bg-amber-500",
   awaiting_approval: "bg-amber-500",
-  delivered:         "bg-green-500",
+  delivered:         "bg-emerald-500",
   completed:         "bg-emerald-500",
   cancelled:         "bg-red-500",
 }
@@ -48,7 +49,7 @@ const STATUS_LABELS: Record<string, string> = {
   on_hold:           "In Progress", // legacy
   in_customs:        "In Customs",
   awaiting_approval: "Awaiting Approval",
-  delivered:         "Delivered",
+  delivered:         "Completed",
   completed:         "Completed",
   cancelled:         "Cancelled",
 }
@@ -137,11 +138,12 @@ interface KPICardProps {
   /** True if a positive change (i.e. growth) is GOOD. False for metrics where lower is better (Overdue, Avg Days, Cancellation). */
   higherIsBetter: boolean
   subtitle?: string
+  insight?: string | null
   /** Stagger index — multiplies a small base delay so the row fans in instead of popping all at once. */
   index?: number
 }
 
-function KPICard({ title, numericValue, suffix, display, icon: Icon, iconColor, iconBg, deltaPct, higherIsBetter, subtitle, index = 0 }: KPICardProps) {
+function KPICard({ title, numericValue, suffix, display, icon: Icon, iconColor, iconBg, deltaPct, higherIsBetter, subtitle, insight, index = 0 }: KPICardProps) {
   // Hook always runs (rules of hooks); animate value only used if numeric.
   const animated = useCountUp(typeof numericValue === "number" ? numericValue : 0, 700)
   const hasNumeric = typeof numericValue === "number" && Number.isFinite(numericValue)
@@ -186,6 +188,7 @@ function KPICard({ title, numericValue, suffix, display, icon: Icon, iconColor, 
                 {badge.text}
               </span>
             </div>
+            {insight && <p className="mt-2 text-[11px] font-medium leading-4 text-gray-500">{insight}</p>}
           </div>
           <div className={cn("h-14 w-14 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform duration-300 group-hover:scale-105", iconBg)}>
             <Icon className={cn("h-6 w-6", iconColor)} />
@@ -208,6 +211,7 @@ export default function DashboardPage() {
 
   const [requests, setRequests] = useState<EngineRequest[]>([])
   const [timeRange, setTimeRange] = useState<TimeRange>("30d")
+  const [companyFilter, setCompanyFilter] = useState<CompanyFilterValue>("all")
   const [customRange, setCustomRange] = useState<DateRange>(() => {
     const now = new Date()
     const from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
@@ -240,6 +244,11 @@ export default function DashboardPage() {
     }
   }, [])
 
+  const companyRequests = useMemo(
+    () => requests.filter((request) => matchesCompanyFilter(request, companyFilter)),
+    [requests, companyFilter],
+  )
+
   // Compute current and prior date windows for comparison
   const { current, prior } = useMemo(() => {
     const now = new Date()
@@ -262,18 +271,18 @@ export default function DashboardPage() {
   }, [timeRange, customRange])
 
   const currentRequests = useMemo(() => {
-    return requests.filter((r) => {
+    return companyRequests.filter((r) => {
       const d = new Date(r.createdAt)
       return d >= current.from && d <= current.to
     })
-  }, [requests, current])
+  }, [companyRequests, current])
 
   const priorRequests = useMemo(() => {
-    return requests.filter((r) => {
+    return companyRequests.filter((r) => {
       const d = new Date(r.createdAt)
       return d >= prior.from && d <= prior.to
     })
-  }, [requests, prior])
+  }, [companyRequests, prior])
 
   // ── Aggregations ───────────────────────────────────────────────────────────
 
@@ -296,7 +305,8 @@ export default function DashboardPage() {
     // Status breakdown for the chart
     const statusBreakdown: Record<string, number> = {}
     currentRequests.forEach((r) => {
-      statusBreakdown[r.status] = (statusBreakdown[r.status] || 0) + 1
+      const status = COMPLETED_STATUSES.has(r.status) ? "completed" : r.status
+      statusBreakdown[status] = (statusBreakdown[status] || 0) + 1
     })
 
     return { total, active, completed, cancelled, overdue, completionRate, cancellationRate, avgDays, statusBreakdown }
@@ -337,11 +347,95 @@ export default function DashboardPage() {
     })
   }, [currentRequests])
 
+  const resolutionDriver = useMemo(() => {
+    const candidates = MODULES.map((module) => {
+      const currentAverage = avgDaysToCompletion(currentRequests.filter((request) => request.module === module))
+      const priorAverage = avgDaysToCompletion(priorRequests.filter((request) => request.module === module))
+      return { module, currentAverage, priorAverage, change: currentAverage - priorAverage }
+    }).filter((item) => item.currentAverage > 0 && item.priorAverage > 0)
+    const driver = candidates.sort((a, b) => Math.abs(b.change) - Math.abs(a.change))[0]
+    if (!driver) return null
+    const label = driver.module.charAt(0).toUpperCase() + driver.module.slice(1)
+    return `Main driver: ${label} resolution ${driver.priorAverage.toFixed(1)}d → ${driver.currentAverage.toFixed(1)}d`
+  }, [currentRequests, priorRequests])
+
+  const teamWorkload = useMemo(() => {
+    const members = new Map<string, {
+      name: string
+      email: string
+      assigned: number
+      active: number
+      overdue: number
+      completed: number
+      completedRequests: EngineRequest[]
+      completedByModule: Record<string, number>
+    }>()
+    const now = Date.now()
+    currentRequests.forEach((request) => {
+      const email = request.assignedToEmail?.trim().toLowerCase()
+      if (!email) return
+      const member = members.get(email) ?? {
+        name: request.assignedToName || email,
+        email,
+        assigned: 0,
+        active: 0,
+        overdue: 0,
+        completed: 0,
+        completedRequests: [],
+        completedByModule: {},
+      }
+      member.assigned += 1
+      if (ACTIVE_STATUSES.has(request.status)) {
+        member.active += 1
+        if ((now - new Date(request.createdAt).getTime()) > 7 * 24 * 60 * 60 * 1000) member.overdue += 1
+      }
+      if (COMPLETED_STATUSES.has(request.status)) {
+        member.completed += 1
+        member.completedRequests.push(request)
+        member.completedByModule[request.module] = (member.completedByModule[request.module] || 0) + 1
+      }
+      members.set(email, member)
+    })
+    const completedTotalsByModule = currentRequests.reduce<Record<string, number>>((totals, request) => {
+      if (COMPLETED_STATUSES.has(request.status) && request.assignedToEmail) {
+        totals[request.module] = (totals[request.module] || 0) + 1
+      }
+      return totals
+    }, {})
+    const representedModules = Object.keys(completedTotalsByModule).length
+    return [...members.values()]
+      .map((member) => ({
+        ...member,
+        avgDays: avgDaysToCompletion(member.completedRequests),
+        balancedScore: representedModules === 0 ? 0 : Math.round(
+          (Object.entries(member.completedByModule).reduce((score, [module, completed]) =>
+            score + completed / completedTotalsByModule[module], 0
+          ) / representedModules) * 1000
+        ) / 10,
+        moduleMix: Object.entries(member.completedByModule)
+          .sort((a, b) => b[1] - a[1])
+          .map(([module, count]) => `${module.charAt(0).toUpperCase() + module.slice(1)} ${count}`)
+          .join(", "),
+      }))
+      .sort((a, b) => b.balancedScore - a.balancedScore || b.completed - a.completed)
+  }, [currentRequests])
+
+  const teamSummary = useMemo(() => {
+    const activeRequests = currentRequests.filter((request) => ACTIVE_STATUSES.has(request.status))
+    const unassigned = activeRequests.filter((request) => !request.assignedToEmail).length
+    return {
+      contributors: teamWorkload.length,
+      unassigned,
+      assignmentRate: pct(activeRequests.length - unassigned, activeRequests.length),
+      completed: teamWorkload.reduce((sum, member) => sum + member.completed, 0),
+    }
+  }, [currentRequests, teamWorkload])
+
   // Top 5 oldest open requests (across full request set, not date-filtered —
   // the oldest backlog matters regardless of when it was filed)
   const oldestOpen = useMemo(() => {
     const now = Date.now()
-    return requests
+    return companyRequests
       .filter((r) => ACTIVE_STATUSES.has(r.status))
       .map((r) => ({
         ...r,
@@ -349,7 +443,7 @@ export default function DashboardPage() {
       }))
       .sort((a, b) => b.ageDays - a.ageDays)
       .slice(0, 5)
-  }, [requests])
+  }, [companyRequests])
 
   // Recent activity (latest 8 updates in current window)
   const recentActivity = useMemo(() => {
@@ -360,19 +454,25 @@ export default function DashboardPage() {
 
   // Feedback summary
   const feedbackStats = useMemo(() => {
-    if (feedback.length === 0) return { count: 0, avg: 0, csat: 0, recent: [] as any[] }
-    const ratings = feedback.map((f) => Number(f.rating) || 0).filter((n) => n > 0)
+    const scopedFeedback = feedback.filter((item) => {
+      const request = companyRequests.find((candidate) => candidate.id === item.requestId)
+      if (request) return true
+      if (companyFilter === "all") return true
+      return matchesCompanyFilter({ requesterEmail: item.requesterEmail }, companyFilter)
+    })
+    if (scopedFeedback.length === 0) return { count: 0, avg: 0, csat: 0, recent: [] as any[] }
+    const ratings = scopedFeedback.map((f) => Number(f.rating) || 0).filter((n) => n > 0)
     const avg = ratings.length > 0 ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10 : 0
     const csat = ratings.length > 0 ? pct(ratings.filter((r) => r >= 4).length, ratings.length) : 0
-    const recent = [...feedback]
+    const recent = [...scopedFeedback]
       .sort((a, b) => new Date(b.completedAt || b.createdAt).getTime() - new Date(a.completedAt || a.createdAt).getTime())
       .slice(0, 4)
-    return { count: feedback.length, avg, csat, recent }
-  }, [feedback])
+    return { count: scopedFeedback.length, avg, csat, recent }
+  }, [feedback, companyRequests, companyFilter])
 
   // Chart data
   const statusChartData = useMemo(() => {
-    const order = ["new", "in_progress", "on_hold", "in_customs", "awaiting_approval", "delivered", "completed", "cancelled"]
+    const order = ["new", "in_progress", "on_hold", "in_customs", "awaiting_approval", "completed", "cancelled"]
     return order
       .filter((s) => (stats.statusBreakdown[s] || 0) > 0)
       .map((s) => ({ status: STATUS_LABELS[s], count: stats.statusBreakdown[s] || 0 }))
@@ -441,6 +541,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      <CompanyFilter value={companyFilter} onChange={setCompanyFilter} />
+
       {/* Hero KPIs — period-over-period */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <KPICard
@@ -472,6 +574,7 @@ export default function DashboardPage() {
           suffix="d"
           display="—"
           subtitle="Days from open to close"
+          insight={resolutionDriver}
           icon={Clock}
           iconColor="text-amber-600"
           iconBg="bg-amber-50"
@@ -492,6 +595,59 @@ export default function DashboardPage() {
           higherIsBetter={true}
         />
       </div>
+
+      {/* Team effort and ownership */}
+      <Card className="border border-gray-100 shadow-sm">
+        <CardHeader className="border-b border-gray-100 pb-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base text-gray-900">
+                <Activity className="h-4 w-4 text-green-600" /> Team Effort
+              </CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">Ownership, throughput, and workload for the selected company and period</p>
+              <p className="mt-2 max-w-3xl text-[11px] leading-4 text-gray-500">Balanced effort gives every represented module equal weight, then measures each member&apos;s share inside that module. High-volume Shipping work therefore cannot overpower lower-volume Travel, HR, or Event work.</p>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="rounded-md bg-blue-50 px-2.5 py-1.5 font-semibold text-blue-700">{teamSummary.contributors} contributors</span>
+              <span className="rounded-md bg-emerald-50 px-2.5 py-1.5 font-semibold text-emerald-700">{teamSummary.completed} completed</span>
+              <span className={cn("rounded-md px-2.5 py-1.5 font-semibold", teamSummary.unassigned ? "bg-red-50 text-red-700" : "bg-gray-50 text-gray-600")}>{teamSummary.unassigned} unassigned active</span>
+              <span className="rounded-md bg-purple-50 px-2.5 py-1.5 font-semibold text-purple-700">{teamSummary.assignmentRate}% assignment coverage</span>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="grid gap-5 p-5 xl:grid-cols-[minmax(0,1fr)_minmax(520px,1.5fr)]">
+          <div>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-500">Module-balanced contribution</p>
+            <p className="mb-3 text-[11px] text-gray-400">Share of completed team output after equalizing module volume</p>
+            {teamWorkload.length === 0 ? <EmptyChart label="No assigned work in this period" /> : (
+              <ResponsiveContainer width="100%" height={Math.max(220, teamWorkload.slice(0, 8).length * 38)}>
+                <BarChart data={teamWorkload.slice(0, 8)} layout="vertical" margin={{ left: 15, right: 20 }}>
+                  <CartesianGrid strokeDasharray="4 4" stroke={chartGridColor} horizontal={false} />
+                  <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: chartAxisColor }} axisLine={false} tickLine={false} />
+                  <YAxis type="category" dataKey="name" width={115} tick={{ fontSize: 11, fill: chartAxisColor }} axisLine={false} tickLine={false} />
+                  <Tooltip formatter={(value) => [`${value}%`, "Balanced effort"]} />
+                  <Bar dataKey="balancedScore" fill="#16a34a" radius={[0, 6, 6, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="border-b text-xs uppercase tracking-wider text-gray-500">
+                <th className="py-2 text-left">Team member</th><th className="px-2 py-2 text-left">Completed mix</th><th className="px-2 py-2 text-right">Active</th><th className="px-2 py-2 text-right">Overdue</th><th className="px-2 py-2 text-right">Completed</th><th className="px-2 py-2 text-right">Balanced effort</th><th className="py-2 text-right">Avg days</th>
+              </tr></thead>
+              <tbody>{teamWorkload.length === 0 ? (
+                <tr><td colSpan={7} className="py-8 text-center text-gray-400">No assigned work in this period</td></tr>
+              ) : teamWorkload.map((member) => (
+                <tr key={member.email} className="border-b border-gray-50">
+                  <td className="py-3"><p className="font-medium text-gray-900">{member.name}</p><p className="text-[11px] text-gray-400">{member.email}</p></td>
+                  <td className="max-w-48 px-2 py-3 text-left text-[11px] text-gray-500">{member.moduleMix || "—"}</td><td className="px-2 py-3 text-right font-semibold tabular-nums text-blue-700">{member.active}</td><td className={cn("px-2 py-3 text-right font-semibold tabular-nums", member.overdue ? "text-red-600" : "text-gray-400")}>{member.overdue || "—"}</td><td className="px-2 py-3 text-right font-semibold tabular-nums text-emerald-700">{member.completed}</td><td className="px-2 py-3 text-right font-semibold tabular-nums text-green-700">{member.balancedScore}%</td><td className="py-3 text-right tabular-nums">{member.avgDays ? `${member.avgDays}d` : "—"}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Secondary KPI strip — totals */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

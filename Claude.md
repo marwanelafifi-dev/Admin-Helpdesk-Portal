@@ -1571,3 +1571,13 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] CSV import accepts common boolean representations for `require_password_change` (`TRUE/FALSE`, `Yes/No`, `1/0`, `X`, `Checked/Unchecked`); legacy templates without the column default to requiring a password change.
 - [x] CSV imports require an explicit company and role, validate company against the email domain, validate that the role exists, and reject roles owned by a different company.
 - [x] CSV imports support company-specific custom roles in addition to the built-in Requester and Manager roles.
+
+## Phase 7e: Company Dashboard and Fair Team-Effort Analytics (Completed — 02 Sep 2026)
+
+- [x] Added **All Companies / Si-Ware Systems / BUCHI** scope to Dashboard analytics, with BUCHI consistently displayed in green and Shipping retained as Si-Ware-only.
+- [x] Company selection scopes current and prior KPIs, status and module charts, module workload, oldest open requests, recent activity, and satisfaction feedback.
+- [x] Unified historical `delivered` and `completed` values as one **Completed** outcome in dashboard totals, rates, charts, workload calculations, and status labels.
+- [x] Added an explanatory resolution insight that identifies the module with the largest period-over-period change (for example, `Shipping resolution 7.1d → 3.2d`).
+- [x] Added a Team Effort section with contributors, assigned workload, active and overdue work, completed output, average resolution, unassigned active requests, and assignment coverage.
+- [x] Replaced raw-completion ranking with a **module-balanced contribution** score: every represented module receives equal weight, preventing high-volume Shipping work from hiding strong performance in Travel, HR, Event, Maintenance, Purchase, or General.
+- [x] Preserved raw completed totals and added each contributor's completed module mix for transparent context; the balanced score is not presented as a standalone employee-performance judgment.
