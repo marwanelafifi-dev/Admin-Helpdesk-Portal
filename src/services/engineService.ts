@@ -8,6 +8,7 @@
 
 import { logAuditEvent } from "@/lib/auditLog"
 import { getRequestCompany, type CompanyId } from "@/lib/userCompany"
+import { companyFromEmail } from "@/lib/company"
 
 // â"€â"€â"€ Types â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
@@ -739,7 +740,7 @@ export function getAllCcEmails(request: EngineRequest): string[] {
       // Lazy import to avoid pulling client-only code on the server side.
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { getManagerEmail } = require("@/lib/companyDataStore") as typeof import("@/lib/companyDataStore")
-      const resolved = getManagerEmail(otherManagerName)
+      const resolved = getManagerEmail(otherManagerName, companyFromEmail(request.requesterEmail))
       if (resolved) managerEmail.push(resolved)
     } catch {
       // server-side fallback — companyDataStore relies on localStorage

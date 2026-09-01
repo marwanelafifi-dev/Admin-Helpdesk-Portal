@@ -1,5 +1,6 @@
 import fs from "fs"
 import path from "path"
+import { normalizeCompany, type CompanyId } from "@/lib/company"
 
 /**
  * Server-side persistence for Company Data — mirrors the proven
@@ -27,7 +28,9 @@ export interface CompanyDataShape {
   sectors: string[]
 }
 
-const STORE_PATH = path.join(process.cwd(), "data", "company-data.json")
+function storePath(company: CompanyId): string {
+  return path.join(process.cwd(), "data", company === "buchi" ? "company-data-buchi.json" : "company-data.json")
+}
 
 const DEFAULTS: CompanyDataShape = {
   suppliers: [],
@@ -39,16 +42,18 @@ const DEFAULTS: CompanyDataShape = {
   sectors: [],
 }
 
-function ensureStore() {
-  const dir = path.dirname(STORE_PATH)
+function ensureStore(company: CompanyId) {
+  const target = storePath(company)
+  const dir = path.dirname(target)
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-  if (!fs.existsSync(STORE_PATH)) fs.writeFileSync(STORE_PATH, JSON.stringify(DEFAULTS, null, 2), "utf-8")
+  if (!fs.existsSync(target)) fs.writeFileSync(target, JSON.stringify(DEFAULTS, null, 2), "utf-8")
 }
 
-export function readCompanyData(): CompanyDataShape {
+export function readCompanyData(company: CompanyId = "siware"): CompanyDataShape {
+  company = normalizeCompany(company)
   try {
-    ensureStore()
-    const raw = fs.readFileSync(STORE_PATH, "utf-8")
+    ensureStore(company)
+    const raw = fs.readFileSync(storePath(company), "utf-8")
     const parsed = JSON.parse(raw) as Partial<CompanyDataShape>
     return {
       suppliers:           Array.isArray(parsed.suppliers)           ? parsed.suppliers           : DEFAULTS.suppliers,
@@ -64,7 +69,8 @@ export function readCompanyData(): CompanyDataShape {
   }
 }
 
-export function writeCompanyData(data: CompanyDataShape): void {
-  ensureStore()
-  fs.writeFileSync(STORE_PATH, JSON.stringify(data, null, 2), "utf-8")
+export function writeCompanyData(data: CompanyDataShape, company: CompanyId = "siware"): void {
+  company = normalizeCompany(company)
+  ensureStore(company)
+  fs.writeFileSync(storePath(company), JSON.stringify(data, null, 2), "utf-8")
 }

@@ -108,7 +108,7 @@ export function permissionForPath(pathname: string): RoutePermission | null {
   if (path === "/admin/database") return "page:admin-database"
   if (path === "/admin/notifications") return "page:admin-notifications"
   if (path === "/admin/announcements") return "page:admin-announcements"
-  if (path === "/admin/company-data") return "page:admin-company-data"
+  if (path === "/admin/company-data" || path === "/admin/company-data/buchi") return "page:admin-company-data"
 
   return null
 }

@@ -94,7 +94,8 @@ const navItems: NavItem[] = [
       { title: "Roles", href: "/admin/roles", icon: Shield },
       { title: "Settings", href: "/admin/settings", icon: Settings },
       { title: "Notifications", href: "/admin/notifications", icon: Bell },
-      { title: "Company Data", href: "/admin/company-data", icon: Building2 },
+      { title: "Company Data - Si-Ware", href: "/admin/company-data", icon: Building2 },
+      { title: "Company Data - BUCHI", href: "/admin/company-data/buchi", icon: Building2 },
       { title: "Audit Trail", href: "/admin/audit-trail", icon: Shield },
       { title: "Database", href: "/admin/database", icon: Database },
     ],
@@ -205,7 +206,7 @@ export function Sidebar() {
         const baseModule = mod.split("-")[0] as any
         const userWithModules: UserWithModuleAccess = {
           id: session?.user?.id,
-          email: session?.user?.email,
+          email: session?.user?.email ?? undefined,
           role: session?.user?.role as string,
           readModules: (session?.user as any)?.readModules,
           readAllModules: (session?.user as any)?.readAllModules,
@@ -257,6 +258,7 @@ export function Sidebar() {
       return source === href.slice(1)
     }
     if (href === "/admin") return pathname.startsWith("/admin") && pathname !== "/admin/all-requests" && pathname !== "/admin/announcements"
+    if (href === "/admin/company-data") return pathname === href
     if (href === "/admin/all-requests") return pathname === "/admin/all-requests"
     if (href === "/requests") return pathname === "/requests"
     return pathname.startsWith(href)

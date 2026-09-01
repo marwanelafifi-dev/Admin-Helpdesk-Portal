@@ -36,6 +36,7 @@ const FILES: ServerDataFile[] = [
   { filename: "announcements.json", user_data: true,  clearable: true  },
   { filename: "requests.json",     user_data: true,  clearable: true  },
   { filename: "company-data.json", user_data: true,  clearable: true  },
+  { filename: "company-data-buchi.json", user_data: true, clearable: true },
   { filename: "notices.json",      user_data: true,  clearable: true  },
   { filename: "user-feedback.json", user_data: true,  clearable: true  },
   // Attachment metadata — clearable only; actual files live on disk in ~/admin-helpdesk-Attachments
@@ -137,9 +138,9 @@ export async function DELETE() {
       f.filename === "feedback.json" ? { surveys: [], responses: [] } :
       f.filename === "announcements.json" ? { sent: [], drafts: [], templates: [] } :
       f.filename === "requests.json" ? [] :
-      f.filename === "company-data.json" ? {
+      (f.filename === "company-data.json" || f.filename === "company-data-buchi.json") ? {
         suppliers: [], cost_centers: [], managers: [],
-        carriers: [], departments: [], sectors: [],
+        authorized_managers: [], carriers: [], departments: [], sectors: [],
       } :
       {}
     if (writeFileSafe(f.filename, emptyShape)) cleared.push(f.filename)

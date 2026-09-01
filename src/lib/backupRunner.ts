@@ -23,6 +23,7 @@ const SERVER_FILES = [
   "feedback.json",
   "announcements.json",
   "company-data.json",
+  "company-data-buchi.json",
   "users.json",
   "roles.json",
   "platform-settings.json",

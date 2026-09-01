@@ -3,6 +3,7 @@ import { auth } from "@/auth"
 import { canManageUsers, isSuperAdmin, hasPermission } from "@/lib/access"
 import { readCompanyData, writeCompanyData, type CompanyDataShape } from "@/lib/companyDataServerStore"
 import { logServerAudit } from "@/lib/serverAuditLog"
+import { companyFromEmail, normalizeCompany, COMPANY_LABELS, type CompanyId } from "@/lib/company"
 
 export const runtime = "nodejs"
 
@@ -11,12 +12,23 @@ export const runtime = "nodejs"
  * Returns the shared company data lookup tables. Any signed-in user can
  * read — every module form uses these dropdowns.
  */
-export async function GET() {
+export async function GET(req: Request) {
   const session = await auth()
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
-  return NextResponse.json({ data: readCompanyData() })
+  const requested = new URL(req.url).searchParams.get("company")
+  const perms = (session.user.permissions as string[] | undefined) ?? []
+  const role = session.user.role
+  const canChooseCompany = isSuperAdmin(role)
+    || hasPermission(perms, "settings")
+    || hasPermission(perms, "page:admin-database")
+    || hasPermission(perms, "page:admin-company-data")
+    || canManageUsers(role, perms)
+  const company = requested && canChooseCompany
+    ? normalizeCompany(requested)
+    : companyFromEmail(session.user.email)
+  return NextResponse.json({ data: readCompanyData(company), company })
 }
 
 /**
@@ -38,10 +50,12 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
+  const company: CompanyId = normalizeCompany(new URL(req.url).searchParams.get("company"))
+
   let body: Partial<CompanyDataShape> = {}
   try { body = await req.json() } catch { /* ignore */ }
 
-  const before = readCompanyData()
+  const before = readCompanyData(company)
 
   const next: CompanyDataShape = {
     suppliers:           Array.isArray(body.suppliers)           ? body.suppliers           : [],
@@ -53,7 +67,7 @@ export async function PUT(req: Request) {
     sectors:             Array.isArray(body.sectors)             ? body.sectors             : [],
   }
 
-  writeCompanyData(next)
+  writeCompanyData(next, company)
 
   // Diff each list and log one audit entry per changed section
   const LABELS: Record<keyof CompanyDataShape, string> = {
@@ -84,11 +98,11 @@ export async function PUT(req: Request) {
       actorEmail,
       action: "company_data_updated",
       targetId: key,
-      targetTitle: LABELS[key],
-      details: changes.join(" | "),
+      targetTitle: `${LABELS[key]} — ${COMPANY_LABELS[company]}`,
+      details: `Company: ${COMPANY_LABELS[company]} | ${changes.join(" | ")}`,
       category: "user", // reuse "user" category so it shows under the User filter
     })
   }
 
-  return NextResponse.json({ data: next })
+  return NextResponse.json({ data: next, company })
 }

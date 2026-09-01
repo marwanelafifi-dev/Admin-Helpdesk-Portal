@@ -21,6 +21,7 @@ import { fmtDateTime } from "@/lib/utils"
 import type { DeletedRequest } from "@/lib/deletedRequestStore"
 import { logAuditEvent } from "@/lib/auditLog"
 import type { EngineRequest } from "@/services/engineService"
+import { getRequestCompany } from "@/lib/userCompany"
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -87,9 +88,15 @@ const SERVER_FILE_STORES = [
   },
   {
     key: "server:company-data",
-    label: "Server Company Data",
+    label: "Server Company Data - Si-Ware",
     description: "data/company-data.json — suppliers, cost centers, managers, carriers, departments, sectors",
     icon: Building2, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200",
+  },
+  {
+    key: "server:company-data-buchi",
+    label: "Server Company Data - BUCHI",
+    description: "data/company-data-buchi.json — BUCHI suppliers, cost centers, managers, carriers, departments, sectors",
+    icon: Building2, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-200",
   },
   {
     key: "server:platform-settings",
@@ -838,13 +845,14 @@ export default function DatabasePage() {
         await fetch("/api/requests", { method: "DELETE" })
       } else if (key === "feedback_surveys" || key === "feedback_responses") {
         await fetch("/api/feedback/responses", { method: "DELETE" })
-      } else if (key === "arp_company_data") {
+      } else if (key === "arp_company_data" || key === "arp_company_data_buchi") {
         // Reset to the canonical empty shape so dropdowns just show empty.
-        await fetch("/api/company-data", {
+        const company = key.endsWith("_buchi") ? "buchi" : "siware"
+        await fetch(`/api/company-data?company=${company}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            suppliers: [], cost_centers: [], managers: [],
+            suppliers: [], cost_centers: [], managers: [], authorized_managers: [],
             carriers: [], departments: [], sectors: [],
           }),
         })
@@ -895,13 +903,21 @@ export default function DatabasePage() {
           body: JSON.stringify({ data: { "announcements.json": { sent: [], drafts: [], templates: [] } } }),
         })
       } else if (key === "server:company-data") {
-        const empty = { suppliers: [], cost_centers: [], managers: [], carriers: [], departments: [], sectors: [] }
-        await fetch("/api/company-data", {
+        const empty = { suppliers: [], cost_centers: [], managers: [], authorized_managers: [], carriers: [], departments: [], sectors: [] }
+        await fetch("/api/company-data?company=siware", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(empty),
         })
         try { localStorage.removeItem("arp_company_data") } catch {}
+      } else if (key === "server:company-data-buchi") {
+        const empty = { suppliers: [], cost_centers: [], managers: [], authorized_managers: [], carriers: [], departments: [], sectors: [] }
+        await fetch("/api/company-data?company=buchi", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(empty),
+        })
+        try { localStorage.removeItem("arp_company_data_buchi") } catch {}
       } else if (key === "server:platform-settings") {
         await fetch("/api/admin/settings", {
           method: "POST",
@@ -979,7 +995,8 @@ export default function DatabasePage() {
                 { label: "Server Comments", sub: "data/comments.json on the server" },
                 { label: "Server Feedback Responses", sub: "data/feedback.json on the server" },
                 { label: "Server Announcements", sub: "data/announcements.json — sent history, drafts, templates, and scheduled content" },
-                { label: "Server Company Data", sub: "data/company-data.json — suppliers, cost centers, managers, departments, sectors, carriers" },
+                { label: "Server Company Data - Si-Ware", sub: "data/company-data.json — suppliers, cost centers, managers, departments, sectors, carriers" },
+                { label: "Server Company Data - BUCHI", sub: "data/company-data-buchi.json — BUCHI suppliers, cost centers, managers, departments, sectors, carriers" },
                 { label: "Users & Roles", sub: "data/users.json + data/roles.json (restored only if present in backup)" },
               ].map(({ label, sub }) => (
                 <div key={label} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
@@ -1158,6 +1175,7 @@ export default function DatabasePage() {
                     <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider">Request ID</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider">Title</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider">Module</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider">Company</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider">Status at Deletion</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider">Deleted At</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider">Deleted By</th>
@@ -1167,6 +1185,9 @@ export default function DatabasePage() {
                 <tbody className="divide-y divide-gray-100">
                   {deletedRequests.map((entry, idx) => {
                     const mod = REQUEST_MODULES.find((m) => m.id === entry.request.module)
+                    const companyName = entry.request.companyName
+                      ?? getRequestCompany(entry.request.module, entry.request.requesterEmail)?.name
+                      ?? "—"
                     const isPurgingThis = confirmPurgeId === entry.request.id
                     return (
                       <tr key={entry.request.id} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50/60"}>
@@ -1182,6 +1203,17 @@ export default function DatabasePage() {
                           ) : (
                             <span className="text-xs text-gray-400">{entry.request.module}</span>
                           )}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${
+                            companyName === "BUCHI"
+                              ? "border-teal-200 bg-teal-50 text-teal-700"
+                              : companyName === "Si-Ware Systems"
+                                ? "border-blue-200 bg-blue-50 text-blue-700"
+                                : "border-gray-200 bg-gray-50 text-gray-500"
+                          }`}>
+                            {companyName}
+                          </span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <span className="text-xs text-gray-600 capitalize">{entry.request.status.replace(/_/g, " ")}</span>
