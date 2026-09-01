@@ -20,6 +20,7 @@ const KEYS_TO_CLEAR = [
   "admin_tasks",
   "arp_viewed_comments",
   "arp_company_data",
+  "arp_company_data_buchi",
 ]
 
 export function ProductionDataWipe() {

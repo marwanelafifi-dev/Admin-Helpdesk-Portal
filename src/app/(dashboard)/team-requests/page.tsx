@@ -9,6 +9,7 @@ import { Card, CardHeader } from "@/components/ui/card"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
 import { getManagerEmail } from "@/lib/companyDataStore"
+import { companyFromEmail } from "@/lib/company"
 import { cn, fmtDate, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
 import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
 import { animationClasses } from "@/lib/animations"
@@ -147,7 +148,7 @@ function isDirectManagerOf(
     if (currentUserName && dmName.toLowerCase() === currentUserName.toLowerCase()) return true
     // Also try resolving the stored name → email via Company Data
     if (currentUserEmail) {
-      const resolvedEmail = getManagerEmail(dmName)
+      const resolvedEmail = getManagerEmail(dmName, companyFromEmail(request.requesterEmail))
       if (resolvedEmail && resolvedEmail.toLowerCase() === currentUserEmail) return true
     }
   }

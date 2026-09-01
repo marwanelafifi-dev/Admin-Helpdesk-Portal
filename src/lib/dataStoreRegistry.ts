@@ -94,9 +94,15 @@ export const STORE_REGISTRY: StoreDefinition[] = [
   // ── Configuration / lookups ────────────────────────────────────────────────
   {
     key: "arp_company_data",
-    label: "Company Data",
+    label: "Company Data - Si-Ware",
     description: "Suppliers, Cost Centers, Managers, Carriers, Departments, Sectors lists",
     icon: Building2, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200",
+  },
+  {
+    key: "arp_company_data_buchi",
+    label: "Company Data - BUCHI",
+    description: "BUCHI Suppliers, Cost Centers, Managers, Carriers, Departments, Sectors lists",
+    icon: Building2, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-200",
   },
   {
     key: "arp_platform_settings",

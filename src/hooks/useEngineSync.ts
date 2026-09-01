@@ -8,6 +8,7 @@ import { syncCompanyDataFromServer } from "@/lib/companyDataStore"
 const MIGRATION_KEY = "arp_requests_server_migration_v1"
 const CD_MIGRATION_KEY = "arp_company_data_server_migration_v1"
 const CD_STORAGE_KEY = "arp_company_data"
+const CD_BUCHI_STORAGE_KEY = "arp_company_data_buchi"
 
 async function backfillLocalToServer() {
   if (typeof window === "undefined") return
@@ -119,6 +120,7 @@ export function useEngineSync(intervalMs = 60_000) {
         try {
           localStorage.removeItem("arp_requests")
           localStorage.removeItem("arp_company_data")
+          localStorage.removeItem(CD_BUCHI_STORAGE_KEY)
         } catch {}
         lastPullAt = 0
         guardedPull()

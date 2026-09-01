@@ -1500,6 +1500,21 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 **Impact:** Tracking number search (with or without spaces) now works consistently across all Shipping pages, matching the behavior of All Requests page.
 
 ---
+## Phase 7a — Company-Scoped Data for Si-Ware and BUCHI (01 Sep 2026)
+
+**Status:** Implemented with Si-Ware backward compatibility preserved.
+
+- [x] Renamed the existing admin navigation entry to **Company Data - Si-Ware** and kept its route at `/admin/company-data`.
+- [x] Added **Company Data - BUCHI** at `/admin/company-data/buchi`, protected by the existing Company Data admin permission.
+- [x] Added shared company resolution (`src/lib/company.ts`): `@buchi.com`, BUCHI subdomains, and `@buchigroup.com` resolve to BUCHI; all other users safely default to Si-Ware.
+- [x] Split server persistence by company: existing Si-Ware data remains in `data/company-data.json`; BUCHI data is isolated in `data/company-data-buchi.json` and is created on first use.
+- [x] Split browser caches (`arp_company_data` / `arp_company_data_buchi`) and made normal request forms automatically use the signed-in user's company data.
+- [x] Made approval and Team Requests manager-email resolution use the original requester's company, preventing cross-company manager lookups when an admin handles a BUCHI request.
+- [x] Company Data audit entries now include the company name.
+- [x] Added BUCHI Company Data to scheduled/manual backup, restore, clear-by-data-type, cross-tab clearing, and production data-wipe handling.
+- [x] Verified all modified integration files against TypeScript diagnostics with no new errors; the repository still contains unrelated baseline TypeScript errors outside this change.
+
+---
 ### Development Loop (Repeat for each module)
 1. **Sync Plan:** Update this `CLAUDE.md`.
 2. **Define Schema:** Create/Update `Zod` schemas.

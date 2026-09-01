@@ -87,9 +87,15 @@ const SERVER_FILE_STORES = [
   },
   {
     key: "server:company-data",
-    label: "Server Company Data",
+    label: "Server Company Data - Si-Ware",
     description: "data/company-data.json — suppliers, cost centers, managers, carriers, departments, sectors",
     icon: Building2, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200",
+  },
+  {
+    key: "server:company-data-buchi",
+    label: "Server Company Data - BUCHI",
+    description: "data/company-data-buchi.json — BUCHI suppliers, cost centers, managers, carriers, departments, sectors",
+    icon: Building2, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-200",
   },
   {
     key: "server:platform-settings",
@@ -838,13 +844,14 @@ export default function DatabasePage() {
         await fetch("/api/requests", { method: "DELETE" })
       } else if (key === "feedback_surveys" || key === "feedback_responses") {
         await fetch("/api/feedback/responses", { method: "DELETE" })
-      } else if (key === "arp_company_data") {
+      } else if (key === "arp_company_data" || key === "arp_company_data_buchi") {
         // Reset to the canonical empty shape so dropdowns just show empty.
-        await fetch("/api/company-data", {
+        const company = key.endsWith("_buchi") ? "buchi" : "siware"
+        await fetch(`/api/company-data?company=${company}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            suppliers: [], cost_centers: [], managers: [],
+            suppliers: [], cost_centers: [], managers: [], authorized_managers: [],
             carriers: [], departments: [], sectors: [],
           }),
         })
@@ -895,13 +902,21 @@ export default function DatabasePage() {
           body: JSON.stringify({ data: { "announcements.json": { sent: [], drafts: [], templates: [] } } }),
         })
       } else if (key === "server:company-data") {
-        const empty = { suppliers: [], cost_centers: [], managers: [], carriers: [], departments: [], sectors: [] }
-        await fetch("/api/company-data", {
+        const empty = { suppliers: [], cost_centers: [], managers: [], authorized_managers: [], carriers: [], departments: [], sectors: [] }
+        await fetch("/api/company-data?company=siware", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(empty),
         })
         try { localStorage.removeItem("arp_company_data") } catch {}
+      } else if (key === "server:company-data-buchi") {
+        const empty = { suppliers: [], cost_centers: [], managers: [], authorized_managers: [], carriers: [], departments: [], sectors: [] }
+        await fetch("/api/company-data?company=buchi", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(empty),
+        })
+        try { localStorage.removeItem("arp_company_data_buchi") } catch {}
       } else if (key === "server:platform-settings") {
         await fetch("/api/admin/settings", {
           method: "POST",
@@ -979,7 +994,8 @@ export default function DatabasePage() {
                 { label: "Server Comments", sub: "data/comments.json on the server" },
                 { label: "Server Feedback Responses", sub: "data/feedback.json on the server" },
                 { label: "Server Announcements", sub: "data/announcements.json — sent history, drafts, templates, and scheduled content" },
-                { label: "Server Company Data", sub: "data/company-data.json — suppliers, cost centers, managers, departments, sectors, carriers" },
+                { label: "Server Company Data - Si-Ware", sub: "data/company-data.json — suppliers, cost centers, managers, departments, sectors, carriers" },
+                { label: "Server Company Data - BUCHI", sub: "data/company-data-buchi.json — BUCHI suppliers, cost centers, managers, departments, sectors, carriers" },
                 { label: "Users & Roles", sub: "data/users.json + data/roles.json (restored only if present in backup)" },
               ].map(({ label, sub }) => (
                 <div key={label} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">

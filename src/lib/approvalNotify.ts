@@ -2,6 +2,7 @@ import type { EngineRequest } from "@/services/engineService"
 import { readCompanyData } from "@/lib/companyDataServerStore"
 import { readUsers } from "@/lib/userStore"
 import { sendRequestUpdateEmail } from "@/lib/emailService"
+import { companyFromEmail } from "@/lib/company"
 
 const ADMIN_HELPDESK_EMAIL = "adminhelpdesk@si-ware.com"
 
@@ -27,7 +28,7 @@ export function resolveRequestManagerEmail(request: EngineRequest): string | und
   )
   if (!name) return undefined
   // Check both managers and authorized_managers lists
-  const cd = readCompanyData()
+  const cd = readCompanyData(companyFromEmail(request.requesterEmail))
   for (const m of [...(cd.authorized_managers ?? []), ...(cd.managers ?? [])]) {
     if (typeof m === "string") {
       if (m.toLowerCase() === name.toLowerCase() && m.includes("@")) return m.toLowerCase()

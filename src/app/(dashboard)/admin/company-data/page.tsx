@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import { usePathname } from "next/navigation"
 import { Building2, Layers, Users, Truck, Plus, X, Upload, Download, Check, Search, ChevronDown, ChevronUp, Briefcase, Network } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -13,10 +14,12 @@ import {
   saveManagers,
   getAuthorizedManagers,
   saveAuthorizedManagers,
+  syncCompanyDataFromServer,
   type CompanyDataKey,
   type CompanyData,
   type Manager,
 } from "@/lib/companyDataStore"
+import { COMPANY_LABELS, type CompanyId } from "@/lib/company"
 import * as XLSX from "xlsx"
 
 type SectionConfig = {
@@ -119,7 +122,7 @@ async function parseImportFile(file: File): Promise<string[]> {
           const workbook = XLSX.read(data, { type: "array" })
           const sheetName = workbook.SheetNames[0]
           const sheet = workbook.Sheets[sheetName]
-          const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { header: 1 }) as unknown[][]
+          const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1 })
           const items = rows
             .map((row) => String(row[0] ?? "").trim())
             .filter(Boolean)
@@ -619,6 +622,9 @@ function LookupSection({
 }
 
 export default function CompanyDataPage() {
+  const pathname = usePathname()
+  const company: CompanyId = pathname.endsWith("/buchi") ? "buchi" : "siware"
+  const companyLabel = COMPANY_LABELS[company]
   const [data, setData] = useState<CompanyData>({
     suppliers: [],
     cost_centers: [],
@@ -633,21 +639,27 @@ export default function CompanyDataPage() {
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
-    setData(getCompanyData())
-    setManagers(getManagers())
-    setAuthorizedManagers(getAuthorizedManagers())
-    setLoaded(true)
-  }, [])
+    let cancelled = false
+    setLoaded(false)
+    void syncCompanyDataFromServer(company).finally(() => {
+      if (cancelled) return
+      setData(getCompanyData(company))
+      setManagers(getManagers(company))
+      setAuthorizedManagers(getAuthorizedManagers(company))
+      setLoaded(true)
+    })
+    return () => { cancelled = true }
+  }, [company])
 
   function handleChange(key: CompanyDataKey, items: string[]) {
     const updated = { ...data, [key]: items }
     setData(updated)
-    saveList(key, items)
+    saveList(key, items, company)
   }
 
   function handleManagersChange(next: Manager[]) {
     setManagers(next)
-    saveManagers(next)
+    saveManagers(next, company)
     // Mirror the names into the public CompanyData view so dropdowns elsewhere
     // (which read getList("managers")) pick the change up immediately.
     setData((prev) => ({ ...prev, managers: next.map((m) => m.name) }))
@@ -655,7 +667,7 @@ export default function CompanyDataPage() {
 
   function handleAuthorizedManagersChange(next: Manager[]) {
     setAuthorizedManagers(next)
-    saveAuthorizedManagers(next)
+    saveAuthorizedManagers(next, company)
   }
 
   if (!loaded) return null
@@ -663,9 +675,9 @@ export default function CompanyDataPage() {
   return (
     <div className="space-y-6 max-w-5xl">
       <div>
-        <h1 className="text-2xl font-bold">Company Data</h1>
+        <h1 className="text-2xl font-bold">Company Data — {companyLabel}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Manage lookup values used across request forms. Changes apply immediately — no rebuild required.
+          Manage lookup values used in requests created by {companyLabel} users. Changes apply immediately — no rebuild required.
         </p>
       </div>
 

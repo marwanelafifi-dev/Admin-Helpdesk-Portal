@@ -1,3 +1,5 @@
+import { normalizeCompany, type CompanyId } from "@/lib/company"
+
 export type CompanyDataKey =
   | "suppliers"
   | "cost_centers"
@@ -26,6 +28,17 @@ interface StoredCompanyData {
 }
 
 const STORAGE_KEY = "arp_company_data"
+const ACTIVE_COMPANY_KEY = "arp_active_company"
+
+function resolveCompany(company?: CompanyId): CompanyId {
+  if (company) return normalizeCompany(company)
+  if (typeof window === "undefined") return "siware"
+  return normalizeCompany(localStorage.getItem(ACTIVE_COMPANY_KEY))
+}
+
+function storageKey(company: CompanyId): string {
+  return company === "buchi" ? `${STORAGE_KEY}_buchi` : STORAGE_KEY
+}
 
 const DEFAULTS: StoredCompanyData = {
   suppliers: [],
@@ -37,10 +50,10 @@ const DEFAULTS: StoredCompanyData = {
   sectors: [],
 }
 
-function readRaw(): StoredCompanyData {
+function readRaw(company?: CompanyId): StoredCompanyData {
   if (typeof window === "undefined") return { ...DEFAULTS }
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(storageKey(resolveCompany(company)))
     if (!raw) return { ...DEFAULTS }
     const parsed = JSON.parse(raw) as Partial<StoredCompanyData>
     return {
@@ -57,17 +70,18 @@ function readRaw(): StoredCompanyData {
   }
 }
 
-function writeRaw(data: StoredCompanyData): void {
+function writeRaw(data: StoredCompanyData, company?: CompanyId): void {
   if (typeof window === "undefined") return
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+  company = resolveCompany(company)
+  localStorage.setItem(storageKey(company), JSON.stringify(data))
   // Push to the shared server store so every user sees the same data.
-  pushToServer(data)
+  pushToServer(data, company)
 }
 
 /** Fire-and-forget upload of the current state to the server. */
-function pushToServer(data: StoredCompanyData): void {
+function pushToServer(data: StoredCompanyData, company: CompanyId): void {
   if (typeof window === "undefined") return
-  fetch("/api/company-data", {
+  fetch(`/api/company-data?company=${company}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -81,10 +95,11 @@ function pushToServer(data: StoredCompanyData): void {
  * cache. Called on app load (via useCompanyDataSync below) so users
  * always see the team-wide lookups rather than their own empty browser.
  */
-export async function syncCompanyDataFromServer(): Promise<void> {
+export async function syncCompanyDataFromServer(company?: CompanyId): Promise<void> {
   if (typeof window === "undefined") return
   try {
-    const res = await fetch("/api/company-data", { cache: "no-store" })
+    const query = company ? `?company=${normalizeCompany(company)}` : ""
+    const res = await fetch(`/api/company-data${query}`, { cache: "no-store" })
     if (!res.ok) return
     const json = await res.json()
     const remote = json?.data as Partial<StoredCompanyData> | undefined
@@ -98,7 +113,9 @@ export async function syncCompanyDataFromServer(): Promise<void> {
       departments:         Array.isArray(remote.departments)         ? remote.departments         : [],
       sectors:             Array.isArray(remote.sectors)             ? remote.sectors             : [],
     }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    const resolvedCompany = company ? normalizeCompany(company) : normalizeCompany(json?.company)
+    if (!company) localStorage.setItem(ACTIVE_COMPANY_KEY, resolvedCompany)
+    localStorage.setItem(storageKey(resolvedCompany), JSON.stringify(next))
   } catch {
     // Offline / 401 — leave cache untouched.
   }
@@ -112,8 +129,8 @@ function managerName(m: string | Manager): string {
   return typeof m === "string" ? m : m.name
 }
 
-export function getCompanyData(): CompanyData {
-  const raw = readRaw()
+export function getCompanyData(company?: CompanyId): CompanyData {
+  const raw = readRaw(company)
   return {
     suppliers: raw.suppliers,
     cost_centers: raw.cost_centers,
@@ -125,9 +142,9 @@ export function getCompanyData(): CompanyData {
   }
 }
 
-export function saveCompanyData(data: CompanyData): void {
+export function saveCompanyData(data: CompanyData, company?: CompanyId): void {
   // Preserve existing manager emails when callers save the names-only view.
-  const existing = readRaw()
+  const existing = readRaw(company)
 
   const existingMap = new Map<string, Manager>()
   for (const m of existing.managers) {
@@ -157,17 +174,17 @@ export function saveCompanyData(data: CompanyData): void {
     carriers: data.carriers,
     departments: data.departments,
     sectors: data.sectors,
-  })
+  }, company)
 }
 
-export function getList(key: CompanyDataKey): string[] {
-  return getCompanyData()[key]
+export function getList(key: CompanyDataKey, company?: CompanyId): string[] {
+  return getCompanyData(company)[key]
 }
 
-export function saveList(key: CompanyDataKey, items: string[]): void {
-  const data = getCompanyData()
+export function saveList(key: CompanyDataKey, items: string[], company?: CompanyId): void {
+  const data = getCompanyData(company)
   data[key] = items
-  saveCompanyData(data)
+  saveCompanyData(data, company)
 }
 
 export function addItem(key: CompanyDataKey, value: string): boolean {
@@ -182,22 +199,22 @@ export function addItem(key: CompanyDataKey, value: string): boolean {
 
 // ── Managers (with email) ────────────────────────────────────────────────────
 
-export function getManagers(): Manager[] {
-  return readRaw().managers.map((m) =>
+export function getManagers(company?: CompanyId): Manager[] {
+  return readRaw(company).managers.map((m) =>
     typeof m === "string" ? { name: m, email: "" } : { name: m.name, email: m.email ?? "" }
   )
 }
 
-export function saveManagers(managers: Manager[]): void {
-  const raw = readRaw()
+export function saveManagers(managers: Manager[], company?: CompanyId): void {
+  const raw = readRaw(company)
   raw.managers = managers.map((m) => ({ name: m.name.trim(), email: m.email.trim() }))
-  writeRaw(raw)
+  writeRaw(raw, company)
 }
 
-export function getManagerEmail(name: string): string | undefined {
+export function getManagerEmail(name: string, company?: CompanyId): string | undefined {
   const trimmed = name.trim().toLowerCase()
   if (!trimmed) return undefined
-  for (const m of getManagers()) {
+  for (const m of getManagers(company)) {
     if (m.name.toLowerCase() === trimmed) return m.email || undefined
   }
   // Fallback: the legacy data sometimes stored the email AS the name
@@ -224,22 +241,22 @@ export function upsertManager(name: string, email: string): boolean {
 
 // ── Authorized Managers (with email) ────────────────────────────────────────
 
-export function getAuthorizedManagers(): Manager[] {
-  return readRaw().authorized_managers.map((m) =>
+export function getAuthorizedManagers(company?: CompanyId): Manager[] {
+  return readRaw(company).authorized_managers.map((m) =>
     typeof m === "string" ? { name: m, email: "" } : { name: m.name, email: m.email ?? "" }
   )
 }
 
-export function saveAuthorizedManagers(managers: Manager[]): void {
-  const raw = readRaw()
+export function saveAuthorizedManagers(managers: Manager[], company?: CompanyId): void {
+  const raw = readRaw(company)
   raw.authorized_managers = managers.map((m) => ({ name: m.name.trim(), email: m.email.trim() }))
-  writeRaw(raw)
+  writeRaw(raw, company)
 }
 
-export function getAuthorizedManagerEmail(name: string): string | undefined {
+export function getAuthorizedManagerEmail(name: string, company?: CompanyId): string | undefined {
   const trimmed = name.trim().toLowerCase()
   if (!trimmed) return undefined
-  for (const m of getAuthorizedManagers()) {
+  for (const m of getAuthorizedManagers(company)) {
     if (m.name.toLowerCase() === trimmed) return m.email || undefined
   }
   if (trimmed.includes("@")) return name.trim()
