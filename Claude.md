@@ -1517,3 +1517,6 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] Legacy requests are classified at read time without a destructive migration.
 - [x] Request Details displays Company Name across every module, including Shipping.
 - [x] Shipping is always classified as **Si-Ware Systems**, regardless of the requester's account company.
+- [x] Company badges are visible on General, Maintenance, Purchase, Event, Travel, HR, My Requests, Team Requests, and Admin All Requests list pages.
+- [x] General and Admin All Requests include All Companies / Si-Ware Systems / BUCHI filters.
+- [x] Shipping list pages are excluded from company badges and company filtering.

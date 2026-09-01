@@ -15,6 +15,8 @@ import { getTasks, updateTaskStatus, type Task, type TaskStatus } from "@/servic
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { useCommentSearch } from "@/hooks/useCommentSearch"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
+import { CompanyBadge } from "@/components/ui/CompanyBadge"
+import { getRequestCompany } from "@/lib/userCompany"
 import { cn, fmtDate, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
 import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
 import { animationClasses } from "@/lib/animations"
@@ -148,6 +150,7 @@ export default function AllRequestsPage() {
   const [search, setSearch]             = useState("")
   const [activeTab, setActiveTab]       = useState<ModuleTab>("all")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [companyFilter, setCompanyFilter] = useState<"all" | "si_ware" | "buchi">("all")
   const [sortKey, setSortKey]           = useState<SortKey>("updatedAt")
   const [sortDir, setSortDir]           = useState<SortDir>("desc")
   const [currentPage, setCurrentPage]   = useState(1)
@@ -259,6 +262,10 @@ export default function AllRequestsPage() {
     if (activeTab !== "all") result = result.filter((r) => r.module === activeTab)
     if (statusFilter === "active") result = result.filter((r) => !["cancelled", "completed", "delivered"].includes(r.status))
     else if (statusFilter !== "all") result = result.filter((r) => r.status === statusFilter)
+    if (companyFilter !== "all") result = result.filter((r) =>
+      r.module !== "shipping" &&
+      (r.companyId ?? getRequestCompany(r.module, r.requesterEmail)?.id) === companyFilter
+    )
     const q = normalizeSearchText(search)
     if (q) result = result.filter((r) =>
       normalizeSearchText(r.id).includes(q) ||
@@ -277,7 +284,7 @@ export default function AllRequestsPage() {
       bv = (b[sortKey] as string) ?? ""
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
-  }, [requests, activeTab, statusFilter, search, sortKey, sortDir, commentMatchIds])
+  }, [requests, activeTab, statusFilter, companyFilter, search, sortKey, sortDir, commentMatchIds])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const activePage = Math.min(currentPage, totalPages)
@@ -288,7 +295,7 @@ export default function AllRequestsPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [activeTab, statusFilter, search, sortKey, sortDir])
+  }, [activeTab, statusFilter, companyFilter, search, sortKey, sortDir])
 
   useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages))
@@ -591,6 +598,29 @@ export default function AllRequestsPage() {
             </div>
           </div>
 
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-gray-600">Company:</span>
+            {([
+              ["all", "All Companies"],
+              ["si_ware", "Si-Ware Systems"],
+              ["buchi", "BUCHI"],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                onClick={() => setCompanyFilter(value)}
+                className={cn(
+                  "h-8 rounded-md border px-3 text-xs font-medium transition-all",
+                  companyFilter === value
+                    ? value === "buchi" ? "border-orange-600 bg-orange-600 text-white" : "border-blue-700 bg-blue-700 text-white"
+                    : "border-gray-200 bg-white text-gray-500 hover:border-gray-400 hover:text-gray-700"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+            <span className="text-xs text-gray-400">Shipping is excluded</span>
+          </div>
+
           <p className="text-sm text-muted-foreground font-normal mt-1">
             Showing {showingStart}-{showingEnd} of {filtered.length} request{filtered.length !== 1 ? "s" : ""}
           </p>
@@ -667,6 +697,7 @@ export default function AllRequestsPage() {
                   <td className="py-3 px-3 overflow-hidden">
                     <div className="text-sm font-medium text-gray-700 truncate">{req.requesterName}</div>
                     <div className="text-sm font-medium text-gray-600 truncate">{req.requesterEmail}</div>
+                    {req.module !== "shipping" && <CompanyBadge className="mt-1" module={req.module} requesterEmail={req.requesterEmail} companyId={req.companyId} companyName={req.companyName} />}
                   </td>
                   <td className="py-3 px-3">
                     <div className="flex items-center gap-2">

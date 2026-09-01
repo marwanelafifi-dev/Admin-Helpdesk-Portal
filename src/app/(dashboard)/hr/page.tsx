@@ -24,6 +24,7 @@ import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
+import { CompanyBadge } from "@/components/ui/CompanyBadge"
 import { CcVisibilityToggle } from "@/components/ui/CcVisibilityToggle"
 import { useCcVisibility } from "@/hooks/useCcVisibility"
 import { LABEL_COLORS, LABEL_DOTS } from "@/lib/statusPalette"
@@ -445,6 +446,7 @@ export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
                           </span>
                         )}
                       </div>
+                      <CompanyBadge className="mt-1" module={req.module} requesterEmail={req.requesterEmail} companyId={req.companyId} companyName={req.companyName} />
                     </td>
                     <td className="py-3 px-3 overflow-hidden">
                       <span className="text-sm font-medium text-gray-700 truncate block">{req.title}</span>

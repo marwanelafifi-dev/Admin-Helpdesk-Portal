@@ -23,6 +23,8 @@ import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { LABEL_COLORS, LABEL_DOTS } from "@/lib/statusPalette"
 import { MarkdownDisplay } from "@/components/ui/MarkdownDisplay"
+import { CompanyBadge } from "@/components/ui/CompanyBadge"
+import { getRequestCompany } from "@/lib/userCompany"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -49,13 +51,14 @@ const STATUS_PILL_ACTIVE: Record<string, string> = {
 
 const STATUSES = ["new", "in_progress", "completed", "cancelled"] as const
 
-type SortKey = "id" | "title" | "requesterName" | "createdAt" | "status" | "updatedAt"
+type SortKey = "id" | "title" | "requesterName" | "companyName" | "createdAt" | "status" | "updatedAt"
 
 const COLS: { key: SortKey; label: string; defaultW: number }[] = [
   { key: "id",            label: "Request ID",      defaultW: 130 },
   { key: "title",         label: "Request Title",   defaultW: 260 },
   { key: "createdAt",     label: "Submission Date", defaultW: 140 },
   { key: "requesterName", label: "Requester Name",  defaultW: 160 },
+  { key: "companyName",   label: "Company",         defaultW: 145 },
   { key: "status",        label: "Status",          defaultW: 130 },
   { key: "updatedAt",     label: "Last Update Date",defaultW: 140 },
 ]
@@ -69,6 +72,7 @@ export default function GeneralRequestPage() {
   const [requests, setRequests]           = useState<EngineRequest[]>([])
   const [search, setSearch]               = useState("")
   const [statusFilter, setStatusFilter]   = useState("all")
+  const [companyFilter, setCompanyFilter] = useState<"all" | "si_ware" | "buchi">("all")
   const [sortKey, setSortKey]             = useState<SortKey>("updatedAt")
   const [sortDir, setSortDir]             = useState<"asc" | "desc">("desc")
   const [colWidths, setColWidths]         = useState<(number | null)[]>(() => COLS.map(() => null))
@@ -187,6 +191,9 @@ export default function GeneralRequestPage() {
   const filtered = useMemo(() => {
     let result = allVisibleRequests
     if (statusFilter !== "all") result = result.filter((r) => (r.status as string) === statusFilter)
+    if (companyFilter !== "all") result = result.filter((r) =>
+      (r.companyId ?? getRequestCompany(r.module, r.requesterEmail)?.id) === companyFilter
+    )
     const q = normalizeSearchText(search)
     if (q) result = result.filter((r) =>
       normalizeSearchText(r.id).includes(q) ||
@@ -200,11 +207,15 @@ export default function GeneralRequestPage() {
         const diff = new Date(a[sortKey]).getTime() - new Date(b[sortKey]).getTime()
         return sortDir === "asc" ? diff : -diff
       }
-      const av = (a[sortKey as keyof EngineRequest] as string) ?? ""
-      const bv = (b[sortKey as keyof EngineRequest] as string) ?? ""
+      const av = sortKey === "companyName"
+        ? (a.companyName ?? getRequestCompany(a.module, a.requesterEmail)?.name ?? "")
+        : ((a[sortKey as keyof EngineRequest] as string) ?? "")
+      const bv = sortKey === "companyName"
+        ? (b.companyName ?? getRequestCompany(b.module, b.requesterEmail)?.name ?? "")
+        : ((b[sortKey as keyof EngineRequest] as string) ?? "")
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
-  }, [allVisibleRequests, statusFilter, search, sortKey, sortDir, commentMatchIds])
+  }, [allVisibleRequests, statusFilter, companyFilter, search, sortKey, sortDir, commentMatchIds])
 
   const counts = useMemo(() => ({
     total:      requests.length,
@@ -299,6 +310,28 @@ export default function GeneralRequestPage() {
             </div>
           </div>
 
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-gray-600">Company:</span>
+            {([
+              ["all", "All Companies"],
+              ["si_ware", "Si-Ware Systems"],
+              ["buchi", "BUCHI"],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                onClick={() => setCompanyFilter(value)}
+                className={cn(
+                  "h-8 rounded-md border px-3 text-xs font-medium transition-all",
+                  companyFilter === value
+                    ? value === "buchi" ? "border-orange-600 bg-orange-600 text-white" : "border-blue-700 bg-blue-700 text-white"
+                    : "border-gray-200 bg-white text-gray-500 hover:border-gray-400 hover:text-gray-700"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
           {/* CC Visibility Toggle */}
           <div className="mt-3">
             <CcVisibilityToggle checked={showCcRequests} onCheckedChange={toggleCcVisibility} />
@@ -369,6 +402,14 @@ export default function GeneralRequestPage() {
                   <td className="py-3 px-3 overflow-hidden">
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.requesterName}</span>
                   </td>
+                  <td className="py-3 px-3 overflow-hidden">
+                    <CompanyBadge
+                      module={req.module}
+                      requesterEmail={req.requesterEmail}
+                      companyId={req.companyId}
+                      companyName={req.companyName}
+                    />
+                  </td>
                   <td className="py-3 px-3">
                     <InlineStatusSelect
                       currentStatus={req.status}
@@ -402,7 +443,7 @@ export default function GeneralRequestPage() {
                 </tr>
                 {isExpanded(req.id) && (
                   <tr className="bg-blue-50">
-                    <td colSpan={7} className="py-4 px-6">
+                    <td colSpan={8} className="py-4 px-6">
                       <div className="space-y-3 text-sm">
                         <div className="grid grid-cols-2 gap-6">
                           <div>
@@ -416,6 +457,10 @@ export default function GeneralRequestPage() {
                           <div>
                             <p className="font-semibold text-gray-700">Requester</p>
                             <p className="text-gray-600">{req.requesterName}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Company</p>
+                            <CompanyBadge module={req.module} requesterEmail={req.requesterEmail} companyId={req.companyId} companyName={req.companyName} />
                           </div>
                           {!!(req.payload as Record<string, unknown>).description && (
                             <div className="col-span-2">
@@ -434,7 +479,7 @@ export default function GeneralRequestPage() {
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-16 text-center text-gray-400 text-sm">
+                  <td colSpan={8} className="py-16 text-center text-gray-400 text-sm">
                     No requests match the current filters
                   </td>
                 </tr>

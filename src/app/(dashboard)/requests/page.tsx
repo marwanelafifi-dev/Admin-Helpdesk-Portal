@@ -17,6 +17,7 @@ import { useViewedComments } from "@/hooks/useViewedComments"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { useCommentSearch } from "@/hooks/useCommentSearch"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
+import { CompanyBadge } from "@/components/ui/CompanyBadge"
 import { LABEL_COLORS, LABEL_DOTS, buildLabelDrivenMaps } from "@/lib/statusPalette"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -546,6 +547,9 @@ export default function RequestsPage() {
                         )
                       })()}
                     </div>
+                    {req.module !== "shipping" && (
+                      <CompanyBadge className="mt-1" module={req.module} requesterEmail={req.requesterEmail} companyId={req.companyId} companyName={req.companyName} />
+                    )}
                   </td>
                   <td className="py-3 px-3">
                     {(() => {
