@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import { Search, MoreHorizontal, UserPlus, X } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Search, MoreHorizontal, UserPlus, X, FileUp, Download } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -104,6 +104,9 @@ export default function AdminUsersPage() {
   const [showCreateUser, setShowCreateUser] = useState(false)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState("")
+  const [importing, setImporting] = useState(false)
+  const [importMessage, setImportMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const csvInputRef = useRef<HTMLInputElement>(null)
   const [editingUser, setEditingUser] = useState<PlatformUser | null>(null)
   const [showEditDialog, setShowEditDialog] = useState(false)
   // Tracks the "Default Assignee" checkbox in the Edit User dialog. Only
@@ -214,6 +217,75 @@ export default function AdminUsersPage() {
       department: "",
     })
     setShowCreateUser(false)
+  }
+
+  const parseCsvLine = (line: string) => {
+    const values: string[] = []
+    let value = ""
+    let quoted = false
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i]
+      if (char === '"') {
+        if (quoted && line[i + 1] === '"') { value += '"'; i++ }
+        else quoted = !quoted
+      } else if (char === "," && !quoted) {
+        values.push(value.trim()); value = ""
+      } else value += char
+    }
+    values.push(value.trim())
+    return values
+  }
+
+  const downloadCsvTemplate = () => {
+    const content = "name,email,password,department\nBUCHI User,user@buchi.com,ChangeMe123!,Sales\n"
+    const url = URL.createObjectURL(new Blob([content], { type: "text/csv;charset=utf-8" }))
+    const anchor = document.createElement("a")
+    anchor.href = url
+    anchor.download = "local-users-template.csv"
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleCsvImport = async (file?: File) => {
+    if (!file) return
+    setImporting(true)
+    setImportMessage(null)
+    try {
+      const lines = (await file.text()).replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.trim())
+      if (lines.length < 2) throw new Error("CSV must contain a header and at least one user row.")
+      const headers = parseCsvLine(lines[0]).map((header) => header.toLowerCase())
+      const required = ["name", "email", "password"]
+      const missing = required.filter((header) => !headers.includes(header))
+      if (missing.length) throw new Error(`Missing CSV column${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}`)
+
+      const importedUsers = lines.slice(1).map((line) => {
+        const values = parseCsvLine(line)
+        const row = Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ""]))
+        return { name: row.name, email: row.email, password: row.password, department: row.department || undefined }
+      })
+
+      const response = await fetch("/api/users/import", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ users: importedUsers }),
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        const issue = data.issues?.[0]
+        throw new Error(issue ? `Row ${issue.row}: ${issue.message}` : (data.error ?? "CSV import failed"))
+      }
+      setImportMessage({
+        type: "success",
+        text: `Imported ${data.imported} local user${data.imported === 1 ? "" : "s"}.${data.welcomeEmailsFailed ? ` ${data.welcomeEmailsFailed} welcome email(s) failed.` : ""}`,
+      })
+      await loadUsers()
+    } catch (error) {
+      setImportMessage({ type: "error", text: error instanceof Error ? error.message : "CSV import failed" })
+    } finally {
+      setImporting(false)
+      if (csvInputRef.current) csvInputRef.current.value = ""
+    }
   }
 
   const resetCreateForm = () => {
@@ -401,17 +473,34 @@ export default function AdminUsersPage() {
             Manage platform users and their access
           </p>
         </div>
-        <Button
-          onClick={async () => {
-            await loadRoles()
-            resetCreateForm()
-            setShowCreateUser(true)
-          }}
-        >
-          <UserPlus className="h-4 w-4 mr-2" />
-          Add User
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <input ref={csvInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => void handleCsvImport(event.target.files?.[0])} />
+          <Button variant="outline" onClick={downloadCsvTemplate}>
+            <Download className="h-4 w-4 mr-2" />
+            CSV Template
+          </Button>
+          <Button variant="outline" disabled={importing} onClick={() => csvInputRef.current?.click()}>
+            <FileUp className="h-4 w-4 mr-2" />
+            {importing ? "Importing..." : "Import CSV"}
+          </Button>
+          <Button
+            onClick={async () => {
+              await loadRoles()
+              resetCreateForm()
+              setShowCreateUser(true)
+            }}
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Add User
+          </Button>
+        </div>
       </div>
+
+      {importMessage && (
+        <div className={`rounded-lg border px-4 py-3 text-sm ${importMessage.type === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-700"}`}>
+          {importMessage.text}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         {[

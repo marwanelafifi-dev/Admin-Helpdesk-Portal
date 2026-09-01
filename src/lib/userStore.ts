@@ -13,6 +13,7 @@ export type StoredUser = {
   provider: "google" | "credentials"
   companyId?: CompanyId
   companyName?: "Si-Ware Systems" | "BUCHI"
+  department?: string
   passwordHash?: string
   /**
    * If true, new requests submitted via any module form are auto-assigned to
@@ -147,7 +148,7 @@ export function createUser(data: Omit<StoredUser, "id" | "createdAt">): StoredUs
   const company = getCompanyFromEmail(data.email)
   const newUser: StoredUser = {
     ...data,
-    id: `USR-${Date.now()}`,
+    id: `USR-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     createdAt: new Date().toISOString(),
     ...(company && { companyId: company.id, companyName: company.name }),
   }

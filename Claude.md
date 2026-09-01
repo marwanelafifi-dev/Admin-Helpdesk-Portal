@@ -1524,3 +1524,5 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] Added **Requester - BUCHI** with Shipping page permissions and Shipping module access removed.
 - [x] New local users automatically receive Requester - Si-Ware or Requester - BUCHI based on email domain; Google OAuth remains Si-Ware-only.
 - [x] Persistent Ubuntu `roles.json` and `users.json` stores migrate idempotently when read after deployment.
+- [x] Admin Users supports bulk local-account creation from CSV with a downloadable `name,email,password,department` template.
+- [x] CSV imports validate every row before creation, reject duplicates, support up to 500 users, hash passwords, send welcome emails, and assign the company requester role from the email domain.
