@@ -1593,3 +1593,6 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] Added an operational data-quality notice for active requests without ownership and legacy records missing company-identifying data or status history.
 - [x] Kept performance reporting professional and non-gamified: balanced contribution, raw output, module mix, workload, SLA, overdue exposure, and resolution time are presented together rather than as a simplistic employee leaderboard.
 - [x] All new analytics respect the selected company; Shipping continues to be classified as Si-Ware Systems only.
+- [x] SLA Compliance and SLA Exceptions KPI cards are interactive and open request-level drill-downs with request links, module, company, owner, target, actual elapsed time, and SLA outcome.
+- [x] Added a visible **View SLA Policy** control for the Admin Team, documenting all module targets, Maintenance priority targets, timing rules, legacy fallbacks, exception criteria, and company scope.
+- [x] Standardized the selected BUCHI filter color to green on Dashboard, module pages, General Requests, and Admin All Requests.

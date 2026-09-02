@@ -8,7 +8,7 @@ import {
 } from "recharts"
 import {
   FileText, Clock, CheckCircle2, AlertCircle, TrendingUp, TrendingDown, Minus,
-  Activity, Star, Layers, ArrowRight,
+  Activity, Star, Layers, ArrowRight, X,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
@@ -272,6 +272,8 @@ export default function DashboardPage() {
     return { from: from.toISOString().split("T")[0], to: now.toISOString().split("T")[0] }
   })
   const [feedback, setFeedback] = useState<any[]>([])
+  const [slaDetail, setSlaDetail] = useState<"compliance" | "exceptions" | null>(null)
+  const [showSlaPolicy, setShowSlaPolicy] = useState(false)
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
   // Load requests + feedback responses
@@ -529,6 +531,8 @@ export default function DashboardPage() {
       completedWithinSla,
       closed: closed.length,
       slaOverdue: slaOverdue.length,
+      closedRequests: closed,
+      slaExceptionRequests: slaOverdue,
       missingAssignee,
       dataIssues: missingCompany + missingHistory,
     }
@@ -644,7 +648,12 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <CompanyFilter value={companyFilter} onChange={setCompanyFilter} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <CompanyFilter value={companyFilter} onChange={setCompanyFilter} />
+        <button type="button" onClick={() => setShowSlaPolicy(true)} className="inline-flex h-9 items-center gap-2 rounded-md border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 shadow-sm hover:border-blue-300 hover:text-blue-700">
+          <Clock className="h-4 w-4" /> View SLA Policy
+        </button>
+      </div>
 
       {/* Hero KPIs — period-over-period */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -760,8 +769,8 @@ export default function DashboardPage() {
         <SecondaryStat index={1} label="Created in Period" numericValue={stats.total} tone="blue" icon={FileText} />
         <SecondaryStat index={2} label="Completed" numericValue={stats.completed} tone="emerald" icon={CheckCircle2} />
         <SecondaryStat index={3} label="Completion Rate" numericValue={stats.completionRate} suffix="%" tone="purple" icon={TrendingUp} />
-        <SecondaryStat index={4} label="SLA Compliance" numericValue={serviceMetrics.slaCompliance} suffix="%" tone="emerald" icon={CheckCircle2} />
-        <SecondaryStat index={5} label="SLA Exceptions" numericValue={serviceMetrics.slaOverdue} tone="red" icon={AlertCircle} />
+        <SecondaryStat index={4} label="SLA Compliance" numericValue={serviceMetrics.slaCompliance} suffix="%" tone="emerald" icon={CheckCircle2} onClick={() => setSlaDetail("compliance")} />
+        <SecondaryStat index={5} label="SLA Exceptions" numericValue={serviceMetrics.slaOverdue} tone="red" icon={AlertCircle} onClick={() => setSlaDetail("exceptions")} />
       </div>
 
       {(serviceMetrics.missingAssignee > 0 || serviceMetrics.dataIssues > 0) && (
@@ -1053,19 +1062,97 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       )}
+
+      {slaDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-labelledby="sla-detail-title">
+          <div className="flex max-h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b px-6 py-4">
+              <div>
+                <h2 id="sla-detail-title" className="text-lg font-semibold text-gray-900">{slaDetail === "compliance" ? "SLA Compliance Details" : "Active SLA Exceptions"}</h2>
+                <p className="mt-1 text-sm text-gray-500">{slaDetail === "compliance" ? `${serviceMetrics.completedWithinSla} of ${serviceMetrics.closed} completed requests met their module SLA in the selected period.` : `${serviceMetrics.slaOverdue} active requests have exceeded their module-specific SLA.`}</p>
+              </div>
+              <button type="button" onClick={() => setSlaDetail(null)} className="rounded-md p-2 text-gray-500 hover:bg-gray-100" aria-label="Close SLA details"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="overflow-auto">
+              <table className="w-full min-w-[800px] text-sm">
+                <thead className="sticky top-0 bg-gray-50 text-xs uppercase tracking-wider text-gray-500">
+                  <tr><th className="px-5 py-3 text-left">Request</th><th className="px-3 py-3 text-left">Module</th><th className="px-3 py-3 text-left">Company</th><th className="px-3 py-3 text-left">Owner</th><th className="px-3 py-3 text-right">SLA target</th><th className="px-3 py-3 text-right">Actual age</th><th className="px-5 py-3 text-right">Result</th></tr>
+                </thead>
+                <tbody>
+                  {(slaDetail === "compliance" ? serviceMetrics.closedRequests : serviceMetrics.slaExceptionRequests).length === 0 ? (
+                    <tr><td colSpan={7} className="px-5 py-12 text-center text-gray-400">No requests match this view.</td></tr>
+                  ) : (slaDetail === "compliance" ? serviceMetrics.closedRequests : serviceMetrics.slaExceptionRequests).map((request) => {
+                    const closedAt = completionDate(request)
+                    const actualDays = daysBetween(new Date(request.createdAt), closedAt ?? new Date())
+                    const compliant = closedAt ? isWithinSla(request) : false
+                    return (
+                      <tr key={request.id} className="border-t border-gray-100 hover:bg-gray-50/70">
+                        <td className="px-5 py-3"><Link href={`/requests/${request.id}`} className="font-semibold text-blue-700 hover:underline">{request.id}</Link><p className="mt-0.5 max-w-72 truncate text-xs text-gray-500">{request.title}</p></td>
+                        <td className="px-3 py-3 capitalize text-gray-700">{request.module}</td>
+                        <td className="px-3 py-3 text-gray-700">{request.companyName ?? (matchesCompanyFilter(request, "buchi") ? "BUCHI" : "Si-Ware Systems")}</td>
+                        <td className="px-3 py-3 text-gray-700">{request.assignedToName || "Unassigned"}</td>
+                        <td className="px-3 py-3 text-right tabular-nums">{requestSlaDays(request)}d</td>
+                        <td className="px-3 py-3 text-right tabular-nums">{actualDays.toFixed(1)}d</td>
+                        <td className="px-5 py-3 text-right"><span className={cn("inline-flex rounded-md px-2 py-1 text-xs font-semibold", closedAt ? (compliant ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700") : "bg-red-50 text-red-700")}>{closedAt ? (compliant ? "Within SLA" : "Completed late") : "Active exception"}</span></td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSlaPolicy && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-labelledby="sla-policy-title">
+          <div className="max-h-[85vh] w-full max-w-3xl overflow-auto rounded-xl border bg-white shadow-2xl">
+            <div className="sticky top-0 flex items-start justify-between gap-4 border-b bg-white px-6 py-4">
+              <div><h2 id="sla-policy-title" className="text-lg font-semibold text-gray-900">Service-Level Agreement Policy</h2><p className="mt-1 text-sm text-gray-500">Operational targets used by Dashboard reporting for Admin and Logistics requests.</p></div>
+              <button type="button" onClick={() => setShowSlaPolicy(false)} className="rounded-md p-2 text-gray-500 hover:bg-gray-100" aria-label="Close SLA policy"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="space-y-5 p-6">
+              <div className="overflow-hidden rounded-lg border">
+                <table className="w-full text-sm"><thead className="bg-gray-50 text-xs uppercase tracking-wider text-gray-500"><tr><th className="px-4 py-3 text-left">Module</th><th className="px-4 py-3 text-left">Target</th><th className="px-4 py-3 text-left">Operational context</th></tr></thead>
+                  <tbody className="divide-y">
+                    <tr><td className="px-4 py-3 font-medium">Shipping</td><td className="px-4 py-3">14 days</td><td className="px-4 py-3 text-gray-500">Delivery, transit, and customs workflow</td></tr>
+                    <tr><td className="px-4 py-3 font-medium">Purchase</td><td className="px-4 py-3">7 days</td><td className="px-4 py-3 text-gray-500">Approval and procurement processing</td></tr>
+                    <tr><td className="px-4 py-3 font-medium">Travel</td><td className="px-4 py-3">7 days</td><td className="px-4 py-3 text-gray-500">Approval and booking coordination</td></tr>
+                    <tr><td className="px-4 py-3 font-medium">HR</td><td className="px-4 py-3">5 days</td><td className="px-4 py-3 text-gray-500">Onboarding and offboarding administration</td></tr>
+                    <tr><td className="px-4 py-3 font-medium">Event</td><td className="px-4 py-3">5 days</td><td className="px-4 py-3 text-gray-500">Event planning and coordination</td></tr>
+                    <tr><td className="px-4 py-3 font-medium">General</td><td className="px-4 py-3">5 days</td><td className="px-4 py-3 text-gray-500">General administration requests</td></tr>
+                    <tr><td className="px-4 py-3 font-medium">Maintenance</td><td className="px-4 py-3">1–7 days</td><td className="px-4 py-3 text-gray-500">Critical 1 day · High 2 days · Medium 5 days · Low 7 days</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-4 text-sm text-blue-950">
+                <p className="font-semibold">Measurement rules</p>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5 text-blue-900">
+                  <li>The SLA clock starts at the request creation timestamp.</li>
+                  <li>The clock stops at the first Completed or Delivered status-history timestamp; Delivered and Completed are treated as the same outcome.</li>
+                  <li>Legacy completed records without a completion event use their last update timestamp.</li>
+                  <li>An active request becomes an SLA exception when its elapsed age exceeds its applicable module or Maintenance-priority target.</li>
+                  <li>Company and date filters apply to SLA reporting; Shipping always belongs to Si-Ware Systems.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 // ─── Small sub-components ─────────────────────────────────────────────────────
 
-function SecondaryStat({ label, numericValue, suffix, tone, icon: Icon, index = 0 }: {
+function SecondaryStat({ label, numericValue, suffix, tone, icon: Icon, index = 0, onClick }: {
   label: string
   numericValue: number
   suffix?: string
   tone: "blue" | "emerald" | "red" | "purple"
   icon: React.ElementType
   index?: number
+  onClick?: () => void
 }) {
   const animated = useCountUp(numericValue, 600)
   const toneClasses: Record<string, string> = {
@@ -1076,7 +1163,11 @@ function SecondaryStat({ label, numericValue, suffix, tone, icon: Icon, index = 
   }
   return (
     <div
-      className="flex items-center gap-3 rounded-lg border border-gray-100 bg-white px-4 py-3 shadow-sm hover:border-gray-200 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 ease-out animate-in fade-in slide-in-from-bottom-1"
+      onClick={onClick}
+      onKeyDown={(event) => { if (onClick && (event.key === "Enter" || event.key === " ")) onClick() }}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      className={cn("flex items-center gap-3 rounded-lg border border-gray-100 bg-white px-4 py-3 shadow-sm hover:border-gray-200 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 ease-out animate-in fade-in slide-in-from-bottom-1", onClick && "cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500")}
       style={{ animationDelay: `${index * 50 + 160}ms`, animationFillMode: "backwards" }}
     >
       <div className={cn("h-9 w-9 rounded-lg flex items-center justify-center transition-transform duration-300 hover:scale-105", toneClasses[tone])}>
@@ -1088,6 +1179,7 @@ function SecondaryStat({ label, numericValue, suffix, tone, icon: Icon, index = 
           {Number.isInteger(numericValue) ? Math.round(animated).toLocaleString() : animated.toFixed(1)}
           {suffix ?? ""}
         </p>
+        {onClick && <p className="mt-0.5 text-[10px] font-medium text-blue-600">View details</p>}
       </div>
     </div>
   )
