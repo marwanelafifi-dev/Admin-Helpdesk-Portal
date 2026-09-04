@@ -253,7 +253,7 @@ export default function TravelPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight">Travel</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Administration Team - Travel</h1>
           <p className="text-muted-foreground text-sm mt-0.5">Manage business travel requests and bookings</p>
         </div>
         {(newRequestsCount > 0 || newTasksCount > 0) && (

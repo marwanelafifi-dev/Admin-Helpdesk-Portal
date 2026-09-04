@@ -20,7 +20,7 @@ export default async function MaintenancePage() {
         </div>
         <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-3">Maintenance in progress</h1>
         <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{message}</p>
-        <p className="text-xs text-slate-400 mt-8">Si-Ware Systems Admin Helpdesk Portal</p>
+        <p className="text-xs text-slate-400 mt-8">Si-Ware Systems Company Portal</p>
       </div>
     </div>
   )

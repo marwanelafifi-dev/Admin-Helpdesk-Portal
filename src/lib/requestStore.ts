@@ -18,6 +18,7 @@ const MODULE_PREFIX: Record<string, string> = {
   event: "EVT",
   travel: "TRV",
   hr: "HR",
+  hr_general: "HRG",
   general: "GEN",
 }
 

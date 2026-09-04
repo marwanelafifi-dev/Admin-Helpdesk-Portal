@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Image from "next/image"
 import { signOut, useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { Bell, LogOut, Menu, Settings, Sun, Moon, User } from "lucide-react"
+import { Bell, Building2, LogOut, Menu, Settings, Sun, Moon, User } from "lucide-react"
 import { useMobileNav } from "./MobileNavContext"
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
@@ -84,6 +84,11 @@ export function TopBar() {
     if (actionUrl) router.push(actionUrl)
   }
 
+  async function handleSignOut() {
+    await signOut({ redirect: false })
+    window.location.assign("/login")
+  }
+
   return (
     <header className="h-16 border-b bg-background flex items-center justify-between px-3 sm:px-4 lg:px-6 flex-shrink-0 gap-2">
       {/* Left: hamburger — opens the drawer on mobile, collapses/expands
@@ -125,6 +130,18 @@ export function TopBar() {
 
       {/* Right: actions */}
       <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+        <Button
+          variant="outline"
+          size="sm"
+          title="Return to the Support Functions directory and select another department"
+          onClick={() => router.push("/landing")}
+          className="gap-2 border-slate-200 bg-slate-50 px-2.5 font-semibold text-slate-700 shadow-sm hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 sm:px-3 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-blue-700 dark:hover:bg-blue-950"
+        >
+          <Building2 className="h-5 w-5" />
+          <span className="hidden sm:inline">Switch Department</span>
+          <span className="sm:hidden">Switch</span>
+        </Button>
+
         {/* Theme toggle */}
         <Button
           variant="ghost"
@@ -225,7 +242,7 @@ export function TopBar() {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
-              onClick={() => signOut({ callbackUrl: "/login" })}
+              onClick={handleSignOut}
             >
               <LogOut className="h-4 w-4 mr-2" />
               Log out
@@ -239,7 +256,7 @@ export function TopBar() {
           size="icon"
           title="Log out"
           className="text-muted-foreground hover:text-destructive hover:bg-red-50"
-          onClick={() => signOut({ callbackUrl: "/login" })}
+          onClick={handleSignOut}
         >
           <LogOut className="h-5 w-5" />
         </Button>

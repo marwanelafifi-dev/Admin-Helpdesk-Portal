@@ -16,6 +16,7 @@ const REQUEST_MODULES = new Set([
   "event",
   "travel",
   "hr",
+  "hr_general",
   "general",
 ])
 

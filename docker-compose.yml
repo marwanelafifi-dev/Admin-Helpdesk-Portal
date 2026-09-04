@@ -1,17 +1,15 @@
-name: admin-helpdesk
+name: company-portal
 
 services:
 
   db:
     image: postgres:16-alpine
-    container_name: admin-helpdesk-db
+    container_name: company-portal-db
     environment:
       POSTGRES_USER: ${DB_USER:-admin}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-admin_password_123}
       POSTGRES_DB: ${DB_NAME:-admin_request_platform}
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
-    ports:
-      - "${DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
@@ -34,7 +32,7 @@ services:
         NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-${AUTH_SECRET:-build-time-placeholder-replace-at-runtime}}
         AUTH_URL: ${AUTH_URL:-http://localhost:3003}
         NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3003}
-    container_name: admin-helpdesk-app
+    container_name: company-portal-app
     env_file:
       - .env.local
     depends_on:
@@ -73,7 +71,7 @@ services:
   # To activate: set CLOUDFLARE_TUNNEL_TOKEN in .env.local
   tunnel:
     image: cloudflare/cloudflared:latest
-    container_name: admin-helpdesk-tunnel
+    container_name: company-portal-tunnel
     restart: always
     command:
       - tunnel
@@ -95,7 +93,3 @@ volumes:
 networks:
   helpdesk-net:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.25.0.0/16
-          gateway: 172.25.0.1

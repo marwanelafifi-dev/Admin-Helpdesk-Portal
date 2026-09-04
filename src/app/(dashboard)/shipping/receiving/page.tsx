@@ -324,7 +324,7 @@ export default function ReceivingPage() {
       {/* Header */}
       <div className={cn("flex items-center justify-between", animationClasses.headerFadeIn)}>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight">Import</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Administration Team - Shipping Import</h1>
           <p className="text-muted-foreground text-sm mt-0.5">Track incoming shipments and deliveries</p>
         </div>
         {(newRequestsCount > 0 || newTasksCount > 0) && (

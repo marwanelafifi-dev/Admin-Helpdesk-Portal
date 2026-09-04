@@ -61,6 +61,7 @@ const MODULE_COLORS: Record<string, string> = {
   event: "#f97316",
   travel: "#ec4899",
   hr: "#14b8a6",
+  hr_general: "#0d9488",
   general: "#6366f1",
 }
 
@@ -94,6 +95,7 @@ const MODULE_SLA_DAYS: Record<string, number> = {
   event: 5,
   travel: 7,
   hr: 5,
+  hr_general: 5,
   general: 5,
 }
 
@@ -161,8 +163,9 @@ function moduleCountDriver(
   priorRequests: EngineRequest[],
   predicate: (request: EngineRequest) => boolean,
   metric: string,
+  modules: readonly string[] = MODULES,
 ): string | null {
-  const candidates = MODULES.map((module) => {
+  const candidates = modules.map((module) => {
     const currentCount = currentRequests.filter((request) => request.module === module && predicate(request)).length
     const priorCount = priorRequests.filter((request) => request.module === module && predicate(request)).length
     return { module, currentCount, priorCount, change: currentCount - priorCount }
@@ -255,13 +258,25 @@ function KPICard({ title, numericValue, suffix, display, icon: Icon, iconColor, 
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function DashboardPage() {
+interface DashboardPageProps {
+  /** Restricts every KPI/chart/table on this dashboard to these module ids. Omit for the full company-wide dashboard. */
+  moduleScope?: string[]
+  title?: string
+  /** Base path for request detail links (e.g. "/departments/hr/requests"). Defaults to the shared "/requests". */
+  detailBasePath?: string
+  /** Per-module override for the "Module Workload" row link (e.g. { hr_general: "/departments/hr/general" }). Falls back to "/<module>". */
+  moduleLinks?: Record<string, string>
+}
+
+export default function DashboardPage({ moduleScope, title, detailBasePath = "/requests", moduleLinks }: DashboardPageProps = {}) {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === "dark"
   const chartAxisColor = isDark ? "#94a3b8" : "#64748b"
   const chartGridColor = isDark ? "#334155" : "#f1f5f9"
   const chartTooltipBg = isDark ? "#1e293b" : "#ffffff"
   const chartTooltipBorder = isDark ? "#334155" : "#e2e8f0"
+  const scopeModules = moduleScope ?? MODULES
+  const moduleHref = (mod: string) => moduleLinks?.[mod] ?? `/${mod}`
 
   const [requests, setRequests] = useState<EngineRequest[]>([])
   const [timeRange, setTimeRange] = useState<TimeRange>("30d")
@@ -301,8 +316,10 @@ export default function DashboardPage() {
   }, [])
 
   const companyRequests = useMemo(
-    () => requests.filter((request) => matchesCompanyFilter(request, companyFilter)),
-    [requests, companyFilter],
+    () => requests.filter((request) =>
+      matchesCompanyFilter(request, companyFilter) && (!moduleScope || moduleScope.includes(request.module))
+    ),
+    [requests, companyFilter, moduleScope],
   )
 
   // Compute current and prior date windows for comparison
@@ -388,7 +405,7 @@ export default function DashboardPage() {
   // Module workload — per module, in current window
   const moduleWorkload = useMemo(() => {
     const now = Date.now()
-    return MODULES.map((mod) => {
+    return scopeModules.map((mod) => {
       const reqs = currentRequests.filter((r) => r.module === mod)
       const active = reqs.filter((r) => ACTIVE_STATUSES.has(r.status)).length
       const completed = reqs.filter((r) => COMPLETED_STATUSES.has(r.status)).length
@@ -413,10 +430,10 @@ export default function DashboardPage() {
         slaExceptions,
       }
     })
-  }, [currentRequests])
+  }, [currentRequests, scopeModules])
 
   const resolutionDriver = useMemo(() => {
-    const candidates = MODULES.map((module) => {
+    const candidates = scopeModules.map((module) => {
       const currentAverage = avgDaysToCompletion(currentRequests.filter((request) => request.module === module))
       const priorAverage = avgDaysToCompletion(priorRequests.filter((request) => request.module === module))
       return { module, currentAverage, priorAverage, change: currentAverage - priorAverage }
@@ -425,14 +442,15 @@ export default function DashboardPage() {
     if (!driver) return null
     const label = driver.module.charAt(0).toUpperCase() + driver.module.slice(1)
     return `Main driver: ${label} resolution ${driver.priorAverage.toFixed(1)}d → ${driver.currentAverage.toFixed(1)}d`
-  }, [currentRequests, priorRequests])
+  }, [currentRequests, priorRequests, scopeModules])
 
   const activeDriver = useMemo(() => moduleCountDriver(
     currentRequests,
     priorRequests,
     (request) => ACTIVE_STATUSES.has(request.status),
     "active",
-  ), [currentRequests, priorRequests])
+    scopeModules,
+  ), [currentRequests, priorRequests, scopeModules])
 
   const overdueDriver = useMemo(() => {
     const now = Date.now()
@@ -441,8 +459,9 @@ export default function DashboardPage() {
       priorRequests,
       (request) => ACTIVE_STATUSES.has(request.status) && (now - new Date(request.createdAt).getTime()) > 7 * 24 * 60 * 60 * 1000,
       "overdue",
+      scopeModules,
     )
-  }, [currentRequests, priorRequests])
+  }, [currentRequests, priorRequests, scopeModules])
 
   const teamWorkload = useMemo(() => {
     const members = new Map<string, {
@@ -601,7 +620,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 border-b pb-5">
         <div className="flex-1 min-w-0">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">{title ?? "Dashboard"}</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {rangeLabel} • {stats.total} request{stats.total !== 1 ? "s" : ""} in range
             {priorStats.total > 0 && (
@@ -906,7 +925,7 @@ export default function DashboardPage() {
                   moduleWorkload.map((m) => (
                     <tr key={m.module} className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors">
                       <td className="px-5 py-3">
-                        <Link href={`/${m.module}`} className="inline-flex items-center gap-2 font-medium text-gray-800 hover:text-blue-600">
+                        <Link href={moduleHref(m.module)} className="inline-flex items-center gap-2 font-medium text-gray-800 hover:text-blue-600">
                           <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: MODULE_COLORS[m.module] }} />
                           {m.label}
                         </Link>
@@ -949,7 +968,7 @@ export default function DashboardPage() {
               <ul>
                 {oldestOpen.map((r) => (
                   <li key={r.id} className="border-b border-gray-50 last:border-b-0 hover:bg-gray-50/60 transition-colors">
-                    <Link href={`/requests/${r.id}`} className="flex items-center gap-3 px-4 py-3">
+                    <Link href={`${detailBasePath}/${r.id}`} className="flex items-center gap-3 px-4 py-3">
                       <span className={cn("h-2 w-2 rounded-full flex-shrink-0", STATUS_DOT[r.status] ?? "bg-gray-400")} />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-900 truncate">{r.title}</p>
@@ -989,7 +1008,7 @@ export default function DashboardPage() {
               <ul>
                 {recentActivity.map((r) => (
                   <li key={r.id} className="border-b border-gray-50 last:border-b-0 hover:bg-gray-50/60 transition-colors">
-                    <Link href={`/requests/${r.id}`} className="flex items-center gap-3 px-4 py-3">
+                    <Link href={`${detailBasePath}/${r.id}`} className="flex items-center gap-3 px-4 py-3">
                       <span className={cn("h-2 w-2 rounded-full flex-shrink-0", STATUS_DOT[r.status] ?? "bg-gray-400")} />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-900 truncate">{r.title}</p>
@@ -1087,7 +1106,7 @@ export default function DashboardPage() {
                     const compliant = closedAt ? isWithinSla(request) : false
                     return (
                       <tr key={request.id} className="border-t border-gray-100 hover:bg-gray-50/70">
-                        <td className="px-5 py-3"><Link href={`/requests/${request.id}`} className="font-semibold text-blue-700 hover:underline">{request.id}</Link><p className="mt-0.5 max-w-72 truncate text-xs text-gray-500">{request.title}</p></td>
+                        <td className="px-5 py-3"><Link href={`${detailBasePath}/${request.id}`} className="font-semibold text-blue-700 hover:underline">{request.id}</Link><p className="mt-0.5 max-w-72 truncate text-xs text-gray-500">{request.title}</p></td>
                         <td className="px-3 py-3 capitalize text-gray-700">{request.module}</td>
                         <td className="px-3 py-3 text-gray-700">{request.companyName ?? (matchesCompanyFilter(request, "buchi") ? "BUCHI" : "Si-Ware Systems")}</td>
                         <td className="px-3 py-3 text-gray-700">{request.assignedToName || "Unassigned"}</td>

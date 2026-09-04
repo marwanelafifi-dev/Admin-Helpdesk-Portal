@@ -248,7 +248,7 @@ export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight">HR Requests</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Administration Team - HR Requests</h1>
           <p className="text-muted-foreground text-sm mt-0.5">
             Manage onboarding and offboarding requests for the administration team
           </p>

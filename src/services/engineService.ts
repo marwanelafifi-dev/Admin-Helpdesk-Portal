@@ -30,6 +30,7 @@ export type RequestModule =
   | "event"
   | "travel"
   | "hr"
+  | "hr_general"
   | "general"
 
 export interface StatusChange {
@@ -91,6 +92,7 @@ const MODULE_PREFIX: Record<string, string> = {
   event:       "EVT",
   travel:      "TRV",
   hr:          "HR",
+  hr_general:  "HRG",
   general:     "GEN",
 }
 

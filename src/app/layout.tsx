@@ -5,8 +5,8 @@ import { ThemeProvider } from "@/components/layout/ThemeProvider"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "Admin Helpdesk Portal",
-  description: "Enterprise admin helpdesk and request management portal",
+  title: "Si-Ware Company Portal",
+  description: "Si-Ware Systems support functions and company services portal",
   icons: {
     icon: "/Icon.png",
     shortcut: "/Icon.png",

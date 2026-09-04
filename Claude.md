@@ -1596,3 +1596,40 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] SLA Compliance and SLA Exceptions KPI cards are interactive and open request-level drill-downs with request links, module, company, owner, target, actual elapsed time, and SLA outcome.
 - [x] Added a visible **View SLA Policy** control for the Admin Team, documenting all module targets, Maintenance priority targets, timing rules, legacy fallbacks, exception criteria, and company scope.
 - [x] Standardized the selected BUCHI filter color to green on Dashboard, module pages, General Requests, and Admin All Requests.
+
+## Phase 7g: Company Portal Landing, Department Hubs & HR Team Workspace (Completed — 04 Sep 2026)
+
+- [x] **Login always lands on `/landing` first:**
+  - [x] `login/page.tsx` — `callbackUrl` is now hardcoded to `/landing` for both Google and credentials sign-in, ignoring any deep-linked destination (e.g. a session that expired while viewing a specific request no longer returns the user there — they land on the Company Portal selector and navigate from there).
+- [x] **`/landing` (Company Portal selector) polish:**
+  - [x] New `LandingTopBar` client component (`src/components/layout/LandingTopBar.tsx`) — theme toggle, user avatar + name/role dropdown (Profile/Settings/Log out), and a standalone logout icon, mirroring `TopBar.tsx` minus the notification bell and "Switch Department" button (not relevant on this page).
+  - [x] Positioned `absolute right-4 top-4` inside a `relative` `<main>` so it sits in the top-right corner without pushing the logo/header content down.
+  - [x] Fixed a leftover bug where `functions.map` referenced an undefined `adminPath` variable (dead code from an earlier redirect scheme) and a TS `external` property type error on the `functions` array (now typed via an explicit `SupportFunction` interface instead of `as const`).
+  - [x] Administration Team tile now routes to `/departments/admin` (a new intro/hub page) instead of jumping straight into the dashboard.
+  - [x] HR Team tile routes to `/departments/hr/services` (the HR Team Services hub) — not `/departments/hr`, which is now the HR analytics Dashboard.
+- [x] **New `/departments/admin` — "Administration Team Services" hub:**
+  - [x] Mirrors the HR/Finance department pattern: header card (icon, title, description) + a single "Service Modules" section listing every module the signed-in user has permission for (HR — Onboarding, HR — Offboarding, General Request, Shipping — Import, Shipping — Export, Maintenance, Purchase, Event, Travel), filtered server-side via `canAccessPath` + `canAccessModule`.
+  - [x] Added "Administration Team Services" as a standalone top-level Admin sidebar entry (above the "Administration Team" group).
+- [x] **Finance department restyled to match HR/Admin:**
+  - [x] `/departments/finance` rewritten to the same header-card pattern (icon, title, description) with an empty-state notice ("No Finance services are available yet") instead of the old bare "coming soon" placeholder.
+  - [x] `Shell`/`Sidebar` `portal` prop extended to `"admin" | "hr" | "finance"`; new `financeNavItems` (`Finance Portal` brand name, single "Finance Team Services" nav item).
+- [x] **HR portal restructured into a full team workspace** (mirroring the Admin portal's Dashboard/All Requests/Team Tasks pattern):
+  - [x] Sidebar: collapsible **HR Team** group — Dashboard, Team Tasks, All Requests (in that order) — plus two standalone top-level items: **HR Team Services** and **General Request** (both live outside the group, same as "General Request" sits outside "Administration Team" in the Admin sidebar).
+  - [x] **`/departments/hr` is now a real analytics Dashboard** — reuses the main `DashboardPage` component (`src/app/(dashboard)/dashboard/page.tsx`) instead of a static tile page, scoped to HR's modules only.
+    - [x] `DashboardPage` generalized with new optional props: `moduleScope` (restricts every KPI/chart/table to the given module ids), `title`, `detailBasePath` (request-detail link prefix), `moduleLinks` (per-module override for the Module Workload row link).
+    - [x] `moduleCountDriver()` helper now accepts an optional `modules` list instead of always using the hardcoded 7-module `MODULES` constant; `moduleWorkload` and `resolutionDriver` iterate the scoped list too.
+    - [x] Added `hr_general` to `MODULE_COLORS` and `MODULE_SLA_DAYS` so it renders correctly in charts/SLA calculations once included in a module scope.
+    - [x] Titled **"HR Team - Dashboard"**; request-detail links point to `/departments/hr/requests/...` and the "General" module-workload row links to `/departments/hr/general`.
+  - [x] **`/departments/hr/all-requests`** — new staff-facing aggregate view covering every id in `HR_MODULE_IDS`, reusing `GeneralRequestPage` in a new `aggregateModules` mode (see below). Full Access / HR Team / People Team see everything; anyone else falls back to their own requests only. No "New Request" button (`hideCreateButton`) since it's a review page. Titled **"HR Team - All Requests"**.
+  - [x] **`/departments/hr/tasks`** — thin wrapper re-exporting the shared `TasksPage` component so Team Tasks stays inside the HR portal's Shell/sidebar instead of forcing the Admin sidebar (which the shared `/tasks` route always renders).
+  - [x] **`/departments/hr/services`** — the restored "HR Team Services" hub (header card + "Service Modules" section), now listing only requester-facing HR services: currently just **General Request**. HR — Onboarding/Offboarding are deliberately excluded — those are requests *other* departments submit *to* the HR Team via the Admin Portal's Admin Team Services page, not something the HR Team requests for itself.
+  - [x] New shared constant `src/modules/hr/hrModules.ts` → `HR_MODULE_IDS = ["hr", "hr_general"]` drives both the Dashboard scope and the All Requests aggregation from one place — add a future HR module's id here and it automatically appears in both.
+- [x] **`GeneralRequestPage` (`src/app/(dashboard)/general/page.tsx`) generalized for aggregate/staff views:**
+  - [x] New `aggregateModules?: string[]` prop — when set, filters by `moduleFilter.includes(r.module)` across multiple module ids instead of a single `moduleId`, with the same Full Access/HR Team/People Team-sees-all-else-own-only safety check previously hardcoded to the `hr_general` special case.
+  - [x] New `hideCreateButton?: boolean` prop — hides the "New Request" button for review-only aggregate pages.
+  - [x] Status-change notifications now pass `request.module` (the actual module of the affected record) instead of a hardcoded module id, since one page instance can now span multiple modules.
+- [x] **Page-title convention — support function name prefixed to every module page:**
+  - [x] Admin portal: "Administration Team - General Requests", "- Maintenance", "- Purchase", "- Event", "- Travel", "- Shipping", "- Shipping Export", "- Shipping Import", "- HR Requests", "- All Requests" (the last one was already in place).
+  - [x] HR portal: "HR Team - Dashboard", "HR Team - General Requests", "HR Team - All Requests".
+  - [x] Finance has no module pages yet — convention will apply automatically once a real Finance service is built.
+- [x] **`data/roles.json` seed** — added `page:tasks` to the "People Team" role so that role can open Team Tasks once assigned. Note: the locally running `company-portal` container reads its live role/permission data from a host bind mount (`~/admin-helpdesk-data`, a fresh/simplified role set — Full Access / admin / manager / viewer) rather than this repo's seed file, so this change is a documentation/seed-consistency fix and doesn't affect local testing under the "Local Full Access" test account.

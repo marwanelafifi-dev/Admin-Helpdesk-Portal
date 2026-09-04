@@ -66,7 +66,31 @@ const COLS: { key: SortKey; label: string; defaultW: number }[] = [
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function GeneralRequestPage() {
+interface GeneralRequestPageProps {
+  moduleId?: "general" | "hr_general"
+  /**
+   * Staff-facing aggregate mode — when set, shows requests across every
+   * module id listed here instead of a single `moduleId`. Used by the HR
+   * Team's unified "All Requests" view so new HR modules just need their
+   * module id added to the list, no new page.
+   */
+  aggregateModules?: string[]
+  basePath?: string
+  pageTitle?: string
+  pageSubtitle?: string
+  detailPath?: string
+  hideCreateButton?: boolean
+}
+
+export default function GeneralRequestPage({
+  moduleId = "general",
+  aggregateModules,
+  basePath = "/general",
+  pageTitle = "Administration Team - General Requests",
+  pageSubtitle = "Submit and manage general requests",
+  detailPath = "/requests",
+  hideCreateButton = false,
+}: GeneralRequestPageProps = {}) {
   const { data: session } = useSession()
   const { showCcRequests, toggleCcVisibility } = useCcVisibility()
   const [requests, setRequests]           = useState<EngineRequest[]>([])
@@ -90,7 +114,8 @@ export default function GeneralRequestPage() {
 
   const loadRequests = useCallback(() => {
     initializeMockData()
-    let all = getRequests().filter((r) => r.module === "general")
+    const moduleFilter = aggregateModules ?? [moduleId]
+    let all = getRequests().filter((r) => moduleFilter.includes(r.module))
 
     // Apply module-level access control if user has restrictions
     const userWithModules: UserWithModuleAccess = {
@@ -100,8 +125,14 @@ export default function GeneralRequestPage() {
       readModules: (session?.user as any)?.readModules,
       readAllModules: (session?.user as any)?.readAllModules,
     }
-    setRequests(scopeRequestsByModuleAccess(all, userWithModules, session?.user))
-  }, [session?.user?.id, session?.user?.email, session?.user?.role])
+    if (aggregateModules || moduleId === "hr_general") {
+      const canManageHr = session?.user?.role === "Full Access" || session?.user?.role === "HR Team" || session?.user?.role === "People Team"
+      const email = session?.user?.email?.toLowerCase()
+      setRequests(canManageHr ? all : all.filter((request) => request.requesterId === session?.user?.id || request.requesterEmail.toLowerCase() === email))
+    } else {
+      setRequests(scopeRequestsByModuleAccess(all, userWithModules, session?.user))
+    }
+  }, [moduleId, aggregateModules, session?.user?.id, session?.user?.email, session?.user?.role])
 
   useEffect(() => {
     loadRequests()
@@ -124,7 +155,7 @@ export default function GeneralRequestPage() {
       createRequestUpdateNotifications({
         requestId: id,
         requestTitle: request.title,
-        module: "general",
+        module: request.module,
         requestOwnerId: request.requesterId,
         requestOwnerEmail: request.requesterEmail,
         actionUserId: currentUserId,
@@ -179,14 +210,14 @@ export default function GeneralRequestPage() {
     // When CC toggle is on, include requests where the user is CC'd but not the requester
     const userEmail = session?.user?.email ?? ""
     const userId = session?.user?.id ?? ""
-    const allRequests = getRequests().filter((r) => r.module === "general")
+    const allRequests = getRequests().filter((r) => r.module === moduleId)
     const ccRequests = allRequests.filter((r) =>
       r.requesterId !== userId && // Not the requester
       !requests.some(req => req.id === r.id) && // Not already included
       isUserInCc(r, userEmail) // User is in CC
     )
     return [...requests, ...ccRequests]
-  }, [requests, showCcRequests, session?.user?.email, session?.user?.id])
+  }, [moduleId, requests, showCcRequests, session?.user?.email, session?.user?.id])
 
   const filtered = useMemo(() => {
     let result = allVisibleRequests
@@ -242,18 +273,20 @@ export default function GeneralRequestPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight">General Requests</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Submit and manage general requests</p>
+          <h1 className="text-2xl font-bold tracking-tight">{pageTitle}</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">{pageSubtitle}</p>
         </div>
         {(newRequestsCount > 0 || newTasksCount > 0) && (
           <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
         )}
-        <Link href="/general/new">
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white ml-4">
-            <Plus className="h-4 w-4 mr-2" />
-            New General Request
-          </Button>
-        </Link>
+        {!hideCreateButton && (
+          <Link href={`${basePath}/new`}>
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white ml-4">
+              <Plus className="h-4 w-4 mr-2" />
+              New General Request
+            </Button>
+          </Link>
+        )}
       </div>
 
       {/* Stat Cards */}
@@ -385,7 +418,7 @@ export default function GeneralRequestPage() {
                 <tr className={cn("border-b border-gray-100 hover:bg-blue-50/30 transition-colors", hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40"))}>
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
                     <div className="flex items-center gap-2">
-                      <Link href={`/requests/${req.id}?source=general`} className="text-sm font-medium text-blue-600 truncate block hover:underline">
+                      <Link href={`${detailPath}/${req.id}?source=${encodeURIComponent(basePath.slice(1))}`} className="text-sm font-medium text-blue-600 truncate block hover:underline">
                         {req.id}
                       </Link>
                       {(commentCounts[req.id] ?? 0) > 0 && (
@@ -434,7 +467,7 @@ export default function GeneralRequestPage() {
                       showDeleteOption={canPermanentDelete}
                       isExpanded={isExpanded(req.id)}
                       onViewDetails={() => toggleRow(req.id)}
-                      onEdit={canEditRequest ? (id) => window.open(`/requests/${id}?source=general`, '_blank') : undefined}
+                      onEdit={canEditRequest ? (id) => window.open(`${detailPath}/${id}?source=${encodeURIComponent(basePath.slice(1))}`, '_blank') : undefined}
                       onCancel={handleCancelRequest}
                       onDelete={(id) => {
                         if (!confirm(`Permanently delete ${id}? This cannot be undone.`)) return

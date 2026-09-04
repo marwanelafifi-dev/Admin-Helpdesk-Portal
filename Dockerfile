@@ -43,7 +43,8 @@ RUN if [ ! -f .next-dev/BUILD_ID ]; then \
       echo "==> Using pre-built .next-dev from build context."; \
     fi
 
-RUN chmod +x ./docker-entrypoint.sh && \
+RUN sed -i 's/\r$//' ./docker-entrypoint.sh && \
+    chmod +x ./docker-entrypoint.sh && \
     mkdir -p .next-dev/cache/images data
 
 EXPOSE 3003

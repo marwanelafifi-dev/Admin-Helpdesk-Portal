@@ -16,13 +16,13 @@ const SETTINGS_KEY = "arp_platform_settings"
 const GOOGLE_AUTH_ENABLED = process.env.NEXT_PUBLIC_ENABLE_GOOGLE_AUTH !== "false"
 
 const LOGIN_DEFAULTS = {
-  loginTitle: "Admin Helpdesk Portal",
-  loginSubtitle: "Welcome to the Si-Ware Systems administrative support portal. Sign in with your corporate credentials to securely manage helpdesk requests and operational workflows.",
+  loginTitle: "Si-Ware Company Portal",
+  loginSubtitle: "Welcome to the Si-Ware Systems company portal. Sign in with your corporate credentials to access support functions and company services.",
   loginCardTitle: "Sign in securely",
   loginCardSubtitle: "Authorized Si-Ware Employees only.\nPlease use your corporate credentials to continue.",
-  loginFooterLine1: "Operated by IT Team",
-  loginFooterLine2: "For assistance, please contact the IT Helpdesk.",
-  loginFooterEmail: "ithelpdesk@si-ware.com",
+  loginFooterLine1: "Si-Ware Systems Support Functions",
+  loginFooterLine2: "For portal assistance, please contact the Administration Team.",
+  loginFooterEmail: "adminhelpdesk@si-ware.com",
   showGoogleLogin: GOOGLE_AUTH_ENABLED,
 }
 
@@ -201,7 +201,10 @@ function LoginFormContent({ callbackUrl, oauthError }: LoginFormProps) {
 
 function LoginFormWrapper() {
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/landing"
+  // Every login always lands on the Company Portal selector first — even if
+  // the user was bounced here from a deep link (e.g. an expired session
+  // while viewing a specific request). They can navigate from there.
+  const callbackUrl = "/landing"
   const errorParam = searchParams.get("error")
   return <LoginFormContent callbackUrl={callbackUrl} oauthError={errorParam} />
 }

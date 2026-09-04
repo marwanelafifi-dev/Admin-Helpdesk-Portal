@@ -57,7 +57,7 @@ export async function middleware(request: NextRequest) {
     if ((token as any).stale === true) {
       return NextResponse.next()
     }
-    return NextResponse.redirect(new URL("/dashboard", publicBase))
+    return NextResponse.redirect(new URL("/landing", publicBase))
   }
 
   // Credential users with a temporary password may only access Account

@@ -442,7 +442,7 @@ export default function AllRequestsPage() {
       {/* Header */}
       <div className={cn("flex items-center justify-between", animationClasses.headerFadeIn)}>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight">All Requests</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Administration Team - All Requests</h1>
           <p className="text-muted-foreground text-sm mt-0.5">
             All requests submitted by administration team members
           </p>

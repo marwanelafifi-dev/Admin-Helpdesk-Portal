@@ -45,7 +45,8 @@ interface NavItem {
   children?: Omit<NavItem, "children">[]
 }
 
-const navItems: NavItem[] = [
+const adminNavItems: NavItem[] = [
+  { title: "Administration Team Services", href: "/departments/admin", icon: LayoutDashboard },
   {
     title: "Administration Team",
     href: "/dashboard",
@@ -103,9 +104,31 @@ const navItems: NavItem[] = [
   },
 ]
 
+const hrNavItems: NavItem[] = [
+  { title: "HR Team Services", href: "/departments/hr/services", icon: LayoutDashboard },
+  {
+    title: "HR Team",
+    href: "/departments/hr",
+    icon: Users,
+    children: [
+      { title: "Dashboard", href: "/departments/hr", icon: LayoutDashboard },
+      { title: "Team Tasks", href: "/departments/hr/tasks", icon: CheckSquare },
+      { title: "All Requests", href: "/departments/hr/all-requests", icon: ClipboardList },
+    ],
+  },
+  // Requester-facing module pages live outside the HR Team group — one entry
+  // per HR module (mirrors "General Request" sitting outside "Administration
+  // Team" in the admin sidebar). Add new HR modules here as they're built.
+  { title: "General Request", href: "/departments/hr/general", icon: Inbox },
+]
+
+const financeNavItems: NavItem[] = [
+  { title: "Finance Team Services", href: "/departments/finance", icon: LayoutDashboard },
+]
+
 const SETTINGS_KEY = "arp_platform_settings"
 
-export function Sidebar() {
+export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finance" }) {
   const pathname = usePathname()
   const router = useRouter()
   const { data: session, status } = useSession()
@@ -119,7 +142,7 @@ export function Sidebar() {
     window.addEventListener("arp:toggle-sidebar", onToggle)
     return () => window.removeEventListener("arp:toggle-sidebar", onToggle)
   }, [])
-  const [brandName, setBrandName] = useState("Admin Portal")
+  const [brandName, setBrandName] = useState(portal === "hr" ? "HR Portal" : portal === "finance" ? "Finance Portal" : "Admin Portal")
   const [brandSubtitle, setBrandSubtitle] = useState("Si-Ware Systems")
   const [administrationExpanded, setAdministrationExpanded] = useState(
     pathname.startsWith("/admin/all-requests") || pathname.startsWith("/admin/announcements") || pathname.startsWith("/tasks") || pathname.startsWith("/feedback-reports")
@@ -129,6 +152,9 @@ export function Sidebar() {
   )
   const [shippingExpanded, setShippingExpanded] = useState(pathname.startsWith("/shipping"))
   const [hrExpanded, setHrExpanded] = useState(pathname.startsWith("/hr"))
+  const [hrTeamExpanded, setHrTeamExpanded] = useState(
+    pathname === "/departments/hr" || pathname.startsWith("/departments/hr/all-requests") || pathname.startsWith("/departments/hr/tasks")
+  )
   // When the sidebar is collapsed, clicking a parent opens a flyout popover
   // anchored to that parent's row so the user can pick a child page without
   // expanding the whole sidebar. Tracked by parent title.
@@ -166,6 +192,7 @@ export function Sidebar() {
   const source = searchParams.get("source")
 
   useEffect(() => {
+    if (portal === "hr" || portal === "finance") return
     try {
       const raw = localStorage.getItem(SETTINGS_KEY)
       if (raw) {
@@ -174,7 +201,7 @@ export function Sidebar() {
         if (s.sidebarBrandSubtitle) setBrandSubtitle(s.sidebarBrandSubtitle)
       }
     } catch {}
-  }, [])
+  }, [portal])
 
   // Note: new-request and new-task tracking is centralized in useNewRequestsAndTasks
   // hook above. Storage events, focus, and a 30s interval keep it fresh.
@@ -240,19 +267,25 @@ export function Sidebar() {
     return 0
   }, [unreadNotices, isAdminAudience, newTasksCount, allRequestsTotal, newRequestsByModule, moduleForHref])
 
+  const navItemsForPortal = portal === "hr" ? hrNavItems : portal === "finance" ? financeNavItems : adminNavItems
+
   const visibleNavItems = useMemo(() =>
-    navItems.reduce<NavItem[]>((items, item) => {
+    navItemsForPortal.reduce<NavItem[]>((items, item) => {
       const children = item.children?.filter((child) => canSee(child.href))
       const itemVisible = canSee(item.href) || Boolean(children?.length)
       if (!itemVisible) return items
       items.push({ ...item, children: children?.length ? children : undefined })
       return items
     }, []),
-    [canSee]
+    [canSee, portal]
   )
 
   const isActive = useCallback((href: string) => {
     if (href === "/dashboard") return pathname === "/dashboard"
+    if (href === "/departments/hr") return pathname === "/departments/hr"
+    if (href === "/departments/hr/general") {
+      return pathname.startsWith("/departments/hr/general") || pathname.startsWith("/departments/hr/requests/")
+    }
     if (pathname.startsWith("/requests/")) {
       if (href === "/admin/all-requests") return source === "all-requests"
       if (href === "/requests") return source === "my-requests"
@@ -299,6 +332,7 @@ export function Sidebar() {
             const isShipping = item.title === "Shipping"
             const isHR = item.title === "HR"
             const isAdministration = item.title === "Administration Team"
+            const isHRTeam = item.title === "HR Team"
 
             let expanded = false
             let setExpandedFn: (val: boolean) => void = () => {}
@@ -320,6 +354,10 @@ export function Sidebar() {
               expanded = administrationExpanded
               setExpandedFn = (val) => setAdministrationExpanded(val)
               active = pathname.startsWith("/admin/all-requests") || pathname.startsWith("/admin/announcements") || pathname.startsWith("/tasks") || pathname.startsWith("/feedback-reports") || pathname === "/dashboard"
+            } else if (isHRTeam) {
+              expanded = hrTeamExpanded
+              setExpandedFn = (val) => setHrTeamExpanded(val)
+              active = pathname === "/departments/hr" || pathname.startsWith("/departments/hr/all-requests") || pathname.startsWith("/departments/hr/tasks")
             }
 
             const isFlyoutOpen = flyoutOpen === item.title

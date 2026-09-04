@@ -1,6 +1,15 @@
-# Admin Helpdesk Portal
+# Si-Ware Company Portal
 
-Enterprise helpdesk request management platform built with Next.js 15, TypeScript, Tailwind CSS, and shadcn/ui. Deployed via Docker on Ubuntu with Cloudflare Tunnel for public access.
+Company entry point for Support Functions, with the existing Administration Helpdesk Portal retained as the Administration Team service area.
+
+After login, employees select a support function:
+
+- Administration Team opens the existing Admin Portal pages.
+- HR Team opens its dedicated service area.
+- Finance Team is reserved for the next rollout.
+- IT Team opens the existing SolarWinds Service Desk in a new tab. Configure its URL with `NEXT_PUBLIC_IT_SERVICE_DESK_URL`.
+
+The Administration Portal UI and existing request workflows remain unchanged. A Support Functions control in its header returns users to the department selector.
 
 **Live URL:** https://adminhelpdesk.si-wareapps.com
 

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { ArrowLeft, Calendar, User, FileText, Clock, CheckCircle2, AlertCircle, ChevronDown, Star, Send, Printer } from "lucide-react"
@@ -142,6 +142,9 @@ export default function RequestDetailPage() {
   const params = useParams()
   const router = useRouter()
   const id = params.id as string
+  const searchParams = useSearchParams()
+  const backHref = searchParams.get("source") === "departments/hr/general" ? "/departments/hr/general" : "/requests"
+  const backLabel = backHref === "/departments/hr/general" ? "Back to HR General Requests" : "Back to Requests"
   const { data: session, status: sessionStatus } = useSession()
 
   const [request, setRequest] = useState<RequestDetail | null>(null)
@@ -504,6 +507,7 @@ export default function RequestDetailPage() {
       event:       ['new', 'in_progress', 'delivered', 'completed', 'cancelled'],
       travel:      ['new', 'awaiting_approval', 'in_progress', 'completed', 'cancelled'],
       general:     ['new', 'in_progress', 'completed', 'cancelled'],
+      hr_general:  ['new', 'in_progress', 'completed', 'cancelled'],
     }
     return moduleStatuses[module] || ['new', 'in_progress', 'completed', 'cancelled']
   }
@@ -749,18 +753,18 @@ export default function RequestDetailPage() {
     return (
       <div className="space-y-6">
         <Link
-          href="/requests"
+          href={backHref}
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Requests
+          {backLabel}
         </Link>
         <Card>
           <CardContent className="py-12">
             <div className="flex flex-col items-center gap-3 text-center">
               <AlertCircle className="h-8 w-8 text-red-500" />
               <p className="font-medium text-red-700">{error || "Request not found"}</p>
-              <Button onClick={() => router.push("/requests")} variant="outline" className="mt-4">
+              <Button onClick={() => router.push(backHref)} variant="outline" className="mt-4">
                 Return to Requests
               </Button>
             </div>
@@ -773,11 +777,11 @@ export default function RequestDetailPage() {
   return (
     <div className="space-y-6">
       <Link
-        href="/requests"
+        href={backHref}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to Requests
+        {backLabel}
       </Link>
 
       {/* Header Card */}
@@ -789,7 +793,7 @@ export default function RequestDetailPage() {
                 <div className="flex items-center gap-3 mb-2">
                   <span className="text-2xl">{getModuleIcon(request.module)}</span>
                   <Badge className={`${getModuleColor(request.module)} border capitalize`}>
-                    {request.module}
+                    {request.module === "hr_general" ? "HR General Request" : request.module}
                   </Badge>
 
                   {/* Status Dropdown */}

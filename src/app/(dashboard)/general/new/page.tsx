@@ -40,7 +40,17 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
   )
 }
 
-export default function NewGeneralRequestPage() {
+interface NewGeneralRequestPageProps {
+  moduleId?: "general" | "hr_general"
+  basePath?: string
+  departmentName?: string
+}
+
+export default function NewGeneralRequestPage({
+  moduleId = "general",
+  basePath = "/general",
+  departmentName,
+}: NewGeneralRequestPageProps = {}) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { data: session } = useSession()
@@ -79,13 +89,13 @@ export default function NewGeneralRequestPage() {
     const userEmail = session?.user?.email || ""
 
     if (isEditing) {
-      router.push("/general")
+      router.push(basePath)
       return
     }
 
     // 1. Submit request first (without attachments) to get server-assigned ID
     const saved = await submitRequest(
-      "general",
+      moduleId,
       { description: values.description ?? "", attachments: [], ccEmails },
       { title: values.title, requesterId: userId, requesterName: userName, requesterEmail: userEmail }
     )
@@ -106,24 +116,24 @@ export default function NewGeneralRequestPage() {
     createNewRequestNotifications({
       requestId: saved.id,
       requestTitle: saved.title,
-      module: "general",
+      module: moduleId,
       requesterId: userId,
       requesterName: userName,
       requesterEmail: userEmail,
       ccEmails,
     })
 
-    router.push("/general")
+    router.push(basePath)
   }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">
-          {isEditing ? "Edit General Request" : "New General Request"}
+          {isEditing ? "Edit General Request" : departmentName ? `${departmentName} General Request` : "New General Request"}
         </h1>
         <p className="text-muted-foreground text-sm mt-0.5">
-          {isEditing ? "Update the request details" : "Submit a general request"}
+          {isEditing ? "Update the request details" : departmentName ? `Submit a general request to the ${departmentName}` : "Submit a general request"}
         </p>
       </div>
 
@@ -221,7 +231,7 @@ export default function NewGeneralRequestPage() {
 
         {/* Footer */}
         <div className="form-footer flex items-center justify-between gap-3 border-t bg-gray-50 px-6 py-4">
-          <Button type="button" variant="outline" onClick={() => router.push("/general")}>
+          <Button type="button" variant="outline" onClick={() => router.push(basePath)}> 
             Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white">

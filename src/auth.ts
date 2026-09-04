@@ -169,7 +169,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // browser would drop the session. The image is read from the user
       // store in the session callback below instead.
       if (token.email) {
-        const stored = findUserByEmail(token.email as string)
+        // Use the same database-first lookup as credentials authorization.
+        // A user that exists in PostgreSQL but not in the legacy JSON store
+        // must not be mistaken for a deleted account and forced to sign out.
+        const stored = await lookupUser(token.email as string)
         if (stored) {
           // If the user was deactivated since their last sign-in, mark the
           // token stale so middleware redirects them through signout on the
@@ -182,7 +185,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
           token.role = stored.role
           token.name = stored.name
-          ;(token as any).mustChangePassword = stored.provider === "credentials" && stored.mustChangePassword === true
+          const legacyStored = findUserByEmail(token.email as string)
+          ;(token as any).mustChangePassword = legacyStored?.provider === "credentials" && legacyStored.mustChangePassword === true
           const { getPermissionsForRole } = await import("@/lib/userRoles")
           token.permissions = await getPermissionsForRole(stored.role)
         } else {

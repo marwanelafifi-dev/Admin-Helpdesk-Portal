@@ -138,6 +138,7 @@
       "assign_requests",
       "page:announcements",
       "page:system-notices",
+      "page:tasks",
       "page:my-requests",
       "page:request-detail",
       "page:team-requests",

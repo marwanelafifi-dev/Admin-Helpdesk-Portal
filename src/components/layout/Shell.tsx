@@ -10,15 +10,15 @@ import { useHeartbeat } from "@/hooks/useHeartbeat"
  * Dashboard shell: sidebar (drawer on mobile) + topbar + main content area.
  * Server-side layout.tsx wraps this around `children`.
  */
-export function Shell({ children }: { children: React.ReactNode }) {
+export function Shell({ children, portal = "admin" }: { children: React.ReactNode; portal?: "admin" | "hr" | "finance" }) {
   return (
     <MobileNavProvider>
-      <ShellInner>{children}</ShellInner>
+      <ShellInner portal={portal}>{children}</ShellInner>
     </MobileNavProvider>
   )
 }
 
-function ShellInner({ children }: { children: React.ReactNode }) {
+function ShellInner({ children, portal }: { children: React.ReactNode; portal: "admin" | "hr" | "finance" }) {
   const { open, setOpen } = useMobileNav()
   // Pulls /api/requests on mount + every 30s + on focus so localStorage
   // stays in step with what other users have submitted.
@@ -28,7 +28,7 @@ function ShellInner({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden bg-background relative" suppressHydrationWarning>
       {/* Sidebar — fixed drawer below lg, static beside content at lg+ */}
-      <Sidebar />
+      <Sidebar portal={portal} />
 
       {/* Backdrop when mobile drawer is open */}
       {open && (
