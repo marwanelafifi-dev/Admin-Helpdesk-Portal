@@ -1,11 +1,13 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
+import { useSession } from "next-auth/react"
 import { Shield, Search, Filter, Clock, User, FileText, ArrowRightLeft, MessageSquare, Trash2, Edit, Plus, Building2, Database } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { fmtDateTime } from "@/lib/utils"
+import { isModuleVisibleToFunction, MODULE_REGISTRY } from "@/lib/functionRegistry"
 
 interface AuditEntry {
   id: string
@@ -86,6 +88,25 @@ async function buildUserMap(): Promise<Record<string, string>> {
 function resolveActor(changedBy: string, userMap: Record<string, string>): string {
   if (!changedBy) return "System"
   return userMap[changedBy] || userMap[changedBy.toLowerCase()] || changedBy
+}
+
+/**
+ * Audit Trail is reachable by both Full Access and Administration Team
+ * (per data/roles.json). Administration Team must NOT see request-related
+ * events for modules exclusive to another function (hr_general, hr_letter,
+ * finance_reimbursement) — those are confidential to that function's team.
+ * Full Access is the platform super-admin and always sees everything.
+ */
+function filterAuditEntriesForViewer(entries: AuditEntry[], isFullAccess: boolean): AuditEntry[] {
+  if (isFullAccess) return entries
+  return entries.filter((e) => {
+    // Only request-module-scoped categories carry a real module id in
+    // `entry.module` — other categories (tasks, roles, users, database,
+    // company data) use virtual labels that aren't in the registry and
+    // are left untouched here.
+    if (!(e.module in MODULE_REGISTRY)) return true
+    return isModuleVisibleToFunction(e.module, "admin")
+  })
 }
 
 async function buildAuditLog(): Promise<AuditEntry[]> {
@@ -286,13 +307,15 @@ function fmt(iso: string) { return fmtDateTime(iso) }
 const ALL_CATEGORIES: AuditEntry["category"][] = ["request", "status", "comment", "assignment", "user", "role", "company_data", "database"]
 
 export default function AuditTrailPage() {
+  const { data: session } = useSession()
   const [entries, setEntries] = useState<AuditEntry[]>([])
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<AuditEntry["category"] | "all">("all")
+  const isFullAccess = session?.user?.role === "Full Access"
 
   useEffect(() => {
-    void buildAuditLog().then(setEntries)
-  }, [])
+    void buildAuditLog().then((all) => setEntries(filterAuditEntriesForViewer(all, isFullAccess)))
+  }, [isFullAccess])
 
   const filtered = useMemo(() => {
     return entries.filter((e) => {

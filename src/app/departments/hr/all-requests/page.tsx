@@ -1,10 +1,10 @@
 import GeneralRequestPage from "@/app/(dashboard)/general/page"
-import { HR_MODULE_IDS } from "@/modules/hr/hrModules"
+import { modulesVisibleToFunction } from "@/lib/functionRegistry"
 
 export default function HRAllRequestsPage() {
   return (
     <GeneralRequestPage
-      aggregateModules={HR_MODULE_IDS}
+      aggregateModules={modulesVisibleToFunction("hr")}
       basePath="/departments/hr/general"
       detailPath="/departments/hr/requests"
       pageTitle="HR Team - All Requests"

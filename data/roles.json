@@ -165,6 +165,32 @@
     "updatedAt": "2026-06-23T12:00:00.000Z"
   },
   {
+    "id": "role-finance-team",
+    "name": "Finance Team",
+    "description": "Finance Team only",
+    "permissions": [
+      "create",
+      "read",
+      "read_own",
+      "update",
+      "update_status",
+      "delete",
+      "edit_request",
+      "cancel_request",
+      "view_details",
+      "activity",
+      "manage_cc",
+      "assign_requests",
+      "page:announcements",
+      "page:system-notices",
+      "page:my-requests",
+      "page:request-detail",
+      "page:team-requests"
+    ],
+    "createdAt": "2026-09-04T00:00:00.000Z",
+    "updatedAt": "2026-09-04T00:00:00.000Z"
+  },
+  {
     "id": "role-requester",
     "name": "Requester - Si-Ware",
     "description": "Can submit and track their own requests",

@@ -1,8 +1,9 @@
 import nodemailer from "nodemailer"
 import fs from "fs"
 import path from "path"
-import { readEmailConfig } from "./emailConfig"
+import { readEmailConfig, type EmailFunctionId } from "./emailConfig"
 import { DEFAULT_ANNOUNCEMENT_SIGNATURE } from "./announcementStore"
+import { functionForModule } from "./functionRegistry"
 
 function getLogoBuffer(): Buffer | null {
   try {
@@ -27,8 +28,10 @@ function getLogoBuffer(): Buffer | null {
  * sends through them, throttled by `rateLimit`. The transporter is rebuilt
  * only when the saved config changes.
  */
-let cachedTransporter: any = null
-let cachedTransporterKey: string | null = null
+// One pooled connection per function (admin/hr/finance each have their own
+// account), keyed by functionId — rebuilt only when that function's saved
+// config actually changes.
+const transporterCache = new Map<EmailFunctionId, { transporter: any; key: string }>()
 
 function configKey(saved: ReturnType<typeof readEmailConfig>) {
   if (saved?.method && saved?.values) {
@@ -53,17 +56,17 @@ const POOL_OPTIONS = {
   tls: { rejectUnauthorized: false },
 } as const
 
-function createTransporter() {
-  const saved = readEmailConfig()
+function createTransporter(functionId: EmailFunctionId = "admin") {
+  const saved = readEmailConfig(functionId)
   const key = configKey(saved)
 
-  if (cachedTransporter && cachedTransporterKey === key) {
-    return cachedTransporter
+  const cached = transporterCache.get(functionId)
+  if (cached && cached.key === key) {
+    return cached.transporter
   }
-  if (cachedTransporter) {
+  if (cached) {
     // Config changed — tear down the old pool before replacing.
-    try { cachedTransporter.close() } catch {}
-    cachedTransporter = null
+    try { cached.transporter.close() } catch {}
   }
 
   let transporter: any
@@ -103,32 +106,36 @@ function createTransporter() {
     })
   }
 
-  cachedTransporter = transporter
-  cachedTransporterKey = key
+  transporterCache.set(functionId, { transporter, key })
   return transporter
 }
 
 /**
- * Resolve the From address every email send should use.
+ * Resolve the From address every email send should use, for a given
+ * function's account (admin/hr/finance — see src/lib/functionRegistry.ts
+ * for which module belongs to which function).
  *
  * Order of precedence:
- *   1. `SMTP_FROM` env var (explicit override — wins always).
- *   2. The Admin → Notifications saved config (smtp_from_name + smtp_user).
- *      Used when the admin configured email via the UI rather than env files.
- *   3. `SMTP_USER` env var wrapped with the default display name.
+ *   1. `SMTP_FROM` env var — explicit override, but only for the "admin"
+ *      function (the original single-account setup); hr/finance never had
+ *      an env var so they always defer to their saved GUI config.
+ *   2. That function's saved account (Admin → Notifications, per-function
+ *      tab) — smtp_from_name + smtp_user.
+ *   3. `SMTP_USER` env var wrapped with the default display name (admin
+ *      function only).
  *   4. Hardcoded fallback (`adminhelpdesk@si-ware.com`) so we never send a
  *      `From: <undefined>` line — that's a hard 553 rejection from Gmail.
  */
-function resolveFromAddress(defaultDisplayName = "Si-Ware Admin Helpdesk"): string {
-  if (process.env.SMTP_FROM && process.env.SMTP_FROM.trim()) {
+function resolveFromAddress(defaultDisplayName = "Si-Ware Admin Helpdesk", functionId: EmailFunctionId = "admin"): string {
+  if (functionId === "admin" && process.env.SMTP_FROM && process.env.SMTP_FROM.trim()) {
     return process.env.SMTP_FROM.trim()
   }
-  const saved = readEmailConfig()
+  const saved = readEmailConfig(functionId)
   if (saved?.values?.smtp_user) {
     const name = (saved.values.smtp_from_name ?? defaultDisplayName).trim() || defaultDisplayName
     return `"${name}" <${saved.values.smtp_user}>`
   }
-  if (process.env.SMTP_USER && process.env.SMTP_USER.trim()) {
+  if (functionId === "admin" && process.env.SMTP_USER && process.env.SMTP_USER.trim()) {
     return `"${defaultDisplayName}" <${process.env.SMTP_USER}>`
   }
   // Last-resort fallback so we never produce `From: <undefined>`.
@@ -314,7 +321,8 @@ export async function sendRequestUpdateEmail(params: {
   const recipients = Array.from(new Set(params.to.filter(Boolean)))
   if (recipients.length === 0) return
 
-  const transporter = createTransporter()
+  const emailFn = functionForModule(params.module)
+  const transporter = createTransporter(emailFn)
   const actionUrl = `${getBaseUrl()}/requests/${encodeURIComponent(params.requestId)}`
   const actor = params.actorName || "A team member"
   const moduleLabel = params.module.charAt(0).toUpperCase() + params.module.slice(1)
@@ -388,7 +396,7 @@ export async function sendRequestUpdateEmail(params: {
 `
 
   await sendMailWithRetry(transporter, {
-    from: resolveFromAddress("Si-Ware IT Helpdesk"),
+    from: resolveFromAddress("Si-Ware IT Helpdesk", emailFn),
     to: recipients,
     cc: params.cc?.filter(Boolean),
     replyTo,
@@ -587,7 +595,8 @@ export async function sendFeedbackSurveyEmail(params: {
   customSubject?: string
   customBody?: string
 }) {
-  const transporter = createTransporter()
+  const emailFn = functionForModule(params.module)
+  const transporter = createTransporter(emailFn)
   const baseUrl = getBaseUrl()
   const surveyUrl = `${baseUrl}/feedback-survey?id=${params.surveyId}`
   const moduleLabel = params.module.charAt(0).toUpperCase() + params.module.slice(1)
@@ -738,7 +747,7 @@ export async function sendFeedbackSurveyEmail(params: {
 
   const surveyLogoBuffer = getLogoBuffer()
   await sendMailWithRetry(transporter, {
-    from: resolveFromAddress("Si-Ware Admin Helpdesk"),
+    from: resolveFromAddress("Si-Ware Admin Helpdesk", emailFn),
     to: params.requesterEmail,
     subject,
     html,
@@ -1198,6 +1207,127 @@ export async function sendTravelApprovalEmail(params: {
 }
 
 /**
+ * sendReimbursementApprovalEmail
+ *
+ * Fired when a Finance Reimbursement request transitions to "Awaiting
+ * Approval" status. Goes To: the selected Direct Manager (Cc: requester +
+ * Finance Team + helpdesk). Contains the expense details plus two one-shot
+ * signed buttons — Approve and Reject.
+ */
+export async function sendReimbursementApprovalEmail(params: {
+  to: string
+  cc?: string[]
+  managerName?: string
+  requestId: string
+  requestTitle: string
+  amount?: number
+  currency?: string
+  category?: string
+  dateOfExpense?: string
+  description?: string
+  notes?: string
+  requesterName?: string
+  requesterEmail?: string
+  approveUrl: string
+  rejectUrl: string
+}) {
+  const transporter = createTransporter("finance")
+  const baseUrl = getBaseUrl()
+  const requestUrl = `${baseUrl}/requests/${params.requestId}`
+  const logoBuffer = getLogoBuffer()
+
+  const subject = `Approval needed: ${params.requestTitle} — ${params.requestId}`
+
+  const row = (label: string, value?: string | number | null) => {
+    const v = value == null || value === "" ? "—" : String(value)
+    return `
+      <tr>
+        <td style="padding:8px 14px;color:#475569;font-size:12px;border-bottom:1px solid #e2e8f0;width:180px;vertical-align:top;">${escapeHtml(label)}</td>
+        <td style="padding:8px 14px;color:#0f172a;font-size:13px;border-bottom:1px solid #e2e8f0;vertical-align:top;">${escapeHtml(v)}</td>
+      </tr>`
+  }
+
+  const amountDisplay = typeof params.amount === "number"
+    ? `${params.amount.toLocaleString()} ${params.currency ?? ""}`.trim()
+    : "—"
+
+  const detailsTable = `
+      <table style="width:100%;border-collapse:collapse;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;background:#f8fafc;">
+        ${row("Requested by", params.requesterName)}
+        ${row("Requester email", params.requesterEmail)}
+        ${row("Amount", amountDisplay)}
+        ${row("Category", params.category)}
+        ${row("Date of expense", params.dateOfExpense)}
+        ${row("Description / justification", params.description)}
+        ${params.notes ? row("Notes", params.notes) : ""}
+      </table>`
+
+  const wrapper = (body: string) => `<!doctype html>
+<html><body style="margin:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;">
+  <div style="max-width:640px;margin:0 auto;padding:32px 16px;">
+    ${logoBuffer ? `<div style="text-align:center;margin-bottom:24px;"><img src="cid:siware-logo" alt="Si-Ware" style="height:36px;"></div>` : ""}
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.04);">
+      <div style="background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;padding:24px 28px;">
+        <p style="margin:0;font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:1px;">Reimbursement Approval Request</p>
+        <h1 style="margin:6px 0 0;font-size:22px;font-weight:600;">${escapeHtml(params.requestTitle)}</h1>
+        <p style="margin:8px 0 0;font-size:13px;opacity:.9;">${escapeHtml(params.requestId)}</p>
+      </div>
+      ${body}
+    </div>
+    <p style="text-align:center;margin:18px 0 0;font-size:12px;color:#94a3b8;">Si-Ware Systems Admin Helpdesk Portal &nbsp;·&nbsp; adminhelpdesk@si-ware.com</p>
+  </div>
+</body></html>`
+
+  // Manager email — has Approve / Reject action buttons
+  const managerHtml = wrapper(`
+      <div style="padding:24px 28px 8px;">
+        <p style="margin:0 0 8px;font-size:14px;color:#334155;">${params.managerName ? `Hi ${escapeHtml(params.managerName)}, a` : "A"} reimbursement request requires your approval. Please review the details below and click <strong>Approve</strong> or <strong>Reject</strong>.</p>
+      </div>
+      ${detailsTable}
+      <div style="padding:28px;text-align:center;background:#fff;">
+        <a href="${params.approveUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Approve</a>
+        <a href="${params.rejectUrl}"  style="display:inline-block;background:#ef4444;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Reject</a>
+        <p style="margin:18px 0 0;font-size:12px;color:#64748b;">Or <a href="${requestUrl}" style="color:#2563eb;">open the request in the portal</a> to take action there.</p>
+        <p style="margin:8px 0 0;font-size:11px;color:#94a3b8;">These buttons are single-use links; they stop working once a decision is recorded or the request status changes.</p>
+      </div>`)
+
+  // CC email — read-only copy, no action buttons
+  const ccHtml = wrapper(`
+      <div style="padding:24px 28px 8px;">
+        <p style="margin:0 0 8px;font-size:14px;color:#334155;">A reimbursement request is <strong>awaiting approval</strong> from the Direct Manager. This is an informational copy — no action is required from you.</p>
+      </div>
+      ${detailsTable}
+      <div style="padding:20px 28px;text-align:center;background:#fff;">
+        <a href="${requestUrl}" style="display:inline-block;background:#2563eb;color:#fff;font-weight:600;padding:10px 28px;border-radius:8px;text-decoration:none;font-size:14px;">View Request in Portal</a>
+      </div>`)
+
+  const attachments = logoBuffer ? [{
+    filename: "siware-logo.png",
+    content: logoBuffer,
+    cid: "siware-logo",
+    contentType: "image/png",
+  }] : []
+
+  await sendMailWithRetry(transporter, {
+    from: resolveFromAddress("Si-Ware Finance Team", "finance"),
+    to: params.to,
+    subject,
+    html: managerHtml,
+    attachments,
+  })
+
+  if (params.cc && params.cc.length > 0) {
+    await sendMailWithRetry(transporter, {
+      from: resolveFromAddress("Si-Ware Finance Team", "finance"),
+      to: params.cc,
+      subject: `[CC] ${subject}`,
+      html: ccHtml,
+      attachments,
+    })
+  }
+}
+
+/**
  * Send feedback status change notification email
  * Notifies the feedback submitter when admin updates feedback status
  */
@@ -1206,7 +1336,7 @@ export async function sendFeedbackStatusChangeEmail(
   newStatus: string,
   updatedBy: string
 ) {
-  const transporter = getTransporter()
+  const transporter = createTransporter()
 
   const statusDisplay = newStatus
     .split("_")

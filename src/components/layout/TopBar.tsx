@@ -4,9 +4,10 @@ import { useEffect, useState } from "react"
 import Image from "next/image"
 import { signOut, useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { Bell, Building2, LogOut, Menu, Settings, Sun, Moon, User } from "lucide-react"
+import { Bell, Building2, LogOut, Menu, Settings, Shield, Sun, Moon, User } from "lucide-react"
 import { useMobileNav } from "./MobileNavContext"
 import { useTheme } from "next-themes"
+import { getFirstAllowedPlatformAdminPath } from "@/lib/access"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -50,6 +51,7 @@ export function TopBar() {
   const router = useRouter()
   const user = session?.user
   const userId = user?.id
+  const platformAdminPath = getFirstAllowedPlatformAdminPath(user?.permissions, user?.role)
   const { notifications, unreadCount } = useNotifications(userId)
   useAnnouncementNotifications(userId)
   useNotificationSound(unreadCount)
@@ -141,6 +143,21 @@ export function TopBar() {
           <span className="hidden sm:inline">Switch Department</span>
           <span className="sm:hidden">Switch</span>
         </Button>
+
+        {/* Platform Admin — global superadmin tools, independent of any
+            business function's portal. Only shown to users who can reach
+            at least one of those pages. */}
+        {platformAdminPath && (
+          <Button
+            variant="ghost"
+            size="icon"
+            title="Platform Administration"
+            onClick={() => router.push(platformAdminPath)}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <Shield className="h-5 w-5" />
+          </Button>
+        )}
 
         {/* Theme toggle */}
         <Button

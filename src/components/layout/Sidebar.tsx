@@ -31,9 +31,12 @@ import {
   Building2,
   Megaphone,
   Info,
+  Calculator,
+  Receipt,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { canAccessPath, canAccessModule, type UserWithModuleAccess } from "@/lib/access"
+import { modulesVisibleToFunction } from "@/lib/functionRegistry"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { useUnreadNotices } from "@/hooks/useUnreadNotices"
 import { useMobileNav } from "./MobileNavContext"
@@ -86,22 +89,23 @@ const adminNavItems: NavItem[] = [
   { title: "Purchase", href: "/purchase", icon: ShoppingCart },
   { title: "Event", href: "/event", icon: CalendarDays },
   { title: "Travel", href: "/travel", icon: Plane },
-  {
-    title: "Admin",
-    href: "/admin",
-    icon: Settings,
-    children: [
-      { title: "Users", href: "/admin/users", icon: Users },
-      { title: "Roles - Si-Ware Systems", href: "/admin/roles", icon: Shield },
-      { title: "Roles - BUCHI", href: "/admin/roles/buchi", icon: Shield },
-      { title: "Settings", href: "/admin/settings", icon: Settings },
-      { title: "Notifications", href: "/admin/notifications", icon: Bell },
-      { title: "Company Data - Si-Ware", href: "/admin/company-data", icon: Building2 },
-      { title: "Company Data - BUCHI", href: "/admin/company-data/buchi", icon: Building2 },
-      { title: "Audit Trail", href: "/admin/audit-trail", icon: Shield },
-      { title: "Database", href: "/admin/database", icon: Database },
-    ],
-  },
+]
+
+// Platform-wide superadmin tools — intentionally NOT part of any business
+// function's sidebar (Administration Team, HR Team, Finance Team). Gated
+// purely by permission (manage_users, settings, page:admin-roles,
+// page:admin-audit, page:admin-database), reachable from any portal via the
+// TopBar icon or the /landing "Platform Administration" tile.
+const platformAdminNavItems: NavItem[] = [
+  { title: "Users", href: "/admin/users", icon: Users },
+  { title: "Roles - Si-Ware Systems", href: "/admin/roles", icon: Shield },
+  { title: "Roles - BUCHI", href: "/admin/roles/buchi", icon: Shield },
+  { title: "Settings", href: "/admin/settings", icon: Settings },
+  { title: "Notifications", href: "/admin/notifications", icon: Bell },
+  { title: "Company Data - Si-Ware", href: "/admin/company-data", icon: Building2 },
+  { title: "Company Data - BUCHI", href: "/admin/company-data/buchi", icon: Building2 },
+  { title: "Audit Trail", href: "/admin/audit-trail", icon: Shield },
+  { title: "Database", href: "/admin/database", icon: Database },
 ]
 
 const hrNavItems: NavItem[] = [
@@ -112,6 +116,7 @@ const hrNavItems: NavItem[] = [
     icon: Users,
     children: [
       { title: "Dashboard", href: "/departments/hr", icon: LayoutDashboard },
+      { title: "Feedback & Reports", href: "/departments/hr/feedback", icon: BarChart3 },
       { title: "Team Tasks", href: "/departments/hr/tasks", icon: CheckSquare },
       { title: "All Requests", href: "/departments/hr/all-requests", icon: ClipboardList },
     ],
@@ -120,15 +125,29 @@ const hrNavItems: NavItem[] = [
   // per HR module (mirrors "General Request" sitting outside "Administration
   // Team" in the admin sidebar). Add new HR modules here as they're built.
   { title: "General Request", href: "/departments/hr/general", icon: Inbox },
+  { title: "HR Letter Request", href: "/departments/hr/letter", icon: FileText },
 ]
 
 const financeNavItems: NavItem[] = [
-  { title: "Finance Team Services", href: "/departments/finance", icon: LayoutDashboard },
+  { title: "Finance Team Services", href: "/departments/finance/services", icon: LayoutDashboard },
+  {
+    title: "Finance Team",
+    href: "/departments/finance",
+    icon: Calculator,
+    children: [
+      { title: "Dashboard", href: "/departments/finance", icon: LayoutDashboard },
+      { title: "Team Tasks", href: "/departments/finance/tasks", icon: CheckSquare },
+      { title: "All Requests", href: "/departments/finance/all-requests", icon: ClipboardList },
+    ],
+  },
+  // Requester-facing module pages live outside the Finance Team group — one
+  // entry per Finance module. Add new Finance modules here as they're built.
+  { title: "Reimbursement Request", href: "/departments/finance/reimbursement", icon: Receipt },
 ]
 
 const SETTINGS_KEY = "arp_platform_settings"
 
-export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finance" }) {
+export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finance" | "platform-admin" }) {
   const pathname = usePathname()
   const router = useRouter()
   const { data: session, status } = useSession()
@@ -142,18 +161,20 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
     window.addEventListener("arp:toggle-sidebar", onToggle)
     return () => window.removeEventListener("arp:toggle-sidebar", onToggle)
   }, [])
-  const [brandName, setBrandName] = useState(portal === "hr" ? "HR Portal" : portal === "finance" ? "Finance Portal" : "Admin Portal")
+  const [brandName, setBrandName] = useState(
+    portal === "hr" ? "HR Portal" : portal === "finance" ? "Finance Portal" : portal === "platform-admin" ? "Platform Admin" : "Admin Portal"
+  )
   const [brandSubtitle, setBrandSubtitle] = useState("Si-Ware Systems")
   const [administrationExpanded, setAdministrationExpanded] = useState(
     pathname.startsWith("/admin/all-requests") || pathname.startsWith("/admin/announcements") || pathname.startsWith("/tasks") || pathname.startsWith("/feedback-reports")
   )
-  const [adminExpanded, setAdminExpanded] = useState(
-    pathname.startsWith("/admin") && pathname !== "/admin/all-requests" && pathname !== "/admin/announcements"
-  )
   const [shippingExpanded, setShippingExpanded] = useState(pathname.startsWith("/shipping"))
   const [hrExpanded, setHrExpanded] = useState(pathname.startsWith("/hr"))
   const [hrTeamExpanded, setHrTeamExpanded] = useState(
-    pathname === "/departments/hr" || pathname.startsWith("/departments/hr/all-requests") || pathname.startsWith("/departments/hr/tasks")
+    pathname === "/departments/hr" || pathname.startsWith("/departments/hr/all-requests") || pathname.startsWith("/departments/hr/tasks") || pathname.startsWith("/departments/hr/feedback")
+  )
+  const [financeTeamExpanded, setFinanceTeamExpanded] = useState(
+    pathname === "/departments/finance" || pathname.startsWith("/departments/finance/all-requests") || pathname.startsWith("/departments/finance/tasks")
   )
   // When the sidebar is collapsed, clicking a parent opens a flyout popover
   // anchored to that parent's row so the user can pick a child page without
@@ -192,7 +213,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
   const source = searchParams.get("source")
 
   useEffect(() => {
-    if (portal === "hr" || portal === "finance") return
+    if (portal === "hr" || portal === "finance" || portal === "platform-admin") return
     try {
       const raw = localStorage.getItem(SETTINGS_KEY)
       if (raw) {
@@ -250,11 +271,21 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
   // Pre-compute the all-requests total once instead of recomputing on every call
   const unreadNotices = useUnreadNotices()
 
+  // Full Access sees the raw total across every module (it's a super-admin
+  // role); every other audience is scoped to modules its own portal/function
+  // can actually see, so the "All Requests" badge count never hints at the
+  // existence of another function's exclusive requests (e.g. hr_general,
+  // finance_reimbursement).
+  const visibleModuleKeys = useMemo(
+    () => (role === "Full Access" || portal === "platform-admin" ? null : new Set(modulesVisibleToFunction(portal))),
+    [role, portal]
+  )
   const allRequestsTotal = useMemo(() =>
     Object.entries(newRequestsByModule)
       .filter(([key]) => !key.includes("-"))
+      .filter(([key]) => !visibleModuleKeys || visibleModuleKeys.has(key))
       .reduce((sum, [, count]) => sum + count, 0),
-    [newRequestsByModule]
+    [newRequestsByModule, visibleModuleKeys]
   )
 
   const badgeCountForHref = useCallback((href: string): number => {
@@ -267,7 +298,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
     return 0
   }, [unreadNotices, isAdminAudience, newTasksCount, allRequestsTotal, newRequestsByModule, moduleForHref])
 
-  const navItemsForPortal = portal === "hr" ? hrNavItems : portal === "finance" ? financeNavItems : adminNavItems
+  const navItemsForPortal = portal === "hr" ? hrNavItems : portal === "finance" ? financeNavItems : portal === "platform-admin" ? platformAdminNavItems : adminNavItems
 
   const visibleNavItems = useMemo(() =>
     navItemsForPortal.reduce<NavItem[]>((items, item) => {
@@ -286,12 +317,18 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
     if (href === "/departments/hr/general") {
       return pathname.startsWith("/departments/hr/general") || pathname.startsWith("/departments/hr/requests/")
     }
+    if (href === "/departments/hr/letter") {
+      return pathname.startsWith("/departments/hr/letter")
+    }
+    if (href === "/departments/finance") return pathname === "/departments/finance"
+    if (href === "/departments/finance/reimbursement") {
+      return pathname.startsWith("/departments/finance/reimbursement") || pathname.startsWith("/departments/finance/requests/")
+    }
     if (pathname.startsWith("/requests/")) {
       if (href === "/admin/all-requests") return source === "all-requests"
       if (href === "/requests") return source === "my-requests"
       return source === href.slice(1)
     }
-    if (href === "/admin") return pathname.startsWith("/admin") && pathname !== "/admin/all-requests" && pathname !== "/admin/announcements"
     if (href === "/admin/company-data") return pathname === href
     if (href === "/admin/roles") return pathname === href
     if (href === "/admin/all-requests") return pathname === "/admin/all-requests"
@@ -328,21 +365,17 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
       <nav className="flex-1 overflow-y-auto py-4 space-y-0.5 px-2">
         {visibleNavItems.map((item) => {
           if (item.children) {
-            const isAdmin = item.title === "Admin"
             const isShipping = item.title === "Shipping"
             const isHR = item.title === "HR"
             const isAdministration = item.title === "Administration Team"
             const isHRTeam = item.title === "HR Team"
+            const isFinanceTeam = item.title === "Finance Team"
 
             let expanded = false
             let setExpandedFn: (val: boolean) => void = () => {}
             let active = false
 
-            if (isAdmin) {
-              expanded = adminExpanded
-              setExpandedFn = (val) => setAdminExpanded(val)
-              active = pathname.startsWith("/admin") && pathname !== "/admin/all-requests" && pathname !== "/admin/announcements"
-            } else if (isShipping) {
+            if (isShipping) {
               expanded = shippingExpanded
               setExpandedFn = (val) => setShippingExpanded(val)
               active = pathname.startsWith("/shipping") && pathname !== "/shipping"
@@ -357,7 +390,11 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
             } else if (isHRTeam) {
               expanded = hrTeamExpanded
               setExpandedFn = (val) => setHrTeamExpanded(val)
-              active = pathname === "/departments/hr" || pathname.startsWith("/departments/hr/all-requests") || pathname.startsWith("/departments/hr/tasks")
+              active = pathname === "/departments/hr" || pathname.startsWith("/departments/hr/all-requests") || pathname.startsWith("/departments/hr/tasks") || pathname.startsWith("/departments/hr/feedback")
+            } else if (isFinanceTeam) {
+              expanded = financeTeamExpanded
+              setExpandedFn = (val) => setFinanceTeamExpanded(val)
+              active = pathname === "/departments/finance" || pathname.startsWith("/departments/finance/all-requests") || pathname.startsWith("/departments/finance/tasks")
             }
 
             const isFlyoutOpen = flyoutOpen === item.title

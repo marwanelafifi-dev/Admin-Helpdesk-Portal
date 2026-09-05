@@ -1,4 +1,5 @@
 import { mockUsers } from "@/lib/mock-data"
+import { isModuleVisibleToFunction, type FunctionId } from "@/lib/functionRegistry"
 
 export interface StoredNotification {
   id: string
@@ -146,26 +147,60 @@ export function hasNotification(notificationId: string) {
   return readAllNotifications().some((item) => item.id === notificationId)
 }
 
-// Cache of real admin users fetched from /api/users/admin-team
-let _adminUserCache: { id: string; name: string; email: string; role: string }[] | null = null
-let _adminUserCacheTime = 0
+// Cache of real team users fetched from the per-function team-list endpoints.
+// Keyed by FunctionId so each function's own team is fetched (and cached)
+// independently — this is what keeps notification fan-out from leaking a
+// function-exclusive request (e.g. hr_general, finance_reimbursement) to a
+// team that isn't supposed to see it.
+type TeamUser = { id: string; name: string; email: string; role: string }
+const TEAM_ENDPOINT: Record<FunctionId, string> = {
+  admin: "/api/users/admin-team",
+  hr: "/api/users/hr-team",
+  finance: "/api/users/finance-team",
+}
+const _teamUserCache: Record<FunctionId, { data: TeamUser[]; time: number } | null> = {
+  admin: null,
+  hr: null,
+  finance: null,
+}
 let _fullAccessUserCache: { id: string; name: string; email: string; role: string }[] | null = null
 let _fullAccessUserCacheTime = 0
 const CACHE_TTL = 60_000 // 1 minute
 
-async function fetchAdminUsers() {
+async function fetchTeamUsers(fn: FunctionId): Promise<TeamUser[]> {
   const now = Date.now()
-  if (_adminUserCache && now - _adminUserCacheTime < CACHE_TTL) return _adminUserCache
+  const cached = _teamUserCache[fn]
+  if (cached && now - cached.time < CACHE_TTL) return cached.data
   try {
-    const res = await fetch("/api/users/admin-team")
+    const res = await fetch(TEAM_ENDPOINT[fn])
     const { data } = await res.json()
-    _adminUserCache = Array.isArray(data) ? data : []
-    _adminUserCacheTime = now
-    return _adminUserCache
+    const list = Array.isArray(data) ? data : []
+    _teamUserCache[fn] = { data: list, time: now }
+    return list
   } catch {
-    return _adminUserCache ?? []
+    return cached?.data ?? []
   }
 }
+
+/** Real team users allowed to see `module`, deduped — used for both in-app and email fan-out. */
+async function fetchUsersForModule(module: string): Promise<TeamUser[]> {
+  const fns: FunctionId[] = (["admin", "hr", "finance"] as FunctionId[]).filter((fn) =>
+    isModuleVisibleToFunction(module, fn)
+  )
+  const lists = await Promise.all(fns.map(fetchTeamUsers))
+  const seen = new Set<string>()
+  const result: TeamUser[] = []
+  for (const list of lists) {
+    for (const u of list) {
+      if (!seen.has(u.id)) {
+        seen.add(u.id)
+        result.push(u)
+      }
+    }
+  }
+  return result
+}
+
 
 // Fetches Full Access users for in-app notification delivery only
 // (they are excluded from email queues but should receive in-app alerts).
@@ -267,8 +302,8 @@ async function notifyByEmail(params: {
 
     ccEmails = []  // No separate CC since all are in TO
   } else {
-    // For status changes: TO = Admin Team + Owner + CC recipients
-    const realAdmins = await fetchAdminUsers()
+    // For status changes: TO = the module's owning/shared team(s) + Owner + CC recipients
+    const realAdmins = await fetchUsersForModule(params.module)
     const realAdminEmails = realAdmins.map((u) => u.email)
 
     // Always include the requester, even if they made the status change
@@ -346,15 +381,20 @@ export function createRequestUpdateNotifications(params: {
   } = params
 
   const recipients = new Set<string>()
+  const moduleId = module.toLowerCase()
 
-  getAdminUserIds().forEach((id) => recipients.add(id))
+  // Mock-based fallback recipients — only added for functions the module is
+  // actually visible to (prevents e.g. hr_general/finance_reimbursement from
+  // fanning out to the Admin Team's mock ids).
+  if (isModuleVisibleToFunction(moduleId, "admin")) {
+    getAdminUserIds().forEach((id) => recipients.add(id))
+  }
+  if (isModuleVisibleToFunction(moduleId, "hr")) {
+    getHrTeamUserIds().forEach((id) => recipients.add(id))
+  }
 
   if (requestOwnerId && requestOwnerId !== actionUserId) {
     recipients.add(requestOwnerId)
-  }
-
-  if (module.toLowerCase() === "hr") {
-    getHrTeamUserIds().forEach((id) => recipients.add(id))
   }
 
   if (actionUserId) {
@@ -393,15 +433,15 @@ export function createRequestUpdateNotifications(params: {
     })
   })
 
-  // In-app: notify real admin users (Administration Team + Full Access)
+  // In-app: notify the module's owning/shared team(s) + Full Access
   // and any CC'd portal users
   void Promise.all([
-    fetchAdminUsers(),
+    fetchUsersForModule(moduleId),
     fetchFullAccessUsers(),
     resolveCcUserIds(ccEmails ?? [], [actionUserId ?? "", requestOwnerId]),
-  ]).then(([admins, fullAccess, ccUserIds]) => {
+  ]).then(([teamUsers, fullAccess, ccUserIds]) => {
     const seen = new Set<string>(recipientIds) // already notified above
-    ;[...admins, ...fullAccess, ...ccUserIds.map((id) => ({ id }))].forEach((u) => {
+    ;[...teamUsers, ...fullAccess, ...ccUserIds.map((id) => ({ id }))].forEach((u) => {
       if (u.id !== actionUserId && !seen.has(u.id)) {
         seen.add(u.id)
         addNotification({
@@ -504,30 +544,35 @@ export function createNewRequestNotifications(params: {
 
   const title = `New ${params.module} request: ${params.requestTitle}`
   const description = `Submitted by ${params.requesterName}`
+  const moduleId = params.module.toLowerCase()
 
-  // In-app: notify mock admin IDs
-  getAdminUserIds().forEach((userId) => {
-    if (userId !== params.requesterId) {
-      addNotification({
-        userId,
-        type: "request_updated",
-        title,
-        description,
-        requestId: params.requestId,
-        actionUrl: `/requests/${params.requestId}`,
-      })
-    }
-  })
+  // In-app: notify mock admin ids, but only if this module is actually
+  // visible to the Admin Team (prevents hr_general/finance_reimbursement
+  // etc. from leaking into the mock fallback fan-out).
+  if (isModuleVisibleToFunction(moduleId, "admin")) {
+    getAdminUserIds().forEach((userId) => {
+      if (userId !== params.requesterId) {
+        addNotification({
+          userId,
+          type: "request_updated",
+          title,
+          description,
+          requestId: params.requestId,
+          actionUrl: `/requests/${params.requestId}`,
+        })
+      }
+    })
+  }
 
-  // In-app: notify real admin users (Administration Team + Full Access)
+  // In-app: notify the module's owning/shared team(s) + Full Access
   // and any CC'd portal users
   void Promise.all([
-    fetchAdminUsers(),
+    fetchUsersForModule(moduleId),
     fetchFullAccessUsers(),
     resolveCcUserIds(params.ccEmails ?? [], [params.requesterId]),
-  ]).then(([admins, fullAccess, ccUserIds]) => {
+  ]).then(([teamUsers, fullAccess, ccUserIds]) => {
     const seen = new Set<string>()
-    ;[...admins, ...fullAccess, ...ccUserIds.map((id) => ({ id }))].forEach((u) => {
+    ;[...teamUsers, ...fullAccess, ...ccUserIds.map((id) => ({ id }))].forEach((u) => {
       if (u.id !== params.requesterId && !seen.has(u.id)) {
         seen.add(u.id)
         addNotification({
@@ -543,10 +588,10 @@ export function createNewRequestNotifications(params: {
   })
 
   // Email recipients:
-  //   To: every Administration Team member + the requester + adminhelpdesk.
+  //   To: every member of the module's owning/shared team(s) + the requester + adminhelpdesk.
   //   Cc: form-provided CC emails + the selected Direct Manager (if any).
   //   Anyone already on the To: line is dropped from Cc.
-  void fetchAdminUsers().then((admins) => {
+  void fetchUsersForModule(moduleId).then((admins) => {
     const adminEmails = admins.map((u) => u.email).filter(Boolean)
 
     const toSet = new Set<string>()

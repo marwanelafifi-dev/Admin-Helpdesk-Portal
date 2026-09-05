@@ -31,7 +31,9 @@ export type RequestModule =
   | "travel"
   | "hr"
   | "hr_general"
+  | "hr_letter"
   | "general"
+  | "finance_reimbursement"
 
 export interface StatusChange {
   status: RequestStatus
@@ -93,6 +95,8 @@ const MODULE_PREFIX: Record<string, string> = {
   travel:      "TRV",
   hr:          "HR",
   hr_general:  "HRG",
+  hr_letter:   "HRL",
+  finance_reimbursement: "REI",
   general:     "GEN",
 }
 
@@ -587,12 +591,12 @@ export async function updateStatus(
     }
   }
 
-  // Purchase, Shipping, and Travel Approval workflow: when a request enters
-  // "Awaiting Approval", fire the special approval email to the selected
-  // Direct Manager with one-click Approve / Reject buttons.
+  // Purchase, Shipping, Travel, and Reimbursement Approval workflow: when a
+  // request enters "Awaiting Approval", fire the special approval email to
+  // the selected Direct Manager with one-click Approve / Reject buttons.
   if (
     typeof window !== "undefined" &&
-    (updated.module === "purchase" || updated.module === "shipping" || updated.module === "travel") &&
+    (updated.module === "purchase" || updated.module === "shipping" || updated.module === "travel" || updated.module === "finance_reimbursement") &&
     status === "awaiting_approval" &&
     previousStatus !== "awaiting_approval"
   ) {

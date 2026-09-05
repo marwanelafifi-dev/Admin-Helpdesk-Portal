@@ -6,6 +6,7 @@ import { getDefaultAssignee } from "@/lib/userStore"
 import type { EngineRequest } from "@/services/engineService"
 import { getCompanyFromEmail, getRequestCompany } from "@/lib/userCompany"
 import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
+import { isRequestVisibleToViewer } from "@/lib/functionRegistry"
 
 export const runtime = "nodejs"
 
@@ -107,9 +108,30 @@ export async function GET(req: Request) {
   }
   const isBuchiSession = session.user.role?.toLowerCase().includes("buchi")
     || getCompanyFromEmail(session.user.email)?.id === "buchi"
-  const requests = isBuchiSession
+  const companyScoped = isBuchiSession
     ? scopeRequestsByModuleAccess(classifiedRequests, userWithModules, session.user)
     : classifiedRequests
+
+  // Function-confidentiality scoping: modules exclusive to another function
+  // (e.g. hr_general, hr_letter, finance_reimbursement) are hidden from
+  // everyone except Full Access, that function's own team, the request's
+  // requester, or a CC'd recipient. Admin-visible modules stay open to any
+  // signed-in user, matching the existing platform convention.
+  const viewerEmail = session.user.email ?? undefined
+  const viewerRole = session.user.role
+  const isVisible = (r: EngineRequest) =>
+    isRequestVisibleToViewer({
+      moduleId: r.module,
+      role: viewerRole,
+      viewerEmail,
+      requesterEmail: r.requesterEmail,
+      ccEmails: [
+        ...((Array.isArray((r.payload as any)?.ccEmails) ? (r.payload as any).ccEmails : [])),
+        ...(Array.isArray(r.adminCc) ? r.adminCc : []),
+      ],
+    })
+  const requests = companyScoped.filter(isVisible)
+
   if (id) {
     const request = requests.find((item) => item.id === id)
     if (!request) {

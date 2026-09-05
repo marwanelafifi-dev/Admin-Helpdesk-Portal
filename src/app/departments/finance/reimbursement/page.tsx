@@ -3,138 +3,89 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
-import { Search, Plus, Inbox, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
+import { Search, Plus, Wallet, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle } from "lucide-react"
 import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { CcVisibilityToggle } from "@/components/ui/CcVisibilityToggle"
-import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, isUserInCc, assignRequest, type EngineRequest, type RequestStatus } from "@/services/engineService"
-import { useCcVisibility } from "@/hooks/useCcVisibility"
-import { useCommentSearch } from "@/hooks/useCommentSearch"
-import { createRequestUpdateNotifications, createAssignmentNotifications } from "@/lib/notificationStore"
-import { AssigneeSelect } from "@/components/ui/AssigneeSelect"
-import { cn, fmtDate, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
+import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, isUserInCc, type EngineRequest, type RequestStatus } from "@/services/engineService"
+import { createRequestUpdateNotifications } from "@/lib/notificationStore"
+import { cn, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
 import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
+import { useCommentSearch } from "@/hooks/useCommentSearch"
 import { useExpandedRows } from "@/hooks/useExpandedRows"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
+import { CompanyBadge } from "@/components/ui/CompanyBadge"
+import { CcVisibilityToggle } from "@/components/ui/CcVisibilityToggle"
+import { CompanyFilter, matchesCompanyFilter, type CompanyFilterValue } from "@/components/ui/CompanyFilter"
+import { useCcVisibility } from "@/hooks/useCcVisibility"
 import { LABEL_COLORS, LABEL_DOTS } from "@/lib/statusPalette"
 import { MarkdownDisplay } from "@/components/ui/MarkdownDisplay"
-import { CompanyBadge } from "@/components/ui/CompanyBadge"
-import { getRequestCompany } from "@/lib/userCompany"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-// Base status set for modules with no approval step (General Request, etc).
-// Modules that need a manager-approval gate (hasApprovalStep) get
-// "awaiting_approval" spliced in after "new" — see the component below.
-const BASE_STATUS_LABELS: Record<string, string> = {
-  new: "New",
-  in_progress: "In Progress",
-  completed: "Completed",
-  cancelled: "Cancelled",
+const STATUS_LABELS: Record<string, string> = {
+  new: "New", awaiting_approval: "Awaiting Approval", in_progress: "In Progress",
+  completed: "Completed", cancelled: "Cancelled",
 }
 
-const BASE_STATUS_PILL_ACTIVE: Record<string, string> = {
+const STATUS_COLORS: Record<string, string> = Object.fromEntries(
+  Object.entries(STATUS_LABELS).map(([code, label]) => [code, LABEL_COLORS[label] ?? "bg-zinc-100 text-zinc-600"])
+)
+const STATUS_DOT: Record<string, string> = Object.fromEntries(
+  Object.entries(STATUS_LABELS).map(([code, label]) => [code, LABEL_DOTS[label] ?? "bg-gray-400"])
+)
+
+const STATUS_PILL_ACTIVE: Record<string, string> = {
   new: "bg-sky-500 border-sky-500 text-white",
+  awaiting_approval: "bg-amber-600 border-amber-600 text-white",
   in_progress: "bg-blue-600 border-blue-600 text-white",
   completed: "bg-emerald-600 border-emerald-600 text-white",
   cancelled: "bg-red-600 border-red-600 text-white",
 }
 
-const APPROVAL_STATUS_LABEL = "Awaiting Approval"
-const APPROVAL_STATUS_PILL_ACTIVE = "bg-amber-500 border-amber-500 text-white"
+const STATUSES = ["new", "awaiting_approval", "in_progress", "completed", "cancelled"] as const
 
-type SortKey = "id" | "title" | "requesterName" | "companyName" | "createdAt" | "status" | "assignedToName" | "updatedAt"
+type SortKey = "id" | "title" | "amount" | "category" | "requesterName" | "createdAt" | "status" | "updatedAt"
 
-const BASE_COLS: { key: SortKey; label: string; defaultW: number }[] = [
+const COLS: { key: SortKey; label: string; defaultW: number }[] = [
   { key: "id",            label: "Request ID",      defaultW: 130 },
-  { key: "title",         label: "Request Title",   defaultW: 260 },
+  { key: "title",         label: "Request Title",   defaultW: 200 },
   { key: "createdAt",     label: "Submission Date", defaultW: 140 },
   { key: "requesterName", label: "Requester Name",  defaultW: 160 },
-  { key: "companyName",   label: "Company",         defaultW: 145 },
-  { key: "status",        label: "Status",          defaultW: 130 },
+  { key: "category",      label: "Category",        defaultW: 150 },
+  { key: "amount",        label: "Amount",          defaultW: 130 },
+  { key: "status",        label: "Status",          defaultW: 140 },
   { key: "updatedAt",     label: "Last Update Date",defaultW: 140 },
 ]
 
-// Staff-facing aggregate views (e.g. HR Team - All Requests) get an
-// "Assigned To" column between Status and Last Update Date; the plain
-// per-module submission pages (/general, /departments/hr/general) don't.
-const ASSIGNEE_COL: { key: SortKey; label: string; defaultW: number } = { key: "assignedToName", label: "Assigned To", defaultW: 160 }
-
+function formatAmount(payload: Record<string, unknown>): string {
+  const amount = Number(payload.amount ?? 0)
+  const currency = String(payload.currency ?? "")
+  return `${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`.trim()
+}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-interface GeneralRequestPageProps {
-  moduleId?: string
-  /**
-   * Staff-facing aggregate mode — when set, shows requests across every
-   * module id listed here instead of a single `moduleId`. Used by the HR
-   * Team's unified "All Requests" view so new HR modules just need their
-   * module id added to the list, no new page.
-   */
-  aggregateModules?: string[]
-  basePath?: string
-  pageTitle?: string
-  pageSubtitle?: string
-  detailPath?: string
-  hideCreateButton?: boolean
-  createButtonLabel?: string
-  /** Adds "Awaiting Approval" as a selectable status — for modules with a manager-approval gate (e.g. Reimbursement). */
-  hasApprovalStep?: boolean
-}
-
-export default function GeneralRequestPage({
-  moduleId = "general",
-  aggregateModules,
-  basePath = "/general",
-  pageTitle = "Administration Team - General Requests",
-  pageSubtitle = "Submit and manage general requests",
-  detailPath = "/requests",
-  hideCreateButton = false,
-  createButtonLabel = "New General Request",
-  hasApprovalStep = false,
-}: GeneralRequestPageProps = {}) {
+export default function ReimbursementRequestsPage() {
   const { data: session } = useSession()
-  const STATUSES = useMemo(
-    () => hasApprovalStep ? (["new", "awaiting_approval", "in_progress", "completed", "cancelled"] as const) : (["new", "in_progress", "completed", "cancelled"] as const),
-    [hasApprovalStep],
-  )
-  const STATUS_LABELS: Record<string, string> = useMemo(
-    () => hasApprovalStep ? { new: "New", awaiting_approval: APPROVAL_STATUS_LABEL, ...BASE_STATUS_LABELS } : BASE_STATUS_LABELS,
-    [hasApprovalStep],
-  )
-  const STATUS_COLORS: Record<string, string> = useMemo(
-    () => Object.fromEntries(Object.entries(STATUS_LABELS).map(([code, label]) => [code, LABEL_COLORS[label] ?? "bg-zinc-100 text-zinc-600"])),
-    [STATUS_LABELS],
-  )
-  const STATUS_DOT: Record<string, string> = useMemo(
-    () => Object.fromEntries(Object.entries(STATUS_LABELS).map(([code, label]) => [code, LABEL_DOTS[label] ?? "bg-gray-400"])),
-    [STATUS_LABELS],
-  )
-  const STATUS_PILL_ACTIVE: Record<string, string> = useMemo(
-    () => hasApprovalStep ? { new: BASE_STATUS_PILL_ACTIVE.new, awaiting_approval: APPROVAL_STATUS_PILL_ACTIVE, ...BASE_STATUS_PILL_ACTIVE } : BASE_STATUS_PILL_ACTIVE,
-    [hasApprovalStep],
-  )
   const { showCcRequests, toggleCcVisibility } = useCcVisibility()
   const [requests, setRequests]           = useState<EngineRequest[]>([])
   const [search, setSearch]               = useState("")
   const [statusFilter, setStatusFilter]   = useState("all")
-  const [companyFilter, setCompanyFilter] = useState<"all" | "si_ware" | "buchi">("all")
+  const [companyFilter, setCompanyFilter] = useState<CompanyFilterValue>("all")
   const [sortKey, setSortKey]             = useState<SortKey>("updatedAt")
   const [sortDir, setSortDir]             = useState<"asc" | "desc">("desc")
-  const COLS = useMemo(() => aggregateModules ? [...BASE_COLS.slice(0, 6), ASSIGNEE_COL, ...BASE_COLS.slice(6)] : BASE_COLS, [aggregateModules])
   const [colWidths, setColWidths]         = useState<(number | null)[]>(() => COLS.map(() => null))
   const tableRef = useRef<HTMLTableElement>(null)
 
   const canUpdateStatus = ((session?.user?.permissions as string[])?.includes("update_status") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canEditRequest = ((session?.user?.permissions as string[])?.includes("edit_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canCancelRequest = ((session?.user?.permissions as string[])?.includes("cancel_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
-  const canAssign = ((session?.user?.permissions as string[])?.includes("assign_requests") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canPermanentDelete = (
     (session?.user?.permissions as string[])?.includes("*")
     || (session?.user?.permissions as string[])?.includes("delete")
@@ -144,10 +95,8 @@ export default function GeneralRequestPage({
 
   const loadRequests = useCallback(() => {
     initializeMockData()
-    const moduleFilter = aggregateModules ?? [moduleId]
-    let all = getRequests().filter((r) => moduleFilter.includes(r.module))
+    let all = getRequests().filter((r) => r.module === "finance_reimbursement")
 
-    // Apply module-level access control if user has restrictions
     const userWithModules: UserWithModuleAccess = {
       id: session?.user?.id,
       email: session?.user?.email,
@@ -155,14 +104,8 @@ export default function GeneralRequestPage({
       readModules: (session?.user as any)?.readModules,
       readAllModules: (session?.user as any)?.readAllModules,
     }
-    if (aggregateModules || moduleId.startsWith("hr_")) {
-      const canManageHr = session?.user?.role === "Full Access" || session?.user?.role === "HR Team" || session?.user?.role === "People Team"
-      const email = session?.user?.email?.toLowerCase()
-      setRequests(canManageHr ? all : all.filter((request) => request.requesterId === session?.user?.id || request.requesterEmail.toLowerCase() === email))
-    } else {
-      setRequests(scopeRequestsByModuleAccess(all, userWithModules, session?.user))
-    }
-  }, [moduleId, aggregateModules, session?.user?.id, session?.user?.email, session?.user?.role])
+    setRequests(scopeRequestsByModuleAccess(all, userWithModules, session?.user))
+  }, [session?.user?.id, session?.user?.email, session?.user?.role])
 
   useEffect(() => {
     loadRequests()
@@ -179,13 +122,16 @@ export default function GeneralRequestPage({
     const currentUserId = session?.user?.id || "USR-001"
     const oldStatus = request?.status
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status: newStatus as RequestStatus, updatedAt: new Date().toISOString() } : r))
-    void updateStatus(id, newStatus as RequestStatus, currentUserId)
+    void updateStatus(id, newStatus as RequestStatus, currentUserId).catch((error) => {
+      const message = error instanceof Error ? error.message : "Approval email failed"
+      alert(message)
+    })
 
     if (request) {
       createRequestUpdateNotifications({
         requestId: id,
         requestTitle: request.title,
-        module: request.module,
+        module: "finance_reimbursement",
         requestOwnerId: request.requesterId,
         requestOwnerEmail: request.requesterEmail,
         actionUserId: currentUserId,
@@ -203,28 +149,6 @@ export default function GeneralRequestPage({
   function handleCancelRequest(id: string) {
     if (confirm("Are you sure you want to cancel this request?")) {
       handleStatusChange(id, "cancelled")
-    }
-  }
-
-  function handleAssign(request: EngineRequest, assignee: { id: string; name: string; email: string } | null) {
-    void assignRequest(request.id, assignee)
-    setRequests((prev) => prev.map((r) => r.id === request.id ? {
-      ...r,
-      assignedToId: assignee?.id ?? null,
-      assignedToName: assignee?.name ?? null,
-      assignedToEmail: assignee?.email ?? null,
-    } : r))
-    if (assignee) {
-      createAssignmentNotifications({
-        requestId: request.id,
-        requestTitle: request.title,
-        module: request.module,
-        assigneeId: assignee.id,
-        assigneeName: assignee.name,
-        assigneeEmail: assignee.email,
-        actorName: session?.user?.name ?? undefined,
-        actorEmail: session?.user?.email ?? undefined,
-      })
     }
   }
 
@@ -259,24 +183,21 @@ export default function GeneralRequestPage({
 
   const allVisibleRequests = useMemo(() => {
     if (!showCcRequests) return requests
-    // When CC toggle is on, include requests where the user is CC'd but not the requester
     const userEmail = session?.user?.email ?? ""
     const userId = session?.user?.id ?? ""
-    const allRequests = getRequests().filter((r) => r.module === moduleId)
+    const allRequests = getRequests().filter((r) => r.module === "finance_reimbursement")
     const ccRequests = allRequests.filter((r) =>
-      r.requesterId !== userId && // Not the requester
-      !requests.some(req => req.id === r.id) && // Not already included
-      isUserInCc(r, userEmail) // User is in CC
+      r.requesterId !== userId &&
+      !requests.some(req => req.id === r.id) &&
+      isUserInCc(r, userEmail)
     )
     return [...requests, ...ccRequests]
-  }, [moduleId, requests, showCcRequests, session?.user?.email, session?.user?.id])
+  }, [requests, showCcRequests, session?.user?.email, session?.user?.id])
 
   const filtered = useMemo(() => {
     let result = allVisibleRequests
-    if (statusFilter !== "all") result = result.filter((r) => (r.status as string) === statusFilter)
-    if (companyFilter !== "all") result = result.filter((r) =>
-      (r.companyId ?? getRequestCompany(r.module, r.requesterEmail)?.id) === companyFilter
-    )
+    result = result.filter((r) => matchesCompanyFilter(r, companyFilter))
+    if (statusFilter !== "all") result = result.filter((r) => r.status === statusFilter)
     const q = normalizeSearchText(search)
     if (q) result = result.filter((r) =>
       normalizeSearchText(r.id).includes(q) ||
@@ -290,37 +211,34 @@ export default function GeneralRequestPage({
         const diff = new Date(a[sortKey]).getTime() - new Date(b[sortKey]).getTime()
         return sortDir === "asc" ? diff : -diff
       }
-      const av = sortKey === "companyName"
-        ? (a.companyName ?? getRequestCompany(a.module, a.requesterEmail)?.name ?? "")
-        : ((a[sortKey as keyof EngineRequest] as string) ?? "")
-      const bv = sortKey === "companyName"
-        ? (b.companyName ?? getRequestCompany(b.module, b.requesterEmail)?.name ?? "")
-        : ((b[sortKey as keyof EngineRequest] as string) ?? "")
+      if (sortKey === "amount") {
+        const p = (r: EngineRequest) => Number((r.payload as Record<string, unknown>).amount ?? 0)
+        return sortDir === "asc" ? p(a) - p(b) : p(b) - p(a)
+      }
+      if (sortKey === "category") {
+        return String((a.payload as Record<string, unknown>).category ?? "").localeCompare(String((b.payload as Record<string, unknown>).category ?? ""))
+      }
+      const av = (a[sortKey as keyof EngineRequest] as string) ?? ""
+      const bv = (b[sortKey as keyof EngineRequest] as string) ?? ""
       return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
     })
   }, [allVisibleRequests, statusFilter, companyFilter, search, sortKey, sortDir, commentMatchIds])
 
-  const companyRequests = useMemo(() => requests.filter((r) =>
-    companyFilter === "all" || (r.companyId ?? getRequestCompany(r.module, r.requesterEmail)?.id) === companyFilter
-  ), [requests, companyFilter])
+  const companyRequests = useMemo(() => requests.filter((r) => matchesCompanyFilter(r, companyFilter)), [requests, companyFilter])
   const counts = useMemo(() => ({
     total:      companyRequests.length,
-    new:        companyRequests.filter((r) => (r.status as string) === "new").length,
-    awaiting:   companyRequests.filter((r) => (r.status as string) === "awaiting_approval").length,
-    inProgress: companyRequests.filter((r) => (r.status as string) === "in_progress").length,
-    completed:  companyRequests.filter((r) => (r.status as string) === "completed").length,
-    cancelled:  companyRequests.filter((r) => (r.status as string) === "cancelled").length,
+    new:        companyRequests.filter((r) => r.status === "new").length,
+    awaiting:   companyRequests.filter((r) => r.status === "awaiting_approval").length,
+    inProgress: companyRequests.filter((r) => r.status === "in_progress").length,
+    completed:  companyRequests.filter((r) => r.status === "completed").length,
   }), [companyRequests])
 
   const statCards = [
-    { key: "all",         label: "Total Requests", value: counts.total,      icon: Inbox,        iconBg: "bg-indigo-50",  iconColor: "text-indigo-600",  activeBg: "bg-slate-800",   activeBorder: "border-slate-800" },
-    { key: "new",         label: "New",            value: counts.new,        icon: Clock,        iconBg: "bg-sky-50",     iconColor: "text-sky-600",     activeBg: "bg-sky-500",     activeBorder: "border-sky-500" },
-    ...(hasApprovalStep ? [
-      { key: "awaiting_approval", label: "Awaiting Approval", value: counts.awaiting, icon: Clock, iconBg: "bg-amber-50", iconColor: "text-amber-600", activeBg: "bg-amber-500", activeBorder: "border-amber-500" },
-    ] as const : []),
-    { key: "in_progress", label: "In Progress",    value: counts.inProgress, icon: Clock,        iconBg: "bg-blue-50",    iconColor: "text-blue-600",    activeBg: "bg-blue-600",    activeBorder: "border-blue-600" },
-    { key: "completed",   label: "Completed",      value: counts.completed,  icon: CheckCircle2, iconBg: "bg-emerald-50", iconColor: "text-emerald-600", activeBg: "bg-emerald-600", activeBorder: "border-emerald-600" },
-    { key: "cancelled",   label: "Cancelled",      value: counts.cancelled,  icon: Clock,        iconBg: "bg-red-50",     iconColor: "text-red-600",     activeBg: "bg-red-600",     activeBorder: "border-red-600" },
+    { key: "all",               label: "Total Requests",     value: counts.total,      icon: Wallet,       iconBg: "bg-amber-50",   iconColor: "text-amber-600",   activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
+    { key: "new",                label: "New",                value: counts.new,        icon: Clock,        iconBg: "bg-sky-50",     iconColor: "text-sky-600",     activeBg: "bg-sky-500",    activeBorder: "border-sky-500" },
+    { key: "awaiting_approval",  label: "Awaiting Approval",  value: counts.awaiting,   icon: Clock,        iconBg: "bg-amber-50",   iconColor: "text-amber-600",   activeBg: "bg-amber-500",  activeBorder: "border-amber-500" },
+    { key: "in_progress",       label: "In Progress",        value: counts.inProgress, icon: Clock,        iconBg: "bg-blue-50",    iconColor: "text-blue-600",    activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
+    { key: "completed",         label: "Completed",          value: counts.completed,  icon: CheckCircle2, iconBg: "bg-emerald-50", iconColor: "text-emerald-600", activeBg: "bg-emerald-600", activeBorder: "border-emerald-600" },
   ] as const
 
   return (
@@ -329,24 +247,22 @@ export default function GeneralRequestPage({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight">{pageTitle}</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">{pageSubtitle}</p>
+          <h1 className="text-2xl font-bold tracking-tight">Finance Team - Reimbursement Requests</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">Submit and manage expense reimbursement requests</p>
         </div>
         {(newRequestsCount > 0 || newTasksCount > 0) && (
           <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
         )}
-        {!hideCreateButton && (
-          <Link href={`${basePath}/new`}>
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white ml-4">
-              <Plus className="h-4 w-4 mr-2" />
-              {createButtonLabel}
-            </Button>
-          </Link>
-        )}
+        <Link href="/departments/finance/reimbursement/new">
+          <Button style={{ backgroundColor: "#d97706" }} className="text-white hover:opacity-90 ml-4">
+            <Plus className="h-4 w-4 mr-2" />
+            New Reimbursement Request
+          </Button>
+        </Link>
       </div>
 
       {/* Stat Cards */}
-      <div className={cn("grid gap-4", hasApprovalStep ? "grid-cols-6" : "grid-cols-5")}>
+      <div className="grid grid-cols-5 gap-4">
         {statCards.map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }) => {
           const isActive = statusFilter === key || (key === "all" && statusFilter === "all")
           return (
@@ -402,29 +318,7 @@ export default function GeneralRequestPage({
             </div>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold text-gray-600">Company:</span>
-            {([
-              ["all", "All Companies"],
-              ["si_ware", "Si-Ware Systems"],
-              ["buchi", "BUCHI"],
-            ] as const).map(([value, label]) => (
-              <button
-                key={value}
-                onClick={() => setCompanyFilter(value)}
-                className={cn(
-                  "h-8 rounded-md border px-3 text-xs font-medium transition-all",
-                  companyFilter === value
-                    ? value === "buchi" ? "border-green-600 bg-green-600 text-white" : "border-blue-700 bg-blue-700 text-white"
-                    : "border-gray-200 bg-white text-gray-500 hover:border-gray-400 hover:text-gray-700"
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {/* CC Visibility Toggle */}
+          <CompanyFilter value={companyFilter} onChange={setCompanyFilter} className="mt-3" />
           <div className="mt-3">
             <CcVisibilityToggle checked={showCcRequests} onCheckedChange={toggleCcVisibility} />
           </div>
@@ -469,12 +363,13 @@ export default function GeneralRequestPage({
             <tbody>
               {filtered.map((req, i) => {
                 const hasUnreadComments = (commentCounts[req.id] ?? 0) > (viewedComments[req.id] ?? 0)
+                const payload = req.payload as Record<string, unknown>
                 return (
                 <React.Fragment key={req.id}>
                 <tr className={cn("border-b border-gray-100 hover:bg-blue-50/30 transition-colors", hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40"))}>
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
                     <div className="flex items-center gap-2">
-                      <Link href={`${detailPath}/${req.id}?source=${encodeURIComponent(basePath.slice(1))}`} className="text-sm font-medium text-blue-600 truncate block hover:underline">
+                      <Link href={`/departments/finance/requests/${req.id}?source=reimbursement`} className="text-sm font-medium text-blue-600 truncate block hover:underline">
                         {req.id}
                       </Link>
                       {(commentCounts[req.id] ?? 0) > 0 && (
@@ -493,14 +388,13 @@ export default function GeneralRequestPage({
                   </td>
                   <td className="py-3 px-3 overflow-hidden">
                     <span className="text-sm font-medium text-gray-700 truncate block">{req.requesterName}</span>
+                    <CompanyBadge className="mt-1" module={req.module} requesterEmail={req.requesterEmail} companyId={req.companyId} companyName={req.companyName} />
                   </td>
-                  <td className="py-3 px-3 overflow-hidden">
-                    <CompanyBadge
-                      module={req.module}
-                      requesterEmail={req.requesterEmail}
-                      companyId={req.companyId}
-                      companyName={req.companyName}
-                    />
+                  <td className="py-3 px-3">
+                    <span className="text-sm font-medium text-gray-700">{String(payload.category ?? "—")}</span>
+                  </td>
+                  <td className="py-3 px-3">
+                    <span className="text-sm font-medium text-gray-700">{formatAmount(payload)}</span>
                   </td>
                   <td className="py-3 px-3">
                     <InlineStatusSelect
@@ -513,17 +407,6 @@ export default function GeneralRequestPage({
                       canUpdateStatus={canUpdateStatus}
                     />
                   </td>
-                  {aggregateModules && (
-                    <td className="py-3 px-3">
-                      <AssigneeSelect
-                        compact
-                        disabled={!canAssign}
-                        value={req.assignedToId ?? null}
-                        module={req.module}
-                        onChange={(assignee) => handleAssign(req, assignee)}
-                      />
-                    </td>
-                  )}
                   <td className="py-3 px-3">
                     <span className="text-sm font-medium text-gray-700">{fmtDateTime(req.updatedAt)}</span>
                   </td>
@@ -534,7 +417,7 @@ export default function GeneralRequestPage({
                       showDeleteOption={canPermanentDelete}
                       isExpanded={isExpanded(req.id)}
                       onViewDetails={() => toggleRow(req.id)}
-                      onEdit={canEditRequest ? (id) => window.open(`${detailPath}/${id}?source=${encodeURIComponent(basePath.slice(1))}`, '_blank') : undefined}
+                      onEdit={canEditRequest ? (id) => window.open(`/departments/finance/requests/${id}?source=reimbursement`, '_blank') : undefined}
                       onCancel={handleCancelRequest}
                       onDelete={(id) => {
                         if (!confirm(`Permanently delete ${id}? This cannot be undone.`)) return
@@ -546,12 +429,24 @@ export default function GeneralRequestPage({
                 </tr>
                 {isExpanded(req.id) && (
                   <tr className="bg-blue-50">
-                    <td colSpan={aggregateModules ? 9 : 8} className="py-4 px-6">
+                    <td colSpan={9} className="py-4 px-6">
                       <div className="space-y-3 text-sm">
                         <div className="grid grid-cols-2 gap-6">
                           <div>
                             <p className="font-semibold text-gray-700">Title</p>
                             <p className="text-gray-600">{req.title}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Category</p>
+                            <p className="text-gray-600">{String(payload.category ?? "—")}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Amount</p>
+                            <p className="text-gray-600">{formatAmount(payload)}</p>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-700">Date of Expense</p>
+                            <p className="text-gray-600">{String(payload.dateOfExpense ?? "—")}</p>
                           </div>
                           <div>
                             <p className="font-semibold text-gray-700">Status</p>
@@ -561,14 +456,10 @@ export default function GeneralRequestPage({
                             <p className="font-semibold text-gray-700">Requester</p>
                             <p className="text-gray-600">{req.requesterName}</p>
                           </div>
-                          <div>
-                            <p className="font-semibold text-gray-700">Company</p>
-                            <CompanyBadge module={req.module} requesterEmail={req.requesterEmail} companyId={req.companyId} companyName={req.companyName} />
-                          </div>
-                          {!!(req.payload as Record<string, unknown>).description && (
+                          {!!payload.description && (
                             <div className="col-span-2">
-                              <p className="font-semibold text-gray-700">Description</p>
-                              <MarkdownDisplay content={String((req.payload as Record<string, unknown>).description)} />
+                              <p className="font-semibold text-gray-700">Description / Justification</p>
+                              <MarkdownDisplay content={String(payload.description)} />
                             </div>
                           )}
                         </div>
@@ -582,7 +473,7 @@ export default function GeneralRequestPage({
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={aggregateModules ? 9 : 8} className="py-16 text-center text-gray-400 text-sm">
+                  <td colSpan={9} className="py-16 text-center text-gray-400 text-sm">
                     No requests match the current filters
                   </td>
                 </tr>
@@ -592,7 +483,7 @@ export default function GeneralRequestPage({
 
           {filtered.length > 0 && (
             <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50 text-[11px] text-gray-400 text-right">
-              Showing {filtered.length} of {requests.length} requests
+              Showing {filtered.length} of {companyRequests.length} requests
             </div>
           )}
             </div>

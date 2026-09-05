@@ -3,6 +3,7 @@ import { readCompanyData } from "@/lib/companyDataServerStore"
 import { readUsers } from "@/lib/userStore"
 import { sendRequestUpdateEmail } from "@/lib/emailService"
 import { companyFromEmail } from "@/lib/company"
+import { teamRolesForModule } from "@/lib/functionRegistry"
 
 const ADMIN_HELPDESK_EMAIL = "adminhelpdesk@si-ware.com"
 
@@ -76,8 +77,12 @@ export async function notifyDecision(params: {
   managerName?: string
   reason?: string
 }): Promise<void> {
+  // Notify the module's owning/shared team(s), not unconditionally
+  // "Administration Team" — e.g. a Reimbursement decision should reach
+  // Finance Team, not Admin Team.
+  const teamRoles = new Set(teamRolesForModule(params.request.module))
   const adminEmails = readUsers()
-    .filter((u) => u.active && u.role === "Administration Team")
+    .filter((u) => u.active && teamRoles.has(u.role))
     .map((u) => u.email)
     .filter(Boolean)
 

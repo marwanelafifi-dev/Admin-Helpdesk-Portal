@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { ChevronRight, Inbox, Users } from "lucide-react"
+import { ChevronRight, FileText, Inbox, Users } from "lucide-react"
 import { auth } from "@/auth"
 import { canAccessPath } from "@/lib/access"
 
@@ -19,6 +19,7 @@ interface Service {
 // to requesters. Add future HR-facing services here as they're built.
 const services: Service[] = [
   { title: "General Request", description: "Submit a general inquiry or request to the HR Team.", href: "/departments/hr/general", icon: Inbox },
+  { title: "HR Letter Request", description: "Request an official HR letter or certificate (e.g. employment verification, salary certificate).", href: "/departments/hr/letter", icon: FileText },
 ]
 
 export default async function HRDepartmentServicesPage() {

@@ -1,9 +1,10 @@
 import Image from "next/image"
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { Building2, Calculator, ChevronRight, Headphones, Users } from "lucide-react"
+import { Building2, Calculator, ChevronRight, Headphones, Shield, Users } from "lucide-react"
 import { auth } from "@/auth"
 import { LandingTopBar } from "@/components/layout/LandingTopBar"
+import { getFirstAllowedPlatformAdminPath } from "@/lib/access"
 
 export const runtime = "nodejs"
 
@@ -17,7 +18,7 @@ interface SupportFunction {
   external?: boolean
 }
 
-const functions: SupportFunction[] = [
+const baseFunctions: SupportFunction[] = [
   {
     name: "Administration Team",
     description: "Access the complete Administration services portal and submit operational requests.",
@@ -37,10 +38,10 @@ const functions: SupportFunction[] = [
   {
     name: "Finance Team",
     description: "Access Finance services and submit finance-related requests.",
-    href: "/departments/finance",
+    href: "/departments/finance/services",
     icon: Calculator,
     accent: "bg-amber-600",
-    status: "Coming next week",
+    status: "Available",
   },
   {
     name: "IT Team",
@@ -56,6 +57,24 @@ const functions: SupportFunction[] = [
 export default async function DepartmentSelectorPage() {
   const session = await auth()
   if (!session?.user) redirect("/login?callbackUrl=/landing")
+
+  // Platform Administration is only shown to users who hold at least one
+  // of the platform-admin permissions (manage_users, settings, etc.) —
+  // unlike the four department tiles above, it isn't open to everyone.
+  const platformAdminPath = getFirstAllowedPlatformAdminPath(session.user.permissions, session.user.role)
+  const functions: SupportFunction[] = platformAdminPath
+    ? [
+        ...baseFunctions,
+        {
+          name: "Platform Administration",
+          description: "Manage users, roles, company data, audit trail, and platform settings.",
+          href: platformAdminPath,
+          icon: Shield,
+          accent: "bg-slate-700",
+          status: "Available",
+        },
+      ]
+    : baseFunctions
 
   return (
     <main className="relative min-h-screen bg-slate-100 dark:bg-slate-950 px-4 py-10 sm:px-6">

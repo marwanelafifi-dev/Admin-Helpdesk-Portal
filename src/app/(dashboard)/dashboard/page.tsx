@@ -18,6 +18,7 @@ import { useCountUp } from "@/hooks/useCountUp"
 import { cn } from "@/lib/utils"
 import { useTheme } from "next-themes"
 import { CompanyFilter, matchesCompanyFilter, type CompanyFilterValue } from "@/components/ui/CompanyFilter"
+import { modulesVisibleToFunction } from "@/lib/functionRegistry"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -62,7 +63,9 @@ const MODULE_COLORS: Record<string, string> = {
   travel: "#ec4899",
   hr: "#14b8a6",
   hr_general: "#0d9488",
+  hr_letter: "#0891b2",
   general: "#6366f1",
+  finance_reimbursement: "#d97706",
 }
 
 const MODULES = ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"] as const
@@ -96,7 +99,9 @@ const MODULE_SLA_DAYS: Record<string, number> = {
   travel: 7,
   hr: 5,
   hr_general: 5,
+  hr_letter: 5,
   general: 5,
+  finance_reimbursement: 7,
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -315,12 +320,16 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
     }
   }, [])
 
-  const companyRequests = useMemo(
-    () => requests.filter((request) =>
-      matchesCompanyFilter(request, companyFilter) && (!moduleScope || moduleScope.includes(request.module))
-    ),
-    [requests, companyFilter, moduleScope],
-  )
+  // Without an explicit moduleScope (the company-wide Admin dashboard),
+  // fall back to every module registered as visible to "admin" in
+  // src/lib/functionRegistry.ts — a new module for another function is
+  // invisible here by default unless explicitly marked shared.
+  const companyRequests = useMemo(() => {
+    const scope = moduleScope ?? modulesVisibleToFunction("admin")
+    return requests.filter((request) =>
+      matchesCompanyFilter(request, companyFilter) && scope.includes(request.module)
+    )
+  }, [requests, companyFilter, moduleScope])
 
   // Compute current and prior date windows for comparison
   const { current, prior } = useMemo(() => {

@@ -249,6 +249,34 @@ export function getFirstAllowedPath(permissions: string[] = [], role?: string) {
   return defaultRouteOrder.find((path) => canAccessPath(path, permissions, role)) ?? "/unauthorized"
 }
 
+// ─── Global/Platform Admin Panel ───────────────────────────────────────────
+// Platform-wide superadmin tools, intentionally decoupled from any single
+// business function's portal (Administration Team, HR Team, Finance Team).
+// Reachable from any portal via the TopBar icon or the /landing tile —
+// see PLATFORM_ADMIN_PATHS below and src/app/(platform-admin)/layout.tsx.
+
+const PLATFORM_ADMIN_PATHS = [
+  "/admin/users",
+  "/admin/roles",
+  "/admin/roles/buchi",
+  "/admin/settings",
+  "/admin/notifications",
+  "/admin/company-data",
+  "/admin/company-data/buchi",
+  "/admin/audit-trail",
+  "/admin/database",
+]
+
+/** First platform-admin page this user can open, or null if they have none of these permissions. */
+export function getFirstAllowedPlatformAdminPath(permissions: string[] = [], role?: string): string | null {
+  return PLATFORM_ADMIN_PATHS.find((path) => canAccessPath(path, permissions, role)) ?? null
+}
+
+/** True if this user can reach any platform-admin page — drives visibility of the TopBar icon and /landing tile. */
+export function hasPlatformAdminAccess(permissions: string[] = [], role?: string): boolean {
+  return getFirstAllowedPlatformAdminPath(permissions, role) !== null
+}
+
 // ─── Module-Level Access Control ───────────────────────────────────────────
 
 export type RequestModule = "shipping" | "maintenance" | "purchase" | "event" | "travel" | "hr" | "general"

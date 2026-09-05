@@ -2,9 +2,10 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { requestStore } from "@/lib/requestStore"
 import { signApprovalToken } from "@/lib/approvalToken"
-import { sendPurchaseApprovalEmail, sendShippingApprovalEmail, sendTravelApprovalEmail } from "@/lib/emailService"
+import { sendPurchaseApprovalEmail, sendShippingApprovalEmail, sendTravelApprovalEmail, sendReimbursementApprovalEmail } from "@/lib/emailService"
 import { readUsers } from "@/lib/userStore"
 import { resolveRequestManagerEmail, resolveRequestManagerName } from "@/lib/approvalNotify"
+import { teamRolesForModule } from "@/lib/functionRegistry"
 
 export const runtime = "nodejs"
 
@@ -14,8 +15,8 @@ const ADMIN_HELPDESK_EMAIL = "adminhelpdesk@si-ware.com"
  * POST /api/requests/:id/send-approval-email
  *
  * Sends the Approval email to the request's Direct Manager with signed
- * Approve/Reject buttons. Called when a Purchase or Shipping request
- * transitions to "Awaiting Approval" status.
+ * Approve/Reject buttons. Called when a Purchase, Shipping, Travel, or
+ * Reimbursement request transitions to "Awaiting Approval" status.
  *
  * Server-side so we can:
  *   - resolve the manager's email via the shared company-data.json
@@ -37,8 +38,8 @@ export async function POST(
   if (!request) {
     return NextResponse.json({ error: "Request not found" }, { status: 404 })
   }
-  if (!["purchase", "shipping", "travel"].includes(request.module)) {
-    return NextResponse.json({ error: "Only Purchase, Shipping, and Travel requests use this flow" }, { status: 400 })
+  if (!["purchase", "shipping", "travel", "finance_reimbursement"].includes(request.module)) {
+    return NextResponse.json({ error: "Only Purchase, Shipping, Travel, and Reimbursement requests use this flow" }, { status: 400 })
   }
 
   const payload = (request.payload ?? {}) as Record<string, any>
@@ -58,10 +59,13 @@ export async function POST(
     )
   }
 
-  // Cc: requester + Administration Team + helpdesk (so everyone in the
-  // loop sees the decision request). Manager is the primary recipient.
+  // Cc: requester + the owning/shared function team(s) + helpdesk (so
+  // everyone in the loop sees the decision request). Manager is the
+  // primary recipient. Resolved from the module registry so this stays
+  // correct as new function-owned modules are added.
+  const ccTeamRoles = new Set(teamRolesForModule(request.module))
   const adminEmails = readUsers()
-    .filter((u) => u.active && u.role === "Administration Team")
+    .filter((u) => u.active && ccTeamRoles.has(u.role))
     .map((u) => u.email)
     .filter(Boolean)
 
@@ -166,6 +170,24 @@ export async function POST(
         cashAmount: payload.cashAmount,
         creditCardAmount: payload.creditCardAmount,
         paymentCurrency: payload.paymentCurrency,
+        notes: payload.notes,
+        requesterName: request.requesterName,
+        requesterEmail: request.requesterEmail,
+        approveUrl,
+        rejectUrl,
+      })
+    } else if (request.module === "finance_reimbursement") {
+      await sendReimbursementApprovalEmail({
+        to: managerEmail,
+        cc: Array.from(ccSet),
+        managerName,
+        requestId: request.id,
+        requestTitle: request.title,
+        amount: typeof payload.amount === "number" ? payload.amount : undefined,
+        currency: payload.currency,
+        category: payload.category,
+        dateOfExpense: payload.dateOfExpense,
+        description: payload.description,
         notes: payload.notes,
         requesterName: request.requesterName,
         requesterEmail: request.requesterEmail,

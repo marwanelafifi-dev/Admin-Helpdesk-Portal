@@ -19,6 +19,7 @@ import { CompanyBadge } from "@/components/ui/CompanyBadge"
 import { getRequestCompany } from "@/lib/userCompany"
 import { cn, fmtDate, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
 import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
+import { modulesVisibleToFunction } from "@/lib/functionRegistry"
 import { animationClasses } from "@/lib/animations"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
@@ -214,7 +215,12 @@ export default function AllRequestsPage() {
 
   useEffect(() => {
     const loadFromCache = () => {
-      let allRequests = getRequests()
+      // Only show modules registered as visible to the Administration
+      // Team (see src/lib/functionRegistry.ts) — a new module for another
+      // function (HR, Finance, ...) is invisible here by default unless
+      // it's explicitly marked shared with "admin" in that registry.
+      const visibleModules = modulesVisibleToFunction("admin")
+      let allRequests = getRequests().filter((r) => visibleModules.includes(r.module))
 
       // Apply module-level access control if user has restrictions
       const userWithModules: UserWithModuleAccess = {
@@ -755,6 +761,7 @@ export default function AllRequestsPage() {
                       compact
                       disabled={!canAssign}
                       value={req.assignedToId ?? null}
+                      module={req.module}
                       onChange={(assignee) => {
                         void assignRequest(req.id, assignee)
                         setRequests((prev) => prev.map((r) => r.id === req.id ? {

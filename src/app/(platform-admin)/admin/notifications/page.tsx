@@ -187,18 +187,41 @@ const METHODS: MethodDef[] = [
   },
 ]
 
+// ── Multi-account support ──────────────────────────────────────────────────────
+// Each support function (Administration, HR, Finance) sends notification
+// emails from its own account. Which account a given notification uses is
+// decided server-side by src/lib/functionRegistry.ts (functionForModule) —
+// this page only lets an admin configure the three accounts; it doesn't
+// decide routing.
+
+type EmailFunctionId = "admin" | "hr" | "finance"
+
+interface AccountDef {
+  id: EmailFunctionId
+  label: string
+  description: string
+  accent: string
+  activeClasses: string
+}
+
+const ACCOUNTS: AccountDef[] = [
+  { id: "admin", label: "Administration Team", description: "adminhelpdesk@si-ware.com", accent: "text-blue-600", activeClasses: "border-blue-500 bg-blue-50 text-blue-900" },
+  { id: "hr", label: "HR Team", description: "human.resources@si-ware.com", accent: "text-teal-600", activeClasses: "border-teal-500 bg-teal-50 text-teal-900" },
+  { id: "finance", label: "Finance Team", description: "Ap@si-ware.com", accent: "text-amber-600", activeClasses: "border-amber-500 bg-amber-50 text-amber-900" },
+]
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-function loadConfig(): Config {
+function loadConfig(functionId: EmailFunctionId): Config {
   if (typeof window === "undefined") return { method: "gmail_app_password", values: {} }
   try {
-    const raw = localStorage.getItem(CONFIG_KEY)
+    const raw = localStorage.getItem(`${CONFIG_KEY}_${functionId}`)
     return raw ? JSON.parse(raw) : { method: "gmail_app_password", values: {} }
   } catch { return { method: "gmail_app_password", values: {} } }
 }
 
-function saveConfig(config: Config) {
-  localStorage.setItem(CONFIG_KEY, JSON.stringify(config))
+function saveConfig(functionId: EmailFunctionId, config: Config) {
+  localStorage.setItem(`${CONFIG_KEY}_${functionId}`, JSON.stringify(config))
 }
 
 const DIFFICULTY_COLORS = {
@@ -207,9 +230,45 @@ const DIFFICULTY_COLORS = {
   Advanced: "bg-red-100 text-red-700",
 }
 
-// ── Component ──────────────────────────────────────────────────────────────────
+// ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function NotificationConfigPage() {
+  const [activeAccount, setActiveAccount] = useState<EmailFunctionId>("admin")
+
+  return (
+    <div className="space-y-6 max-w-4xl">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Notification Configuration</h1>
+        <p className="text-sm text-gray-500 mt-1">Each support function sends notifications from its own account. Configure each one below.</p>
+      </div>
+
+      {/* Account tabs */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {ACCOUNTS.map((account) => {
+          const active = activeAccount === account.id
+          return (
+            <button
+              key={account.id}
+              onClick={() => setActiveAccount(account.id)}
+              className={cn(
+                "text-left p-4 rounded-lg border-2 transition-all",
+                active ? account.activeClasses : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+              )}
+            >
+              <p className={cn("text-sm font-semibold", active ? "" : "text-gray-900")}>{account.label}</p>
+              <p className={cn("text-xs mt-1", active ? account.accent : "text-gray-500")}>{account.description}</p>
+            </button>
+          )
+        })}
+      </div>
+
+      <AccountPanel key={activeAccount} functionId={activeAccount} />
+    </div>
+  )
+}
+
+function AccountPanel({ functionId }: { functionId: EmailFunctionId }) {
   const [config, setConfig] = useState<Config>({ method: "gmail_app_password", values: {} })
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({})
   const [saved, setSaved] = useState(false)
@@ -218,18 +277,18 @@ export default function NotificationConfigPage() {
 
   useEffect(() => {
     // Load from server first, fall back to localStorage
-    fetch("/api/notifications/config", { credentials: "include" })
+    fetch(`/api/notifications/config?functionId=${functionId}`, { credentials: "include" })
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (data?.config) {
           setConfig(data.config)
-          saveConfig(data.config)
+          saveConfig(functionId, data.config)
         } else {
-          setConfig(loadConfig())
+          setConfig(loadConfig(functionId))
         }
       })
-      .catch(() => setConfig(loadConfig()))
-  }, [])
+      .catch(() => setConfig(loadConfig(functionId)))
+  }, [functionId])
 
   const selectedMethod = METHODS.find((m) => m.id === config.method)!
 
@@ -240,13 +299,13 @@ export default function NotificationConfigPage() {
   }
 
   async function handleSave() {
-    saveConfig(config)
+    saveConfig(functionId, config)
     // Also persist to server so it survives container restarts
     await fetch("/api/notifications/config", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ config }),
+      body: JSON.stringify({ config, functionId }),
     }).catch(() => {})
     setSaved(true)
     setTimeout(() => setSaved(false), 3000)
@@ -271,13 +330,7 @@ export default function NotificationConfigPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Notification Configuration</h1>
-        <p className="text-sm text-gray-500 mt-1">Configure how email notifications are sent from the Admin Portal</p>
-      </div>
-
+    <div className="space-y-6">
       {/* Network warning */}
       <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
         <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />

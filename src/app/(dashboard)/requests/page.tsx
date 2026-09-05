@@ -19,6 +19,7 @@ import { useCommentSearch } from "@/hooks/useCommentSearch"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { CompanyBadge } from "@/components/ui/CompanyBadge"
 import { LABEL_COLORS, LABEL_DOTS, buildLabelDrivenMaps } from "@/lib/statusPalette"
+import { modulesVisibleToFunction } from "@/lib/functionRegistry"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -239,12 +240,19 @@ export default function RequestsPage() {
     return sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1 shrink-0" /> : <ChevronDown className="h-3 w-3 ml-1 shrink-0" />
   }
 
+  // This "My Requests" page lives only in the Admin Portal sidebar, so it
+  // only shows requests from modules visible to Administration Team (see
+  // src/lib/functionRegistry.ts) — a Finance or HR-exclusive request the
+  // user submitted elsewhere doesn't belong here, for the same reason it's
+  // excluded from Admin's Dashboard and All Requests.
+  const adminVisibleModules = useMemo(() => modulesVisibleToFunction("admin"), [])
   const userRequests = useMemo(() => requests.filter((r) => {
+    if (!adminVisibleModules.includes(r.module)) return false
     if (currentUserId && r.requesterId === currentUserId) return true
     if (currentUserEmail && (r.requesterEmail ?? "").toLowerCase() === currentUserEmail) return true
     if (currentUserName && r.requesterName === currentUserName) return true
     return false
-  }), [requests, currentUserId, currentUserEmail, currentUserName])
+  }), [requests, currentUserId, currentUserEmail, currentUserName, adminVisibleModules])
 
   // User's completed/delivered requests that still don't have a submitted
   // feedback response — these drive the "Please rate" reminder banner.

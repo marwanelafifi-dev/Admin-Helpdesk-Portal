@@ -1,6 +1,6 @@
 import fs from "fs"
 import path from "path"
-import { DEFAULTS, type PlatformSettings } from "@/app/(dashboard)/admin/settings/page"
+import { DEFAULTS, type PlatformSettings } from "@/app/(platform-admin)/admin/settings/page"
 
 const SETTINGS_PATH = path.join(process.cwd(), "data", "platform-settings.json")
 

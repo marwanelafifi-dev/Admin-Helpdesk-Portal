@@ -41,15 +41,21 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
 }
 
 interface NewGeneralRequestPageProps {
-  moduleId?: "general" | "hr_general"
+  moduleId?: string
   basePath?: string
   departmentName?: string
+  /** Human label used in page titles/headers (e.g. "HR Letter Request"). Defaults to "General Request". */
+  requestLabel?: string
+  /** Override the default "Submit a [request]" subtitle line entirely. */
+  formSubtitle?: string
 }
 
 export default function NewGeneralRequestPage({
   moduleId = "general",
   basePath = "/general",
   departmentName,
+  requestLabel = "General Request",
+  formSubtitle,
 }: NewGeneralRequestPageProps = {}) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -130,10 +136,12 @@ export default function NewGeneralRequestPage({
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">
-          {isEditing ? "Edit General Request" : departmentName ? `${departmentName} General Request` : "New General Request"}
+          {isEditing ? `Edit ${requestLabel}` : departmentName ? `${departmentName} ${requestLabel}` : `New ${requestLabel}`}
         </h1>
         <p className="text-muted-foreground text-sm mt-0.5">
-          {isEditing ? "Update the request details" : departmentName ? `Submit a general request to the ${departmentName}` : "Submit a general request"}
+          {isEditing
+            ? "Update the request details"
+            : formSubtitle ?? (departmentName ? `Submit a request to the ${departmentName}` : "Submit a request")}
         </p>
       </div>
 

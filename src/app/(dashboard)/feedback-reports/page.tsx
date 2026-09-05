@@ -11,6 +11,7 @@ import type { FeedbackSurvey } from "@/services/feedbackService"
 import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
+import { modulesVisibleToFunction } from "@/lib/functionRegistry"
 
 interface Feedback {
   requestId: string
@@ -88,13 +89,31 @@ const MODULE_COLORS: Record<string, { bg: string; text: string; border: string }
   event: { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200" },
   travel: { bg: "bg-pink-50", text: "text-pink-700", border: "border-pink-200" },
   hr: { bg: "bg-teal-50", text: "text-teal-700", border: "border-teal-200" },
+  hr_general: { bg: "bg-teal-50", text: "text-teal-700", border: "border-teal-200" },
+  hr_letter: { bg: "bg-cyan-50", text: "text-cyan-700", border: "border-cyan-200" },
   general: { bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200" },
+  finance_reimbursement: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
 }
 function getModuleColors(module: string) {
   return MODULE_COLORS[module] ?? MODULE_FALLBACK
 }
 
-export default function FeedbackReportsPage() {
+const MODULE_LABELS: Record<string, string> = {
+  hr_general: "HR General",
+  hr_letter: "HR Letter",
+  finance_reimbursement: "Reimbursement",
+}
+function getModuleLabel(module: string) {
+  return MODULE_LABELS[module] ?? (module.charAt(0).toUpperCase() + module.slice(1))
+}
+
+interface FeedbackReportsPageProps {
+  /** Restricts every stat/list on this page to feedback and requests from these module ids. Omit for the full company-wide report. */
+  moduleScope?: string[]
+  title?: string
+}
+
+export default function FeedbackReportsPage({ moduleScope, title = "Feedback & Reports" }: FeedbackReportsPageProps = {}) {
   const [search, setSearch] = useState("")
   const [filterRating, setFilterRating] = useState<number | null>(null)
   const [dateRange, setDateRange] = useState<"7d" | "30d" | "90d" | "all">("all")
@@ -142,6 +161,19 @@ export default function FeedbackReportsPage() {
   }, [])
 
 
+  // Without an explicit moduleScope (the company-wide Admin view), fall
+  // back to every module registered as visible to "admin" in
+  // src/lib/functionRegistry.ts.
+  const effectiveScope = moduleScope ?? modulesVisibleToFunction("admin")
+  const scopedFeedback = useMemo(
+    () => allFeedback.filter((f) => effectiveScope.includes(f.module)),
+    [allFeedback, effectiveScope],
+  )
+  const scopedRequests = useMemo(
+    () => allRequests.filter((r) => effectiveScope.includes(r.module)),
+    [allRequests, effectiveScope],
+  )
+
   // Filter feedback
   const filtered = useMemo(() => {
     const now = new Date()
@@ -153,7 +185,7 @@ export default function FeedbackReportsPage() {
     }
     const threshold = getDateThreshold()
 
-    return allFeedback.filter((f) => {
+    return scopedFeedback.filter((f) => {
       const feedbackDate = new Date(f.submittedAt)
       const matchSearch = f.requestTitle.toLowerCase().includes(search.toLowerCase()) ||
         f.requesterName.toLowerCase().includes(search.toLowerCase()) ||
@@ -162,7 +194,7 @@ export default function FeedbackReportsPage() {
       const matchDate = feedbackDate >= threshold
       return matchSearch && matchRating && matchDate
     })
-  }, [allFeedback, search, filterRating, dateRange])
+  }, [scopedFeedback, search, filterRating, dateRange])
 
   // Calculate comprehensive statistics
   const stats = useMemo(() => {
@@ -170,13 +202,13 @@ export default function FeedbackReportsPage() {
 
     // Initialize module stats from all requests
     const modules = new Set<string>()
-    allRequests.forEach((r) => modules.add(r.module))
+    scopedRequests.forEach((r) => modules.add(r.module))
     modules.forEach((m) => {
       moduleStats[m] = { count: 0, avgRating: 0, totalRating: 0, requestCount: 0, feedbackRate: 0, avgResolutionDays: 0 }
     })
 
     // Count completed/delivered requests per module
-    allRequests.forEach((r) => {
+    scopedRequests.forEach((r) => {
       const isCompleted = r.status === "completed" || r.status === "delivered"
       if (isCompleted) {
         moduleStats[r.module].requestCount++
@@ -189,7 +221,7 @@ export default function FeedbackReportsPage() {
     })
 
     // Process feedback
-    allFeedback.forEach((f) => {
+    scopedFeedback.forEach((f) => {
       if (!moduleStats[f.module]) {
         moduleStats[f.module] = { count: 0, avgRating: 0, totalRating: 0, requestCount: 0, feedbackRate: 0, avgResolutionDays: 0 }
       }
@@ -205,16 +237,16 @@ export default function FeedbackReportsPage() {
       data.avgResolutionDays = data.requestCount > 0 ? Math.ceil(data.avgResolutionDays / data.requestCount) : 0
     })
 
-    const totalRating = allFeedback.reduce((sum, f) => sum + f.rating, 0)
-    const avgRating = allFeedback.length > 0 ? Math.round((totalRating / allFeedback.length) * 10) / 10 : 0
-    const satisfied = allFeedback.filter((f) => f.rating >= 4).length
-    const satisfactionRate = allFeedback.length > 0 ? Math.round((satisfied / allFeedback.length) * 100) : 0
+    const totalRating = scopedFeedback.reduce((sum, f) => sum + f.rating, 0)
+    const avgRating = scopedFeedback.length > 0 ? Math.round((totalRating / scopedFeedback.length) * 10) / 10 : 0
+    const satisfied = scopedFeedback.filter((f) => f.rating >= 4).length
+    const satisfactionRate = scopedFeedback.length > 0 ? Math.round((satisfied / scopedFeedback.length) * 100) : 0
 
     // Overall metrics
-    const totalCompletedRequests = allRequests.filter((r) => r.status === "completed" || r.status === "delivered").length
-    const overallFeedbackRate = totalCompletedRequests > 0 ? Math.round((allFeedback.length / totalCompletedRequests) * 100) : 0
+    const totalCompletedRequests = scopedRequests.filter((r) => r.status === "completed" || r.status === "delivered").length
+    const overallFeedbackRate = totalCompletedRequests > 0 ? Math.round((scopedFeedback.length / totalCompletedRequests) * 100) : 0
     const avgCompletionDays = totalCompletedRequests > 0
-      ? Math.ceil(allRequests
+      ? Math.ceil(scopedRequests
           .filter((r) => r.status === "completed" || r.status === "delivered")
           .reduce((sum, r) => {
             const createdDate = new Date(r.createdAt).getTime()
@@ -224,7 +256,7 @@ export default function FeedbackReportsPage() {
       : 0
 
     return {
-      totalFeedback: allFeedback.length,
+      totalFeedback: scopedFeedback.length,
       avgRating,
       satisfactionRate,
       moduleStats,
@@ -232,7 +264,7 @@ export default function FeedbackReportsPage() {
       totalCompletedRequests,
       avgCompletionDays,
     }
-  }, [allFeedback, allRequests])
+  }, [scopedFeedback, scopedRequests])
 
   const renderStars = (rating: number, size: "sm" | "md" = "sm") => {
     const sizeClass = size === "md" ? "h-5 w-5" : "h-4 w-4"
@@ -257,7 +289,7 @@ export default function FeedbackReportsPage() {
       <div>
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <h1 className="text-3xl font-bold text-gray-900">Feedback & Reports</h1>
+            <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
             <p className="text-gray-600 mt-2">Employee satisfaction metrics and service quality analytics across all departments</p>
           </div>
           <div className="flex items-center gap-3 ml-4">
@@ -370,7 +402,7 @@ export default function FeedbackReportsPage() {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <Badge className={cn("font-semibold border-0", getModuleColors(module).bg, getModuleColors(module).text)}>
-                      {module.charAt(0).toUpperCase() + module.slice(1)}
+                      {getModuleLabel(module)}
                     </Badge>
                     <div>
                       <p className="text-sm font-medium text-gray-900">{data.count} feedback{data.count !== 1 ? 's' : ''} • {data.requestCount} total</p>
@@ -593,7 +625,7 @@ export default function FeedbackReportsPage() {
                       <div className="flex items-center gap-2 mb-2">
                         <span className="font-semibold text-gray-900 text-sm">{feedback.requestId}</span>
                         <Badge className={cn("text-xs border-0", getModuleColors(feedback.module).bg, getModuleColors(feedback.module).text)}>
-                          {feedback.module.charAt(0).toUpperCase() + feedback.module.slice(1)}
+                          {getModuleLabel(feedback.module)}
                         </Badge>
                       </div>
                       <p className="text-sm font-medium text-gray-900">{feedback.requestTitle}</p>
