@@ -166,10 +166,20 @@ function collectPayloadAttachments(payload: any): Array<{ id?: string; url: stri
   }
 
   // Travel named fields
-  for (const field of ["amanSticker", "passport", "hotelPhoto", "flightPhoto"]) {
+  for (const field of ["amanSticker", "passport", "hotelPhoto", "flightPhoto", "invitationLetter"]) {
     if (payload[field] && typeof payload[field] === "object" && payload[field].url) {
       result.push(payload[field])
     }
+  }
+
+  // HR Travel Letter named fields
+  for (const field of ["passportAttachment", "invitationLetterAttachment"]) {
+    if (payload[field] && typeof payload[field] === "object" && payload[field].url) {
+      result.push(payload[field])
+    }
+  }
+  if (Array.isArray(payload.visaDocumentAttachment)) {
+    result.push(...payload.visaDocumentAttachment.filter(Boolean))
   }
 
   if (Array.isArray(payload.additionalAttachments)) {

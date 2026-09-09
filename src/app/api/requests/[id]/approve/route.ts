@@ -4,6 +4,7 @@ import { requestStore } from "@/lib/requestStore"
 import { resolveRequestManagerEmail, resolveRequestManagerName, notifyDecision } from "@/lib/approvalNotify"
 import { commentsStore } from "@/lib/commentsStore"
 import { AUTO_CC_EMAIL } from "@/services/engineService"
+import { autoCreateHrLetterFromTravel } from "@/lib/hrLetterAutoCreate"
 
 export const runtime = "nodejs"
 
@@ -73,6 +74,12 @@ export async function GET(
     ],
   }
   requestStore.upsert(updated)
+
+  try {
+    autoCreateHrLetterFromTravel(updated)
+  } catch (err) {
+    console.error("Failed to create HR Letter:", err)
+  }
 
   commentsStore.addComment(request.id, {
     id: `CMT-APPROVE-${Date.now()}`,

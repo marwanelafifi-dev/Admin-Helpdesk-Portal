@@ -591,6 +591,24 @@ export async function updateStatus(
     }
   }
 
+  // Travel: when a request moves to "in_progress" and had "I need an HR
+  // Letter" checked, auto-create the linked HR Travel Letter request. Mirrors
+  // the same auto-creation that runs when the manager approves via the email
+  // link — an admin can also flip the status manually from the dropdown.
+  if (
+    typeof window !== "undefined" &&
+    updated.module === "travel" &&
+    status === "in_progress" &&
+    previousStatus !== "in_progress" &&
+    (updated.payload as any)?.needsHrLetter
+  ) {
+    void fetch(`/api/requests/${encodeURIComponent(id)}/create-hr-letter`, {
+      method: "POST",
+    }).catch(() => {
+      // Best-effort — the email-approval path covers the production case.
+    })
+  }
+
   // Purchase, Shipping, Travel, and Reimbursement Approval workflow: when a
   // request enters "Awaiting Approval", fire the special approval email to
   // the selected Direct Manager with one-click Approve / Reject buttons.
@@ -832,6 +850,108 @@ export function deleteRequestPermanently(id: string): boolean {
   fetch(`/api/requests?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {})
   fetch(`/api/requests/comments?requestId=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {})
   return changed
+}
+
+/**
+ * createHrTravelLetterRequest
+ * Auto-creates an HR Travel Letter request when a Travel request has needsHrLetter = true
+ * Called when Travel request is approved (status → in_progress)
+ */
+export async function createHrTravelLetterRequest(
+  travelRequest: EngineRequest
+): Promise<EngineRequest | null> {
+  const travel = travelRequest.payload as Record<string, unknown>
+  const needsHrLetter = travel.needsHrLetter === true
+
+  if (!needsHrLetter) return null
+
+  const now = new Date().toISOString()
+  const company = getRequestCompany("hr_travel_letter", travelRequest.requesterEmail)
+
+  const hrLetterRequest: EngineRequest = {
+    id: generateRequestId("hr_travel_letter"),
+    module: "hr_travel_letter",
+    title: `HR Letter - ${travelRequest.title}`,
+    status: "new",
+    requesterId: travelRequest.requesterId,
+    requesterName: travelRequest.requesterName,
+    requesterEmail: travelRequest.requesterEmail,
+    ...(company && { companyId: company.id, companyName: company.name }),
+    payload: {
+      // Travel reference data (read-only)
+      linkedTravelRequestId: travelRequest.id,
+      travelRequestCreatedAt: travelRequest.createdAt,
+      travelRequestUpdatedAt: travelRequest.updatedAt,
+
+      travelPurpose: travel.purposeOfTrip || "",
+      destination: travel.destination || "",
+      travelDateFrom: travel.travelDates?.from || travel.travelDates || "",
+      travelDateTo: travel.travelDates?.to || travel.travelDates || "",
+      costCenter: travel.costCenter || "",
+      directManagerName: travel.directManager || "",
+
+      // HR Letter fields (empty for HR Team to fill)
+      passportAttachment: null,
+      invitationLetterAttachment: null,
+      letterPreparedBy: null,
+      letterApprovedBy: null,
+      letterContent: "",
+      specialNotes: "",
+
+      ccEmails: (travel.ccEmails as string[]) || [],
+      attachments: [],
+    },
+    statusHistory: [
+      {
+        status: "new",
+        changedBy: "System",
+        changedAt: now,
+        comment: "Auto-created from Travel request approval",
+      },
+    ],
+    commentHistory: [],
+    adminCc: [],
+    createdAt: now,
+    updatedAt: now,
+  }
+
+  // Save the HR Letter request
+  const saved = await submitRequest(
+    "hr_travel_letter",
+    hrLetterRequest.payload,
+    {
+      title: hrLetterRequest.title,
+      requesterId: hrLetterRequest.requesterId,
+      requesterName: hrLetterRequest.requesterName,
+      requesterEmail: hrLetterRequest.requesterEmail,
+    }
+  )
+
+  // Update Travel request with reference to the HR Letter
+  const updatedTravel = updateRequest(
+    travelRequest.id,
+    { ...travel, linkedHrLetterRequestId: saved.id },
+    {
+      requesterName: travelRequest.requesterName,
+      requesterEmail: travelRequest.requesterEmail,
+    }
+  )
+
+  // Notify HR Team about the new linked HR Letter request
+  try {
+    fetch("/api/notifications/new-hr-letter", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        hrLetterRequestId: saved.id,
+        travelRequestId: travelRequest.id,
+        traveler: travelRequest.requesterName,
+        destination: travel.destination,
+      }),
+    }).catch(() => {})
+  } catch {}
+
+  return saved
 }
 
 const PROD_VERSION = "v1-prod"

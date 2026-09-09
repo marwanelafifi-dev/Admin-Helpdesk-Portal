@@ -99,6 +99,7 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
   const [passportFile, setPassportFile] = useState<File | null>(null)
   const [hotelPhotoFile, setHotelPhotoFile] = useState<File | null>(null)
   const [flightPhotoFile, setFlightPhotoFile] = useState<File | null>(null)
+  const [invitationLetterFile, setInvitationLetterFile] = useState<File | null>(null)
   const [additionalFiles, setAdditionalFiles] = useState<File[]>([])
 
   const {
@@ -162,6 +163,7 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
   const othersAmount = watch("othersAmount") || 0
   const othersText = watch("others") || ""
   const paymentMethod = watch("paymentMethod")
+  const needsHrLetter = watch("needsHrLetter")
 
   useEffect(() => {
     // Only include othersAmount if Others text is filled
@@ -182,12 +184,16 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
       setAttachmentError("Passport is required")
       return
     }
+    if (needsHrLetter && !invitationLetterFile) {
+      setAttachmentError("Invitation Letter is required when requesting an HR Letter")
+      return
+    }
 
     try {
       // Step 1: create the request first to get a real ID
       const newReq = await submitRequest(
         "travel",
-        { ...data, amanSticker: null, passport: null, additionalAttachments: [] },
+        { ...data, amanSticker: null, passport: null, invitationLetter: null, additionalAttachments: [] },
         {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
@@ -197,12 +203,13 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
       )
 
       // Step 2: upload all attachments using the real request ID
-      // Order: amanSticker, passport, hotelPhoto (optional), flightPhoto (optional), additional...
+      // Order: amanSticker, passport, hotelPhoto (optional), flightPhoto (optional), invitationLetter (optional), additional...
       const uploadFiles = [
         travelType === "visa_application" ? amanStickerFile : null,
         passportFile,
         hotelPhotoFile,
         flightPhotoFile,
+        invitationLetterFile,
         ...additionalFiles,
       ].filter(Boolean) as File[]
       const attachments = await filesToAttachments(uploadFiles, newReq.id)
@@ -213,6 +220,7 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
       const passportAtt = attachments[idx++] ?? null
       const hotelPhotoAtt = hotelPhotoFile ? (attachments[idx++] ?? null) : null
       const flightPhotoAtt = flightPhotoFile ? (attachments[idx++] ?? null) : null
+      const invitationLetterAtt = invitationLetterFile ? (attachments[idx++] ?? null) : null
       const additionalAtts = attachments.slice(idx)
 
       // Step 3: update payload with attachment metadata
@@ -222,6 +230,7 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
         passport: passportAtt,
         hotelPhoto: hotelPhotoAtt,
         flightPhoto: flightPhotoAtt,
+        invitationLetter: invitationLetterAtt,
         additionalAttachments: additionalAtts,
       }
       const updated = updateRequest(newReq.id, updatedPayload, { title: data.requestTitle })
@@ -996,7 +1005,63 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
               )}
             />
           </div>
+        </CardContent>
+      </Card>
 
+      {/* HR Letter Request Card */}
+      <Card className="border-l-4" style={{ borderLeftColor: BRAND }}>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5" style={{ color: BRAND }} />
+            Additional Requirements
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Controller
+            name="needsHrLetter"
+            control={control}
+            render={({ field }) => (
+              <label className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-3 rounded transition-colors">
+                <input
+                  type="checkbox"
+                  checked={field.value ?? false}
+                  onChange={(e) => field.onChange(e.target.checked)}
+                  className="h-4 w-4 rounded cursor-pointer"
+                  style={{ accentColor: BRAND }}
+                />
+                <div className="flex-1">
+                  <span className="text-sm font-medium text-gray-900">
+                    I need an HR Letter for this business trip
+                  </span>
+                  <p className="text-xs text-gray-600 mt-1">
+                    HR Team will prepare a formal business trip letter after your request is approved
+                  </p>
+                </div>
+              </label>
+            )}
+          />
+          {needsHrLetter && (
+            <div className="pt-1 pl-3 border-l-2" style={{ borderLeftColor: BRAND }}>
+              <AttachmentUploadZone
+                label="Invitation Letter"
+                required
+                value={invitationLetterFile ?? undefined}
+                onChange={setInvitationLetterFile}
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Official invitation from the host organization — HR needs this to prepare your letter.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* CC Notifications Card */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold">CC Recipients</CardTitle>
+        </CardHeader>
+        <CardContent>
           <Controller
             name="ccEmails"
             control={control}

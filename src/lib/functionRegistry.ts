@@ -49,12 +49,13 @@ export const MODULE_REGISTRY: Record<string, ModuleOwnership> = {
   // HR Team is the *requester* here — informing Administration Team about
   // a new hire or leaver — and Administration Team is who actually
   // executes the operational items (access card, seating, medical
-  // insurance, desk/office). "hr_general" and "hr_letter" are different:
-  // HR-Portal-exclusive intake channels that HR Team itself owns and
-  // processes, with no Admin-Portal involvement, so they stay HR-only.
+  // insurance, desk/office). "hr_general", "hr_letter", and "hr_travel_letter"
+  // are different: HR-Portal-exclusive intake channels that HR Team itself
+  // owns and processes, with no Admin-Portal involvement, so they stay HR-only.
   hr: { owner: "admin", sharedWith: ["hr"] },
   hr_general: { owner: "hr" },
   hr_letter: { owner: "hr" },
+  hr_travel_letter: { owner: "hr" },
 
   // Finance Team's own service modules.
   finance_reimbursement: { owner: "finance" },

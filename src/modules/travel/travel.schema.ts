@@ -85,6 +85,9 @@ export const VisaApplicationPayloadSchema = z
     additionalAttachments: z.array(AttachmentSchema).default([]),
     ccEmails: z.array(z.string().email()).default([]),
     notes: z.string().max(500).optional(),
+    needsHrLetter: z.boolean().default(false),
+    invitationLetter: AttachmentSchema.optional().nullable(),
+    linkedHrLetterRequestId: z.string().optional(),
   })
   .strict()
 
@@ -102,6 +105,9 @@ export const HotelFlightReservationPayloadSchema = z
     additionalAttachments: z.array(AttachmentSchema).default([]),
     ccEmails: z.array(z.string().email()).default([]),
     notes: z.string().max(500).optional(),
+    needsHrLetter: z.boolean().default(false),
+    invitationLetter: AttachmentSchema.optional().nullable(),
+    linkedHrLetterRequestId: z.string().optional(),
   })
   .strict()
 
@@ -148,6 +154,8 @@ export const VisaApplicationFormSchema = z
     additionalAttachments: z.any().optional(),
     ccEmails: z.array(z.string().email()).default([]),
     notes: z.string().max(500).optional(),
+    needsHrLetter: z.boolean().default(false),
+    invitationLetter: z.any().optional(),
   })
   .strict()
 
@@ -185,6 +193,8 @@ export const HotelFlightReservationFormSchema = z
     additionalAttachments: z.any().optional(),
     ccEmails: z.array(z.string().email()).default([]),
     notes: z.string().max(500).optional(),
+    needsHrLetter: z.boolean().default(false),
+    invitationLetter: z.any().optional(),
   })
   .strict()
 
