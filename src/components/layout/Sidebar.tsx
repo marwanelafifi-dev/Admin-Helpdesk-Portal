@@ -33,13 +33,28 @@ import {
   Info,
   Calculator,
   Receipt,
+  Headphones,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { canAccessPath, canAccessModule, type UserWithModuleAccess } from "@/lib/access"
+import { canAccessPath, canAccessModule, getFirstAllowedPlatformAdminPath, type UserWithModuleAccess } from "@/lib/access"
 import { modulesVisibleToFunction } from "@/lib/functionRegistry"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { useUnreadNotices } from "@/hooks/useUnreadNotices"
 import { useMobileNav } from "./MobileNavContext"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+
+const PORTAL_SWITCHER_ITEMS: { key: "admin" | "hr" | "finance"; name: string; href: string; icon: React.ElementType }[] = [
+  { key: "admin", name: "Administration Team", href: "/departments/admin", icon: Building2 },
+  { key: "hr", name: "HR Team", href: "/departments/hr/services", icon: Users },
+  { key: "finance", name: "Finance Team", href: "/departments/finance/services", icon: Calculator },
+]
 
 interface NavItem {
   title: string
@@ -199,6 +214,8 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
   const permissions = session?.user?.permissions ?? []
   const role = session?.user?.role
   const { open: mobileOpen } = useMobileNav()
+  const platformAdminPath = getFirstAllowedPlatformAdminPath(permissions, role)
+  const itServiceDeskUrl = process.env.NEXT_PUBLIC_IT_SERVICE_DESK_URL
 
   // Per-module "new" request counts and todo task count.
   // Drives small badges next to sidebar items so admins can see at a glance
@@ -546,6 +563,57 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
           )
         })}
       </nav>
+
+      {/* Switch Portal — fixed at the bottom regardless of nav scroll
+          position, available from every portal (Admin/HR/Finance/Platform
+          Admin). Opens a dropdown to jump straight to another support
+          function's services hub, instead of routing through /landing. */}
+      <div className="border-t border-slate-700 p-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              title={collapsed ? "Switch Portal" : undefined}
+              className={cn(
+                "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors",
+                collapsed && "justify-center"
+              )}
+            >
+              <Building2 className="h-5 w-5 flex-shrink-0" />
+              {!collapsed && <span className="flex-1 text-left whitespace-nowrap truncate">Switch Portal</span>}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="top" align={collapsed ? "center" : "start"} className="w-56">
+            <DropdownMenuLabel>Switch Portal</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {PORTAL_SWITCHER_ITEMS.map((item) => (
+              <DropdownMenuItem
+                key={item.key}
+                onClick={() => router.push(item.href)}
+                className={cn(portal === item.key && "bg-accent")}
+              >
+                <item.icon className="mr-2 h-4 w-4" />
+                {item.name}
+              </DropdownMenuItem>
+            ))}
+            {platformAdminPath && (
+              <DropdownMenuItem onClick={() => router.push(platformAdminPath)} className={cn(portal === "platform-admin" && "bg-accent")}>
+                <Shield className="mr-2 h-4 w-4" />
+                Platform Administration
+              </DropdownMenuItem>
+            )}
+            {itServiceDeskUrl && (
+              <DropdownMenuItem onClick={() => window.open(itServiceDeskUrl, "_blank", "noopener,noreferrer")}>
+                <Headphones className="mr-2 h-4 w-4" />
+                IT Service Desk
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => router.push("/landing")}>
+              View all support functions
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
       {/* Collapse toggle */}
       <div className="border-t border-slate-700 p-2">

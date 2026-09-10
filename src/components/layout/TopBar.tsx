@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Image from "next/image"
 import { signOut, useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { Bell, Building2, LogOut, Menu, Settings, Shield, Sun, Moon, User } from "lucide-react"
+import { Bell, LogOut, Menu, Settings, Shield, Sun, Moon, User } from "lucide-react"
 import { useMobileNav } from "./MobileNavContext"
 import { useTheme } from "next-themes"
 import { getFirstAllowedPlatformAdminPath } from "@/lib/access"
@@ -132,18 +132,6 @@ export function TopBar() {
 
       {/* Right: actions */}
       <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-        <Button
-          variant="outline"
-          size="sm"
-          title="Return to the Support Functions directory and select another department"
-          onClick={() => router.push("/landing")}
-          className="gap-2 border-slate-200 bg-slate-50 px-2.5 font-semibold text-slate-700 shadow-sm hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 sm:px-3 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-blue-700 dark:hover:bg-blue-950"
-        >
-          <Building2 className="h-5 w-5" />
-          <span className="hidden sm:inline">Switch Department</span>
-          <span className="sm:hidden">Switch</span>
-        </Button>
-
         {/* Platform Admin — global superadmin tools, independent of any
             business function's portal. Only shown to users who can reach
             at least one of those pages. */}
