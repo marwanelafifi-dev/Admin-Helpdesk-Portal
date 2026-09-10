@@ -34,10 +34,24 @@ import {
   Calculator,
   Receipt,
   Headphones,
+  Globe,
+  Link2,
+  BookOpen,
+  Send,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { canAccessPath, canAccessModule, getFirstAllowedPlatformAdminPath, type UserWithModuleAccess } from "@/lib/access"
-import { modulesVisibleToFunction } from "@/lib/functionRegistry"
+import { modulesVisibleToFunction, canManageIntranetContent, type IntranetOwner } from "@/lib/functionRegistry"
+
+// Which announcement-owner(s) a sidebar "Send Announcements" link maps to —
+// used to hide the link entirely for roles that can't manage any of them.
+// The Intranet's link is flexible (any owner the viewer can manage), so it
+// lists all four; the per-portal links are locked to their own team.
+const ANNOUNCEMENT_HREF_OWNERS: Record<string, IntranetOwner[]> = {
+  "/departments/hr/announcements": ["hr"],
+  "/departments/finance/announcements": ["finance"],
+  "/departments/intranet/announcements": ["company", "admin", "hr", "finance"],
+}
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { useUnreadNotices } from "@/hooks/useUnreadNotices"
 import { useMobileNav } from "./MobileNavContext"
@@ -50,10 +64,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-const PORTAL_SWITCHER_ITEMS: { key: "admin" | "hr" | "finance"; name: string; href: string; icon: React.ElementType }[] = [
+const PORTAL_SWITCHER_ITEMS: { key: "admin" | "hr" | "finance" | "intranet"; name: string; href: string; icon: React.ElementType }[] = [
   { key: "admin", name: "Administration Team", href: "/departments/admin", icon: Building2 },
   { key: "hr", name: "HR Team", href: "/departments/hr/services", icon: Users },
   { key: "finance", name: "Finance Team", href: "/departments/finance/services", icon: Calculator },
+  { key: "intranet", name: "Intranet", href: "/departments/intranet", icon: Globe },
 ]
 
 interface NavItem {
@@ -134,8 +149,10 @@ const hrNavItems: NavItem[] = [
       { title: "Feedback & Reports", href: "/departments/hr/feedback", icon: BarChart3 },
       { title: "Team Tasks", href: "/departments/hr/tasks", icon: CheckSquare },
       { title: "All Requests", href: "/departments/hr/all-requests", icon: ClipboardList },
+      { title: "Send Announcements", href: "/departments/hr/announcements", icon: Megaphone },
     ],
   },
+  { title: "Announcements", href: "/departments/hr/news", icon: Megaphone },
   // Requester-facing module pages live outside the HR Team group — one entry
   // per HR module (mirrors "General Request" sitting outside "Administration
   // Team" in the admin sidebar). Add new HR modules here as they're built.
@@ -153,16 +170,29 @@ const financeNavItems: NavItem[] = [
       { title: "Dashboard", href: "/departments/finance", icon: LayoutDashboard },
       { title: "Team Tasks", href: "/departments/finance/tasks", icon: CheckSquare },
       { title: "All Requests", href: "/departments/finance/all-requests", icon: ClipboardList },
+      { title: "Send Announcements", href: "/departments/finance/announcements", icon: Megaphone },
     ],
   },
+  { title: "Announcements", href: "/departments/finance/news", icon: Megaphone },
   // Requester-facing module pages live outside the Finance Team group — one
   // entry per Finance module. Add new Finance modules here as they're built.
   { title: "Reimbursement Request", href: "/departments/finance/reimbursement", icon: Receipt },
 ]
 
+// Intranet is content, not a request workflow — flat nav, no "Team" group
+// with Dashboard/Team Tasks/All Requests like Admin/HR/Finance have.
+const intranetNavItems: NavItem[] = [
+  { title: "Intranet Home", href: "/departments/intranet", icon: LayoutDashboard },
+  { title: "Company News", href: "/departments/intranet/news", icon: Megaphone },
+  { title: "Send Announcements", href: "/departments/intranet/announcements", icon: Send },
+  { title: "Quick Links", href: "/departments/intranet/quick-links", icon: Link2 },
+  { title: "Employee Directory", href: "/departments/intranet/directory", icon: UsersRound },
+  { title: "Document Library", href: "/departments/intranet/documents", icon: BookOpen },
+]
+
 const SETTINGS_KEY = "arp_platform_settings"
 
-export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finance" | "platform-admin" }) {
+export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finance" | "platform-admin" | "intranet" }) {
   const pathname = usePathname()
   const router = useRouter()
   const { data: session, status } = useSession()
@@ -177,7 +207,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
     return () => window.removeEventListener("arp:toggle-sidebar", onToggle)
   }, [])
   const [brandName, setBrandName] = useState(
-    portal === "hr" ? "HR Portal" : portal === "finance" ? "Finance Portal" : portal === "platform-admin" ? "Platform Admin" : "Admin Portal"
+    portal === "hr" ? "HR Portal" : portal === "finance" ? "Finance Portal" : portal === "intranet" ? "Intranet Portal" : portal === "platform-admin" ? "Platform Admin" : "Admin Portal"
   )
   const [brandSubtitle, setBrandSubtitle] = useState("Si-Ware Systems")
   const [administrationExpanded, setAdministrationExpanded] = useState(
@@ -213,6 +243,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
 
   const permissions = session?.user?.permissions ?? []
   const role = session?.user?.role
+  const intranetOwners = (session?.user as any)?.intranetOwners as IntranetOwner[] | undefined
   const { open: mobileOpen } = useMobileNav()
   const platformAdminPath = getFirstAllowedPlatformAdminPath(permissions, role)
   const itServiceDeskUrl = process.env.NEXT_PUBLIC_IT_SERVICE_DESK_URL
@@ -230,7 +261,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
   const source = searchParams.get("source")
 
   useEffect(() => {
-    if (portal === "hr" || portal === "finance" || portal === "platform-admin") return
+    if (portal === "hr" || portal === "finance" || portal === "platform-admin" || portal === "intranet") return
     try {
       const raw = localStorage.getItem(SETTINGS_KEY)
       if (raw) {
@@ -265,6 +296,14 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
         return false
       }
 
+      // "Send Announcements" links aren't permission-gated by path (same
+      // convention as other /departments/* pages), so hide them here for
+      // anyone who couldn't actually manage any of the owners they'd post as.
+      const announcementOwners = ANNOUNCEMENT_HREF_OWNERS[href]
+      if (announcementOwners && !announcementOwners.some((o) => canManageIntranetContent(o, role, intranetOwners))) {
+        return false
+      }
+
       // Check module-level access restrictions
       const mod = moduleForHref(href)
       if (mod) {
@@ -282,7 +321,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
 
       return true
     },
-    [status, permissions, role, session?.user?.id, session?.user?.email, session?.user?.role, moduleForHref]
+    [status, permissions, role, intranetOwners, session?.user?.id, session?.user?.email, session?.user?.role, moduleForHref]
   )
 
   // Pre-compute the all-requests total once instead of recomputing on every call
@@ -294,7 +333,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
   // existence of another function's exclusive requests (e.g. hr_general,
   // finance_reimbursement).
   const visibleModuleKeys = useMemo(
-    () => (role === "Full Access" || portal === "platform-admin" ? null : new Set(modulesVisibleToFunction(portal))),
+    () => (role === "Full Access" || portal === "platform-admin" || portal === "intranet" ? null : new Set(modulesVisibleToFunction(portal))),
     [role, portal]
   )
   const allRequestsTotal = useMemo(() =>
@@ -315,7 +354,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
     return 0
   }, [unreadNotices, isAdminAudience, newTasksCount, allRequestsTotal, newRequestsByModule, moduleForHref])
 
-  const navItemsForPortal = portal === "hr" ? hrNavItems : portal === "finance" ? financeNavItems : portal === "platform-admin" ? platformAdminNavItems : adminNavItems
+  const navItemsForPortal = portal === "hr" ? hrNavItems : portal === "finance" ? financeNavItems : portal === "intranet" ? intranetNavItems : portal === "platform-admin" ? platformAdminNavItems : adminNavItems
 
   const visibleNavItems = useMemo(() =>
     navItemsForPortal.reduce<NavItem[]>((items, item) => {
@@ -338,6 +377,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
       return pathname.startsWith("/departments/hr/letter")
     }
     if (href === "/departments/finance") return pathname === "/departments/finance"
+    if (href === "/departments/intranet") return pathname === "/departments/intranet"
     if (href === "/departments/finance/reimbursement") {
       return pathname.startsWith("/departments/finance/reimbursement") || pathname.startsWith("/departments/finance/requests/")
     }

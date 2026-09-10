@@ -1,5 +1,6 @@
 import fs from "fs"
 import path from "path"
+import type { IntranetOwner } from "./functionRegistry"
 
 export type AnnouncementAttachment = {
   id: string
@@ -24,6 +25,8 @@ export type AnnouncementMessage = {
   createdByEmail: string
   createdAt: string
   updatedAt: string
+  /** Which team owns/sent this announcement. Missing on legacy records — normalized to "company". */
+  owner?: IntranetOwner
 }
 
 export type AnnouncementSent = AnnouncementMessage & {
@@ -51,6 +54,7 @@ export type AnnouncementTemplate = {
   createdBy: string
   createdAt: string
   updatedAt: string
+  owner?: IntranetOwner
 }
 
 export type AnnouncementStoreData = {
@@ -136,6 +140,7 @@ function normalizeMessage<T extends Partial<AnnouncementMessage>>(message: T): T
     cc: Array.isArray(message.cc) ? message.cc : [],
     includeAllCompany: Boolean(message.includeAllCompany),
     attachments: Array.isArray(message.attachments) ? message.attachments : [],
+    owner: message.owner ?? "company",
   } as T & AnnouncementMessage
 }
 
@@ -162,6 +167,7 @@ function normalizeTemplate(template: Partial<AnnouncementTemplate>): Announcemen
     createdBy: template.createdBy ?? "System",
     createdAt: template.createdAt ?? new Date().toISOString(),
     updatedAt: template.updatedAt ?? new Date().toISOString(),
+    owner: template.owner ?? "company",
   }
 }
 

@@ -1710,3 +1710,43 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
   - [x] Current portal's entry is highlighted (`bg-accent`) in the list.
   - [x] "View all support functions" item at the bottom still routes to `/landing` for the full picker with descriptions, for anyone who wants the fuller view.
   - [x] Built with the existing Radix-based `DropdownMenu` components (`src/components/ui/dropdown-menu.tsx`) — same ones used for the TopBar user-avatar menu. Its content renders through a Radix Portal, so it isn't clipped by the sidebar's fixed positioning/overflow (the same clipping problem `AssigneeSelect` had to work around in Phase 7h with `position: fixed` doesn't apply here, since Radix already portals the content to `document.body`).
+
+## Phase 7k: Formal Intranet Portal (Completed — 10 Sep 2026)
+
+- [x] **New 5th peer portal — Intranet** — same pattern as Admin/HR/Finance/Platform Admin (own `Shell portal="intranet"`, own flat `Sidebar` nav array, own tile on `/landing`):
+  - [x] `src/app/departments/intranet/layout.tsx` mirrors `departments/hr/layout.tsx`. `Shell`/`Sidebar` `portal` prop union widened to include `"intranet"` in `Shell.tsx` and `Sidebar.tsx`.
+  - [x] `PORTAL_SWITCHER_ITEMS` gains an "Intranet" entry (`Globe` icon); `/landing`'s `baseFunctions` gains an "Intranet" tile (`bg-emerald-600` accent, ungated — open to everyone, same as the other department tiles).
+  - [x] Sidebar nav: Intranet Home, Company News, Send Announcements, Quick Links, Employee Directory, Document Library — flat, no nested "Team" group since Intranet has no request workflow.
+- [x] **Ownership model for shared content** — `src/lib/functionRegistry.ts`:
+  - [x] `IntranetOwner = "company" | FunctionId` ("company" = Administration Team's Intranet-wide bucket; "admin"/"hr"/"finance" = that function's own bucket).
+  - [x] `canManageIntranetContent(owner, role, intranetOwners?)` — the single authorization rule reused everywhere content ownership matters (see Phase 7m for the `intranetOwners` override param). Baseline: Full Access always passes; "company" → Administration Team; "admin"/"hr"/"finance" → that function's team role via `roleToFunctionId()`.
+  - [x] This is an **attribution/ownership** rule, not a confidentiality boundary — every owner's content is readable by any signed-in user; only create/edit/delete is gated per owner.
+- [x] **Quick Links** (`src/lib/quickLinksStore.ts` → `data/quick-links.json`) and **Document Library** (`src/lib/intranetDocumentsStore.ts` → `data/intranet-documents.json`, files on disk via the existing generic `uploadFile()`/`downloadFile()` from `fileStorage.ts`):
+  - [x] Both list pages (`/departments/intranet/quick-links`, `/departments/intranet/documents`) group items by owner (Company-wide / Administration Team / HR Team / Finance Team) with a per-section "+ Add" gated by `canManageIntranetContent`.
+  - [x] New API routes `POST/PATCH/DELETE /api/quick-links[/:id]` and `/api/intranet-documents[/:id]` (+ a dedicated `/api/intranet-documents/:id/download` proxy) — every mutation re-derives and re-checks the real owner server-side; GET is open to any signed-in user.
+- [x] **Employee Directory** (`/departments/intranet/directory`) — thin search UI over the existing `/api/users/directory` endpoint; no new backend.
+- [x] **Permissions**: `page:intranet-home` / `-news` / `-quick-links` / `-directory` / `-documents` added to `pageRegistry.ts` + `access.ts`, granted to every role (read is company-wide by design; real content-mutation gating is `canManageIntranetContent`, not page permissions).
+- [x] **Backup coverage**: `quick-links.json` and `intranet-documents.json` added to the `FILES` array in `/api/admin/server-data/route.ts`.
+
+## Phase 7l: Multi-Department Announcements & Standalone Per-Portal News Feeds (Completed — 10 Sep 2026)
+
+- [x] **Announcements are no longer Administration-Team-exclusive** — HR Team and Finance Team can now compose/send their own, and the Intranet has its own compose entry point too:
+  - [x] `src/lib/announcementStore.ts` — `AnnouncementMessage`/`AnnouncementTemplate` gain an `owner?: IntranetOwner` field (normalized to `"company"` for every pre-existing record — non-breaking).
+  - [x] Compose/manage UI extracted from the old `admin/announcements/page.tsx` into a shared `src/components/announcements/AnnouncementComposer.tsx` (`fixedOwner?: IntranetOwner` prop). Mounted at four thin wrapper pages: `/admin/announcements` (`fixedOwner="admin"`), `/departments/hr/announcements` (`"hr"`), `/departments/finance/announcements` (`"finance"`), `/departments/intranet/announcements` (no fixed owner — shows a "Post as" selector populated from whichever owners `canManageIntranetContent` allows the signed-in user).
+  - [x] `src/app/api/announcements/route.ts` rewritten: GET/POST/DELETE all resolve an `effectiveOwner` — trusted from the client only for Full Access (or anyone the role's `intranetOwners` override covers), otherwise forced server-side from `roleToFunctionId(role)` — so a Finance user can never tamper with the request to post as HR. DELETE looks up the record's real stored owner before authorizing.
+  - [x] `sendAnnouncementEmail()` (`src/lib/emailService.ts`) gained a `functionId?: EmailFunctionId` param, forwarded to `createTransporter()`/`resolveFromAddress()` — HR/Finance announcements now send through their own configured SMTP account if one exists, safely falling back to the shared admin account otherwise (per the existing `readEmailConfig()` fallback).
+  - [x] Sidebar: "Send Announcements" added inside the HR Team / Finance Team groups, and as a standalone Intranet item; hidden per-role via `canManageIntranetContent` (these `/departments/*` routes aren't permission-gated by path, matching the existing convention — visibility is a client-side courtesy, real enforcement is server-side).
+- [x] **Each portal's read feed is fully standalone — no aggregation between teams**:
+  - [x] Read-only feed extracted into `src/components/announcements/AnnouncementsFeed.tsx` (`scope?: IntranetOwner` prop). `GET /api/announcements/feed?scope=<owner>` filters strictly to `announcement.owner === scope` (omitting `scope` returns everything — used only by the global notification-bell hook, which intentionally needs company-wide awareness).
+  - [x] `/announcements` (Admin Portal) → `scope="admin"`. New `/departments/hr/news` → `scope="hr"`. New `/departments/finance/news` → `scope="finance"`. `/departments/intranet/news` (+ the Intranet Home page's Company News teaser) → `scope="company"` — the Intranet's own bucket only, not a combined view of every team's announcements.
+  - [x] Feed header subtitle is scope-aware (`subtitleForScope()`), e.g. "Official communications from the HR Team" vs "...from the Intranet".
+
+## Phase 7m: Intranet Content Control — Per-Role Override (Completed — 10 Sep 2026)
+
+- [x] **Replaced the hardcoded "Full Access or People Team gets everything" rule with a real, editable per-role setting**, added to Admin → Roles as a new **"Intranet Content Control"** section (mirrors the existing "Module Access Control" section's UX):
+  - [x] `StoredRole` (`src/lib/rolesStore.ts`) gains `intranetOwners?: IntranetOwner[]` — extra owner buckets (beyond the role's baseline) it can manage across Quick Links, Document Library, and Announcements.
+  - [x] `canManageIntranetContent(owner, role, intranetOwners?)` checks the override list before falling back to the baseline per-function rule; Full Access still always passes.
+  - [x] `src/auth.ts` session callback copies `role.intranetOwners` onto `session.user.intranetOwners`, same pattern as the existing `readModules`/`readAllModules`.
+  - [x] `POST /api/roles` and `PATCH /api/roles/:id` accept/persist `intranetOwners` (zod-validated against the four owner values). Admin → Roles dialog has four checkboxes (Company-wide / Administration Team / HR Team / Finance Team) backed by `formData.intranetOwners`.
+  - [x] All 12 call sites of `canManageIntranetContent` (3 client pages, Sidebar, AnnouncementComposer, and 8 API route handlers) updated to pass the signed-in user's `intranetOwners` through.
+- [x] **Added a real "People Team" role** — it existed only as a *name* the code already special-cased, but neither the repo seed nor the live deployment's `data/roles.json` actually had a role by that name (the live site only had `admin`/`manager`/`viewer`). Added with `intranetOwners: ["company","admin","hr","finance"]` to preserve the same effective access now that the hardcoded name check is gone.

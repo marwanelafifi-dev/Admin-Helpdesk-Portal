@@ -105,6 +105,7 @@ export default function AdminRolesPage() {
     pages: [] as string[],
     readModules: [] as string[],
     readAllModules: [] as string[],
+    intranetOwners: [] as string[],
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
@@ -125,7 +126,7 @@ export default function AdminRolesPage() {
 
   const openCreateDialog = () => {
     setEditingRole(null)
-    setFormData({ name: "", description: "", permissions: [], pages: [], readModules: [], readAllModules: [] })
+    setFormData({ name: "", description: "", permissions: [], pages: [], readModules: [], readAllModules: [], intranetOwners: [] })
     setError("")
     setShowDialog(true)
   }
@@ -143,6 +144,7 @@ export default function AdminRolesPage() {
       pages,
       readModules: (role as any).readModules || [],
       readAllModules: (role as any).readAllModules || [],
+      intranetOwners: (role as any).intranetOwners || [],
     })
     setError("")
     setShowDialog(true)
@@ -162,6 +164,7 @@ export default function AdminRolesPage() {
       permissions: allPermissions,
       readModules: formData.readModules,
       readAllModules: formData.readAllModules,
+      intranetOwners: formData.intranetOwners,
       companyId,
     }
 
@@ -243,6 +246,13 @@ export default function AdminRolesPage() {
 
   const MODULES = ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"] as const
 
+  const INTRANET_OWNERS = [
+    { value: "company", label: "Company-wide (Intranet)" },
+    { value: "admin", label: "Administration Team" },
+    { value: "hr", label: "HR Team" },
+    { value: "finance", label: "Finance Team" },
+  ] as const
+
   const toggleModule = (module: string) => {
     setFormData((current) => {
       const isSelected = current.readModules.includes(module)
@@ -276,6 +286,15 @@ export default function AdminRolesPage() {
       readAllModules: current.readAllModules.includes(module)
         ? current.readAllModules.filter((m) => m !== module)
         : [...current.readAllModules, module],
+    }))
+  }
+
+  const toggleIntranetOwner = (owner: string) => {
+    setFormData((current) => ({
+      ...current,
+      intranetOwners: current.intranetOwners.includes(owner)
+        ? current.intranetOwners.filter((o) => o !== owner)
+        : [...current.intranetOwners, owner],
     }))
   }
 
@@ -516,6 +535,28 @@ export default function AdminRolesPage() {
                     </div>
                     <p className="text-xs text-gray-500 mt-1">Note: Can only enable for modules they have access to above</p>
                   </div>
+                </div>
+              </div>
+
+              {/* Intranet Content Control */}
+              <div className="space-y-3 border-t pt-4">
+                <Label className="text-sm font-semibold block">Intranet Content Control</Label>
+                <p className="text-xs text-gray-600 mb-3">
+                  Beyond their own team's bucket, which Intranet owner groups can this role manage across Quick Links, Document Library, and Announcements? Full Access can always manage every group regardless of these checkboxes.
+                </p>
+                <div className="grid grid-cols-2 gap-2 p-3 border rounded-lg bg-purple-50">
+                  {INTRANET_OWNERS.map((owner) => (
+                    <label
+                      key={owner.value}
+                      className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded"
+                    >
+                      <Checkbox
+                        checked={formData.intranetOwners.includes(owner.value)}
+                        onCheckedChange={() => toggleIntranetOwner(owner.value)}
+                      />
+                      <span className="text-sm font-medium">{owner.label}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
             </div>

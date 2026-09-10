@@ -1,7 +1,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { Building2, Calculator, ChevronRight, Headphones, Shield, Users } from "lucide-react"
+import { Building2, Calculator, ChevronRight, Globe, Headphones, Shield, Users } from "lucide-react"
 import { auth } from "@/auth"
 import { LandingTopBar } from "@/components/layout/LandingTopBar"
 import { getFirstAllowedPlatformAdminPath } from "@/lib/access"
@@ -41,6 +41,14 @@ const baseFunctions: SupportFunction[] = [
     href: "/departments/finance/services",
     icon: Calculator,
     accent: "bg-amber-600",
+    status: "Available",
+  },
+  {
+    name: "Intranet",
+    description: "Company news, quick links, employee directory, and document library.",
+    href: "/departments/intranet",
+    icon: Globe,
+    accent: "bg-emerald-600",
     status: "Available",
   },
   {

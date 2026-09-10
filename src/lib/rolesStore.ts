@@ -1,6 +1,7 @@
 import fs from "fs"
 import path from "path"
 import type { CompanyId } from "@/lib/userCompany"
+import type { IntranetOwner } from "@/lib/functionRegistry"
 
 export type StoredRole = {
   id: string
@@ -9,6 +10,8 @@ export type StoredRole = {
   permissions: string[]
   readModules?: string[]
   readAllModules?: string[]
+  /** Extra Intranet owner buckets (Quick Links/Documents/Announcements) this role can manage, beyond its baseline. See canManageIntranetContent(). */
+  intranetOwners?: IntranetOwner[]
   createdAt: string
   updatedAt: string
   companyId?: CompanyId

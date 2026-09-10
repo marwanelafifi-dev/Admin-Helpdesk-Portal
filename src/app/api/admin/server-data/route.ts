@@ -42,6 +42,10 @@ const FILES: ServerDataFile[] = [
   // Attachment metadata — clearable only; actual files live on disk in ~/admin-helpdesk-Attachments
   { filename: "attachments.json",  user_data: true,  clearable: true  },
   { filename: "notifications.json", user_data: true,  clearable: true  },
+  { filename: "quick-links.json",   user_data: true,  clearable: true  },
+  // Intranet document metadata — clearable only; file bytes live on disk
+  // alongside request attachments, same caveat as attachments.json above.
+  { filename: "intranet-documents.json", user_data: true, clearable: true },
   // Never clear these — admins would lock themselves out.
   { filename: "users.json",        user_data: true,  clearable: false },
   { filename: "roles.json",        user_data: true,  clearable: false },

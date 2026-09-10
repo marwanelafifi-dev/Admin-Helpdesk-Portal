@@ -75,6 +75,15 @@ export const PAGES: PageDefinition[] = [
   { id: "admin-company-data-buchi", label: "Company Data - BUCHI (Admin)", path: "/admin/company-data/buchi", group: "Admin" },
   { id: "admin-audit",         label: "Audit Trail (Admin)",   path: "/admin/audit-trail",    group: "Admin" },
   { id: "admin-database",      label: "Database (Admin)",      path: "/admin/database",       group: "Admin" },
+
+  // Intranet — company-wide content (news, links, directory, documents).
+  // Read access is open to every role; editing is gated separately per
+  // owner group via canManageIntranetContent(), not by these page permissions.
+  { id: "intranet-home",          label: "Intranet Home",             path: "/departments/intranet",              group: "Intranet" },
+  { id: "intranet-news",          label: "Intranet Company News",     path: "/departments/intranet/news",         group: "Intranet" },
+  { id: "intranet-quick-links",   label: "Intranet Quick Links",      path: "/departments/intranet/quick-links",  group: "Intranet" },
+  { id: "intranet-directory",     label: "Intranet Employee Directory", path: "/departments/intranet/directory",  group: "Intranet" },
+  { id: "intranet-documents",     label: "Intranet Document Library", path: "/departments/intranet/documents",    group: "Intranet" },
 ]
 
 /** The permission string for a given page id, e.g. "dashboard" -> "page:dashboard". */

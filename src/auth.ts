@@ -239,6 +239,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (role) {
           ;(session.user as any).readModules = role.readModules || []
           ;(session.user as any).readAllModules = role.readAllModules || []
+          ;(session.user as any).intranetOwners = role.intranetOwners || []
         }
       }
       return session

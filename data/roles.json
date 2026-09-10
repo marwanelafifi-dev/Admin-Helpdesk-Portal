@@ -55,10 +55,16 @@
       "page:admin-database",
       "page:admin-notifications",
       "page:admin-announcements",
-      "page:admin-company-data"
+      "page:admin-company-data",
+      "page:intranet-home",
+      "page:intranet-news",
+      "page:intranet-quick-links",
+      "page:intranet-directory",
+      "page:intranet-documents"
     ],
     "createdAt": "2026-05-13T07:43:15.697Z",
-    "updatedAt": "2026-06-23T12:00:00.000Z"
+    "updatedAt": "2026-06-23T12:00:00.000Z",
+    "companyId": "si_ware"
   },
   {
     "id": "role-admin",
@@ -114,10 +120,16 @@
       "page:admin-notifications",
       "page:admin-company-data",
       "page:admin-audit",
-      "page:admin-database"
+      "page:admin-database",
+      "page:intranet-home",
+      "page:intranet-news",
+      "page:intranet-quick-links",
+      "page:intranet-directory",
+      "page:intranet-documents"
     ],
     "createdAt": "2026-05-13T07:43:15.697Z",
-    "updatedAt": "2026-06-23T12:00:00.000Z"
+    "updatedAt": "2026-06-23T12:00:00.000Z",
+    "companyId": "si_ware"
   },
   {
     "id": "role-manager",
@@ -159,10 +171,17 @@
       "page:travel",
       "page:travel-new",
       "page:general",
-      "page:general-new"
+      "page:general-new",
+      "page:intranet-home",
+      "page:intranet-news",
+      "page:intranet-quick-links",
+      "page:intranet-directory",
+      "page:intranet-documents"
     ],
+    "intranetOwners": ["company", "admin", "hr", "finance"],
     "createdAt": "2026-05-13T07:43:15.697Z",
-    "updatedAt": "2026-06-23T12:00:00.000Z"
+    "updatedAt": "2026-06-23T12:00:00.000Z",
+    "companyId": "si_ware"
   },
   {
     "id": "role-finance-team",
@@ -185,10 +204,16 @@
       "page:system-notices",
       "page:my-requests",
       "page:request-detail",
-      "page:team-requests"
+      "page:team-requests",
+      "page:intranet-home",
+      "page:intranet-news",
+      "page:intranet-quick-links",
+      "page:intranet-directory",
+      "page:intranet-documents"
     ],
     "createdAt": "2026-09-04T00:00:00.000Z",
-    "updatedAt": "2026-09-04T00:00:00.000Z"
+    "updatedAt": "2026-09-04T00:00:00.000Z",
+    "companyId": "si_ware"
   },
   {
     "id": "role-requester",
@@ -217,27 +242,131 @@
       "page:travel",
       "page:travel-new",
       "page:general",
-      "page:general-new"
+      "page:general-new",
+      "page:intranet-home",
+      "page:intranet-news",
+      "page:intranet-quick-links",
+      "page:intranet-directory",
+      "page:intranet-documents"
     ],
     "createdAt": "2026-05-13T07:43:15.697Z",
-    "readModules": ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"],
+    "readModules": [
+      "shipping",
+      "maintenance",
+      "purchase",
+      "event",
+      "travel",
+      "hr",
+      "general"
+    ],
     "readAllModules": [],
-    "updatedAt": "2026-09-01T00:00:00.000Z"
+    "updatedAt": "2026-09-01T00:00:00.000Z",
+    "companyId": "si_ware"
   },
   {
     "id": "role-requester-buchi",
     "name": "Requester - BUCHI",
     "description": "BUCHI users can submit and track their own requests (Shipping excluded)",
     "permissions": [
-      "create", "read_own", "view_details", "activity", "manage_cc",
-      "page:announcements", "page:system-notices", "page:my-requests", "page:request-detail",
-      "page:maintenance", "page:maintenance-new", "page:purchase", "page:purchase-new",
-      "page:event", "page:event-new", "page:travel", "page:travel-new",
-      "page:general", "page:general-new"
+      "create",
+      "read_own",
+      "view_details",
+      "activity",
+      "manage_cc",
+      "page:announcements",
+      "page:system-notices",
+      "page:my-requests",
+      "page:request-detail",
+      "page:maintenance",
+      "page:maintenance-new",
+      "page:purchase",
+      "page:purchase-new",
+      "page:event",
+      "page:event-new",
+      "page:travel",
+      "page:travel-new",
+      "page:general",
+      "page:general-new",
+      "page:intranet-home",
+      "page:intranet-news",
+      "page:intranet-quick-links",
+      "page:intranet-directory",
+      "page:intranet-documents"
     ],
-    "readModules": ["maintenance", "purchase", "event", "travel", "hr", "general"],
+    "readModules": [
+      "maintenance",
+      "purchase",
+      "event",
+      "travel",
+      "hr",
+      "general"
+    ],
     "readAllModules": [],
     "createdAt": "2026-09-01T00:00:00.000Z",
-    "updatedAt": "2026-09-01T00:00:00.000Z"
+    "updatedAt": "2026-09-01T00:00:00.000Z",
+    "companyId": "buchi"
+  },
+  {
+    "id": "role-manager-buchi",
+    "name": "Manager - BUCHI",
+    "description": "BUCHI management access to team requests (Shipping excluded)",
+    "permissions": [
+      "create",
+      "read",
+      "read_own",
+      "update",
+      "update_status",
+      "delete",
+      "edit_request",
+      "cancel_request",
+      "view_details",
+      "activity",
+      "manage_cc",
+      "assign_requests",
+      "page:announcements",
+      "page:system-notices",
+      "page:tasks",
+      "page:my-requests",
+      "page:request-detail",
+      "page:team-requests",
+      "page:hr",
+      "page:hr-new",
+      "page:hr-onboarding",
+      "page:hr-offboarding",
+      "page:maintenance",
+      "page:maintenance-new",
+      "page:purchase",
+      "page:purchase-new",
+      "page:event",
+      "page:event-new",
+      "page:travel",
+      "page:travel-new",
+      "page:general",
+      "page:general-new",
+      "page:intranet-home",
+      "page:intranet-news",
+      "page:intranet-quick-links",
+      "page:intranet-directory",
+      "page:intranet-documents"
+    ],
+    "readModules": [
+      "maintenance",
+      "purchase",
+      "event",
+      "travel",
+      "hr",
+      "general"
+    ],
+    "readAllModules": [
+      "maintenance",
+      "purchase",
+      "event",
+      "travel",
+      "hr",
+      "general"
+    ],
+    "createdAt": "2026-09-10T11:59:27.565Z",
+    "updatedAt": "2026-09-10T11:59:27.565Z",
+    "companyId": "buchi"
   }
 ]

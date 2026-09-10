@@ -428,6 +428,7 @@ export async function sendAnnouncementEmail(params: {
   signature?: string
   signatureLogo?: string
   senderName?: string
+  functionId?: EmailFunctionId
   attachments?: Array<{
     filename: string
     content: Buffer
@@ -437,7 +438,7 @@ export async function sendAnnouncementEmail(params: {
   const recipients = Array.from(new Set(params.to.filter(Boolean)))
   if (recipients.length === 0) return
 
-  const transporter = createTransporter()
+  const transporter = createTransporter(params.functionId ?? "admin")
   const logoBuffer = getLogoBuffer()
   const bodyHtml = params.body
     .split(/\r?\n/)
@@ -548,7 +549,7 @@ export async function sendAnnouncementEmail(params: {
     }
 
     await sendMailWithRetry(transporter, {
-      from: resolveFromAddress("Si-Ware Admin Helpdesk"),
+      from: resolveFromAddress("Si-Ware Admin Helpdesk", params.functionId ?? "admin"),
       to: recipient,
       cc: params.cc?.filter(Boolean),
       subject: params.subject,

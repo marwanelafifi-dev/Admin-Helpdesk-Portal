@@ -11,11 +11,15 @@ import {
 } from "@/lib/announcementStore"
 import { readUsers } from "@/lib/userStore"
 import { sendAnnouncementEmail } from "@/lib/emailService"
+import { canManageIntranetContent, type IntranetOwner } from "@/lib/functionRegistry"
 
 export const runtime = "nodejs"
 
+const VALID_OWNERS: IntranetOwner[] = ["company", "admin", "hr", "finance"]
+
 type Payload = {
   mode?: "send" | "draft" | "template"
+  owner?: IntranetOwner
   id?: string
   templateName?: string
   subject?: string
@@ -30,12 +34,6 @@ type Payload = {
   scheduleDayOfWeek?: number
   scheduledAt?: string
   attachments?: AnnouncementAttachment[]
-}
-
-function isAdmin(session: any) {
-  const role = session?.user?.role
-  const perms = (session?.user?.permissions as string[] | undefined) ?? []
-  return role === "Full Access" || perms.includes("*") || perms.includes("settings") || perms.includes("page:admin-announcements")
 }
 
 function cleanEmails(values: unknown): string[] {
@@ -56,10 +54,46 @@ function dataUrlToEmailAttachment(att: AnnouncementAttachment) {
   }
 }
 
-export async function GET() {
+/**
+ * The owner a non-Full-Access caller is allowed to act as, derived strictly
+ * from their real role — never trust a client-supplied owner for anyone but
+ * Full Access, or a Finance user could tamper with the request body to post
+ * as "hr".
+ */
+function effectiveOwnerFor(session: any, requestedOwner: unknown, intranetOwners?: IntranetOwner[]): IntranetOwner {
+  const role = session?.user?.role
+  if (
+    VALID_OWNERS.includes(requestedOwner as IntranetOwner)
+    && canManageIntranetContent(requestedOwner as IntranetOwner, role, intranetOwners)
+  ) {
+    return requestedOwner as IntranetOwner
+  }
+  if (role === "Administration Team") return "admin"
+  if (role === "People Team") return "hr"
+  if (role === "Finance Team") return "finance"
+  return "company"
+}
+
+export async function GET(req: NextRequest) {
   const session = await auth()
-  if (!session?.user || !isAdmin(session)) {
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const ownerParam = new URL(req.url).searchParams.get("owner")
+  if (!VALID_OWNERS.includes(ownerParam as IntranetOwner)) {
+    return NextResponse.json({ error: "owner query param is required" }, { status: 400 })
+  }
+  const owner = ownerParam as IntranetOwner
+  if (!canManageIntranetContent(owner, session.user.role, (session.user as any).intranetOwners)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
+  const store = readAnnouncementStore()
+  const data = {
+    sent: store.sent.filter((item) => (item.owner ?? "company") === owner),
+    drafts: store.drafts.filter((item) => (item.owner ?? "company") === owner),
+    templates: store.templates.filter((item) => (item.owner ?? "company") === owner),
   }
 
   const users = readUsers()
@@ -67,16 +101,22 @@ export async function GET() {
     .map((user) => ({ id: user.id, name: user.name, email: user.email, role: user.role }))
     .sort((a, b) => a.name.localeCompare(b.name))
 
-  return NextResponse.json({ data: readAnnouncementStore(), users })
+  return NextResponse.json({ data, users })
 }
 
 export async function POST(req: NextRequest) {
   const session = await auth()
-  if (!session?.user || !isAdmin(session)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   const body = (await req.json()) as Payload
+  const intranetOwners = (session.user as any).intranetOwners as IntranetOwner[] | undefined
+  const owner = effectiveOwnerFor(session, body.owner, intranetOwners)
+  if (!canManageIntranetContent(owner, session.user.role, intranetOwners)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
   const now = new Date().toISOString()
   const id = body.id || `ANN-${Date.now()}`
   const subject = (body.subject ?? "").trim()
@@ -95,6 +135,7 @@ export async function POST(req: NextRequest) {
     }
     const template = saveAnnouncementTemplate({
       id,
+      owner,
       name,
       subject,
       body: messageBody,
@@ -122,6 +163,7 @@ export async function POST(req: NextRequest) {
 
   const message = {
     id,
+    owner,
     subject,
     body: messageBody,
     signature,
@@ -158,6 +200,7 @@ export async function POST(req: NextRequest) {
       signature: message.signature,
       signatureLogo: message.signatureLogo,
       senderName: message.createdBy,
+      functionId: owner === "company" ? "admin" : owner,
       attachments: attachments.map(dataUrlToEmailAttachment).filter(Boolean) as any[],
     })
   } catch (emailError) {
@@ -177,8 +220,8 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const session = await auth()
-  if (!session?.user || !isAdmin(session)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   const url = new URL(req.url)
@@ -186,6 +229,15 @@ export async function DELETE(req: NextRequest) {
   const id = url.searchParams.get("id")
   if ((type !== "drafts" && type !== "templates") || !id) {
     return NextResponse.json({ error: "Invalid delete request" }, { status: 400 })
+  }
+
+  const store = readAnnouncementStore()
+  const record = store[type].find((item) => item.id === id)
+  if (!record) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
+  if (!canManageIntranetContent(record.owner ?? "company", session.user.role, (session.user as any).intranetOwners)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
   return NextResponse.json({ success: deleteAnnouncementRecord(type, id) })
