@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { MarkdownDisplay } from "@/components/ui/MarkdownDisplay"
+import { MANAGER_APPROVAL_MODULES } from "@/lib/functionRegistry"
 
 const STATUS_COLORS: Record<string, string> = {
   draft:             "bg-zinc-100 text-zinc-600",
@@ -237,7 +238,7 @@ export default function RequestDetailPage() {
 
       // Update in engineService
       await updateStatus(request.id, newStatus as any, currentUserId)
-      if ((request.module === "purchase" || request.module === "shipping" || request.module === "finance_reimbursement") && newStatus === "awaiting_approval" && oldStatus !== newStatus) {
+      if ((MANAGER_APPROVAL_MODULES as readonly string[]).includes(request.module) && newStatus === "awaiting_approval" && oldStatus !== newStatus) {
         setApprovalEmailStatus({
           type: "success",
           message: "Approval email sent to the Direct Manager.",
@@ -861,10 +862,10 @@ export default function RequestDetailPage() {
               </div>
             )}
 
-            {(request.module === "purchase" || request.module === "shipping" || request.module === "travel" || request.module === "finance_reimbursement") && request.status === "awaiting_approval" && (
+            {(MANAGER_APPROVAL_MODULES as readonly string[]).includes(request.module) && request.status === "awaiting_approval" && (
               <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-sm font-medium text-amber-800">{request.module === "travel" ? "Authorized Manager" : "Direct Manager"} approval is required</p>
+                  <p className="text-sm font-medium text-amber-800">{["travel", "finance_travel_reimbursement"].includes(request.module) ? "Authorized Manager" : "Direct Manager"} approval is required</p>
                   {approvalEmailStatus.message && (
                     <p className={cn(
                       "mt-1 text-xs",

@@ -59,7 +59,25 @@ export const MODULE_REGISTRY: Record<string, ModuleOwnership> = {
 
   // Finance Team's own service modules.
   finance_reimbursement: { owner: "finance" },
+  finance_travel_reimbursement: { owner: "finance" },
+  finance_invoice_payment: { owner: "finance" },
 }
+
+/**
+ * Modules where submitting past "New" triggers a manager-approval email
+ * (signed one-click Approve/Reject links). Single source of truth for the
+ * three call sites that previously hardcoded this list separately:
+ * `engineService.ts`'s awaiting-approval trigger, `send-approval-email`'s
+ * module gate/dispatch, and the request-detail page's approval banner.
+ */
+export const MANAGER_APPROVAL_MODULES = [
+  "purchase",
+  "shipping",
+  "travel",
+  "finance_reimbursement",
+  "finance_travel_reimbursement",
+  "finance_invoice_payment",
+] as const
 
 /** True if `fn` is allowed to see requests from `moduleId`. Unregistered module ids are hidden from everyone by default. */
 export function isModuleVisibleToFunction(moduleId: string, fn: FunctionId): boolean {
@@ -114,6 +132,23 @@ export function roleToFunctionId(role?: string | null): FunctionId | null {
   if (role === "People Team") return "hr"
   if (role === "Finance Team") return "finance"
   return null
+}
+
+/**
+ * Whether `role`'s own function owns/shares every module in `moduleIds` —
+ * used by a function-exclusive module's list/aggregate page to decide "show
+ * every request" vs "show only my own". This is deliberately separate from
+ * the legacy `readModules`/`readAllModules` per-role opt-in arrays in
+ * `access.ts`, which were built for *cross-function* grants (e.g. a Finance
+ * user also reading Travel/Maintenance) and were never populated for a
+ * function's own team role on its own exclusive modules — relying on that
+ * mechanism here would show an empty list to e.g. every real "Finance Team"
+ * user, including on their own submissions.
+ */
+export function canViewAllInOwnFunctionModules(moduleIds: string[], role?: string | null): boolean {
+  if (role === "Full Access") return true
+  const fn = roleToFunctionId(role)
+  return !!fn && moduleIds.every((m) => isModuleVisibleToFunction(m, fn))
 }
 
 /**

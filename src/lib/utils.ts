@@ -69,6 +69,19 @@ export function getSearchablePayloadText(request: EngineRequest): string {
     case "general":
       // General module doesn't have specific payload fields to search
       break
+    case "finance_reimbursement":
+      if (payload.costCenter) searchableParts.push(String(payload.costCenter))
+      if (Array.isArray(payload.poNumbers)) searchableParts.push(payload.poNumbers.join(" "))
+      if (payload.directManager) searchableParts.push(String(payload.directManager))
+      break
+    case "finance_travel_reimbursement":
+      if (payload.costCenter) searchableParts.push(String(payload.costCenter))
+      if (payload.authorizedManager) searchableParts.push(String(payload.authorizedManager))
+      break
+    case "finance_invoice_payment":
+      if (payload.supplier) searchableParts.push(String(payload.supplier))
+      if (Array.isArray(payload.poNumbers)) searchableParts.push(payload.poNumbers.join(" "))
+      break
   }
 
   return searchableParts.join(" ")

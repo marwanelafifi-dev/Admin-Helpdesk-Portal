@@ -66,6 +66,8 @@ const MODULE_COLORS: Record<string, string> = {
   hr_letter: "#0891b2",
   general: "#6366f1",
   finance_reimbursement: "#d97706",
+  finance_travel_reimbursement: "#f59e0b",
+  finance_invoice_payment: "#b45309",
 }
 
 const MODULES = ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"] as const
@@ -102,6 +104,8 @@ const MODULE_SLA_DAYS: Record<string, number> = {
   hr_letter: 5,
   general: 5,
   finance_reimbursement: 7,
+  finance_travel_reimbursement: 7,
+  finance_invoice_payment: 5,
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

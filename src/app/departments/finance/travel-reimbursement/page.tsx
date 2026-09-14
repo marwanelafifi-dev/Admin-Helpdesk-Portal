@@ -25,6 +25,8 @@ import { CompanyFilter, matchesCompanyFilter, type CompanyFilterValue } from "@/
 import { useCcVisibility } from "@/hooks/useCcVisibility"
 import { LABEL_COLORS, LABEL_DOTS } from "@/lib/statusPalette"
 
+const MODULE_ID = "finance_travel_reimbursement"
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
@@ -48,10 +50,6 @@ const STATUS_PILL_ACTIVE: Record<string, string> = {
 }
 
 const STATUSES = ["new", "awaiting_approval", "in_progress", "completed", "cancelled"] as const
-// PO-based requests never route through manager approval (no Direct
-// Manager on the request), so "Awaiting Approval" isn't offered as a status
-// option for those rows — see the per-row `rowStatuses` computation below.
-const STATUSES_NO_APPROVAL = ["new", "in_progress", "completed", "cancelled"] as const
 
 type SortKey = "id" | "title" | "amount" | "costCenter" | "priority" | "requesterName" | "createdAt" | "status" | "updatedAt"
 
@@ -75,7 +73,7 @@ function formatAmount(payload: Record<string, unknown>): string {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function ReimbursementRequestsPage() {
+export default function TravelReimbursementRequestsPage() {
   const { data: session } = useSession()
   const { showCcRequests, toggleCcVisibility } = useCcVisibility()
   const [requests, setRequests]           = useState<EngineRequest[]>([])
@@ -99,9 +97,9 @@ export default function ReimbursementRequestsPage() {
 
   const loadRequests = useCallback(() => {
     initializeMockData()
-    const all = getRequests().filter((r) => r.module === "finance_reimbursement")
+    const all = getRequests().filter((r) => r.module === MODULE_ID)
 
-    const canSeeAll = canViewAllInOwnFunctionModules(["finance_reimbursement"], session?.user?.role)
+    const canSeeAll = canViewAllInOwnFunctionModules([MODULE_ID], session?.user?.role)
     const email = session?.user?.email?.toLowerCase()
     setRequests(canSeeAll ? all : all.filter((r) => r.requesterId === session?.user?.id || r.requesterEmail?.toLowerCase() === email))
   }, [session?.user?.id, session?.user?.email, session?.user?.role])
@@ -130,7 +128,7 @@ export default function ReimbursementRequestsPage() {
       createRequestUpdateNotifications({
         requestId: id,
         requestTitle: request.title,
-        module: "finance_reimbursement",
+        module: MODULE_ID,
         requestOwnerId: request.requesterId,
         requestOwnerEmail: request.requesterEmail,
         actionUserId: currentUserId,
@@ -184,7 +182,7 @@ export default function ReimbursementRequestsPage() {
     if (!showCcRequests) return requests
     const userEmail = session?.user?.email ?? ""
     const userId = session?.user?.id ?? ""
-    const allRequests = getRequests().filter((r) => r.module === "finance_reimbursement")
+    const allRequests = getRequests().filter((r) => r.module === MODULE_ID)
     const ccRequests = allRequests.filter((r) =>
       r.requesterId !== userId &&
       !requests.some(req => req.id === r.id) &&
@@ -249,16 +247,16 @@ export default function ReimbursementRequestsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight">Finance Team - General Reimbursement Requests</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Submit and manage general expense reimbursement requests</p>
+          <h1 className="text-2xl font-bold tracking-tight">Finance Team - Travel Reimbursement Requests</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">Submit and manage travel expense reimbursement requests</p>
         </div>
         {(newRequestsCount > 0 || newTasksCount > 0) && (
           <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
         )}
-        <Link href="/departments/finance/reimbursement/new">
+        <Link href="/departments/finance/travel-reimbursement/new">
           <Button style={{ backgroundColor: "#d97706" }} className="text-white hover:opacity-90 ml-4">
             <Plus className="h-4 w-4 mr-2" />
-            New General Reimbursement Request
+            New Travel Reimbursement Request
           </Button>
         </Link>
       </div>
@@ -371,7 +369,7 @@ export default function ReimbursementRequestsPage() {
                 <tr className={cn("border-b border-gray-100 hover:bg-blue-50/30 transition-colors", hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40"))}>
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
                     <div className="flex items-center gap-2">
-                      <Link href={`/departments/finance/requests/${req.id}?source=reimbursement`} className="text-sm font-medium text-blue-600 truncate block hover:underline">
+                      <Link href={`/departments/finance/requests/${req.id}?source=travel-reimbursement`} className="text-sm font-medium text-blue-600 truncate block hover:underline">
                         {req.id}
                       </Link>
                       {(commentCounts[req.id] ?? 0) > 0 && (
@@ -406,7 +404,7 @@ export default function ReimbursementRequestsPage() {
                   <td className="py-3 px-3">
                     <InlineStatusSelect
                       currentStatus={req.status}
-                      statuses={payload.poOption === "has_po" ? STATUSES_NO_APPROVAL : STATUSES}
+                      statuses={STATUSES}
                       statusColors={STATUS_COLORS}
                       statusDot={STATUS_DOT}
                       statusLabels={STATUS_LABELS}
@@ -424,7 +422,7 @@ export default function ReimbursementRequestsPage() {
                       showDeleteOption={canPermanentDelete}
                       isExpanded={isExpanded(req.id)}
                       onViewDetails={() => toggleRow(req.id)}
-                      onEdit={canEditRequest ? (id) => window.open(`/departments/finance/requests/${id}?source=reimbursement`, '_blank') : undefined}
+                      onEdit={canEditRequest ? (id) => window.open(`/departments/finance/requests/${id}?source=travel-reimbursement`, '_blank') : undefined}
                       onCancel={handleCancelRequest}
                       onDelete={(id) => {
                         if (!confirm(`Permanently delete ${id}? This cannot be undone.`)) return
@@ -455,17 +453,10 @@ export default function ReimbursementRequestsPage() {
                             <p className="font-semibold text-gray-700">Amount</p>
                             <p className="text-gray-600">{formatAmount(payload)}</p>
                           </div>
-                          {payload.poOption === "has_po" ? (
-                            <div>
-                              <p className="font-semibold text-gray-700">PO Number(s)</p>
-                              <p className="text-gray-600">{Array.isArray(payload.poNumbers) && payload.poNumbers.length > 0 ? payload.poNumbers.join(", ") : "—"}</p>
-                            </div>
-                          ) : (
-                            <div>
-                              <p className="font-semibold text-gray-700">Direct Manager</p>
-                              <p className="text-gray-600">{String(payload.directManager ?? "—")}</p>
-                            </div>
-                          )}
+                          <div>
+                            <p className="font-semibold text-gray-700">Authorized Manager</p>
+                            <p className="text-gray-600">{String(payload.authorizedManager ?? "—")}</p>
+                          </div>
                           <div>
                             <p className="font-semibold text-gray-700">Status</p>
                             <p className="text-gray-600">{STATUS_LABELS[req.status] || req.status}</p>

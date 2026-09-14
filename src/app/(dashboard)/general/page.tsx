@@ -15,6 +15,7 @@ import { createRequestUpdateNotifications, createAssignmentNotifications } from 
 import { AssigneeSelect } from "@/components/ui/AssigneeSelect"
 import { cn, fmtDate, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
 import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
+import { canViewAllInOwnFunctionModules } from "@/lib/functionRegistry"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { useExpandedRows } from "@/hooks/useExpandedRows"
@@ -155,10 +156,10 @@ export default function GeneralRequestPage({
       readModules: (session?.user as any)?.readModules,
       readAllModules: (session?.user as any)?.readAllModules,
     }
-    if (aggregateModules || moduleId.startsWith("hr_")) {
-      const canManageHr = session?.user?.role === "Full Access" || session?.user?.role === "HR Team" || session?.user?.role === "People Team"
+    if (aggregateModules || moduleId.startsWith("hr_") || moduleId.startsWith("finance_")) {
+      const canSeeAll = canViewAllInOwnFunctionModules(aggregateModules ?? [moduleId], session?.user?.role)
       const email = session?.user?.email?.toLowerCase()
-      setRequests(canManageHr ? all : all.filter((request) => request.requesterId === session?.user?.id || request.requesterEmail.toLowerCase() === email))
+      setRequests(canSeeAll ? all : all.filter((request) => request.requesterId === session?.user?.id || request.requesterEmail.toLowerCase() === email))
     } else {
       setRequests(scopeRequestsByModuleAccess(all, userWithModules, session?.user))
     }

@@ -1223,10 +1223,7 @@ export async function sendReimbursementApprovalEmail(params: {
   requestTitle: string
   amount?: number
   currency?: string
-  category?: string
-  dateOfExpense?: string
-  description?: string
-  notes?: string
+  costCenter?: string
   requesterName?: string
   requesterEmail?: string
   approveUrl: string
@@ -1257,10 +1254,7 @@ export async function sendReimbursementApprovalEmail(params: {
         ${row("Requested by", params.requesterName)}
         ${row("Requester email", params.requesterEmail)}
         ${row("Amount", amountDisplay)}
-        ${row("Category", params.category)}
-        ${row("Date of expense", params.dateOfExpense)}
-        ${row("Description / justification", params.description)}
-        ${params.notes ? row("Notes", params.notes) : ""}
+        ${row("Cost center", params.costCenter)}
       </table>`
 
   const wrapper = (body: string) => `<!doctype html>
@@ -1296,6 +1290,241 @@ export async function sendReimbursementApprovalEmail(params: {
   const ccHtml = wrapper(`
       <div style="padding:24px 28px 8px;">
         <p style="margin:0 0 8px;font-size:14px;color:#334155;">A reimbursement request is <strong>awaiting approval</strong> from the Direct Manager. This is an informational copy — no action is required from you.</p>
+      </div>
+      ${detailsTable}
+      <div style="padding:20px 28px;text-align:center;background:#fff;">
+        <a href="${requestUrl}" style="display:inline-block;background:#2563eb;color:#fff;font-weight:600;padding:10px 28px;border-radius:8px;text-decoration:none;font-size:14px;">View Request in Portal</a>
+      </div>`)
+
+  const attachments = logoBuffer ? [{
+    filename: "siware-logo.png",
+    content: logoBuffer,
+    cid: "siware-logo",
+    contentType: "image/png",
+  }] : []
+
+  await sendMailWithRetry(transporter, {
+    from: resolveFromAddress("Si-Ware Finance Team", "finance"),
+    to: params.to,
+    subject,
+    html: managerHtml,
+    attachments,
+  })
+
+  if (params.cc && params.cc.length > 0) {
+    await sendMailWithRetry(transporter, {
+      from: resolveFromAddress("Si-Ware Finance Team", "finance"),
+      to: params.cc,
+      subject: `[CC] ${subject}`,
+      html: ccHtml,
+      attachments,
+    })
+  }
+}
+
+/**
+ * Send the Travel Reimbursement approval-request email to the trip's
+ * Authorized Manager (with one-click Approve / Reject buttons), and a
+ * read-only copy to CC recipients (requester, Finance Team + helpdesk).
+ * Same shape as `sendReimbursementApprovalEmail`, but for the Authorized
+ * Manager + travel-context fields instead of Direct Manager + expense date.
+ */
+export async function sendTravelReimbursementApprovalEmail(params: {
+  to: string
+  cc?: string[]
+  managerName?: string
+  requestId: string
+  requestTitle: string
+  amount?: number
+  currency?: string
+  costCenter?: string
+  requesterName?: string
+  requesterEmail?: string
+  approveUrl: string
+  rejectUrl: string
+}) {
+  const transporter = createTransporter("finance")
+  const baseUrl = getBaseUrl()
+  const requestUrl = `${baseUrl}/requests/${params.requestId}`
+  const logoBuffer = getLogoBuffer()
+
+  const subject = `Approval needed: ${params.requestTitle} — ${params.requestId}`
+
+  const row = (label: string, value?: string | number | null) => {
+    const v = value == null || value === "" ? "—" : String(value)
+    return `
+      <tr>
+        <td style="padding:8px 14px;color:#475569;font-size:12px;border-bottom:1px solid #e2e8f0;width:180px;vertical-align:top;">${escapeHtml(label)}</td>
+        <td style="padding:8px 14px;color:#0f172a;font-size:13px;border-bottom:1px solid #e2e8f0;vertical-align:top;">${escapeHtml(v)}</td>
+      </tr>`
+  }
+
+  const amountDisplay = typeof params.amount === "number"
+    ? `${params.amount.toLocaleString()} ${params.currency ?? ""}`.trim()
+    : "—"
+
+  const detailsTable = `
+      <table style="width:100%;border-collapse:collapse;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;background:#f8fafc;">
+        ${row("Requested by", params.requesterName)}
+        ${row("Requester email", params.requesterEmail)}
+        ${row("Amount", amountDisplay)}
+        ${row("Cost center", params.costCenter)}
+      </table>`
+
+  const wrapper = (body: string) => `<!doctype html>
+<html><body style="margin:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;">
+  <div style="max-width:640px;margin:0 auto;padding:32px 16px;">
+    ${logoBuffer ? `<div style="text-align:center;margin-bottom:24px;"><img src="cid:siware-logo" alt="Si-Ware" style="height:36px;"></div>` : ""}
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.04);">
+      <div style="background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;padding:24px 28px;">
+        <p style="margin:0;font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:1px;">Travel Reimbursement Approval Request</p>
+        <h1 style="margin:6px 0 0;font-size:22px;font-weight:600;">${escapeHtml(params.requestTitle)}</h1>
+        <p style="margin:8px 0 0;font-size:13px;opacity:.9;">${escapeHtml(params.requestId)}</p>
+      </div>
+      ${body}
+    </div>
+    <p style="text-align:center;margin:18px 0 0;font-size:12px;color:#94a3b8;">Si-Ware Systems Admin Helpdesk Portal &nbsp;·&nbsp; adminhelpdesk@si-ware.com</p>
+  </div>
+</body></html>`
+
+  // Manager email — has Approve / Reject action buttons
+  const managerHtml = wrapper(`
+      <div style="padding:24px 28px 8px;">
+        <p style="margin:0 0 8px;font-size:14px;color:#334155;">${params.managerName ? `Hi ${escapeHtml(params.managerName)}, a` : "A"} travel reimbursement request requires your approval. Please review the details below and click <strong>Approve</strong> or <strong>Reject</strong>.</p>
+      </div>
+      ${detailsTable}
+      <div style="padding:28px;text-align:center;background:#fff;">
+        <a href="${params.approveUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Approve</a>
+        <a href="${params.rejectUrl}"  style="display:inline-block;background:#ef4444;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Reject</a>
+        <p style="margin:18px 0 0;font-size:12px;color:#64748b;">Or <a href="${requestUrl}" style="color:#2563eb;">open the request in the portal</a> to take action there.</p>
+        <p style="margin:8px 0 0;font-size:11px;color:#94a3b8;">These buttons are single-use links; they stop working once a decision is recorded or the request status changes.</p>
+      </div>`)
+
+  // CC email — read-only copy, no action buttons
+  const ccHtml = wrapper(`
+      <div style="padding:24px 28px 8px;">
+        <p style="margin:0 0 8px;font-size:14px;color:#334155;">A travel reimbursement request is <strong>awaiting approval</strong> from the Authorized Manager. This is an informational copy — no action is required from you.</p>
+      </div>
+      ${detailsTable}
+      <div style="padding:20px 28px;text-align:center;background:#fff;">
+        <a href="${requestUrl}" style="display:inline-block;background:#2563eb;color:#fff;font-weight:600;padding:10px 28px;border-radius:8px;text-decoration:none;font-size:14px;">View Request in Portal</a>
+      </div>`)
+
+  const attachments = logoBuffer ? [{
+    filename: "siware-logo.png",
+    content: logoBuffer,
+    cid: "siware-logo",
+    contentType: "image/png",
+  }] : []
+
+  await sendMailWithRetry(transporter, {
+    from: resolveFromAddress("Si-Ware Finance Team", "finance"),
+    to: params.to,
+    subject,
+    html: managerHtml,
+    attachments,
+  })
+
+  if (params.cc && params.cc.length > 0) {
+    await sendMailWithRetry(transporter, {
+      from: resolveFromAddress("Si-Ware Finance Team", "finance"),
+      to: params.cc,
+      subject: `[CC] ${subject}`,
+      html: ccHtml,
+      attachments,
+    })
+  }
+}
+
+/**
+ * Send the Invoices Payment approval-request email to the Finance-Team-
+ * chosen approver (with one-click Approve / Reject buttons), and a
+ * read-only copy to CC recipients. Unlike the other Finance approval
+ * emails, the recipient here isn't sourced from Company Data — Finance can
+ * point this at any portal user or a free-typed email address.
+ */
+export async function sendInvoicePaymentApprovalEmail(params: {
+  to: string
+  cc?: string[]
+  managerName?: string
+  requestId: string
+  requestTitle: string
+  supplier?: string
+  poNumbers?: string[]
+  amount?: number
+  currency?: string
+  paymentTerms?: string
+  paymentMethod?: string
+  requesterName?: string
+  requesterEmail?: string
+  approveUrl: string
+  rejectUrl: string
+}) {
+  const transporter = createTransporter("finance")
+  const baseUrl = getBaseUrl()
+  const requestUrl = `${baseUrl}/requests/${params.requestId}`
+  const logoBuffer = getLogoBuffer()
+
+  const subject = `Approval needed: ${params.requestTitle} — ${params.requestId}`
+
+  const row = (label: string, value?: string | number | null) => {
+    const v = value == null || value === "" ? "—" : String(value)
+    return `
+      <tr>
+        <td style="padding:8px 14px;color:#475569;font-size:12px;border-bottom:1px solid #e2e8f0;width:180px;vertical-align:top;">${escapeHtml(label)}</td>
+        <td style="padding:8px 14px;color:#0f172a;font-size:13px;border-bottom:1px solid #e2e8f0;vertical-align:top;">${escapeHtml(v)}</td>
+      </tr>`
+  }
+
+  const amountDisplay = typeof params.amount === "number"
+    ? `${params.amount.toLocaleString()} ${params.currency ?? ""}`.trim()
+    : "—"
+  const poDisplay = params.poNumbers && params.poNumbers.length > 0 ? params.poNumbers.join(", ") : undefined
+
+  const detailsTable = `
+      <table style="width:100%;border-collapse:collapse;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;background:#f8fafc;">
+        ${row("Requested by", params.requesterName)}
+        ${row("Requester email", params.requesterEmail)}
+        ${row("Supplier", params.supplier)}
+        ${row("PO number(s)", poDisplay)}
+        ${row("Amount", amountDisplay)}
+        ${row("Payment terms", params.paymentTerms)}
+        ${row("Method", params.paymentMethod)}
+      </table>`
+
+  const wrapper = (body: string) => `<!doctype html>
+<html><body style="margin:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;">
+  <div style="max-width:640px;margin:0 auto;padding:32px 16px;">
+    ${logoBuffer ? `<div style="text-align:center;margin-bottom:24px;"><img src="cid:siware-logo" alt="Si-Ware" style="height:36px;"></div>` : ""}
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.04);">
+      <div style="background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;padding:24px 28px;">
+        <p style="margin:0;font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:1px;">Invoice Payment Approval Request</p>
+        <h1 style="margin:6px 0 0;font-size:22px;font-weight:600;">${escapeHtml(params.requestTitle)}</h1>
+        <p style="margin:8px 0 0;font-size:13px;opacity:.9;">${escapeHtml(params.requestId)}</p>
+      </div>
+      ${body}
+    </div>
+    <p style="text-align:center;margin:18px 0 0;font-size:12px;color:#94a3b8;">Si-Ware Systems Admin Helpdesk Portal &nbsp;·&nbsp; adminhelpdesk@si-ware.com</p>
+  </div>
+</body></html>`
+
+  // Manager email — has Approve / Reject action buttons
+  const managerHtml = wrapper(`
+      <div style="padding:24px 28px 8px;">
+        <p style="margin:0 0 8px;font-size:14px;color:#334155;">${params.managerName ? `Hi ${escapeHtml(params.managerName)}, a` : "A"} vendor invoice payment requires your approval. Please review the details below and click <strong>Approve</strong> or <strong>Reject</strong>.</p>
+      </div>
+      ${detailsTable}
+      <div style="padding:28px;text-align:center;background:#fff;">
+        <a href="${params.approveUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Approve</a>
+        <a href="${params.rejectUrl}"  style="display:inline-block;background:#ef4444;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Reject</a>
+        <p style="margin:18px 0 0;font-size:12px;color:#64748b;">Or <a href="${requestUrl}" style="color:#2563eb;">open the request in the portal</a> to take action there.</p>
+        <p style="margin:8px 0 0;font-size:11px;color:#94a3b8;">These buttons are single-use links; they stop working once a decision is recorded or the request status changes.</p>
+      </div>`)
+
+  // CC email — read-only copy, no action buttons
+  const ccHtml = wrapper(`
+      <div style="padding:24px 28px 8px;">
+        <p style="margin:0 0 8px;font-size:14px;color:#334155;">A vendor invoice payment request is <strong>awaiting approval</strong>. This is an informational copy — no action is required from you.</p>
       </div>
       ${detailsTable}
       <div style="padding:20px 28px;text-align:center;background:#fff;">

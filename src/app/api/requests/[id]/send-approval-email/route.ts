@@ -2,10 +2,10 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { requestStore } from "@/lib/requestStore"
 import { signApprovalToken } from "@/lib/approvalToken"
-import { sendPurchaseApprovalEmail, sendShippingApprovalEmail, sendTravelApprovalEmail, sendReimbursementApprovalEmail } from "@/lib/emailService"
+import { sendPurchaseApprovalEmail, sendShippingApprovalEmail, sendTravelApprovalEmail, sendReimbursementApprovalEmail, sendTravelReimbursementApprovalEmail, sendInvoicePaymentApprovalEmail } from "@/lib/emailService"
 import { readUsers } from "@/lib/userStore"
 import { resolveRequestManagerEmail, resolveRequestManagerName } from "@/lib/approvalNotify"
-import { teamRolesForModule } from "@/lib/functionRegistry"
+import { teamRolesForModule, MANAGER_APPROVAL_MODULES } from "@/lib/functionRegistry"
 
 export const runtime = "nodejs"
 
@@ -38,7 +38,7 @@ export async function POST(
   if (!request) {
     return NextResponse.json({ error: "Request not found" }, { status: 404 })
   }
-  if (!["purchase", "shipping", "travel", "finance_reimbursement"].includes(request.module)) {
+  if (!(MANAGER_APPROVAL_MODULES as readonly string[]).includes(request.module)) {
     return NextResponse.json({ error: "Only Purchase, Shipping, Travel, and Reimbursement requests use this flow" }, { status: 400 })
   }
 
@@ -185,10 +185,40 @@ export async function POST(
         requestTitle: request.title,
         amount: typeof payload.amount === "number" ? payload.amount : undefined,
         currency: payload.currency,
-        category: payload.category,
-        dateOfExpense: payload.dateOfExpense,
-        description: payload.description,
-        notes: payload.notes,
+        costCenter: payload.costCenter,
+        requesterName: request.requesterName,
+        requesterEmail: request.requesterEmail,
+        approveUrl,
+        rejectUrl,
+      })
+    } else if (request.module === "finance_travel_reimbursement") {
+      await sendTravelReimbursementApprovalEmail({
+        to: managerEmail,
+        cc: Array.from(ccSet),
+        managerName,
+        requestId: request.id,
+        requestTitle: request.title,
+        amount: typeof payload.amount === "number" ? payload.amount : undefined,
+        currency: payload.currency,
+        costCenter: payload.costCenter,
+        requesterName: request.requesterName,
+        requesterEmail: request.requesterEmail,
+        approveUrl,
+        rejectUrl,
+      })
+    } else if (request.module === "finance_invoice_payment") {
+      await sendInvoicePaymentApprovalEmail({
+        to: managerEmail,
+        cc: Array.from(ccSet),
+        managerName,
+        requestId: request.id,
+        requestTitle: request.title,
+        supplier: payload.supplier,
+        poNumbers: Array.isArray(payload.poNumbers) ? payload.poNumbers : undefined,
+        amount: typeof payload.amount === "number" ? payload.amount : undefined,
+        currency: payload.currency,
+        paymentTerms: payload.paymentTerms,
+        paymentMethod: payload.paymentMethod,
         requesterName: request.requesterName,
         requesterEmail: request.requesterEmail,
         approveUrl,

@@ -33,6 +33,7 @@ import {
   Info,
   Calculator,
   Receipt,
+  CreditCard,
   Headphones,
   Globe,
   Link2,
@@ -176,7 +177,9 @@ const financeNavItems: NavItem[] = [
   { title: "Announcements", href: "/departments/finance/news", icon: Megaphone },
   // Requester-facing module pages live outside the Finance Team group — one
   // entry per Finance module. Add new Finance modules here as they're built.
-  { title: "Reimbursement Request", href: "/departments/finance/reimbursement", icon: Receipt },
+  { title: "General Reimbursement", href: "/departments/finance/reimbursement", icon: Receipt },
+  { title: "Travel Reimbursement", href: "/departments/finance/travel-reimbursement", icon: Plane },
+  { title: "Invoices Payment", href: "/departments/finance/invoices", icon: CreditCard },
 ]
 
 // Intranet is content, not a request workflow — flat nav, no "Team" group
@@ -410,7 +413,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
         "flex items-center gap-3 border-b border-slate-700 py-4 px-5 hover:bg-slate-800 transition-colors",
         collapsed && "justify-center px-0"
       )} suppressHydrationWarning>
-        <div className={cn("overflow-hidden", collapsed && "hidden")}>
+        <div className={cn("overflow-hidden", collapsed && "hidden")} suppressHydrationWarning>
           <span className="font-bold text-sm tracking-tight whitespace-nowrap text-white">
             {brandName}
           </span>
@@ -608,7 +611,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
           position, available from every portal (Admin/HR/Finance/Platform
           Admin). Opens a dropdown to jump straight to another support
           function's services hub, instead of routing through /landing. */}
-      <div className="border-t border-slate-700 p-2">
+      <div className="border-t border-slate-700 p-2" suppressHydrationWarning>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button

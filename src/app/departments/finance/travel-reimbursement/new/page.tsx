@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import ReimbursementForm from "@/modules/finance/ReimbursementForm"
+import TravelReimbursementForm from "@/modules/finance/TravelReimbursementForm"
 import { getRequests, type EngineRequest } from "@/services/engineService"
 
-export default function NewReimbursementRequestPage() {
+export default function NewTravelReimbursementRequestPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const requestId = searchParams.get("id")
@@ -20,8 +20,8 @@ export default function NewReimbursementRequestPage() {
   }, [requestId])
 
   const isEditing = !!requestId
-  const title = isEditing ? "Edit General Reimbursement Request" : "New General Reimbursement Request"
-  const subtitle = isEditing ? "Update the reimbursement request details" : "Submit a general expense for reimbursement, with Direct Manager approval"
+  const title = isEditing ? "Edit Travel Reimbursement Request" : "New Travel Reimbursement Request"
+  const subtitle = isEditing ? "Update the travel reimbursement request details" : "Submit a travel expense for reimbursement, with Authorized Manager approval"
 
   return (
     <div className="space-y-6">
@@ -30,8 +30,8 @@ export default function NewReimbursementRequestPage() {
         <p className="text-muted-foreground text-sm mt-0.5">{subtitle}</p>
       </div>
 
-      <ReimbursementForm
-        onCancel={() => router.push("/departments/finance/reimbursement")}
+      <TravelReimbursementForm
+        onCancel={() => router.push("/departments/finance/travel-reimbursement")}
         editingRequest={existingRequest}
         isEditing={isEditing}
       />

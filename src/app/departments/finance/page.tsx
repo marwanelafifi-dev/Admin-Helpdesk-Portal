@@ -7,7 +7,11 @@ export default function FinanceDepartmentPage() {
       moduleScope={modulesVisibleToFunction("finance")}
       title="Finance Team - Dashboard"
       detailBasePath="/departments/finance/requests"
-      moduleLinks={{ finance_reimbursement: "/departments/finance/reimbursement" }}
+      moduleLinks={{
+        finance_reimbursement: "/departments/finance/reimbursement",
+        finance_travel_reimbursement: "/departments/finance/travel-reimbursement",
+        finance_invoice_payment: "/departments/finance/invoices",
+      }}
     />
   )
 }

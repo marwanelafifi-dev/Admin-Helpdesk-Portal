@@ -7,9 +7,9 @@ import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import {
-  REIMBURSEMENT_CURRENCIES,
-  ReimbursementPayloadSchema,
-} from "./reimbursement.schema"
+  TRAVEL_REIMBURSEMENT_CURRENCIES,
+  TravelReimbursementPayloadSchema,
+} from "./travelReimbursement.schema"
 import { submitRequest, updateRequest, pushToServer, type EngineRequest } from "@/services/engineService"
 import { createNewRequestNotifications } from "@/lib/notificationStore"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -19,19 +19,18 @@ import { Label } from "@/components/ui/label"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
-import { AlertCircle, Wallet, Upload, X, FileText, FileCheck2, Mail, CreditCard, UserCheck, Check } from "lucide-react"
+import { AlertCircle, Wallet, Upload, X, FileText, FileCheck2, Mail, CreditCard } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
-import { PoNumbersField } from "@/components/ui/PoNumbersField"
 import { Checkbox } from "@/components/ui/checkbox"
 import { FinancePriorityField } from "./FinancePriorityField"
-import { getList, getManagerEmail } from "@/lib/companyDataStore"
+import { getList, getAuthorizedManagerEmail } from "@/lib/companyDataStore"
 import { filesToAttachments } from "@/lib/attachments"
 
 const BRAND = "#d97706" // amber-600 — Finance brand color
 
-type ReimbursementFormValues = z.infer<typeof ReimbursementPayloadSchema>
+type TravelReimbursementFormValues = z.infer<typeof TravelReimbursementPayloadSchema>
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null
@@ -59,7 +58,7 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
   )
 }
 
-export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onCancel?: () => void; editingRequest?: EngineRequest | null; isEditing?: boolean }) {
+export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }: { onCancel?: () => void; editingRequest?: EngineRequest | null; isEditing?: boolean }) {
   const router = useRouter()
   const { data: session } = useSession()
   const [supportingDocFile, setSupportingDocFile] = useState<File | null>(null)
@@ -67,19 +66,18 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
   const [additionalFiles, setAdditionalFiles] = useState<File[]>([])
   const [supportingDocError, setSupportingDocError] = useState<string | null>(null)
   const [creditCardStatementError, setCreditCardStatementError] = useState<string | null>(null)
-  const [managers, setManagers] = useState<string[]>([])
+  const [authorizedManagers, setAuthorizedManagers] = useState<string[]>([])
   const [costCenters, setCostCenters] = useState<string[]>([])
   useEffect(() => {
-    setManagers(getList("managers"))
+    setAuthorizedManagers(getList("authorized_managers"))
     setCostCenters(getList("cost_centers"))
   }, [])
 
-  const { register, control, handleSubmit, watch, setError, formState: { errors, isSubmitting }, reset } = useForm<ReimbursementFormValues>({
-    resolver: zodResolver(ReimbursementPayloadSchema),
-    defaultValues: { currency: "EGP", priority: "Normal", poOption: "has_po", poNumbers: [], paidByPersonalCreditCard: false, ccEmails: [] },
+  const { register, control, handleSubmit, watch, setError, formState: { errors, isSubmitting }, reset } = useForm<TravelReimbursementFormValues>({
+    resolver: zodResolver(TravelReimbursementPayloadSchema),
+    defaultValues: { currency: "EGP", priority: "Normal", paidByPersonalCreditCard: false, ccEmails: [] },
   })
 
-  const poOption = watch("poOption")
   const paidByPersonalCreditCard = watch("paidByPersonalCreditCard")
 
   useEffect(() => {
@@ -88,31 +86,21 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
       reset({
         requestTitle: editingRequest.title || "",
         priority: payload.priority || "Normal",
-        poOption: payload.poOption || "has_po",
-        poNumbers: Array.isArray(payload.poNumbers) ? payload.poNumbers : [],
-        directManager: payload.directManager || "",
         costCenter: payload.costCenter || "",
         amount: payload.amount || 0,
         currency: payload.currency || "EGP",
+        authorizedManager: payload.authorizedManager || "",
         paidByPersonalCreditCard: payload.paidByPersonalCreditCard || false,
         creditCardAccountNumber: payload.creditCardAccountNumber || "",
       })
     }
   }, [editingRequest, isEditing, reset])
 
-  const handleCancel = onCancel ?? (() => router.push("/departments/finance/reimbursement"))
+  const handleCancel = onCancel ?? (() => router.push("/departments/finance/travel-reimbursement"))
 
-  const onSubmit = async (data: ReimbursementFormValues) => {
-    if (data.poOption === "has_po" && (!data.poNumbers || data.poNumbers.length === 0)) {
-      setError("poNumbers", { type: "manual", message: "At least one PO number is required" })
-      return
-    }
-    if (data.poOption === "no_po" && !data.directManager?.trim()) {
-      setError("directManager", { type: "manual", message: "Direct Manager is required when there is no PO" })
-      return
-    }
+  const onSubmit = async (data: TravelReimbursementFormValues) => {
     if (!isEditing && !supportingDocFile) {
-      setSupportingDocError("Supporting documents are required to submit a reimbursement request.")
+      setSupportingDocError("Supporting documents are required to submit a travel reimbursement request.")
       return
     }
     setSupportingDocError(null)
@@ -128,9 +116,9 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
     }
     setCreditCardStatementError(null)
 
-    // Auto-CC the Direct Manager (only relevant when there's no PO — that's
-    // the only case a Direct Manager is on the request at all).
-    const managerEmail = data.poOption === "no_po" && data.directManager ? getManagerEmail(data.directManager) : undefined
+    // Auto-CC the Authorized Manager. Resolves the manager name to an email
+    // via Company Data and appends it to ccEmails (case-insensitive dedupe).
+    const managerEmail = data.authorizedManager ? getAuthorizedManagerEmail(data.authorizedManager) : undefined
     if (managerEmail) {
       const existing = data.ccEmails ?? []
       const lower = new Set(existing.map((e) => e.toLowerCase()))
@@ -153,7 +141,7 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
         })
       } else {
         // 1. Create request first (server-assigns the ID)
-        const newReq = await submitRequest("finance_reimbursement", {
+        const newReq = await submitRequest("finance_travel_reimbursement", {
           ...data,
           directManagerEmail: managerEmail ?? "",
         } as any, {
@@ -184,7 +172,7 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
         createNewRequestNotifications({
           requestId: newReq.id,
           requestTitle: newReq.title,
-          module: "finance_reimbursement",
+          module: "finance_travel_reimbursement",
           requesterId: newReq.requesterId,
           requesterName: newReq.requesterName,
           requesterEmail: newReq.requesterEmail,
@@ -192,7 +180,7 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
           managerEmail: managerEmail,
         })
       }
-      redirectTo = "/departments/finance/reimbursement"
+      redirectTo = "/departments/finance/travel-reimbursement"
     } catch (error) {
       console.error(isEditing ? "Failed to update request:" : "Failed to create request:", error)
     }
@@ -210,7 +198,7 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
           <CardContent className="pt-6">
             <div className="space-y-1.5">
               <Label htmlFor="requestTitle">Request Title <span className="text-red-500">*</span></Label>
-              <Input id="requestTitle" placeholder="e.g. Client Dinner — Cairo Trip" {...register("requestTitle")} className={cn(errors.requestTitle && "border-red-400")} />
+              <Input id="requestTitle" placeholder="e.g. Client Visit — London Trip" {...register("requestTitle")} className={cn(errors.requestTitle && "border-red-400")} />
               <FieldError message={errors.requestTitle?.message} />
             </div>
           </CardContent>
@@ -225,81 +213,28 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
           )}
         />
 
-        {/* PO or No PO */}
+        {/* Approval */}
         <Card>
-          <SectionHeader icon={FileCheck2} title="Purchase Order" subtitle="Does this reimbursement have a Purchase Order?" />
+          <SectionHeader icon={Wallet} title="Approval" subtitle="Your Authorized Manager will be asked to approve this request" />
           <CardContent className="space-y-4">
-            <Controller
-              name="poOption"
-              control={control}
-              render={({ field }) => (
-                <div className="grid grid-cols-2 gap-3">
-                  {(
-                    [
-                      { value: "has_po" as const, label: "Has PO", icon: FileCheck2, caption: "Reference a Purchase Order" },
-                      { value: "no_po" as const, label: "No PO", icon: UserCheck, caption: "Route to Direct Manager" },
-                    ]
-                  ).map(({ value: optionValue, label, icon: Icon, caption }) => {
-                    const isActive = field.value === optionValue
-                    return (
-                      <button
-                        key={optionValue}
-                        type="button"
-                        onClick={() => field.onChange(optionValue)}
-                        className={cn(
-                          "relative flex flex-col items-center gap-1.5 rounded-xl border-2 px-4 py-3.5 font-medium transition-all",
-                          isActive
-                            ? "border-amber-500 bg-amber-50 text-amber-900 shadow-sm ring-2 ring-amber-200"
-                            : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50"
-                        )}
-                      >
-                        {isActive && (
-                          <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-amber-50">
-                            <Check className="h-3 w-3 text-amber-600" />
-                          </span>
-                        )}
-                        <Icon className={cn("h-5 w-5", isActive ? "text-amber-600" : "text-gray-400")} />
-                        <span className="text-sm font-semibold">{label}</span>
-                        <span className={cn("text-[11px]", isActive ? "text-amber-700" : "text-gray-400")}>{caption}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            />
-
-            {poOption === "has_po" ? (
-              <div className="space-y-1.5">
-                <Label>PO Number(s) <span className="text-red-500">*</span></Label>
-                <Controller
-                  name="poNumbers"
-                  control={control}
-                  render={({ field }) => (
-                    <PoNumbersField value={field.value ?? []} onChange={field.onChange} hasError={!!errors.poNumbers} />
-                  )}
-                />
-                <FieldError message={errors.poNumbers?.message} />
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <Label>Direct Manager <span className="text-red-500">*</span></Label>
-                <Controller
-                  name="directManager"
-                  control={control}
-                  render={({ field }) => (
-                    <SearchableSelect
-                      value={field.value ?? ""}
-                      onChange={field.onChange}
-                      options={managers}
-                      placeholder="Select direct manager"
-                      hasError={!!errors.directManager}
-                    />
-                  )}
-                />
-                <FieldError message={errors.directManager?.message} />
-                <p className="text-xs text-muted-foreground">Since there&apos;s no PO, this request will need your Direct Manager&apos;s approval. The selected manager is automatically CC&apos;d and will receive an approval email once Finance moves this request to Awaiting Approval.</p>
-              </div>
-            )}
+            <div className="space-y-1.5">
+              <Label>Authorized Manager <span className="text-red-500">*</span></Label>
+              <Controller
+                name="authorizedManager"
+                control={control}
+                render={({ field }) => (
+                  <SearchableSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    options={authorizedManagers}
+                    placeholder="Select authorized manager"
+                    hasError={!!errors.authorizedManager}
+                  />
+                )}
+              />
+              <FieldError message={errors.authorizedManager?.message} />
+              <p className="text-xs text-muted-foreground">The selected manager is automatically CC&apos;d and will receive an approval email.</p>
+            </div>
           </CardContent>
         </Card>
 
@@ -349,7 +284,7 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
                         <SelectValue placeholder="Select currency" />
                       </SelectTrigger>
                       <SelectContent>
-                        {REIMBURSEMENT_CURRENCIES.map((c) => (
+                        {TRAVEL_REIMBURSEMENT_CURRENCIES.map((c) => (
                           <SelectItem key={c} value={c}>{c}</SelectItem>
                         ))}
                       </SelectContent>
@@ -538,7 +473,7 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
         <div className="form-footer border-t bg-gray-50 py-4 px-1 flex items-center justify-between gap-3">
           <Button type="button" variant="ghost" onClick={handleCancel}>Cancel</Button>
           <Button type="submit" disabled={isSubmitting} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px]">
-            {isSubmitting ? (isEditing ? "Updating..." : "Submitting...") : (isEditing ? "Update Request" : "Submit General Reimbursement Request")}
+            {isSubmitting ? (isEditing ? "Updating..." : "Submitting...") : (isEditing ? "Update Request" : "Submit Travel Reimbursement Request")}
           </Button>
         </div>
       </form>
@@ -546,4 +481,4 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
   )
 }
 
-export default ReimbursementForm
+export default TravelReimbursementForm

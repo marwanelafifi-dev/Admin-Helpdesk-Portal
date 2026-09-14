@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { Calculator, ChevronRight, Receipt } from "lucide-react"
+import { Calculator, ChevronRight, Receipt, Plane, CreditCard } from "lucide-react"
 import { auth } from "@/auth"
 import { canAccessPath } from "@/lib/access"
 
@@ -15,7 +15,9 @@ interface Service {
 
 // Add future Finance-facing services here as they're built.
 const services: Service[] = [
-  { title: "Reimbursement Request", description: "Submit an expense for reimbursement, with manager approval.", href: "/departments/finance/reimbursement", icon: Receipt },
+  { title: "General Reimbursement", description: "Submit a general expense for reimbursement, with Direct Manager approval.", href: "/departments/finance/reimbursement", icon: Receipt },
+  { title: "Travel Reimbursement", description: "Submit a travel expense for reimbursement, with Authorized Manager approval.", href: "/departments/finance/travel-reimbursement", icon: Plane },
+  { title: "Invoices Payment", description: "Submit a vendor invoice for payment.", href: "/departments/finance/invoices", icon: CreditCard },
 ]
 
 export default async function FinanceDepartmentServicesPage() {

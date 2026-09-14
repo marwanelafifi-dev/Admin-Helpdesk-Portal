@@ -93,6 +93,8 @@ const MODULE_COLORS: Record<string, { bg: string; text: string; border: string }
   hr_letter: { bg: "bg-cyan-50", text: "text-cyan-700", border: "border-cyan-200" },
   general: { bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200" },
   finance_reimbursement: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
+  finance_travel_reimbursement: { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200" },
+  finance_invoice_payment: { bg: "bg-yellow-50", text: "text-yellow-700", border: "border-yellow-200" },
 }
 function getModuleColors(module: string) {
   return MODULE_COLORS[module] ?? MODULE_FALLBACK
@@ -101,7 +103,9 @@ function getModuleColors(module: string) {
 const MODULE_LABELS: Record<string, string> = {
   hr_general: "HR General",
   hr_letter: "HR Letter",
-  finance_reimbursement: "Reimbursement",
+  finance_reimbursement: "General Reimbursement",
+  finance_travel_reimbursement: "Travel Reimbursement",
+  finance_invoice_payment: "Invoices Payment",
 }
 function getModuleLabel(module: string) {
   return MODULE_LABELS[module] ?? (module.charAt(0).toUpperCase() + module.slice(1))

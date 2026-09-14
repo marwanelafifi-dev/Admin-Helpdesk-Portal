@@ -9,6 +9,7 @@
 import { logAuditEvent } from "@/lib/auditLog"
 import { getRequestCompany, type CompanyId } from "@/lib/userCompany"
 import { companyFromEmail } from "@/lib/company"
+import { MANAGER_APPROVAL_MODULES } from "@/lib/functionRegistry"
 
 // â"€â"€â"€ Types â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
@@ -34,6 +35,8 @@ export type RequestModule =
   | "hr_letter"
   | "general"
   | "finance_reimbursement"
+  | "finance_travel_reimbursement"
+  | "finance_invoice_payment"
 
 export interface StatusChange {
   status: RequestStatus
@@ -97,6 +100,8 @@ const MODULE_PREFIX: Record<string, string> = {
   hr_general:  "HRG",
   hr_letter:   "HRL",
   finance_reimbursement: "REI",
+  finance_travel_reimbursement: "TRE",
+  finance_invoice_payment: "INV",
   general:     "GEN",
 }
 
@@ -614,7 +619,7 @@ export async function updateStatus(
   // the selected Direct Manager with one-click Approve / Reject buttons.
   if (
     typeof window !== "undefined" &&
-    (updated.module === "purchase" || updated.module === "shipping" || updated.module === "travel" || updated.module === "finance_reimbursement") &&
+    (MANAGER_APPROVAL_MODULES as readonly string[]).includes(updated.module) &&
     status === "awaiting_approval" &&
     previousStatus !== "awaiting_approval"
   ) {
