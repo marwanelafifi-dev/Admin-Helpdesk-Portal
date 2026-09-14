@@ -81,6 +81,7 @@ export function getSearchablePayloadText(request: EngineRequest): string {
     case "finance_invoice_payment":
       if (payload.supplier) searchableParts.push(String(payload.supplier))
       if (Array.isArray(payload.poNumbers)) searchableParts.push(payload.poNumbers.join(" "))
+      if (payload.otherDetails) searchableParts.push(String(payload.otherDetails))
       break
   }
 

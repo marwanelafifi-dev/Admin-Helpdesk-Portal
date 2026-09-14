@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
-import { AlertCircle, Wallet, Upload, X, FileText, FileCheck2, Mail, CreditCard } from "lucide-react"
+import { AlertCircle, Wallet, Upload, X, FileText, FileCheck2, Mail, CreditCard, Download } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
@@ -29,6 +29,7 @@ import { getList, getAuthorizedManagerEmail } from "@/lib/companyDataStore"
 import { filesToAttachments } from "@/lib/attachments"
 
 const BRAND = "#d97706" // amber-600 — Finance brand color
+const REIMBURSEMENT_FORM_TEMPLATE_URL = encodeURI("/Finance - Forms/Reimbursement Form - Travel.xls")
 
 type TravelReimbursementFormValues = z.infer<typeof TravelReimbursementPayloadSchema>
 
@@ -63,9 +64,11 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
   const { data: session } = useSession()
   const [supportingDocFile, setSupportingDocFile] = useState<File | null>(null)
   const [creditCardStatementFile, setCreditCardStatementFile] = useState<File | null>(null)
+  const [reimbursementFormFile, setReimbursementFormFile] = useState<File | null>(null)
   const [additionalFiles, setAdditionalFiles] = useState<File[]>([])
   const [supportingDocError, setSupportingDocError] = useState<string | null>(null)
   const [creditCardStatementError, setCreditCardStatementError] = useState<string | null>(null)
+  const [reimbursementFormError, setReimbursementFormError] = useState<string | null>(null)
   const [authorizedManagers, setAuthorizedManagers] = useState<string[]>([])
   const [costCenters, setCostCenters] = useState<string[]>([])
   useEffect(() => {
@@ -91,7 +94,6 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
         currency: payload.currency || "EGP",
         authorizedManager: payload.authorizedManager || "",
         paidByPersonalCreditCard: payload.paidByPersonalCreditCard || false,
-        creditCardAccountNumber: payload.creditCardAccountNumber || "",
       })
     }
   }, [editingRequest, isEditing, reset])
@@ -104,11 +106,12 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
       return
     }
     setSupportingDocError(null)
+    if (!isEditing && !reimbursementFormFile) {
+      setReimbursementFormError("The filled Reimbursement Form - Travel is required to submit this request.")
+      return
+    }
+    setReimbursementFormError(null)
     if (data.paidByPersonalCreditCard) {
-      if (!data.creditCardAccountNumber?.trim()) {
-        setError("creditCardAccountNumber", { type: "manual", message: "Account number is required" })
-        return
-      }
       if (!isEditing && !creditCardStatementFile) {
         setCreditCardStatementError("Credit Card Statement is required when paid by personal credit card.")
         return
@@ -151,19 +154,22 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
           requesterEmail: session?.user?.email || "user@si-ware.com",
         })
 
-        // 2. Upload the supporting document + credit card statement (both
-        // required when applicable) + any additional files, then patch them in
+        // 2. Upload the supporting document + credit card statement +
+        // reimbursement form (each required when applicable) + any
+        // additional files, then patch them in
         const namedFiles: File[] = []
         if (supportingDocFile) namedFiles.push(supportingDocFile)
         if (creditCardStatementFile) namedFiles.push(creditCardStatementFile)
+        if (reimbursementFormFile) namedFiles.push(reimbursementFormFile)
         const filesToUpload = [...namedFiles, ...additionalFiles]
         if (filesToUpload.length > 0) {
           const attachments = await filesToAttachments(filesToUpload, newReq.id)
           let idx = 0
           const supportingDocument = supportingDocFile ? attachments[idx++] : undefined
           const creditCardStatement = creditCardStatementFile ? attachments[idx++] : undefined
+          const reimbursementForm = reimbursementFormFile ? attachments[idx++] : undefined
           const additionalAttachments = attachments.slice(idx)
-          const updated = updateRequest(newReq.id, { ...data, directManagerEmail: managerEmail ?? "", supportingDocument, creditCardStatement, additionalAttachments } as any, { title: data.requestTitle })
+          const updated = updateRequest(newReq.id, { ...data, directManagerEmail: managerEmail ?? "", supportingDocument, creditCardStatement, reimbursementForm, additionalAttachments } as any, { title: data.requestTitle })
           if (updated) {
             void pushToServer(updated)
           }
@@ -209,7 +215,7 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
           name="priority"
           control={control}
           render={({ field }) => (
-            <FinancePriorityField value={field.value} onChange={field.onChange} hasError={!!errors.priority} />
+            <FinancePriorityField value={field.value} onChange={field.onChange} hasError={!!errors.priority} hasApproval />
           )}
         />
 
@@ -321,12 +327,6 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
             {paidByPersonalCreditCard && (
               <>
                 <div className="space-y-1.5">
-                  <Label htmlFor="creditCardAccountNumber">Account Number <span className="text-red-500">*</span></Label>
-                  <Input id="creditCardAccountNumber" placeholder="Card account number" {...register("creditCardAccountNumber")} className={cn(errors.creditCardAccountNumber && "border-red-400")} />
-                  <FieldError message={errors.creditCardAccountNumber?.message} />
-                </div>
-
-                <div className="space-y-1.5">
                   <Label>Credit Card Statement <span className="text-red-500">*</span></Label>
                   <input
                     id="creditCardStatement"
@@ -365,6 +365,58 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
                 </div>
               </>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Reimbursement Form (Travel) — download template, then upload filled copy */}
+        <Card>
+          <SectionHeader icon={FileCheck2} title="Reimbursement Form - Travel" subtitle="Download the template, fill it in, then upload it here" />
+          <CardContent>
+            <div className="space-y-3">
+              <a
+                href={REIMBURSEMENT_FORM_TEMPLATE_URL}
+                download
+                className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100 transition-colors"
+              >
+                <Download className="h-4 w-4" />
+                Download Reimbursement Form - Travel Template
+              </a>
+
+              <input
+                id="reimbursementForm"
+                type="file"
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files?.[0]) {
+                    setReimbursementFormFile(e.target.files[0])
+                    setReimbursementFormError(null)
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => document.getElementById("reimbursementForm")?.click()}
+                className={cn(
+                  "w-full px-6 py-8 border-2 border-dashed rounded-lg transition-all duration-200 flex flex-col items-center justify-center gap-2",
+                  reimbursementFormFile ? "border-amber-400 bg-amber-50/60 hover:bg-amber-50" : "border-amber-300 hover:border-amber-500 hover:bg-amber-50"
+                )}
+              >
+                {reimbursementFormFile ? (
+                  <>
+                    <FileText className="h-5 w-5 text-amber-600" />
+                    <span className="text-sm font-semibold text-amber-700">{reimbursementFormFile.name}</span>
+                    <span className="text-xs text-amber-500">Click to replace</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-6 w-6 text-amber-600" />
+                    <span className="text-sm font-medium text-gray-700">Click to browse files</span>
+                    <span className="text-xs text-muted-foreground">Filled Reimbursement Form - Travel (required)</span>
+                  </>
+                )}
+              </button>
+              <FieldError message={reimbursementFormError ?? undefined} />
+            </div>
           </CardContent>
         </Card>
 

@@ -21,10 +21,12 @@ export const INVOICE_PAYMENT_CURRENCIES = [
   "YER", "ZAR", "ZMW", "ZWL",
 ] as const
 
-export const PAYMENT_METHODS = ["Wire Transfer", "Ramp", "Cash", "Cheque"] as const
+export const PAYMENT_METHODS = ["Wire Transfer", "Ramp", "Cash", "Check"] as const
+export const PO_OR_CONTRACT_OPTIONS = ["po", "contract", "other"] as const
 
 export type InvoicePaymentCurrency = (typeof INVOICE_PAYMENT_CURRENCIES)[number]
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number]
+export type PoOrContract = (typeof PO_OR_CONTRACT_OPTIONS)[number]
 
 const AttachmentSchema = z.object({
   id: z.string(),
@@ -35,11 +37,16 @@ const AttachmentSchema = z.object({
   uploadedAt: z.string(),
 })
 
+// poNumbers is validated conditionally in the form's onSubmit handler
+// based on poOrContract (not via zod superRefine) — see the note in
+// reimbursement.schema.ts for why.
 export const InvoicePaymentPayloadSchema = z.object({
   requestTitle: z.string().min(1, "Request title is required"),
   priority: z.enum(FINANCE_PRIORITIES),
   supplier: z.string().min(1, "Supplier is required"),
-  poNumbers: z.array(z.string().min(1)).min(1, "At least one PO number is required"),
+  poOrContract: z.enum(PO_OR_CONTRACT_OPTIONS),
+  poNumbers: z.array(z.string().min(1)).optional(),
+  otherDetails: z.string().optional(),
   amount: z.number().min(0.01, "Amount must be greater than 0"),
   currency: z.enum(INVOICE_PAYMENT_CURRENCIES),
   paymentTerms: z.string().min(1, "Payment terms are required"),

@@ -178,6 +178,13 @@ function collectPayloadAttachments(payload: any): Array<{ id?: string; url: stri
       result.push(payload[field])
     }
   }
+
+  // Finance named fields
+  for (const field of ["supportingDocument", "creditCardStatement", "reimbursementForm", "invoiceFile"]) {
+    if (payload[field] && typeof payload[field] === "object" && payload[field].url) {
+      result.push(payload[field])
+    }
+  }
   if (Array.isArray(payload.visaDocumentAttachment)) {
     result.push(...payload.visaDocumentAttachment.filter(Boolean))
   }

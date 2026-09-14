@@ -20,7 +20,7 @@ const PRIORITY_THEME: Record<FinancePriority, { border: string; bg: string; text
  * Shows the requester the SLA promise for the chosen priority, plus the
  * standing note about missing-documents delays.
  */
-export function FinancePriorityField({ value, onChange, hasError }: { value?: FinancePriority; onChange: (v: FinancePriority) => void; hasError?: boolean }) {
+export function FinancePriorityField({ value, onChange, hasError, hasApproval = false }: { value?: FinancePriority; onChange: (v: FinancePriority) => void; hasError?: boolean; hasApproval?: boolean }) {
   return (
     <Card>
       <CardHeader className="pb-4">
@@ -70,7 +70,7 @@ export function FinancePriorityField({ value, onChange, hasError }: { value?: Fi
         {value && (
           <div className={cn("flex items-center gap-2 rounded-lg border px-3 py-2.5", PRIORITY_THEME[value].border, PRIORITY_THEME[value].bg)}>
             <Clock className={cn("h-4 w-4 flex-shrink-0", PRIORITY_THEME[value].icon)} />
-            <p className={cn("text-xs font-semibold", PRIORITY_THEME[value].text)}>{financeSlaNote(value)}</p>
+            <p className={cn("text-xs font-semibold", PRIORITY_THEME[value].text)}>{financeSlaNote(value, hasApproval)}</p>
           </div>
         )}
 

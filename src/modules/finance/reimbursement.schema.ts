@@ -16,12 +16,12 @@ const AttachmentSchema = z.object({
   uploadedAt: z.string(),
 })
 
-// poNumbers / directManager / creditCardAccountNumber / creditCardStatement
-// are validated conditionally in the form's onSubmit handler (not via zod
-// superRefine) — a discriminated-toggle field failing zod validation before
-// onSubmit runs has previously blocked submission entirely for other
-// conditional forms in this app (see the Travel form fix in CLAUDE.md Phase
-// 6r), so all of them stay optional here.
+// poNumbers / directManager / creditCardStatement are validated
+// conditionally in the form's onSubmit handler (not via zod superRefine) —
+// a discriminated-toggle field failing zod validation before onSubmit runs
+// has previously blocked submission entirely for other conditional forms
+// in this app (see the Travel form fix in CLAUDE.md Phase 6r), so all of
+// them stay optional here.
 export const ReimbursementPayloadSchema = z.object({
   requestTitle: z.string().min(1, "Request title is required"),
   priority: z.enum(FINANCE_PRIORITIES),
@@ -32,8 +32,8 @@ export const ReimbursementPayloadSchema = z.object({
   amount: z.number().min(0.01, "Amount must be greater than 0"),
   currency: z.enum(REIMBURSEMENT_CURRENCIES),
   paidByPersonalCreditCard: z.boolean().default(false),
-  creditCardAccountNumber: z.string().optional(),
   creditCardStatement: AttachmentSchema.optional(),
+  reimbursementForm: AttachmentSchema.optional(),
   supportingDocument: AttachmentSchema.optional(),
   additionalAttachments: z.array(AttachmentSchema).optional(),
   ccEmails: z.array(z.string().email()).default([]),

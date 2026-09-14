@@ -452,10 +452,18 @@ export default function InvoicePaymentRequestsPage() {
                             <p className="font-semibold text-gray-700">Supplier</p>
                             <p className="text-gray-600">{String(payload.supplier ?? "—")}</p>
                           </div>
-                          <div>
-                            <p className="font-semibold text-gray-700">PO Number(s)</p>
-                            <p className="text-gray-600">{Array.isArray(payload.poNumbers) && payload.poNumbers.length > 0 ? payload.poNumbers.join(", ") : "—"}</p>
-                          </div>
+                          {payload.poOrContract === "po" && (
+                            <div>
+                              <p className="font-semibold text-gray-700">PO Number(s)</p>
+                              <p className="text-gray-600">{Array.isArray(payload.poNumbers) && payload.poNumbers.length > 0 ? payload.poNumbers.join(", ") : "—"}</p>
+                            </div>
+                          )}
+                          {payload.poOrContract === "other" && !!payload.otherDetails && (
+                            <div>
+                              <p className="font-semibold text-gray-700">Details</p>
+                              <p className="text-gray-600">{String(payload.otherDetails)}</p>
+                            </div>
+                          )}
                           <div>
                             <p className="font-semibold text-gray-700">Amount</p>
                             <p className="text-gray-600">{formatAmount(payload)}</p>

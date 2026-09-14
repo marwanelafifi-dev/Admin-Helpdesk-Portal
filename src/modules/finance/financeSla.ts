@@ -7,8 +7,15 @@ export const FINANCE_PRIORITY_SLA_DAYS: Record<FinancePriority, number> = {
   Urgent: 2,
 }
 
-export function financeSlaNote(priority: FinancePriority): string {
-  return `Will be finished within ${FINANCE_PRIORITY_SLA_DAYS[priority]} Working Days`
+/**
+ * @param hasApproval Whether this specific request goes through a manager/
+ * approver approval cycle. When it does, the SLA clock only starts once
+ * approval is received; when it doesn't, the SLA note applies as-is from
+ * submission.
+ */
+export function financeSlaNote(priority: FinancePriority, hasApproval: boolean = false): string {
+  const base = `Will be finished within ${FINANCE_PRIORITY_SLA_DAYS[priority]} Working Days`
+  return hasApproval ? `${base} after receiving approval` : base
 }
 
 export const FINANCE_MISSING_DOCS_NOTE =

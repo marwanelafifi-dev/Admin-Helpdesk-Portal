@@ -1203,6 +1203,11 @@ export default function RequestDetailPage() {
               travelRequestForm: "Travel Request Form",
               visaDocument: "Visa Document",
               additionalAttachments: "Additional",
+              // Finance named fields
+              supportingDocument: "Supporting Document",
+              creditCardStatement: "Credit Card Statement",
+              reimbursementForm: "Reimbursement Form",
+              invoiceFile: "Invoice File",
             }
             return (
             <div className="space-y-2">
@@ -1438,8 +1443,11 @@ function extractRequestAttachments(request: any): any[] {
     result.push(...payload.attachments.filter(Boolean))
   }
 
-  // Travel named fields
-  const namedFields = ["amanSticker", "passport", "hotelPhoto", "flightPhoto"]
+  // Travel + Finance named fields
+  const namedFields = [
+    "amanSticker", "passport", "hotelPhoto", "flightPhoto",
+    "supportingDocument", "creditCardStatement", "reimbursementForm", "invoiceFile",
+  ]
   for (const field of namedFields) {
     if (payload[field] && typeof payload[field] === "object" && payload[field].id) {
       result.push({ ...payload[field], _fieldLabel: field })

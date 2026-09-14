@@ -20,7 +20,7 @@ import { Label } from "@/components/ui/label"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
-import { AlertCircle, Upload, X, FileText, CreditCard, Mail, UserCheck } from "lucide-react"
+import { AlertCircle, Upload, X, FileText, CreditCard, Mail, UserCheck, FileCheck2, FileSignature, Check, MoreHorizontal } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
@@ -72,11 +72,12 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
     setSuppliers(getList("suppliers"))
   }, [])
 
-  const { register, control, handleSubmit, watch, setValue, formState: { errors, isSubmitting }, reset } = useForm<InvoicePaymentFormValues>({
+  const { register, control, handleSubmit, watch, setValue, setError, formState: { errors, isSubmitting }, reset } = useForm<InvoicePaymentFormValues>({
     resolver: zodResolver(InvoicePaymentPayloadSchema),
-    defaultValues: { currency: "USD", priority: "Normal", poNumbers: [], approverEmail: "", approverName: "", ccEmails: [] },
+    defaultValues: { currency: "USD", priority: "Normal", poOrContract: "po", poNumbers: [], approverEmail: "", approverName: "", ccEmails: [] },
   })
 
+  const poOrContract = watch("poOrContract")
   const approverEmail = watch("approverEmail")
   const approverName = watch("approverName")
   const role = session?.user?.role as string | undefined
@@ -90,7 +91,9 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
         requestTitle: editingRequest.title || "",
         priority: payload.priority || "Normal",
         supplier: payload.supplier || "",
+        poOrContract: payload.poOrContract || "po",
         poNumbers: Array.isArray(payload.poNumbers) ? payload.poNumbers : [],
+        otherDetails: payload.otherDetails || "",
         amount: payload.amount || 0,
         currency: payload.currency || "USD",
         paymentTerms: payload.paymentTerms || "",
@@ -109,6 +112,13 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
       return
     }
     setInvoiceFileError(null)
+    // Contract / Other are Finance-Team-only choices — force PO for anyone
+    // else regardless of what the (hidden, for them) form field holds.
+    if (!isFinanceTeam) data.poOrContract = "po"
+    if (data.poOrContract === "po" && (!data.poNumbers || data.poNumbers.length === 0)) {
+      setError("poNumbers", { type: "manual", message: "At least one PO number is required" })
+      return
+    }
 
     // If Finance set an approver, auto-CC them and stamp the generic
     // directManager fields the platform's approval-email infra already
@@ -194,7 +204,7 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
           name="priority"
           control={control}
           render={({ field }) => (
-            <FinancePriorityField value={field.value} onChange={field.onChange} hasError={!!errors.priority} />
+            <FinancePriorityField value={field.value} onChange={field.onChange} hasError={!!errors.priority} hasApproval={!!approverEmail} />
           )}
         />
 
@@ -238,17 +248,71 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
               <FieldError message={errors.supplier?.message} />
             </div>
 
-            <div className="space-y-1.5">
-              <Label>PO Number(s) <span className="text-red-500">*</span></Label>
-              <Controller
-                name="poNumbers"
-                control={control}
-                render={({ field }) => (
-                  <PoNumbersField value={field.value ?? []} onChange={field.onChange} hasError={!!errors.poNumbers} />
-                )}
-              />
-              <FieldError message={errors.poNumbers?.message} />
-            </div>
+            {isFinanceTeam && (
+              <div className="space-y-1.5">
+                <Label>PO or Contract <span className="text-red-500">*</span></Label>
+                <Controller
+                  name="poOrContract"
+                  control={control}
+                  render={({ field }) => (
+                    <div className="grid grid-cols-3 gap-3">
+                      {(
+                        [
+                          { value: "po" as const, label: "PO", icon: FileCheck2, caption: "Backed by a Purchase Order" },
+                          { value: "contract" as const, label: "Contract", icon: FileSignature, caption: "Backed by a Contract" },
+                          { value: "other" as const, label: "Other", icon: MoreHorizontal, caption: "Something else" },
+                        ]
+                      ).map(({ value: optionValue, label, icon: Icon, caption }) => {
+                        const isActive = field.value === optionValue
+                        return (
+                          <button
+                            key={optionValue}
+                            type="button"
+                            onClick={() => field.onChange(optionValue)}
+                            className={cn(
+                              "relative flex flex-col items-center gap-1.5 rounded-xl border-2 px-4 py-3.5 font-medium transition-all",
+                              isActive
+                                ? "border-amber-500 bg-amber-50 text-amber-900 shadow-sm ring-2 ring-amber-200"
+                                : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50"
+                            )}
+                          >
+                            {isActive && (
+                              <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-amber-50">
+                                <Check className="h-3 w-3 text-amber-600" />
+                              </span>
+                            )}
+                            <Icon className={cn("h-5 w-5", isActive ? "text-amber-600" : "text-gray-400")} />
+                            <span className="text-sm font-semibold">{label}</span>
+                            <span className={cn("text-[11px]", isActive ? "text-amber-700" : "text-gray-400")}>{caption}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                />
+              </div>
+            )}
+
+            {(!isFinanceTeam || poOrContract === "po") && (
+              <div className="space-y-1.5">
+                <Label>PO Number(s) <span className="text-red-500">*</span></Label>
+                <Controller
+                  name="poNumbers"
+                  control={control}
+                  render={({ field }) => (
+                    <PoNumbersField value={field.value ?? []} onChange={field.onChange} hasError={!!errors.poNumbers} />
+                  )}
+                />
+                <FieldError message={errors.poNumbers?.message} />
+              </div>
+            )}
+
+            {isFinanceTeam && poOrContract === "other" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="otherDetails">Details (optional)</Label>
+                <Input id="otherDetails" placeholder="Add any relevant details" {...register("otherDetails")} />
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
