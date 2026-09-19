@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { addNotification, hasNotification } from "@/lib/notificationStore"
+import type { FunctionId } from "@/lib/functionRegistry"
 
 type FeedAnnouncement = {
   id: string
@@ -28,15 +29,22 @@ function preview(value: string) {
   return compact.length > 90 ? `${compact.slice(0, 90)}...` : compact
 }
 
-export function useAnnouncementNotifications(userId?: string) {
+const NEWS_URL: Record<FunctionId, string> = {
+  admin: "/announcements",
+  hr: "/departments/hr/news",
+  finance: "/departments/finance/news",
+}
+
+export function useAnnouncementNotifications(userId?: string, functionId?: FunctionId) {
   useEffect(() => {
-    if (!userId) return
+    if (!userId || !functionId) return
     const currentUserId = userId
+    const currentFunctionId = functionId
     let cancelled = false
 
     async function sync() {
       try {
-        const res = await fetch("/api/announcements/feed", { cache: "no-store" })
+        const res = await fetch(`/api/announcements/feed?scope=${currentFunctionId}`, { cache: "no-store" })
         if (!res.ok) return
         const json = await res.json()
         if (cancelled) return
@@ -59,7 +67,8 @@ export function useAnnouncementNotifications(userId?: string) {
             title: `Announcement: ${announcement.subject}`,
             description: preview(announcement.body),
             requestId: announcementId,
-            actionUrl: `/announcements#${announcementId}`,
+            actionUrl: `${NEWS_URL[currentFunctionId]}#${announcementId}`,
+            functionIds: [currentFunctionId],
           })
         })
       } catch {}
@@ -71,5 +80,5 @@ export function useAnnouncementNotifications(userId?: string) {
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [userId])
+  }, [userId, functionId])
 }

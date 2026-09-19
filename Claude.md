@@ -1828,3 +1828,11 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] Removed the Intranet tile from the Company Portal landing page and removed Intranet from the sidebar's portal switcher. Existing Intranet routes and stored content remain intact, but the portal no longer advertises or links to them through normal portal selection.
 - [x] Ported the Users session controls to Platform Administration: presence refreshes every 30 seconds and on window focus, with Online First, Offline First, Online Only, and Offline Only options.
 - [x] Standardized company and role badges across Platform Administration, profiles, request details, and shared company badges: BUCHI is green, Si-Ware is blue, and Full Access is yellow.
+
+## Phase 7s: Function-Scoped Notifications (Completed — 19 Sep 2026)
+
+- [x] Notification bells and unread counts are scoped to the active Administration, HR, or Finance portal; switching portals shows only that function's request and announcement activity.
+- [x] Added dedicated Administration, HR, and Finance notification lists, all displaying the notification creation date and time.
+- [x] Request notifications persist their owning/visible function metadata in both browser and server stores. Modules intentionally shared between Administration and HR appear in both legitimate scopes, while exclusive modules cannot leak into another function.
+- [x] Legacy notifications are classified from their request ID prefix, defaulting unknown records to Administration so old data cannot leak into HR or Finance.
+- [x] Notification links open request details inside the currently active function portal, including shared Administration/HR requests.

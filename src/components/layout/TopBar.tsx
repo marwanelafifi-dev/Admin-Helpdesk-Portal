@@ -21,8 +21,9 @@ import {
 import { useNotifications } from "@/hooks/useNotifications"
 import { useAnnouncementNotifications } from "@/hooks/useAnnouncementNotifications"
 import { useNotificationSound } from "@/hooks/useNotificationSound"
-import { markNotificationAsRead } from "@/lib/notificationStore"
+import { markNotificationAsRead, notificationActionUrl, type StoredNotification } from "@/lib/notificationStore"
 import { fmtDateTime } from "@/lib/utils"
+import type { FunctionId } from "@/lib/functionRegistry"
 
 function getInitials(name?: string | null, email?: string | null) {
   const label = name || email || "User"
@@ -46,15 +47,32 @@ function roleLabel(role?: string) {
 
 const SETTINGS_KEY = "arp_platform_settings"
 
-export function TopBar() {
+type Portal = "admin" | "hr" | "finance" | "platform-admin" | "intranet"
+
+const NOTIFICATION_LABEL: Record<FunctionId, string> = {
+  admin: "Administration",
+  hr: "HR",
+  finance: "Finance",
+}
+
+const NOTIFICATION_PAGE: Record<FunctionId, string> = {
+  admin: "/notifications",
+  hr: "/departments/hr/notifications",
+  finance: "/departments/finance/notifications",
+}
+
+export function TopBar({ portal = "admin" }: { portal?: Portal }) {
   const { toggle: toggleMobileNav } = useMobileNav()
   const { data: session } = useSession()
   const router = useRouter()
   const user = session?.user
   const userId = user?.id
   const platformAdminPath = getFirstAllowedPlatformAdminPath(user?.permissions, user?.role)
-  const { notifications, unreadCount } = useNotifications(userId)
-  useAnnouncementNotifications(userId)
+  const notificationFunction: FunctionId | undefined = ["admin", "hr", "finance"].includes(portal)
+    ? portal as FunctionId
+    : undefined
+  const { notifications, unreadCount } = useNotifications(userId, notificationFunction)
+  useAnnouncementNotifications(userId, notificationFunction)
   useNotificationSound(unreadCount)
   const { theme, setTheme } = useTheme()
   const [isOpen, setIsOpen] = useState(false)
@@ -82,8 +100,11 @@ export function TopBar() {
       .forEach((notification) => markNotificationAsRead(notification.id))
   }, [isOpen, notifications, userId])
 
-  function handleNotificationClick(actionUrl?: string) {
+  function handleNotificationClick(notification: StoredNotification) {
     setIsOpen(false)
+    const actionUrl = notificationFunction
+      ? notificationActionUrl(notification, notificationFunction)
+      : notification.actionUrl
     if (actionUrl) router.push(actionUrl)
   }
 
@@ -173,7 +194,9 @@ export function TopBar() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
             <div className="flex items-center justify-between px-3 py-2">
-              <span className="text-sm font-semibold text-gray-900">Notifications</span>
+              <span className="text-sm font-semibold text-gray-900">
+                {notificationFunction ? `${NOTIFICATION_LABEL[notificationFunction]} Notifications` : "Notifications"}
+              </span>
               <button
                 onClick={() => { setIsOpen(false); router.push("/notifications/settings") }}
                 className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
@@ -193,7 +216,7 @@ export function TopBar() {
                 <DropdownMenuItem
                   key={notification.id}
                   className="flex flex-col items-start gap-0.5 cursor-pointer hover:bg-blue-50"
-                  onClick={() => handleNotificationClick(notification.actionUrl)}
+                  onClick={() => handleNotificationClick(notification)}
                 >
                   <span className="text-sm font-medium leading-snug">{notification.title}</span>
                   <span className="text-xs text-muted-foreground">{notification.description}</span>
@@ -209,7 +232,10 @@ export function TopBar() {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-center text-sm text-blue-600 cursor-pointer justify-center font-medium hover:bg-blue-50 hover:text-blue-700"
-              onClick={() => { setIsOpen(false); router.push("/notifications") }}
+              onClick={() => {
+                setIsOpen(false)
+                router.push(notificationFunction ? NOTIFICATION_PAGE[notificationFunction] : "/notifications")
+              }}
             >
               View all notifications
             </DropdownMenuItem>

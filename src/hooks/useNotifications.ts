@@ -8,28 +8,30 @@ import {
   addNotification,
   StoredNotification,
 } from "@/lib/notificationStore"
+import type { FunctionId } from "@/lib/functionRegistry"
 
 const POLL_INTERVAL = 30_000 // 30 seconds
 
-export function useNotifications(userId?: string) {
+export function useNotifications(userId?: string, functionId?: FunctionId) {
   const [notifications, setNotifications] = useState<StoredNotification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const lastPollAt = useRef<string | null>(null)
 
   const refresh = useCallback(() => {
     if (!userId) return
-    const items = getNotificationsForUser(userId)
+    const items = getNotificationsForUser(userId, functionId)
     setNotifications(items)
-    setUnreadCount(getUnreadNotificationCount(userId))
-  }, [userId])
+    setUnreadCount(getUnreadNotificationCount(userId, functionId))
+  }, [userId, functionId])
 
   // Poll server for notifications created by other users' browsers
   const pollServer = useCallback(async () => {
     if (!userId) return
     try {
-      const url = lastPollAt.current
-        ? `/api/notifications/inapp?since=${encodeURIComponent(lastPollAt.current)}`
-        : "/api/notifications/inapp"
+      const search = new URLSearchParams()
+      if (lastPollAt.current) search.set("since", lastPollAt.current)
+      if (functionId) search.set("functionId", functionId)
+      const url = `/api/notifications/inapp${search.size ? `?${search.toString()}` : ""}`
       lastPollAt.current = new Date().toISOString()
       const res = await fetch(url)
       if (!res.ok) return
@@ -42,7 +44,7 @@ export function useNotifications(userId?: string) {
     } catch {
       // silent — polling is best-effort
     }
-  }, [userId])
+  }, [userId, functionId])
 
   useEffect(() => {
     if (!userId) {
@@ -52,6 +54,7 @@ export function useNotifications(userId?: string) {
       return
     }
 
+    lastPollAt.current = null
     refresh()
     const unsubscribe = subscribeNotifications(() => refresh())
 

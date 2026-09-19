@@ -1,5 +1,6 @@
 import fs from "fs"
 import path from "path"
+import { functionsForLegacyRequestId, type FunctionId } from "@/lib/functionRegistry"
 
 export interface ServerNotification {
   id: string
@@ -9,6 +10,7 @@ export interface ServerNotification {
   description: string
   requestId?: string
   actionUrl?: string
+  functionIds?: FunctionId[]
   createdAt: string
   read: boolean
 }
@@ -55,9 +57,15 @@ class ServerNotificationStore {
     writeToDisk(updated)
   }
 
-  getForUser(userId: string, since?: string): ServerNotification[] {
+  getForUser(userId: string, since?: string, functionId?: FunctionId): ServerNotification[] {
     const all = readFromDisk()
-    const filtered = all.filter((n) => n.userId === userId)
+    const filtered = all
+      .filter((n) => n.userId === userId)
+      .filter((n) => {
+        if (!functionId) return true
+        const scopes = n.functionIds?.length ? n.functionIds : functionsForLegacyRequestId(n.requestId)
+        return scopes.includes(functionId)
+      })
     if (since) {
       return filtered.filter((n) => n.createdAt > since)
     }
@@ -72,10 +80,12 @@ class ServerNotificationStore {
     writeToDisk(updated)
   }
 
-  markAllRead(userId: string): void {
+  markAllRead(userId: string, functionId?: FunctionId): void {
     const all = readFromDisk()
     const updated = all.map((n) =>
-      n.userId === userId ? { ...n, read: true } : n
+      n.userId === userId && (
+        !functionId || (n.functionIds?.length ? n.functionIds : functionsForLegacyRequestId(n.requestId)).includes(functionId)
+      ) ? { ...n, read: true } : n
     )
     writeToDisk(updated)
   }

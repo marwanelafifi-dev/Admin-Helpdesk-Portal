@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { serverNotificationStore } from "@/lib/serverNotificationStore"
+import { FUNCTION_IDS, type FunctionId } from "@/lib/functionRegistry"
 
 export const runtime = "nodejs"
 
@@ -14,7 +15,11 @@ export async function GET(req: NextRequest) {
   }
 
   const since = req.nextUrl.searchParams.get("since") ?? undefined
-  const notifications = serverNotificationStore.getForUser(session.user.id, since)
+  const requestedFunction = req.nextUrl.searchParams.get("functionId")
+  const functionId = FUNCTION_IDS.includes(requestedFunction as FunctionId)
+    ? requestedFunction as FunctionId
+    : undefined
+  const notifications = serverNotificationStore.getForUser(session.user.id, since, functionId)
   return NextResponse.json({ data: notifications })
 }
 
@@ -44,9 +49,12 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { notificationId, all } = await req.json().catch(() => ({}))
+  const { notificationId, all, functionId: requestedFunction } = await req.json().catch(() => ({}))
   if (all) {
-    serverNotificationStore.markAllRead(session.user.id)
+    const functionId = FUNCTION_IDS.includes(requestedFunction as FunctionId)
+      ? requestedFunction as FunctionId
+      : undefined
+    serverNotificationStore.markAllRead(session.user.id, functionId)
   } else if (notificationId) {
     serverNotificationStore.markRead(notificationId, session.user.id)
   }

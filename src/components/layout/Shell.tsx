@@ -40,7 +40,7 @@ function ShellInner({ children, portal }: { children: React.ReactNode; portal: "
       )}
 
       <div className="flex flex-1 flex-col overflow-hidden min-w-0">
-        <TopBar />
+        <TopBar portal={portal} />
         <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">{children}</main>
       </div>
     </div>

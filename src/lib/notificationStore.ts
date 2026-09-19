@@ -1,5 +1,10 @@
 import { mockUsers } from "@/lib/mock-data"
-import { isModuleVisibleToFunction, type FunctionId } from "@/lib/functionRegistry"
+import {
+  functionsForLegacyRequestId,
+  functionsVisibleToModule,
+  isModuleVisibleToFunction,
+  type FunctionId,
+} from "@/lib/functionRegistry"
 
 export interface StoredNotification {
   id: string
@@ -9,6 +14,7 @@ export interface StoredNotification {
   description: string
   requestId?: string
   actionUrl?: string
+  functionIds?: FunctionId[]
   createdAt: string
   read: boolean
 }
@@ -18,6 +24,13 @@ type RequestUpdateType = "status" | "comment" | "request_updated"
 const STORAGE_KEY = "arp_notifications"
 const ADMIN_HELPDESK_EMAIL = "adminhelpdesk@si-ware.com"
 const subscribers = new Set<(notifications: StoredNotification[]) => void>()
+
+function requestActionUrl(requestId: string, module: string) {
+  const scopes = functionsVisibleToModule(module.toLowerCase())
+  if (scopes.length === 1 && scopes[0] === "hr") return `/departments/hr/requests/${requestId}`
+  if (scopes.length === 1 && scopes[0] === "finance") return `/departments/finance/requests/${requestId}`
+  return `/requests/${requestId}`
+}
 
 // BroadcastChannel for cross-tab sync (Phase D)
 let broadcastChannel: BroadcastChannel | null = null
@@ -75,14 +88,29 @@ export function subscribeNotifications(
   }
 }
 
-export function getNotificationsForUser(userId: string) {
+export function notificationMatchesFunction(notification: StoredNotification, functionId: FunctionId) {
+  const scopes = notification.functionIds?.length
+    ? notification.functionIds
+    : functionsForLegacyRequestId(notification.requestId)
+  return scopes.includes(functionId)
+}
+
+export function notificationActionUrl(notification: StoredNotification, functionId: FunctionId) {
+  if (notification.type === "announcement" || !notification.requestId) return notification.actionUrl
+  if (functionId === "hr") return `/departments/hr/requests/${notification.requestId}`
+  if (functionId === "finance") return `/departments/finance/requests/${notification.requestId}`
+  return `/requests/${notification.requestId}`
+}
+
+export function getNotificationsForUser(userId: string, functionId?: FunctionId) {
   return readAllNotifications()
     .filter((n) => n.userId === userId)
+    .filter((n) => !functionId || notificationMatchesFunction(n, functionId))
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 }
 
-export function getUnreadNotificationCount(userId: string) {
-  return getNotificationsForUser(userId).filter((n) => !n.read).length
+export function getUnreadNotificationCount(userId: string, functionId?: FunctionId) {
+  return getNotificationsForUser(userId, functionId).filter((n) => !n.read).length
 }
 
 export function markNotificationAsRead(notificationId: string) {
@@ -94,10 +122,12 @@ export function markNotificationAsRead(notificationId: string) {
   return updated.find((item) => item.id === notificationId) ?? null
 }
 
-export function markAllNotificationsAsRead(userId: string) {
+export function markAllNotificationsAsRead(userId: string, functionId?: FunctionId) {
   const notifications = readAllNotifications()
   const updated = notifications.map((item) =>
-    item.userId === userId ? { ...item, read: true } : item
+    item.userId === userId && (!functionId || notificationMatchesFunction(item, functionId))
+      ? { ...item, read: true }
+      : item
   )
   writeAllNotifications(updated)
 }
@@ -110,6 +140,9 @@ export function addNotification(params: {
   description: string
   requestId?: string
   actionUrl?: string
+  functionIds?: FunctionId[]
+  createdAt?: string
+  read?: boolean
 }) {
   const existing = readAllNotifications().find((item) =>
     params.id ? item.id === params.id : false
@@ -124,8 +157,9 @@ export function addNotification(params: {
     description: params.description,
     requestId: params.requestId,
     actionUrl: params.actionUrl ?? (params.requestId ? `/requests/${params.requestId}` : undefined),
-    createdAt: new Date().toISOString(),
-    read: false,
+    functionIds: params.functionIds,
+    createdAt: params.createdAt ?? new Date().toISOString(),
+    read: params.read ?? false,
   }
 
   const notifications = [notification, ...readAllNotifications()]
@@ -417,6 +451,8 @@ export function createRequestUpdateNotifications(params: {
       : `A request update occurred.`
 
   const recipientIds = Array.from(recipients)
+  const functionIds = functionsVisibleToModule(moduleId)
+  const actionUrl = requestActionUrl(requestId, moduleId)
 
   // In-app: notify mock-based users by ID
   recipientIds.forEach((userId) => {
@@ -426,7 +462,8 @@ export function createRequestUpdateNotifications(params: {
       title,
       description,
       requestId,
-      actionUrl: `/requests/${requestId}`,
+      actionUrl,
+      functionIds,
     })
   })
 
@@ -447,7 +484,8 @@ export function createRequestUpdateNotifications(params: {
           title,
           description,
           requestId,
-          actionUrl: `/requests/${requestId}`,
+          actionUrl,
+          functionIds,
         })
       }
     })
@@ -494,6 +532,7 @@ export function createAssignmentNotifications(params: {
 
   const title = `You've been assigned a request: ${params.requestTitle}`
   const description = params.actorName ? `Assigned by ${params.actorName}` : "A request has been assigned to you."
+  const moduleId = params.module.toLowerCase()
 
   addNotification({
     userId: params.assigneeId,
@@ -501,7 +540,8 @@ export function createAssignmentNotifications(params: {
     title,
     description,
     requestId: params.requestId,
-    actionUrl: `/requests/${params.requestId}`,
+    actionUrl: requestActionUrl(params.requestId, moduleId),
+    functionIds: functionsVisibleToModule(moduleId),
   })
 
   const actorEmail = params.actorEmail?.toLowerCase()
@@ -542,6 +582,8 @@ export function createNewRequestNotifications(params: {
   const title = `New ${params.module} request: ${params.requestTitle}`
   const description = `Submitted by ${params.requesterName}`
   const moduleId = params.module.toLowerCase()
+  const functionIds = functionsVisibleToModule(moduleId)
+  const actionUrl = requestActionUrl(params.requestId, moduleId)
 
   // In-app: notify mock admin ids, but only if this module is actually
   // visible to the Admin Team (prevents hr_general/finance_reimbursement
@@ -555,7 +597,8 @@ export function createNewRequestNotifications(params: {
           title,
           description,
           requestId: params.requestId,
-          actionUrl: `/requests/${params.requestId}`,
+          actionUrl,
+          functionIds,
         })
       }
     })
@@ -578,7 +621,8 @@ export function createNewRequestNotifications(params: {
           title,
           description,
           requestId: params.requestId,
-          actionUrl: `/requests/${params.requestId}`,
+          actionUrl,
+          functionIds,
         })
       }
     })
@@ -643,8 +687,8 @@ function deleteNotification(notificationId: string) {
  * Useful after scheduler sent duplicate announcements.
  * Keeps the most recent notification for each announcement ID.
  */
-export function deduplicateAnnouncementNotifications(userId: string) {
-  const notifications = getNotificationsForUser(userId)
+export function deduplicateAnnouncementNotifications(userId: string, functionId?: FunctionId) {
+  const notifications = getNotificationsForUser(userId, functionId)
   const seenAnnouncements = new Set<string>()
   const toRemove = new Set<string>()
 

@@ -25,6 +25,8 @@
 
 export type FunctionId = "admin" | "hr" | "finance"
 
+export const FUNCTION_IDS: FunctionId[] = ["admin", "hr", "finance"]
+
 export interface ModuleOwnership {
   /** The function whose staff actually process this module's requests. */
   owner: FunctionId
@@ -84,6 +86,24 @@ export function isModuleVisibleToFunction(moduleId: string, fn: FunctionId): boo
   const entry = MODULE_REGISTRY[moduleId]
   if (!entry) return false
   return entry.owner === fn || (entry.sharedWith?.includes(fn) ?? false)
+}
+
+/** Every function portal where notifications for this module belong. */
+export function functionsVisibleToModule(moduleId: string): FunctionId[] {
+  return FUNCTION_IDS.filter((fn) => isModuleVisibleToFunction(moduleId, fn))
+}
+
+/**
+ * Best-effort scope migration for notifications created before function
+ * metadata was stored. Unknown legacy notifications default to Admin so they
+ * can never leak into HR or Finance.
+ */
+export function functionsForLegacyRequestId(requestId?: string): FunctionId[] {
+  const prefix = (requestId ?? "").split("-")[0]?.toUpperCase()
+  if (["HRG", "HRL"].includes(prefix)) return ["hr"]
+  if (["REI", "TRE", "INV"].includes(prefix)) return ["finance"]
+  if (prefix === "HR") return ["admin", "hr"]
+  return ["admin"]
 }
 
 /**
