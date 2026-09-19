@@ -1,7 +1,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { Building2, Calculator, ChevronRight, Globe, Headphones, Shield, Users } from "lucide-react"
+import { Building2, Calculator, ChevronRight, Headphones, Shield, Users } from "lucide-react"
 import { auth } from "@/auth"
 import { LandingTopBar } from "@/components/layout/LandingTopBar"
 import { getFirstAllowedPlatformAdminPath } from "@/lib/access"
@@ -44,14 +44,6 @@ const baseFunctions: SupportFunction[] = [
     status: "Available",
   },
   {
-    name: "Intranet",
-    description: "Company news, quick links, employee directory, and document library.",
-    href: "/departments/intranet",
-    icon: Globe,
-    accent: "bg-emerald-600",
-    status: "Available",
-  },
-  {
     name: "IT Team",
     description: "IT incidents and service requests are managed in the SolarWinds Service Desk.",
     href: process.env.NEXT_PUBLIC_IT_SERVICE_DESK_URL || "#it-service-desk",
@@ -68,7 +60,7 @@ export default async function DepartmentSelectorPage() {
 
   // Platform Administration is only shown to users who hold at least one
   // of the platform-admin permissions (manage_users, settings, etc.) —
-  // unlike the four department tiles above, it isn't open to everyone.
+  // unlike the department tiles above, it isn't open to everyone.
   const platformAdminPath = getFirstAllowedPlatformAdminPath(session.user.permissions, session.user.role)
   const functions: SupportFunction[] = platformAdminPath
     ? [

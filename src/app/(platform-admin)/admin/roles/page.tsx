@@ -70,24 +70,20 @@ const AVAILABLE_PERMISSIONS = [
 // makes it appear here automatically.
 const PAGES = REGISTERED_PAGES
 
-const ROLE_COLORS: Record<string, string> = {
-  "Super Admin": "border-purple-200 bg-purple-50",
-  Admin: "border-blue-200 bg-blue-50",
-  Manager: "border-indigo-200 bg-indigo-50",
-  "Requester - Si-Ware": "border-blue-200 bg-blue-50",
-  "Requester - BUCHI": "border-orange-200 bg-orange-50",
-  "Manager - BUCHI": "border-orange-200 bg-orange-50",
-  Viewer: "border-slate-200 bg-slate-50",
+function roleCardColor(roleName: string, companyId: "si_ware" | "buchi"): string {
+  if (roleName === "Full Access") return "border-yellow-200 bg-yellow-50"
+  if (companyId === "buchi" || roleName.toLowerCase().includes("buchi")) {
+    return "border-green-200 bg-green-50"
+  }
+  return "border-blue-200 bg-blue-50"
 }
 
-const ICON_COLORS: Record<string, string> = {
-  "Super Admin": "text-purple-600 bg-purple-100",
-  Admin: "text-blue-600 bg-blue-100",
-  Manager: "text-indigo-600 bg-indigo-100",
-  "Requester - Si-Ware": "text-blue-700 bg-blue-100",
-  "Requester - BUCHI": "text-orange-700 bg-orange-100",
-  "Manager - BUCHI": "text-orange-700 bg-orange-100",
-  Viewer: "text-slate-600 bg-slate-100",
+function roleIconColor(roleName: string, companyId: "si_ware" | "buchi"): string {
+  if (roleName === "Full Access") return "text-yellow-700 bg-yellow-100"
+  if (companyId === "buchi" || roleName.toLowerCase().includes("buchi")) {
+    return "text-green-700 bg-green-100"
+  }
+  return "text-blue-700 bg-blue-100"
 }
 
 export default function AdminRolesPage() {
@@ -321,14 +317,14 @@ export default function AdminRolesPage() {
           {roles.map((role) => (
             <Card
               key={role.id}
-              className={`border-2 ${ROLE_COLORS[role.name] ?? "border-gray-200 bg-gray-50"}`}
+              className={`border-2 ${roleCardColor(role.name, companyId)}`}
             >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div
                       className={`h-10 w-10 rounded-lg flex items-center justify-center ${
-                        ICON_COLORS[role.name] ?? "text-gray-600 bg-gray-100"
+                        roleIconColor(role.name, companyId)
                       }`}
                     >
                       <Shield className="h-5 w-5" />

@@ -35,7 +35,6 @@ import {
   Receipt,
   CreditCard,
   Headphones,
-  Globe,
   Link2,
   BookOpen,
   Send,
@@ -65,11 +64,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-const PORTAL_SWITCHER_ITEMS: { key: "admin" | "hr" | "finance" | "intranet"; name: string; href: string; icon: React.ElementType }[] = [
+const PORTAL_SWITCHER_ITEMS: { key: "admin" | "hr" | "finance"; name: string; href: string; icon: React.ElementType }[] = [
   { key: "admin", name: "Administration Team", href: "/departments/admin", icon: Building2 },
   { key: "hr", name: "HR Team", href: "/departments/hr/services", icon: Users },
   { key: "finance", name: "Finance Team", href: "/departments/finance/services", icon: Calculator },
-  { key: "intranet", name: "Intranet", href: "/departments/intranet", icon: Globe },
 ]
 
 interface NavItem {

@@ -64,13 +64,12 @@ const fallbackRoles: RoleOption[] = [
   { value: "Manager - BUCHI", label: "Manager - BUCHI" },
 ]
 
-const ROLE_COLORS: Record<string, string> = {
-  "Full Access": "bg-purple-100 text-purple-800",
-  "Administration Team": "bg-blue-100 text-blue-800",
-  "People Team": "bg-indigo-100 text-indigo-800",
-  "Requester - Si-Ware": "bg-blue-100 text-blue-800",
-  "Requester - BUCHI": "bg-orange-100 text-orange-800",
-  "Manager - BUCHI": "bg-orange-100 text-orange-800",
+function roleColorClass(user: PlatformUser): string {
+  if (user.role === "Full Access") return "bg-yellow-100 text-yellow-800"
+  if (user.companyId === "buchi" || user.role.toLowerCase().includes("buchi")) {
+    return "bg-green-100 text-green-800"
+  }
+  return "bg-blue-100 text-blue-800"
 }
 
 function roleLabel(role: string, roles: RoleOption[]) {
@@ -100,6 +99,7 @@ function getDefaultRoleValue(roles: RoleOption[]) {
 export default function AdminUsersPage() {
   const [search, setSearch] = useState("")
   const [companyFilter, setCompanyFilter] = useState<"all" | "si_ware" | "buchi">("all")
+  const [sessionView, setSessionView] = useState<"all" | "online_first" | "offline_first" | "online_only" | "offline_only">("all")
   const [users, setUsers] = useState<PlatformUser[]>([])
   const [onlineIds, setOnlineIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -181,10 +181,37 @@ export default function AdminUsersPage() {
     loadRoles()
   }, [])
 
+  useEffect(() => {
+    const refreshOnlineUsers = async () => {
+      try {
+        const response = await fetch("/api/session/heartbeat", { credentials: "include" })
+        if (!response.ok) return
+        const data = await response.json()
+        setOnlineIds(new Set<string>(
+          (data.online ?? []).flatMap((session: { userId: string; email: string }) => [session.userId, session.email])
+        ))
+      } catch {
+        // Presence refresh is best-effort; keep the last known state on failure.
+      }
+    }
+
+    const interval = window.setInterval(refreshOnlineUsers, 30_000)
+    const handleFocus = () => void refreshOnlineUsers()
+    window.addEventListener("focus", handleFocus)
+
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener("focus", handleFocus)
+    }
+  }, [])
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    return users.filter((user) => {
+    const matches = users.filter((user) => {
       if (companyFilter !== "all" && user.companyId !== companyFilter) return false
+      const isOnline = onlineIds.has(user.id) || onlineIds.has(user.email)
+      if (sessionView === "online_only" && !isOnline) return false
+      if (sessionView === "offline_only" && isOnline) return false
       const name = user.name ?? ""
       return (
         name.toLowerCase().includes(q) ||
@@ -192,7 +219,22 @@ export default function AdminUsersPage() {
         roleLabel(user.role, roles).toLowerCase().includes(q)
       )
     })
-  }, [search, companyFilter, users, roles])
+
+    if (sessionView === "online_first" || sessionView === "offline_first") {
+      return [...matches].sort((a, b) => {
+        const aOnline = onlineIds.has(a.id) || onlineIds.has(a.email)
+        const bOnline = onlineIds.has(b.id) || onlineIds.has(b.email)
+        if (aOnline !== bOnline) {
+          return sessionView === "online_first"
+            ? Number(bOnline) - Number(aOnline)
+            : Number(aOnline) - Number(bOnline)
+        }
+        return (a.name ?? a.email).localeCompare(b.name ?? b.email)
+      })
+    }
+
+    return matches
+  }, [search, companyFilter, sessionView, users, roles, onlineIds])
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -588,6 +630,18 @@ export default function AdminUsersPage() {
                 <SelectItem value="buchi">BUCHI</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={sessionView} onValueChange={(value) => setSessionView(value as typeof sessionView)}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Sort by session" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sessions</SelectItem>
+                <SelectItem value="online_first">Online First</SelectItem>
+                <SelectItem value="offline_first">Offline First</SelectItem>
+                <SelectItem value="online_only">Online Only</SelectItem>
+                <SelectItem value="offline_only">Offline Only</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardHeader>
 
@@ -632,7 +686,7 @@ export default function AdminUsersPage() {
                       <TableCell>
                         <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
                           user.companyId === "buchi"
-                            ? "bg-orange-100 text-orange-800"
+                            ? "bg-green-100 text-green-800"
                             : "bg-blue-100 text-blue-800"
                         }`}>
                           {user.companyName ?? "Unclassified"}
@@ -641,7 +695,7 @@ export default function AdminUsersPage() {
                       <TableCell>
                         <span
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            ROLE_COLORS[user.role] ?? "bg-gray-100 text-gray-700"
+                            roleColorClass(user)
                           }`}
                         >
                           {roleLabel(user.role, roles)}

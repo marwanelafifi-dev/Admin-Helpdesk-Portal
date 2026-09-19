@@ -1815,10 +1815,16 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] In-app Administration Team notifications remain unchanged; this adjustment affects email delivery only.
 - [x] An Administration Team member can still receive a status, comment, or approval-request email when their address is explicitly included in that request's CC list.
 
-## Phase 7h: Notification Timestamps and Description Formatting (Completed — 19 Sep 2026)
+## Phase 7q: Notification Timestamps and Description Formatting (Completed — 19 Sep 2026)
 
 - [x] Added each notification's creation date and time to the shared top-bar notification dropdown, making timestamps visible consistently to every user role.
 - [x] Reused the platform's standard `fmtDateTime()` formatter so dropdown timestamps match the full Notifications page and other request dates.
 - [x] Request descriptions now preserve user-entered line breaks and intentional spacing after submission.
 - [x] Applied preserved whitespace and safe long-word wrapping to shared Markdown description displays and request payload detail fields.
 - [x] Printed request summaries also preserve the original description layout with `white-space: pre-wrap` and safe overflow wrapping.
+
+## Phase 7r: Company Portal Session Parity and Intranet Removal (Completed — 19 Sep 2026)
+
+- [x] Removed the Intranet tile from the Company Portal landing page and removed Intranet from the sidebar's portal switcher. Existing Intranet routes and stored content remain intact, but the portal no longer advertises or links to them through normal portal selection.
+- [x] Ported the Users session controls to Platform Administration: presence refreshes every 30 seconds and on window focus, with Online First, Offline First, Online Only, and Offline Only options.
+- [x] Standardized company and role badges across Platform Administration, profiles, request details, and shared company badges: BUCHI is green, Si-Ware is blue, and Full Access is yellow.

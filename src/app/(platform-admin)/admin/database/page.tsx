@@ -96,7 +96,7 @@ const SERVER_FILE_STORES = [
     key: "server:company-data-buchi",
     label: "Server Company Data - BUCHI",
     description: "data/company-data-buchi.json — BUCHI suppliers, cost centers, managers, carriers, departments, sectors",
-    icon: Building2, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-200",
+    icon: Building2, color: "text-green-600", bg: "bg-green-50", border: "border-green-200",
   },
   {
     key: "server:platform-settings",
@@ -1207,7 +1207,7 @@ export default function DatabasePage() {
                         <td className="px-4 py-3 whitespace-nowrap">
                           <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${
                             companyName === "BUCHI"
-                              ? "border-teal-200 bg-teal-50 text-teal-700"
+                              ? "border-green-200 bg-green-50 text-green-700"
                               : companyName === "Si-Ware Systems"
                                 ? "border-blue-200 bg-blue-50 text-blue-700"
                                 : "border-gray-200 bg-gray-50 text-gray-500"

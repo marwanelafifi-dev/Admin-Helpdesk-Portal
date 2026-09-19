@@ -17,7 +17,7 @@ export function CompanyBadge({ module, requesterEmail, companyId, companyName, c
   return (
     <span className={cn(
       "inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold",
-      id === "buchi" ? "bg-orange-100 text-orange-800" : "bg-blue-100 text-blue-800",
+      id === "buchi" ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800",
       className
     )}>
       {name}
