@@ -20,7 +20,7 @@ function autoLinkUrls(text: string): string {
 export function MarkdownDisplay({ content, className = "" }: Props) {
   if (!content) return null
   return (
-    <div className={`prose prose-sm max-w-none text-gray-700 dark:text-gray-300
+    <div className={`prose prose-sm max-w-none whitespace-pre-wrap break-words text-gray-700 dark:text-gray-300
       prose-headings:text-gray-900 dark:prose-headings:text-gray-100
       prose-strong:text-gray-900 dark:prose-strong:text-gray-100
       prose-a:text-blue-600 prose-a:underline

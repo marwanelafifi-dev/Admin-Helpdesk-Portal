@@ -395,7 +395,7 @@ export default function RequestDetailPage() {
           .detail-item { page-break-inside: avoid; }
           .detail-label { font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 3px; }
           .detail-value { font-size: 13px; color: #1f2937; font-weight: 500; }
-          .description-box { background-color: #f9fafb; padding: 12px; border-radius: 6px; border-left: 3px solid #2563eb; font-size: 13px; }
+          .description-box { background-color: #f9fafb; padding: 12px; border-radius: 6px; border-left: 3px solid #2563eb; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
           .print-date { text-align: center; margin-top: auto; padding-top: 15px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; }
           @media print {
             * { page-break-inside: avoid; }
@@ -1587,5 +1587,5 @@ function PayloadValue({ fieldKey, value }: { fieldKey: string; value: unknown })
   if (fieldKey === "direction") {
     return <p className="text-sm font-medium text-gray-900 capitalize">{text}</p>
   }
-  return <p className="text-sm font-medium text-gray-900 break-words">{text}</p>
+  return <p className="text-sm font-medium text-gray-900 whitespace-pre-wrap break-words">{text}</p>
 }
