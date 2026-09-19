@@ -214,7 +214,7 @@ function HrTravelLetterDetail({ id }: { id: string }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Purpose of Trip</p>
-              <p className="font-medium text-gray-900">{payload.travelPurpose}</p>
+              <p className="font-medium text-gray-900 whitespace-pre-wrap break-words">{payload.travelPurpose}</p>
             </div>
 
             <div>

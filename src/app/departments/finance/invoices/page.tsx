@@ -461,7 +461,7 @@ export default function InvoicePaymentRequestsPage() {
                           {payload.poOrContract === "other" && !!payload.otherDetails && (
                             <div>
                               <p className="font-semibold text-gray-700">Details</p>
-                              <p className="text-gray-600">{String(payload.otherDetails)}</p>
+                              <p className="text-gray-600 whitespace-pre-wrap break-words">{String(payload.otherDetails)}</p>
                             </div>
                           )}
                           <div>
@@ -470,7 +470,7 @@ export default function InvoicePaymentRequestsPage() {
                           </div>
                           <div>
                             <p className="font-semibold text-gray-700">Payment Terms</p>
-                            <p className="text-gray-600">{String(payload.paymentTerms ?? "—")}</p>
+                            <p className="text-gray-600 whitespace-pre-wrap break-words">{String(payload.paymentTerms ?? "—")}</p>
                           </div>
                           <div>
                             <p className="font-semibold text-gray-700">Method</p>

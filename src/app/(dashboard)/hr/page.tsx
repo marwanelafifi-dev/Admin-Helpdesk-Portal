@@ -579,7 +579,7 @@ export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
                           {p.notes && (
                             <div className="border-t pt-4">
                               <p className="font-semibold text-gray-700">Notes</p>
-                              <p className="text-gray-600">{p.notes}</p>
+                              <p className="text-gray-600 whitespace-pre-wrap break-words">{p.notes}</p>
                             </div>
                           )}
                         </div>

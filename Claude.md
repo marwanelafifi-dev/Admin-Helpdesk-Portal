@@ -1836,3 +1836,9 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] Request notifications persist their owning/visible function metadata in both browser and server stores. Modules intentionally shared between Administration and HR appear in both legitimate scopes, while exclusive modules cannot leak into another function.
 - [x] Legacy notifications are classified from their request ID prefix, defaulting unknown records to Administration so old data cannot leak into HR or Finance.
 - [x] Notification links open request details inside the currently active function portal, including shared Administration/HR requests.
+
+## Phase 7t: Request Text Formatting Across All Functions (Completed — 19 Sep 2026)
+
+- [x] Preserved user-entered line breaks and spacing for every scalar request payload value shown by the shared Administration, HR, and Finance request-detail page, including nested and list values.
+- [x] Applied preserved whitespace to specialized HR Travel Letter details, HR request notes, and Finance Invoice Payment free-text fields shown in expanded list rows.
+- [x] Printed request summaries now preserve multiline formatting for every payload field, safely wrap long text, escape HTML, and no longer truncate values to 100 characters.

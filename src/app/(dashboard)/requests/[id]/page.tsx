@@ -394,7 +394,7 @@ export default function RequestDetailPage() {
           .details-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
           .detail-item { page-break-inside: avoid; }
           .detail-label { font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 3px; }
-          .detail-value { font-size: 13px; color: #1f2937; font-weight: 500; }
+          .detail-value { font-size: 13px; color: #1f2937; font-weight: 500; white-space: pre-wrap; overflow-wrap: anywhere; }
           .description-box { background-color: #f9fafb; padding: 12px; border-radius: 6px; border-left: 3px solid #2563eb; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
           .print-date { text-align: center; margin-top: auto; padding-top: 15px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; }
           @media print {
@@ -456,7 +456,7 @@ export default function RequestDetailPage() {
           ${request.description ? `
             <div class="section">
               <div class="section-title">Description</div>
-              <div class="description-box">${request.description.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+              <div class="description-box">${request.description.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
             </div>
           ` : ""}
 
@@ -469,11 +469,19 @@ export default function RequestDetailPage() {
                   .map(([key, value]) => {
                     if (value === null || value === undefined || value === "") return ""
                     const label = key.replace(/([A-Z])/g, " $1").trim()
-                    const displayValue = Array.isArray(value) ? value.join(", ") : String(value)
+                    const displayValue = Array.isArray(value)
+                      ? value.join(", ")
+                      : value && typeof value === "object"
+                        ? JSON.stringify(value, null, 2)
+                        : String(value)
+                    const escapedDisplayValue = displayValue
+                      .replace(/&/g, "&amp;")
+                      .replace(/</g, "&lt;")
+                      .replace(/>/g, "&gt;")
                     return `
                       <div class="detail-item">
                         <div class="detail-label">${label}</div>
-                        <div class="detail-value">${displayValue.substring(0, 100)}</div>
+                        <div class="detail-value">${escapedDisplayValue}</div>
                       </div>
                     `
                   })
@@ -1540,7 +1548,7 @@ function PayloadValue({ fieldKey, value }: { fieldKey: string; value: unknown })
   if (Array.isArray(value)) {
     if (value.length === 0) return <p className="text-sm text-gray-500 italic">None</p>
     if (value.every((v) => typeof v === "string" || typeof v === "number")) {
-      return <p className="text-sm font-medium text-gray-900">{value.join(", ")}</p>
+      return <p className="text-sm font-medium text-gray-900 whitespace-pre-wrap break-words">{value.join(", ")}</p>
     }
     // Array of objects — try to find a readable label (name → title → id).
     return (
@@ -1549,9 +1557,9 @@ function PayloadValue({ fieldKey, value }: { fieldKey: string; value: unknown })
           if (item && typeof item === "object") {
             const obj = item as Record<string, unknown>
             const label = (obj.name ?? obj.title ?? obj.label ?? obj.id ?? "Item") as string
-            return <li key={idx} className="font-medium text-gray-900">{String(label)}</li>
+            return <li key={idx} className="font-medium text-gray-900 whitespace-pre-wrap break-words">{String(label)}</li>
           }
-          return <li key={idx} className="font-medium text-gray-900">{String(item)}</li>
+          return <li key={idx} className="font-medium text-gray-900 whitespace-pre-wrap break-words">{String(item)}</li>
         })}
       </ul>
     )
@@ -1568,7 +1576,7 @@ function PayloadValue({ fieldKey, value }: { fieldKey: string; value: unknown })
         {entries.map(([k, v]) => (
           <li key={k} className="flex flex-wrap items-baseline gap-x-2">
             <span className="text-gray-500">{humanizeKey(k)}:</span>
-            <span className="font-medium text-gray-900">
+            <span className="font-medium text-gray-900 whitespace-pre-wrap break-words">
               {typeof v === "object" ? JSON.stringify(v) : String(v)}
             </span>
           </li>
