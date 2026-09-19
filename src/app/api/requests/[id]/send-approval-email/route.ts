@@ -3,7 +3,6 @@ import { auth } from "@/auth"
 import { requestStore } from "@/lib/requestStore"
 import { signApprovalToken } from "@/lib/approvalToken"
 import { sendPurchaseApprovalEmail, sendShippingApprovalEmail, sendTravelApprovalEmail } from "@/lib/emailService"
-import { readUsers } from "@/lib/userStore"
 import { resolveRequestManagerEmail, resolveRequestManagerName } from "@/lib/approvalNotify"
 
 export const runtime = "nodejs"
@@ -58,20 +57,15 @@ export async function POST(
     )
   }
 
-  // Cc: requester + Administration Team + helpdesk (so everyone in the
-  // loop sees the decision request). Manager is the primary recipient.
-  const adminEmails = readUsers()
-    .filter((u) => u.active && u.role === "Administration Team")
-    .map((u) => u.email)
-    .filter(Boolean)
-
+  // Cc: requester + helpdesk + request CCs. Administration Team members
+  // receive the eventual approval decision, not the approval request.
+  // Manager is the primary recipient.
   const toLower = managerEmail.toLowerCase()
   const ccSet = new Set<string>()
   const addCc = (e?: string) => {
     const t = (e ?? "").trim().toLowerCase()
     if (t && t !== toLower) ccSet.add(t)
   }
-  adminEmails.forEach(addCc)
   addCc(request.requesterEmail)
   addCc(ADMIN_HELPDESK_EMAIL)
   // Also include any CC the requester typed on the form / admin CC list.

@@ -267,15 +267,12 @@ async function notifyByEmail(params: {
 
     ccEmails = []  // No separate CC since all are in TO
   } else {
-    // For status changes: TO = Admin Team + Owner + CC recipients
-    const realAdmins = await fetchAdminUsers()
-    const realAdminEmails = realAdmins.map((u) => u.email)
-
+    // For status changes: TO = Owner + helpdesk + request CC recipients.
+    // Administration Team members only receive new-request and approval-decision emails.
     // Always include the requester, even if they made the status change
     const ownerEmail = params.requestOwnerEmail ? params.requestOwnerEmail : undefined
 
     const allEmails = Array.from(new Set([
-      ...realAdminEmails,
       ownerEmail,
       ADMIN_HELPDESK_EMAIL,
       ...(params.ccEmails ?? []).filter((e): e is string => Boolean(e)),
