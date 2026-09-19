@@ -937,7 +937,7 @@ export default function RequestDetailPage() {
                       <CardTitle className="text-sm font-medium">Company Name</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <Badge className={request.companyId === "buchi" ? "bg-orange-100 text-orange-800" : "bg-blue-100 text-blue-800"}>
+                      <Badge className={request.companyId === "buchi" ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"}>
                         {request.companyName}
                       </Badge>
                     </CardContent>

@@ -15,14 +15,6 @@ function getInitials(name?: string | null, email?: string | null) {
   return label.split(/[.\s@_-]+/).filter(Boolean).map((p) => p[0]).join("").toUpperCase().slice(0, 2)
 }
 
-const ROLE_COLORS: Record<string, string> = {
-  "Full Access":         "bg-purple-100 text-purple-700 border-purple-200",
-  "Administration Team": "bg-blue-100 text-blue-700 border-blue-200",
-  "People Team":         "bg-indigo-100 text-indigo-700 border-indigo-200",
-  "Requester":           "bg-green-100 text-green-700 border-green-200",
-  "Viewer":              "bg-gray-100 text-gray-700 border-gray-200",
-}
-
 export default function ProfilePage() {
   const { data: session, status, update } = useSession()
   const user = session?.user
@@ -115,7 +107,12 @@ export default function ProfilePage() {
     )
   }
 
-  const roleColor = ROLE_COLORS[user?.role ?? ""] ?? "bg-slate-100 text-slate-700 border-slate-200"
+  const roleName = user?.role ?? ""
+  const roleColor = roleName === "Full Access"
+    ? "bg-yellow-100 text-yellow-800 border-yellow-200"
+    : roleName.toLowerCase().includes("buchi")
+      ? "bg-green-100 text-green-700 border-green-200"
+      : "bg-blue-100 text-blue-700 border-blue-200"
   const hasCustomAvatar = !!avatarSrc
 
   return (

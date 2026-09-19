@@ -1615,3 +1615,11 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] Request descriptions now preserve user-entered line breaks and intentional spacing after submission.
 - [x] Applied preserved whitespace and safe long-word wrapping to shared Markdown description displays and request payload detail fields.
 - [x] Printed request summaries also preserve the original description layout with `white-space: pre-wrap` and safe overflow wrapping.
+
+## Phase 7i: User Presence Controls and Company Color Standardization (Completed — 19 Sep 2026)
+
+- [x] Added a session control to Admin → Users with **Online First**, **Offline First**, **Online Only**, **Offline Only**, and **All Sessions** options.
+- [x] Online presence refreshes every 30 seconds and whenever the browser regains focus, while preserving the last known state if a refresh fails.
+- [x] Standardized company and role colors across the portal: **BUCHI is green**, **Si-Ware is blue**, and **Full Access is yellow**.
+- [x] The role-color rule covers built-in and custom roles. Any role containing `BUCHI` is green even when legacy company metadata is missing.
+- [x] Applied the palette to Users, Roles administration cards, Profile, shared company badges, request details, and database company indicators.
