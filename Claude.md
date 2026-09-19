@@ -527,7 +527,7 @@ This document tracks the phased development of the Admin Request Platform, movin
 - [x] **Status code normalisation**: every module's STATUS_LABELS / STATUSES / MODULE_STATUSES maps now use codes that match the UI label 1:1 — `in_progress` not `on_hold`, `in_transit` not collision-mapped, `awaiting_approval` for Purchase, `in_customs` only for Shipping. Legacy `on_hold` is kept in palette maps so historical data still renders as "In Progress" (blue).
 - [x] **Approval email** (`src/lib/emailService.ts` → `sendPurchaseApprovalEmail`):
   - Fired automatically when a Purchase request moves to `awaiting_approval`.
-  - To: the selected Direct Manager. Cc: Administration Team + requester + helpdesk + form CC + admin CC.
+  - To: the selected Direct Manager. Cc: requester + helpdesk + form CC + admin CC. Administration Team is intentionally excluded from the approval request and receives the eventual approval decision instead.
   - Renders every field needed to decide (item, description, category, platform, supplier, product URL, quantity, estimated price, business justification, requester info).
   - Includes one-click Approve / Reject buttons.
 - [x] **Signed approval tokens** (`src/lib/approvalToken.ts`):
@@ -1804,3 +1804,13 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
   - [x] Positioned directly before "Attach Supporting Documents" (after Personal Credit Card), grouping all attachment-type sections together near the end of the form rather than up near the top.
   - [x] New `reimbursementForm` field on both schemas (`reimbursement.schema.ts` / `travelReimbursement.schema.ts`), validated as required in `onSubmit` (not zod) the same way `supportingDocument`/`creditCardStatement` already are.
 - [x] **Bug fixed: Finance modules' named attachments never appeared in the Attachments tab or the preview/download proxy.** `extractRequestAttachments()` (client, `requests/[id]/page.tsx`) and `collectPayloadAttachments()` (server, `attachments/[index]/route.ts`) only ever recognized `payload.attachments[]`, Travel's `amanSticker/passport/hotelPhoto/flightPhoto`, and `additionalAttachments[]` — every Finance module's own named singular fields (`supportingDocument`, `creditCardStatement`, `invoiceFile`, and the new `reimbursementForm`) were silently invisible in the UI even though they were being saved correctly. Both functions now also check those four field names; `CATEGORY_LABELS` gained matching human-readable badges ("Supporting Document", "Credit Card Statement", "Reimbursement Form", "Invoice File").
+## Phase 7p: Administration Team Email Noise Reduction (Completed — 19 Sep 2026)
+
+- [x] Administration Team members now receive request-lifecycle emails only for **new request submissions** and **approval decisions**.
+- [x] New-request emails remain addressed to Administration Team + requester + `adminhelpdesk@si-ware.com`, with form CCs and the selected Direct/Authorized Manager on Cc.
+- [x] Approval-decision emails remain addressed to Administration Team + requester + helpdesk + manager + request CCs.
+- [x] Administration Team members were removed from ordinary request status-change emails. Those emails now go to the requester, helpdesk, and request-specific CC recipients.
+- [x] Administration Team members were removed from approval-request Cc lists. Approval requests now go to the selected Direct/Authorized Manager, with requester, helpdesk, and request-specific CC recipients copied.
+- [x] Comment emails continue to exclude Administration Team members and go only to the requester, helpdesk, and request-specific CC recipients.
+- [x] In-app Administration Team notifications remain unchanged; this adjustment affects email delivery only.
+- [x] An Administration Team member can still receive a status, comment, or approval-request email when their address is explicitly included in that request's CC list.

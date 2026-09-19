@@ -3,9 +3,8 @@ import { auth } from "@/auth"
 import { requestStore } from "@/lib/requestStore"
 import { signApprovalToken } from "@/lib/approvalToken"
 import { sendPurchaseApprovalEmail, sendShippingApprovalEmail, sendTravelApprovalEmail, sendReimbursementApprovalEmail, sendTravelReimbursementApprovalEmail, sendInvoicePaymentApprovalEmail } from "@/lib/emailService"
-import { readUsers } from "@/lib/userStore"
 import { resolveRequestManagerEmail, resolveRequestManagerName } from "@/lib/approvalNotify"
-import { teamRolesForModule, MANAGER_APPROVAL_MODULES } from "@/lib/functionRegistry"
+import { MANAGER_APPROVAL_MODULES } from "@/lib/functionRegistry"
 
 export const runtime = "nodejs"
 
@@ -59,23 +58,15 @@ export async function POST(
     )
   }
 
-  // Cc: requester + the owning/shared function team(s) + helpdesk (so
-  // everyone in the loop sees the decision request). Manager is the
-  // primary recipient. Resolved from the module registry so this stays
-  // correct as new function-owned modules are added.
-  const ccTeamRoles = new Set(teamRolesForModule(request.module))
-  const adminEmails = readUsers()
-    .filter((u) => u.active && ccTeamRoles.has(u.role))
-    .map((u) => u.email)
-    .filter(Boolean)
-
+  // Cc: requester + helpdesk + request CCs. Function team members receive
+  // the eventual approval decision, not the pending approval request.
+  // Manager is the primary recipient.
   const toLower = managerEmail.toLowerCase()
   const ccSet = new Set<string>()
   const addCc = (e?: string) => {
     const t = (e ?? "").trim().toLowerCase()
     if (t && t !== toLower) ccSet.add(t)
   }
-  adminEmails.forEach(addCc)
   addCc(request.requesterEmail)
   addCc(ADMIN_HELPDESK_EMAIL)
   // Also include any CC the requester typed on the form / admin CC list.
