@@ -21,6 +21,7 @@ import { useNotifications } from "@/hooks/useNotifications"
 import { useAnnouncementNotifications } from "@/hooks/useAnnouncementNotifications"
 import { useNotificationSound } from "@/hooks/useNotificationSound"
 import { markNotificationAsRead } from "@/lib/notificationStore"
+import { fmtDateTime } from "@/lib/utils"
 
 function getInitials(name?: string | null, email?: string | null) {
   const label = name || email || "User"
@@ -174,6 +175,12 @@ export function TopBar() {
                 >
                   <span className="text-sm font-medium leading-snug">{notification.title}</span>
                   <span className="text-xs text-muted-foreground">{notification.description}</span>
+                  <time
+                    dateTime={notification.createdAt}
+                    className="mt-1 text-[10px] text-gray-400 tabular-nums"
+                  >
+                    {fmtDateTime(notification.createdAt)}
+                  </time>
                 </DropdownMenuItem>
               ))
             )}
