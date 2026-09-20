@@ -89,6 +89,7 @@ export function subscribeNotifications(
 }
 
 export function notificationMatchesFunction(notification: StoredNotification, functionId: FunctionId) {
+  if (notification.type === "announcement" && functionId !== "admin") return false
   const scopes = notification.functionIds?.length
     ? notification.functionIds
     : functionsForLegacyRequestId(notification.requestId)
@@ -105,7 +106,9 @@ export function notificationActionUrl(notification: StoredNotification, function
 export function getNotificationsForUser(userId: string, functionId?: FunctionId) {
   return readAllNotifications()
     .filter((n) => n.userId === userId)
-    .filter((n) => !functionId || notificationMatchesFunction(n, functionId))
+    .filter((n) => functionId
+      ? notificationMatchesFunction(n, functionId)
+      : n.type !== "announcement" || notificationMatchesFunction(n, "admin"))
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 }
 

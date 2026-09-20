@@ -15,7 +15,9 @@ import { canManageIntranetContent, type IntranetOwner } from "@/lib/functionRegi
 
 export const runtime = "nodejs"
 
-const VALID_OWNERS: IntranetOwner[] = ["company", "admin", "hr", "finance"]
+// Administration owns announcements. The company bucket is retained for
+// archived Intranet records, which are also administered by that function.
+const VALID_OWNERS: IntranetOwner[] = ["company", "admin"]
 
 type Payload = {
   mode?: "send" | "draft" | "template"
@@ -54,11 +56,15 @@ function dataUrlToEmailAttachment(att: AnnouncementAttachment) {
   }
 }
 
+function canUseAnnouncements(session: any): boolean {
+  const role = session?.user?.role
+  return role === "Administration Team" || role === "Full Access" || role?.toLowerCase() === "super_admin"
+}
+
 /**
  * The owner a non-Full-Access caller is allowed to act as, derived strictly
- * from their real role — never trust a client-supplied owner for anyone but
- * Full Access, or a Finance user could tamper with the request body to post
- * as "hr".
+ * from their real role — never trust a client-supplied owner unless the
+ * signed-in Administration user is actually allowed to manage that bucket.
  */
 function effectiveOwnerFor(session: any, requestedOwner: unknown, intranetOwners?: IntranetOwner[]): IntranetOwner {
   const role = session?.user?.role
@@ -69,8 +75,6 @@ function effectiveOwnerFor(session: any, requestedOwner: unknown, intranetOwners
     return requestedOwner as IntranetOwner
   }
   if (role === "Administration Team") return "admin"
-  if (role === "People Team") return "hr"
-  if (role === "Finance Team") return "finance"
   return "company"
 }
 
@@ -78,6 +82,9 @@ export async function GET(req: NextRequest) {
   const session = await auth()
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  if (!canUseAnnouncements(session)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
   const ownerParam = new URL(req.url).searchParams.get("owner")
@@ -108,6 +115,9 @@ export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  if (!canUseAnnouncements(session)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
   const body = (await req.json()) as Payload
@@ -222,6 +232,9 @@ export async function DELETE(req: NextRequest) {
   const session = await auth()
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  if (!canUseAnnouncements(session)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
   const url = new URL(req.url)

@@ -29,15 +29,9 @@ function preview(value: string) {
   return compact.length > 90 ? `${compact.slice(0, 90)}...` : compact
 }
 
-const NEWS_URL: Record<FunctionId, string> = {
-  admin: "/announcements",
-  hr: "/departments/hr/news",
-  finance: "/departments/finance/news",
-}
-
 export function useAnnouncementNotifications(userId?: string, functionId?: FunctionId) {
   useEffect(() => {
-    if (!userId || !functionId) return
+    if (!userId || functionId !== "admin") return
     const currentUserId = userId
     const currentFunctionId = functionId
     let cancelled = false
@@ -67,7 +61,7 @@ export function useAnnouncementNotifications(userId?: string, functionId?: Funct
             title: `Announcement: ${announcement.subject}`,
             description: preview(announcement.body),
             requestId: announcementId,
-            actionUrl: `${NEWS_URL[currentFunctionId]}#${announcementId}`,
+            actionUrl: `/announcements#${announcementId}`,
             functionIds: [currentFunctionId],
           })
         })

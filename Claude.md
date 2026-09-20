@@ -1706,7 +1706,7 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] **Clicking it now opens a dropdown instead of navigating straight to `/landing`** — lets the user jump directly to another portal without going through the full picker page first:
   - [x] `PORTAL_SWITCHER_ITEMS` constant lists Administration Team (`/departments/admin`), HR Team (`/departments/hr/services`), Finance Team (`/departments/finance/services`) — mirrors `src/app/landing/page.tsx`'s `baseFunctions` list.
   - [x] **Platform Administration** entry only appears if `getFirstAllowedPlatformAdminPath(permissions, role)` (from `src/lib/access.ts`, same helper the TopBar Shield icon already used) resolves to a path — not shown to users without platform-admin permissions, matching `/landing`'s own gating.
-  - [x] **IT Service Desk** entry only appears if `NEXT_PUBLIC_IT_SERVICE_DESK_URL` is configured; opens in a new tab (external SolarWinds link, not an in-app route).
+  - [x] **IT Team** entry is always visible; it opens `NEXT_PUBLIC_IT_SERVICE_DESK_URL` in a new tab when configured, otherwise it returns to the Company Portal's IT card.
   - [x] Current portal's entry is highlighted (`bg-accent`) in the list.
   - [x] "View all support functions" item at the bottom still routes to `/landing` for the full picker with descriptions, for anyone who wants the fuller view.
   - [x] Built with the existing Radix-based `DropdownMenu` components (`src/components/ui/dropdown-menu.tsx`) — same ones used for the TopBar user-avatar menu. Its content renders through a Radix Portal, so it isn't clipped by the sidebar's fixed positioning/overflow (the same clipping problem `AssigneeSelect` had to work around in Phase 7h with `position: fixed` doesn't apply here, since Radix already portals the content to `document.body`).
@@ -1842,3 +1842,17 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] Preserved user-entered line breaks and spacing for every scalar request payload value shown by the shared Administration, HR, and Finance request-detail page, including nested and list values.
 - [x] Applied preserved whitespace to specialized HR Travel Letter details, HR request notes, and Finance Invoice Payment free-text fields shown in expanded list rows.
 - [x] Printed request summaries now preserve multiline formatting for every payload field, safely wrap long text, escape HTML, and no longer truncate values to 100 characters.
+
+## Phase 7u: Administration-Only Announcements (Completed — 19 Sep 2026)
+
+- [x] Removed both Announcements and Send Announcements from the HR and Finance sidebars and removed their four function-specific feed/composer routes.
+- [x] HR and Finance notification bells no longer poll announcement feeds or show previously generated announcement notifications.
+- [x] Announcement API ownership is restricted to Administration-owned `admin` and archived `company` buckets; HR/Finance announcement creation and management are no longer accepted.
+- [x] Disabled automatic sending of existing HR/Finance scheduled announcement templates without deleting their stored history, drafts, or templates.
+- [x] Administration retains its Announcements feed and Send Announcements composer unchanged.
+
+## Phase 7v: IT Team in Portal Switcher (Completed — 20 Sep 2026)
+
+- [x] IT Team is always visible in the sidebar's Switch Portal menu alongside Administration, HR, and Finance.
+- [x] When `NEXT_PUBLIC_IT_SERVICE_DESK_URL` is configured, IT Team opens the external SolarWinds Service Desk in a new tab.
+- [x] When the URL is not configured, IT Team opens the Company Portal's IT card, where the missing configuration is shown instead of hiding the function completely.

@@ -45,11 +45,8 @@ import { modulesVisibleToFunction, canManageIntranetContent, type IntranetOwner 
 
 // Which announcement-owner(s) a sidebar "Send Announcements" link maps to —
 // used to hide the link entirely for roles that can't manage any of them.
-// The Intranet's link is flexible (any owner the viewer can manage), so it
-// lists all four; the per-portal links are locked to their own team.
+// The archived Intranet link is flexible (any owner the viewer can manage).
 const ANNOUNCEMENT_HREF_OWNERS: Record<string, IntranetOwner[]> = {
-  "/departments/hr/announcements": ["hr"],
-  "/departments/finance/announcements": ["finance"],
   "/departments/intranet/announcements": ["company", "admin", "hr", "finance"],
 }
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
@@ -148,10 +145,8 @@ const hrNavItems: NavItem[] = [
       { title: "Feedback & Reports", href: "/departments/hr/feedback", icon: BarChart3 },
       { title: "Team Tasks", href: "/departments/hr/tasks", icon: CheckSquare },
       { title: "All Requests", href: "/departments/hr/all-requests", icon: ClipboardList },
-      { title: "Send Announcements", href: "/departments/hr/announcements", icon: Megaphone },
     ],
   },
-  { title: "Announcements", href: "/departments/hr/news", icon: Megaphone },
   // Requester-facing module pages live outside the HR Team group — one entry
   // per HR module (mirrors "General Request" sitting outside "Administration
   // Team" in the admin sidebar). Add new HR modules here as they're built.
@@ -169,10 +164,8 @@ const financeNavItems: NavItem[] = [
       { title: "Dashboard", href: "/departments/finance", icon: LayoutDashboard },
       { title: "Team Tasks", href: "/departments/finance/tasks", icon: CheckSquare },
       { title: "All Requests", href: "/departments/finance/all-requests", icon: ClipboardList },
-      { title: "Send Announcements", href: "/departments/finance/announcements", icon: Megaphone },
     ],
   },
-  { title: "Announcements", href: "/departments/finance/news", icon: Megaphone },
   // Requester-facing module pages live outside the Finance Team group — one
   // entry per Finance module. Add new Finance modules here as they're built.
   { title: "General Reimbursement", href: "/departments/finance/reimbursement", icon: Receipt },
@@ -642,12 +635,18 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
                 Platform Administration
               </DropdownMenuItem>
             )}
-            {itServiceDeskUrl && (
-              <DropdownMenuItem onClick={() => window.open(itServiceDeskUrl, "_blank", "noopener,noreferrer")}>
-                <Headphones className="mr-2 h-4 w-4" />
-                IT Service Desk
-              </DropdownMenuItem>
-            )}
+            <DropdownMenuItem
+              onClick={() => {
+                if (itServiceDeskUrl) {
+                  window.open(itServiceDeskUrl, "_blank", "noopener,noreferrer")
+                } else {
+                  router.push("/landing#it-service-desk")
+                }
+              }}
+            >
+              <Headphones className="mr-2 h-4 w-4" />
+              IT Team
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => router.push("/landing")}>
               View all support functions

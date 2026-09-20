@@ -68,11 +68,8 @@ function subtitleForScope(scope?: IntranetOwner): string {
 }
 
 /**
- * Read-only announcements feed, mounted at four routes: /announcements
- * (scope="admin" — Admin Portal's own feed), /departments/hr/news
- * (scope="hr"), /departments/finance/news (scope="finance"), and
- * /departments/intranet/news (no scope — the Intranet's combined view of
- * every announcement, regardless of which team sent it).
+ * Read-only announcements feed for the Administration portal. The archived
+ * Intranet route can still render its preserved company-owned history.
  */
 export default function AnnouncementsFeed({ scope }: { scope?: IntranetOwner }) {
   const [announcements, setAnnouncements] = useState<Announcement[]>([])

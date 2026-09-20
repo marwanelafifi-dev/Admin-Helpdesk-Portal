@@ -5,18 +5,13 @@ import type { IntranetOwner } from "@/lib/functionRegistry"
 
 export const runtime = "nodejs"
 
-const VALID_SCOPES: IntranetOwner[] = ["company", "admin", "hr", "finance"]
+const VALID_SCOPES: IntranetOwner[] = ["company", "admin"]
 
 /**
- * GET /api/announcements/feed?scope=<company|admin|hr|finance>
+ * GET /api/announcements/feed?scope=<company|admin>
  *
- * Each portal's read feed is fully standalone — it only shows announcements
- * whose owner exactly matches its own scope. Admin Portal shows admin-owned
- * only, HR Portal shows hr-owned only, Finance Portal shows finance-owned
- * only, and the Intranet's own feed shows company-owned only. None of them
- * aggregate another function's announcements. Omitting `scope` returns
- * every announcement regardless of owner — used only by the global
- * notification-bell hook, which intentionally needs company-wide awareness.
+ * Announcements are Administration-owned. The company scope remains for
+ * archived Intranet records; HR and Finance scopes are rejected.
  */
 export async function GET(req: NextRequest) {
   const session = await auth()
@@ -25,6 +20,9 @@ export async function GET(req: NextRequest) {
   }
 
   const scopeParam = new URL(req.url).searchParams.get("scope")
+  if (scopeParam && !VALID_SCOPES.includes(scopeParam as IntranetOwner)) {
+    return NextResponse.json({ error: "Announcement scope is not available" }, { status: 400 })
+  }
   const scope = VALID_SCOPES.includes(scopeParam as IntranetOwner) ? (scopeParam as IntranetOwner) : null
 
   // Deduplicate by announcement ID (keep latest only)
@@ -36,9 +34,10 @@ export async function GET(req: NextRequest) {
     return true
   })
 
-  const scoped = scope
-    ? deduped.filter((announcement) => (announcement.owner ?? "company") === scope)
-    : deduped
+  const scoped = deduped.filter((announcement) => {
+    const owner = announcement.owner ?? "company"
+    return scope ? owner === scope : VALID_SCOPES.includes(owner)
+  })
 
   const sent = scoped
     .slice()

@@ -132,9 +132,8 @@ function formatDayLabel(dayOfWeek?: number) {
 }
 
 /**
- * Shared compose/manage UI for announcements, mounted at four routes:
- * /admin/announcements (fixedOwner="admin"), /departments/hr/announcements
- * (fixedOwner="hr"), /departments/finance/announcements (fixedOwner="finance"),
+ * Shared compose/manage UI for announcements, mounted at two preserved routes:
+ * /admin/announcements (fixedOwner="admin"),
  * and /departments/intranet/announcements (no fixedOwner — lets the signed-in
  * user pick among whichever owners canManageIntranetContent() allows them).
  * Every read/write goes through /api/announcements scoped to the current

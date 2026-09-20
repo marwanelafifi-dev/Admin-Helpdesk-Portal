@@ -62,7 +62,12 @@ class ServerNotificationStore {
     const filtered = all
       .filter((n) => n.userId === userId)
       .filter((n) => {
-        if (!functionId) return true
+        if (!functionId) {
+          if (n.type !== "announcement") return true
+          const scopes = n.functionIds?.length ? n.functionIds : functionsForLegacyRequestId(n.requestId)
+          return scopes.includes("admin")
+        }
+        if (n.type === "announcement" && functionId !== "admin") return false
         const scopes = n.functionIds?.length ? n.functionIds : functionsForLegacyRequestId(n.requestId)
         return scopes.includes(functionId)
       })
@@ -83,7 +88,7 @@ class ServerNotificationStore {
   markAllRead(userId: string, functionId?: FunctionId): void {
     const all = readFromDisk()
     const updated = all.map((n) =>
-      n.userId === userId && (
+      n.userId === userId && (n.type !== "announcement" || !functionId || functionId === "admin") && (
         !functionId || (n.functionIds?.length ? n.functionIds : functionsForLegacyRequestId(n.requestId)).includes(functionId)
       ) ? { ...n, read: true } : n
     )
