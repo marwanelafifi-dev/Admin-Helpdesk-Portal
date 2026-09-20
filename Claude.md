@@ -1890,3 +1890,6 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] Request JSON import validation derives allowed module IDs from `MODULE_REGISTRY`, keeping imports aligned with registered function modules as the platform grows.
 - [x] Full backup and restore capture the shared request dataset (all functions); Clear All clears that shared dataset. Per-module clearing deletes the selected module's requests from both the browser cache and server store.
 - [ ] When adding a request module, ensure it is registered in `src/lib/functionRegistry.ts` and represented in the Database page's module metadata so counts, imports, and clear-by-module actions stay complete.
+
+## Recent Runtime Update (2026-09-20)
+- [x] Database page: added "Select Function" UI (Administration Team / HR Team / Finance Team) and function-filtered request pages — deployed to the running container at http://localhost:3003. Change was observed in the running instance but applied directly to the container rebuild and had not been committed at the time of deployment; committed note added to repository on 2026-09-20.
