@@ -38,7 +38,7 @@ export function useAnnouncementNotifications(userId?: string, functionId?: Funct
 
     async function sync() {
       try {
-        const res = await fetch(`/api/announcements/feed?scope=${currentFunctionId}`, { cache: "no-store" })
+        const res = await fetch("/api/announcements/feed", { cache: "no-store" })
         if (!res.ok) return
         const json = await res.json()
         if (cancelled) return

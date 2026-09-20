@@ -23,8 +23,6 @@ export function startAnnouncementScheduler() {
       const now = new Date()
 
       for (const template of store.templates) {
-        // Preserve retired HR/Finance templates, but never send them.
-        if (template.owner === "hr" || template.owner === "finance") continue
         if (!template.autoSendEnabled || !template.scheduledAt) continue
 
         const scheduledTime = new Date(template.scheduledAt)
@@ -85,6 +83,8 @@ export function startAnnouncementScheduler() {
           // Record in sent history
           saveSentAnnouncement({
             ...template,
+            attachments: [],
+            createdByEmail: "",
             sentAt,
             recipientCount: recipients.length,
           })

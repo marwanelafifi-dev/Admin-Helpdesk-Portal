@@ -1,6 +1,5 @@
 import fs from "fs"
 import path from "path"
-import type { IntranetOwner } from "./functionRegistry"
 
 export type AnnouncementAttachment = {
   id: string
@@ -25,8 +24,6 @@ export type AnnouncementMessage = {
   createdByEmail: string
   createdAt: string
   updatedAt: string
-  /** Which team owns/sent this announcement. Missing on legacy records — normalized to "company". */
-  owner?: IntranetOwner
 }
 
 export type AnnouncementSent = AnnouncementMessage & {
@@ -54,7 +51,6 @@ export type AnnouncementTemplate = {
   createdBy: string
   createdAt: string
   updatedAt: string
-  owner?: IntranetOwner
 }
 
 export type AnnouncementStoreData = {
@@ -115,10 +111,10 @@ export function readAnnouncementStore(): AnnouncementStoreData {
     ensureStore()
     const parsed = JSON.parse(fs.readFileSync(STORE_PATH, "utf-8"))
     return {
-      sent: Array.isArray(parsed?.sent) ? parsed.sent.map(normalizeMessage) : [],
-      drafts: Array.isArray(parsed?.drafts) ? parsed.drafts.map(normalizeMessage) : [],
+      sent: Array.isArray(parsed?.sent) ? parsed.sent.filter(isAdministrationRecord).map(normalizeMessage) : [],
+      drafts: Array.isArray(parsed?.drafts) ? parsed.drafts.filter(isAdministrationRecord).map(normalizeMessage) : [],
       templates: Array.isArray(parsed?.templates) && parsed.templates.length > 0
-        ? parsed.templates.map(normalizeTemplate)
+        ? parsed.templates.filter(isAdministrationRecord).map(normalizeTemplate)
         : DEFAULT_DATA.templates,
     }
   } catch {
@@ -132,20 +128,22 @@ export function writeAnnouncementStore(data: AnnouncementStoreData) {
 }
 
 function normalizeMessage<T extends Partial<AnnouncementMessage>>(message: T): T & AnnouncementMessage {
+  const { owner: _retiredOwner, ...record } = message as T & { owner?: unknown }
   return {
-    ...message,
+    ...record,
     signature: typeof message.signature === "string" ? message.signature : DEFAULT_ANNOUNCEMENT_SIGNATURE,
     signatureLogo: typeof message.signatureLogo === "string" ? message.signatureLogo : undefined,
     to: Array.isArray(message.to) ? message.to : [],
     cc: Array.isArray(message.cc) ? message.cc : [],
     includeAllCompany: Boolean(message.includeAllCompany),
     attachments: Array.isArray(message.attachments) ? message.attachments : [],
-    owner: message.owner ?? "company",
   } as T & AnnouncementMessage
 }
 
 function normalizeTemplate(template: Partial<AnnouncementTemplate>): AnnouncementTemplate {
+  const { owner: _retiredOwner, ...record } = template as Partial<AnnouncementTemplate> & { owner?: unknown }
   return {
+    ...record,
     id: template.id ?? `tpl-${Date.now()}`,
     name: template.name ?? "Untitled Template",
     subject: template.subject ?? "",
@@ -167,8 +165,11 @@ function normalizeTemplate(template: Partial<AnnouncementTemplate>): Announcemen
     createdBy: template.createdBy ?? "System",
     createdAt: template.createdAt ?? new Date().toISOString(),
     updatedAt: template.updatedAt ?? new Date().toISOString(),
-    owner: template.owner ?? "company",
   }
+}
+
+function isAdministrationRecord(record: { owner?: unknown }): boolean {
+  return record.owner === undefined || record.owner === "admin"
 }
 
 export function saveAnnouncementDraft(draft: AnnouncementDraft): AnnouncementDraft {

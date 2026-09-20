@@ -1,7 +1,6 @@
 import fs from "fs"
 import path from "path"
 import type { CompanyId } from "@/lib/userCompany"
-import type { IntranetOwner } from "@/lib/functionRegistry"
 
 export type StoredRole = {
   id: string
@@ -10,8 +9,6 @@ export type StoredRole = {
   permissions: string[]
   readModules?: string[]
   readAllModules?: string[]
-  /** Extra Intranet owner buckets (Quick Links/Documents/Announcements) this role can manage, beyond its baseline. See canManageIntranetContent(). */
-  intranetOwners?: IntranetOwner[]
   createdAt: string
   updatedAt: string
   companyId?: CompanyId
@@ -107,6 +104,15 @@ export function readRoles(): StoredRole[] {
     let changed = false
 
     for (const role of roles) {
+      if ("intranetOwners" in role) {
+        delete (role as StoredRole & { intranetOwners?: unknown }).intranetOwners
+        changed = true
+      }
+      const activePermissions = role.permissions.filter((permission) => !permission.startsWith("page:intranet-"))
+      if (activePermissions.length !== role.permissions.length) {
+        role.permissions = activePermissions
+        changed = true
+      }
       const expectedCompany: CompanyId = role.name.toLowerCase().includes("buchi") ? "buchi" : "si_ware"
       if (!role.companyId) {
         role.companyId = expectedCompany

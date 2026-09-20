@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
 import { getList } from "@/lib/companyDataStore"
 import { fmtDateTime } from "@/lib/utils"
+import { roleToFunctionId, type FunctionId } from "@/lib/functionRegistry"
 import {
   Select,
   SelectContent,
@@ -96,6 +97,12 @@ function getDefaultRoleValue(roles: RoleOption[]) {
   return safeRole?.value ?? roles[0]?.value ?? "Requester - Si-Ware"
 }
 
+const ASSIGNEE_FUNCTION_LABELS: Record<FunctionId, string> = {
+  admin: "Administration Team",
+  hr: "HR Team",
+  finance: "Finance Team",
+}
+
 export default function AdminUsersPage() {
   const [search, setSearch] = useState("")
   const [companyFilter, setCompanyFilter] = useState<"all" | "si_ware" | "buchi">("all")
@@ -113,8 +120,7 @@ export default function AdminUsersPage() {
   const csvInputRef = useRef<HTMLInputElement>(null)
   const [editingUser, setEditingUser] = useState<PlatformUser | null>(null)
   const [showEditDialog, setShowEditDialog] = useState(false)
-  // Tracks the "Default Assignee" checkbox in the Edit User dialog. Only
-  // meaningful when the chosen role is "Administration Team".
+  // Tracks the function-specific "Default Assignee" checkbox in Edit User.
   const [editDefaultAssignee, setEditDefaultAssignee] = useState(false)
   const [editMustChangePassword, setEditMustChangePassword] = useState(false)
   const [updating, setUpdating] = useState(false)
@@ -419,39 +425,41 @@ export default function AdminUsersPage() {
       current.map((u) => (u.id === editingUser.id ? data.user : u))
     )
 
-    // Persist the Default Assignee flag separately — it's atomic across all
-    // users (setting it on one clears it from everyone else). Only valid for
-    // Administration Team members; the API rejects other roles.
-    if (form.role === "Administration Team") {
+    // Persist the Default Assignee flag independently for this support
+    // function; the other functions keep their selected defaults.
+    const selectedFunction = roleToFunctionId(form.role)
+    const previousFunction = roleToFunctionId(editingUser.role)
+    if (selectedFunction) {
       const wasDefault = Boolean((editingUser as any).defaultAssignee)
-      if (editDefaultAssignee !== wasDefault) {
+      const functionChanged = selectedFunction !== previousFunction
+      const shouldUpdateDefault = editDefaultAssignee
+        ? (functionChanged || !wasDefault)
+        : (!functionChanged && wasDefault)
+      if (shouldUpdateDefault) {
         try {
-          await fetch("/api/users/default-assignee", {
+          const defaultResponse = await fetch("/api/users/default-assignee", {
             method: "POST",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId: editDefaultAssignee ? editingUser.id : null }),
+            body: JSON.stringify({ userId: editDefaultAssignee ? editingUser.id : null, functionId: selectedFunction }),
           })
+          if (!defaultResponse.ok) {
+            const defaultData = await defaultResponse.json().catch(() => ({}))
+            setUpdateError(defaultData.error ?? "Default assignee could not be updated.")
+            return
+          }
           // Mirror the flip locally so the UI reflects who holds the flag now.
           setUsers((current) => current.map((u) => ({
             ...u,
-            defaultAssignee: editDefaultAssignee ? u.id === editingUser.id : false,
+            defaultAssignee: roleToFunctionId(u.role) === selectedFunction
+              ? (editDefaultAssignee ? u.id === editingUser.id : false)
+              : u.defaultAssignee,
           })))
         } catch {
-          // Best-effort. Refresh will resync.
+          setUpdateError("Default assignee could not be updated.")
+          return
         }
       }
-    } else if ((editingUser as any).defaultAssignee) {
-      // Role changed away from Administration Team — clear the flag.
-      try {
-        await fetch("/api/users/default-assignee", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: null }),
-        })
-        setUsers((current) => current.map((u) => ({ ...u, defaultAssignee: false })))
-      } catch {}
     }
 
     setShowEditDialog(false)
@@ -971,7 +979,12 @@ export default function AdminUsersPage() {
                   <Label>Role</Label>
                   <Select
                     value={form.role}
-                    onValueChange={(role) => setForm((current) => ({ ...current, role }))}
+                    onValueChange={(role) => {
+                      if (roleToFunctionId(role) !== roleToFunctionId(form.role)) {
+                        setEditDefaultAssignee(false)
+                      }
+                      setForm((current) => ({ ...current, role }))
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -1006,8 +1019,8 @@ export default function AdminUsersPage() {
                 </div>
               )}
 
-              {/* Default Assignee — only meaningful for Administration Team. */}
-              {form.role === "Administration Team" && (
+              {/* One independent default assignee for each support function. */}
+              {roleToFunctionId(form.role) && (
                 <div className="rounded-md border border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-900 px-4 py-3 space-y-1">
                   <label className="flex items-start gap-3 cursor-pointer select-none">
                     <input
@@ -1019,8 +1032,8 @@ export default function AdminUsersPage() {
                     <span className="text-sm">
                       <span className="font-medium text-blue-900 dark:text-blue-200">Set as default assignee</span>
                       <span className="block text-xs text-blue-700/80 dark:text-blue-300/80">
-                        New requests from any module will be automatically assigned to this user.
-                        Only one Administration Team member can hold this at a time.
+                        New requests owned by {ASSIGNEE_FUNCTION_LABELS[roleToFunctionId(form.role)!]} will be automatically assigned to this user.
+                        Only one member of this function can hold this at a time.
                       </span>
                     </span>
                   </label>

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { readUsers } from "@/lib/userStore"
+import { roleToFunctionId } from "@/lib/functionRegistry"
 
 export const runtime = "nodejs"
 
@@ -8,10 +9,8 @@ export const runtime = "nodejs"
 // deliberately excluded — it's a super-admin role, not a working queue.
 export async function GET() {
   try {
-    const adminRoleNames = new Set(["Administration Team"])
-
     const users = readUsers()
-      .filter((u) => u.active && adminRoleNames.has(u.role))
+      .filter((u) => u.active && roleToFunctionId(u.role) === "admin")
       .map((u) => ({
         id: u.id,
         name: u.name,

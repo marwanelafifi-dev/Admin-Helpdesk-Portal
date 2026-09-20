@@ -173,6 +173,7 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
           requesterName: newReq.requesterName,
           requesterEmail: newReq.requesterEmail,
           ccEmails: data.ccEmails,
+          managerEmail: directManagerEmail,
         })
       }
       redirectTo = "/departments/finance/invoices"

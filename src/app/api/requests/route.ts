@@ -6,7 +6,7 @@ import { getDefaultAssignee } from "@/lib/userStore"
 import type { EngineRequest } from "@/services/engineService"
 import { getCompanyFromEmail, getRequestCompany } from "@/lib/userCompany"
 import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
-import { isRequestVisibleToViewer } from "@/lib/functionRegistry"
+import { functionForModule, isRequestVisibleToViewer } from "@/lib/functionRegistry"
 
 export const runtime = "nodejs"
 
@@ -212,7 +212,7 @@ export async function POST(req: Request) {
 
   // Auto-assign: if this is a brand-new request (no existing record with the
   // same id) and the incoming payload doesn't already specify an assignee,
-  // stamp on the currently-configured default assignee (if one exists).
+  // stamp on the owning function's configured default (if one exists).
   let assignee = {
     assignedToId: incoming.assignedToId ?? null,
     assignedToName: incoming.assignedToName ?? null,
@@ -221,7 +221,7 @@ export async function POST(req: Request) {
   const existing = requestStore.getAll().find((r) => r.id === incoming.id)
   const isNew = body.operation === "create" || !existing
   if (isNew && !assignee.assignedToId) {
-    const defaultAssignee = getDefaultAssignee()
+    const defaultAssignee = getDefaultAssignee(functionForModule(incoming.module))
     if (defaultAssignee) {
       assignee = {
         assignedToId: defaultAssignee.id,

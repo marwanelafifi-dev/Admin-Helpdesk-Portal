@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
+import { validateEmailConfig, type EmailFunctionId } from "@/lib/emailConfig"
 
 export const runtime = "nodejs"
 
@@ -7,7 +8,17 @@ export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { config } = await req.json()
+  const { config, functionId: rawFunctionId } = await req.json()
+  const functionId: EmailFunctionId = ["admin", "hr", "finance"].includes(rawFunctionId)
+    ? rawFunctionId
+    : "admin"
+  if (!config?.method || !config?.values) {
+    return NextResponse.json({ message: "Invalid configuration." }, { status: 400 })
+  }
+  const validationError = validateEmailConfig(functionId, config)
+  if (validationError) {
+    return NextResponse.json({ message: validationError }, { status: 400 })
+  }
   const { method, values } = config
 
   try {

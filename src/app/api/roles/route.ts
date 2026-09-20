@@ -12,7 +12,6 @@ const createRoleSchema = z.object({
   permissions: z.array(z.string()).default([]),
   readModules: z.array(z.string()).optional(),
   readAllModules: z.array(z.string()).optional(),
-  intranetOwners: z.array(z.enum(["company", "admin", "hr", "finance"])).optional(),
   companyId: z.enum(["si_ware", "buchi"]).default("si_ware"),
 })
 
@@ -51,7 +50,6 @@ export async function POST(request: Request) {
     permissions: parsed.data.permissions,
     readModules: parsed.data.readModules,
     readAllModules: parsed.data.readAllModules,
-    intranetOwners: parsed.data.intranetOwners,
     companyId: parsed.data.companyId,
   })
 

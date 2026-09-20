@@ -1823,9 +1823,10 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] Applied preserved whitespace and safe long-word wrapping to shared Markdown description displays and request payload detail fields.
 - [x] Printed request summaries also preserve the original description layout with `white-space: pre-wrap` and safe overflow wrapping.
 
-## Phase 7r: Company Portal Session Parity and Intranet Removal (Completed — 19 Sep 2026)
+## Phase 7r: Company Portal Session Parity and Intranet Removal (Completed — 19–20 Sep 2026)
 
-- [x] Removed the Intranet tile from the Company Portal landing page and removed Intranet from the sidebar's portal switcher. Existing Intranet routes and stored content remain intact, but the portal no longer advertises or links to them through normal portal selection.
+- [x] Removed the Intranet tile from the Company Portal landing page and removed Intranet from the sidebar's portal switcher.
+- [x] Removed the Intranet pages, API routes, content stores, page permissions, and role-level Intranet content controls. Company announcements remain available through Administration.
 - [x] Ported the Users session controls to Platform Administration: presence refreshes every 30 seconds and on window focus, with Online First, Offline First, Online Only, and Offline Only options.
 - [x] Standardized company and role badges across Platform Administration, profiles, request details, and shared company badges: BUCHI is green, Si-Ware is blue, and Full Access is yellow.
 
@@ -1856,3 +1857,28 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] IT Team is always visible in the sidebar's Switch Portal menu alongside Administration, HR, and Finance.
 - [x] When `NEXT_PUBLIC_IT_SERVICE_DESK_URL` is configured, IT Team opens the external SolarWinds Service Desk in a new tab.
 - [x] When the URL is not configured, IT Team opens the Company Portal's IT card, where the missing configuration is shown instead of hiding the function completely.
+
+## Phase 7w: Department Email Routing, Credential Validation, and Scale Readiness Review (20 Sep 2026)
+
+- [x] Finance-owned requests use `ap@si-ware.com` as the department mailbox. HR-owned requests use `hr@si-ware.com`. Administration-owned requests retain `adminhelpdesk@si-ware.com` and their existing Administration Team email behavior.
+- [x] Finance and HR request submissions, status updates, comments, and approval routing use their function mailbox and continue including request-specific/form CC recipients. Finance Team-wide email is not added to routine Finance messages; HR Team-wide email is not added to routine HR messages. Approval decisions follow the owner function's recipient policy.
+- [x] The Finance Invoice Payment request submission passes its selected approver into the new-request CC list.
+- [x] Platform Administration's Notification Configuration displays the fixed sender address for each function and does not allow editing it:
+  - Administration: `adminhelpdesk@si-ware.com`
+  - HR: `hr@si-ware.com`
+  - Finance: `ap@si-ware.com`
+- [x] Gmail App Password and Workspace SMTP relay configurations require a 16-character alphanumeric App Password (spaces are stripped). The server rejects a password reused by another function and validates before both saving and test sends. Each function has its own stored account; HR and Finance cannot fall back to the legacy Administration account.
+- [x] Notification configuration save failures are shown to the administrator instead of being reported as a successful save. Test Email continues to verify actual SMTP authentication and delivery.
+- [x] Production build completed after these changes. Existing warnings remain: `next.config.ts` skips type/lint checks, the feedback user-feedback API imports a missing `notificationStore` export, and the repository has other existing TypeScript issues.
+- [ ] **Scale readiness — target: 15 functions, 1,000 users, ~500 new requests/day.** Current architecture is not ready for this target. The following work is required before growing function count or onboarding at that scale:
+  - [ ] Move requests, users, roles, comments, notifications, audit history, sessions, function configuration, and default assignees from JSON files into PostgreSQL with migrations, constraints, and transactions. The Prisma schema exists, but the JSON stores remain active sources of truth in production paths.
+  - [ ] Replace full request list downloads and whole-list browser `localStorage` synchronization with server-side filtering, cursor pagination, and incremental updates. Current clients fetch the full accessible request dataset on a 60-second sync interval.
+  - [ ] Add server-side ownership and permission checks to each request read/write operation. The request upsert endpoint must not accept arbitrary edits from any authenticated user.
+  - [ ] Restrict notification creation to validated server events and authorized recipients; do not trust arbitrary recipients/function scopes posted by a browser.
+  - [ ] Restrict Notification Configuration APIs to Platform Administration and move SMTP/API secrets out of browser `localStorage` and plaintext JSON backups into encrypted server-side secret storage.
+  - [ ] Make functions, module ownership, memberships, email accounts, navigation, notifications, and default assignees data-driven. Function ids and UI/configuration lists are currently hardcoded for Administration, HR, and Finance.
+  - [ ] Add database-backed pagination/search to Users, Audit Trail, and other administration screens; avoid embedding large avatar data URLs in the user list response.
+  - [ ] Move email/notification fan-out to a durable queue with retries and idempotency; add monitoring for failed sends and jobs.
+  - [ ] Move attachments to durable object storage with signed access links. Ensure backups include attachments and all required operational data, use off-host storage, encrypt secrets, and test restore procedures.
+  - [ ] Remove production TLS certificate-validation bypasses, then enable TypeScript, lint, and automated checks in the production build before deployment.
+- [ ] A PostgreSQL-based single application deployment is sufficient as the first scaling step; separate microservices are not a prerequisite. Benchmark database query patterns and notification load after pagination and migration before adding infrastructure.

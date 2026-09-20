@@ -11,7 +11,6 @@ const updateRoleSchema = z.object({
   permissions: z.array(z.string()).optional(),
   readModules: z.array(z.string()).optional(),
   readAllModules: z.array(z.string()).optional(),
-  intranetOwners: z.array(z.enum(["company", "admin", "hr", "finance"])).optional(),
 })
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -46,7 +45,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     ...(parsed.data.permissions !== undefined && { permissions: parsed.data.permissions }),
     ...(parsed.data.readModules !== undefined && { readModules: parsed.data.readModules }),
     ...(parsed.data.readAllModules !== undefined && { readAllModules: parsed.data.readAllModules }),
-    ...(parsed.data.intranetOwners !== undefined && { intranetOwners: parsed.data.intranetOwners }),
   })
 
   const changes: string[] = []

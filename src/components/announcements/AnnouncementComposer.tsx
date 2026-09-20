@@ -24,7 +24,6 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { filesToAttachments, type AttachmentPayload } from "@/lib/attachments"
 import { cn } from "@/lib/utils"
-import { canManageIntranetContent, FUNCTION_TEAM_ROLE, type IntranetOwner } from "@/lib/functionRegistry"
 
 type AnnouncementRecord = {
   id: string
@@ -42,7 +41,6 @@ type AnnouncementRecord = {
   updatedAt: string
   sentAt?: string
   recipientCount?: number
-  owner?: IntranetOwner
 }
 
 type TemplateRecord = {
@@ -63,26 +61,12 @@ type TemplateRecord = {
   createdBy: string
   createdAt: string
   updatedAt: string
-  owner?: IntranetOwner
 }
 
 type Tab = "sent" | "drafts" | "templates" | "scheduled"
 
-const ALL_OWNERS: IntranetOwner[] = ["company", "admin", "hr", "finance"]
-const OWNER_LABELS: Record<IntranetOwner, string> = {
-  company: "Company-wide",
-  admin: "Administration Team",
-  hr: "HR Team",
-  finance: "Finance Team",
-}
-
-function teamLabelForOwner(owner: IntranetOwner | null): string {
-  if (!owner || owner === "company") return "Administration Team"
-  return FUNCTION_TEAM_ROLE[owner]
-}
-
-function defaultSignatureFor(owner: IntranetOwner | null): string {
-  return `${teamLabelForOwner(owner)}\n+20222684704\n\nThis message and any attachments are confidential and may be privileged or otherwise protected from disclosure. If you are not the intended recipient, please telephone or mail the sender and delete this message and any attachment from your system.`
+function defaultSignature(): string {
+  return `Administration Team\n+20222684704\n\nThis message and any attachments are confidential and may be privileged or otherwise protected from disclosure. If you are not the intended recipient, please telephone or mail the sender and delete this message and any attachment from your system.`
 }
 
 const EGYPT_TEAM_EMAIL = "eg.team@si-ware.com"
@@ -131,32 +115,11 @@ function formatDayLabel(dayOfWeek?: number) {
   return WEEKDAY_OPTIONS.find((item) => item.value === dayOfWeek)?.label ?? "Monday"
 }
 
-/**
- * Shared compose/manage UI for announcements, mounted at two preserved routes:
- * /admin/announcements (fixedOwner="admin"),
- * and /departments/intranet/announcements (no fixedOwner — lets the signed-in
- * user pick among whichever owners canManageIntranetContent() allows them).
- * Every read/write goes through /api/announcements scoped to the current
- * `owner` — the server re-derives and enforces the real owner for non-Full
- * Access users, this component's owner state is just which bucket to view.
- */
-export default function AnnouncementComposer({ fixedOwner }: { fixedOwner?: IntranetOwner }) {
+/** Administration-only compose/manage UI for announcements. */
+export default function AnnouncementComposer() {
   const { data: session } = useSession()
   const role = session?.user?.role
-  const intranetOwners = (session?.user as any)?.intranetOwners as IntranetOwner[] | undefined
-
-  const allowedOwners = useMemo(
-    () => (fixedOwner ? [fixedOwner] : ALL_OWNERS.filter((o) => canManageIntranetContent(o, role, intranetOwners))),
-    [fixedOwner, role, intranetOwners]
-  )
-  const [selectedOwner, setSelectedOwner] = useState<IntranetOwner | null>(fixedOwner ?? null)
-  useEffect(() => {
-    if (fixedOwner) { setSelectedOwner(fixedOwner); return }
-    if ((!selectedOwner || !allowedOwners.includes(selectedOwner)) && allowedOwners.length > 0) {
-      setSelectedOwner(allowedOwners[0])
-    }
-  }, [fixedOwner, allowedOwners, selectedOwner])
-  const owner = selectedOwner
+  const canUseAnnouncements = role === "Administration Team" || role === "Full Access" || role?.toLowerCase() === "super_admin"
 
   const fileRef = useRef<HTMLInputElement>(null)
   const [activeTab, setActiveTab] = useState<Tab>("sent")
@@ -169,7 +132,7 @@ export default function AnnouncementComposer({ fixedOwner }: { fixedOwner?: Intr
   const [ccText, setCcText] = useState("")
   const [subject, setSubject] = useState("")
   const [body, setBody] = useState("")
-  const [signature, setSignature] = useState(defaultSignatureFor(fixedOwner ?? null))
+  const [signature, setSignature] = useState(defaultSignature())
   const [signatureLogo, setSignatureLogo] = useState(DEFAULT_SIGNATURE_LOGO)
   const [templateName, setTemplateName] = useState("")
   const [autoSendEnabled, setAutoSendEnabled] = useState(false)
@@ -184,13 +147,6 @@ export default function AnnouncementComposer({ fixedOwner }: { fixedOwner?: Intr
   const [showPreview, setShowPreview] = useState(false)
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null)
 
-  // Refresh the suggested signature when the "post as" owner changes, as
-  // long as the user hasn't loaded an existing draft (which carries its own
-  // saved signature).
-  useEffect(() => {
-    if (owner && !currentDraftId) setSignature(defaultSignatureFor(owner))
-  }, [owner, currentDraftId])
-
   const toEmails = useMemo(
     () => Array.from(new Set([
       ...(includeEgyptTeam ? [EGYPT_TEAM_EMAIL] : []),
@@ -202,10 +158,9 @@ export default function AnnouncementComposer({ fixedOwner }: { fixedOwner?: Intr
   const recipientCountLabel = includeAllCompany ? "All company" : `${toEmails.length} recipient${toEmails.length === 1 ? "" : "s"}`
 
   async function loadData() {
-    if (!owner) return
     setLoading(true)
     try {
-      const res = await fetch(`/api/announcements?owner=${owner}`, { cache: "no-store" })
+      const res = await fetch("/api/announcements", { cache: "no-store" })
       const json = await res.json()
       if (!res.ok) throw new Error(json?.error ?? "Failed to load announcements")
       setSent(json.data?.sent ?? [])
@@ -221,7 +176,7 @@ export default function AnnouncementComposer({ fixedOwner }: { fixedOwner?: Intr
   useEffect(() => {
     loadData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [owner])
+  }, [])
 
   function resetCompose() {
     setSubject("")
@@ -232,7 +187,7 @@ export default function AnnouncementComposer({ fixedOwner }: { fixedOwner?: Intr
     setIncludeAllCompany(false)
     setIncludeEgyptTeam(false)
     setFiles([])
-    setSignature(defaultSignatureFor(owner))
+    setSignature(defaultSignature())
     setSignatureLogo(DEFAULT_SIGNATURE_LOGO)
     setAutoSendEnabled(false)
     setScheduleFrequency("once")
@@ -244,7 +199,7 @@ export default function AnnouncementComposer({ fixedOwner }: { fixedOwner?: Intr
   function useTemplate(template: TemplateRecord) {
     setSubject(template.subject)
     setBody(template.body)
-    setSignature(template.signature || defaultSignatureFor(owner))
+    setSignature(template.signature || defaultSignature())
     setSignatureLogo(template.signatureLogo || "")
     setTemplateName(template.name)
     setIncludeAllCompany(Boolean(template.includeAllCompany))
@@ -264,7 +219,7 @@ export default function AnnouncementComposer({ fixedOwner }: { fixedOwner?: Intr
     setCurrentDraftId(draft.id)
     setSubject(draft.subject)
     setBody(draft.body)
-    setSignature(draft.signature || defaultSignatureFor(owner))
+    setSignature(draft.signature || defaultSignature())
     setSignatureLogo(draft.signatureLogo || "")
     setIncludeEgyptTeam((draft.to ?? []).includes(EGYPT_TEAM_EMAIL))
     setToText(joinEmails((draft.to ?? []).filter((email) => email !== EGYPT_TEAM_EMAIL)))
@@ -280,7 +235,6 @@ export default function AnnouncementComposer({ fixedOwner }: { fixedOwner?: Intr
   }
 
   async function saveDraft() {
-    if (!owner) return
     setSaving(true)
     setNotice(null)
     try {
@@ -290,7 +244,6 @@ export default function AnnouncementComposer({ fixedOwner }: { fixedOwner?: Intr
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode: "draft",
-          owner,
           id: currentDraftId ?? undefined,
           subject,
           body,
@@ -315,7 +268,6 @@ export default function AnnouncementComposer({ fixedOwner }: { fixedOwner?: Intr
   }
 
   async function saveTemplate() {
-    if (!owner) return
     setSaving(true)
     setNotice(null)
     try {
@@ -324,7 +276,6 @@ export default function AnnouncementComposer({ fixedOwner }: { fixedOwner?: Intr
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode: "template",
-          owner,
           templateName: templateName || subject,
           subject,
           body,
@@ -351,7 +302,6 @@ export default function AnnouncementComposer({ fixedOwner }: { fixedOwner?: Intr
   }
 
   async function sendAnnouncement() {
-    if (!owner) return
     setSending(true)
     setNotice(null)
     try {
@@ -364,7 +314,6 @@ export default function AnnouncementComposer({ fixedOwner }: { fixedOwner?: Intr
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             mode: "template",
-            owner,
             templateName: templateName || subject,
             subject,
             body,
@@ -402,7 +351,6 @@ export default function AnnouncementComposer({ fixedOwner }: { fixedOwner?: Intr
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode: "send",
-          owner,
           id: currentDraftId ?? undefined,
           subject,
           body,
@@ -440,12 +388,12 @@ export default function AnnouncementComposer({ fixedOwner }: { fixedOwner?: Intr
     if (res.ok) await loadData()
   }
 
-  if (allowedOwners.length === 0) {
+  if (!canUseAnnouncements) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 rounded-xl border bg-white p-12 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <ShieldAlert className="h-10 w-10 text-slate-400" />
         <p className="font-semibold text-slate-900 dark:text-white">You don't have permission to send announcements</p>
-        <p className="max-w-sm text-sm text-slate-500 dark:text-slate-400">Only Administration Team, HR Team, Finance Team, or Full Access can compose and send announcements.</p>
+        <p className="max-w-sm text-sm text-slate-500 dark:text-slate-400">Only the Administration Team or Full Access can compose and send announcements.</p>
       </div>
     )
   }
@@ -464,20 +412,9 @@ export default function AnnouncementComposer({ fixedOwner }: { fixedOwner?: Intr
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Announcements</h1>
-          <p className="text-sm text-gray-500 mt-1">Compose and send announcements on behalf of {owner ? teamLabelForOwner(owner) : "…"}.</p>
+          <p className="text-sm text-gray-500 mt-1">Compose and send announcements on behalf of the Administration Team.</p>
         </div>
         <div className="flex items-center gap-2">
-          {!fixedOwner && allowedOwners.length > 1 && (
-            <select
-              value={owner ?? ""}
-              onChange={(e) => setSelectedOwner(e.target.value as IntranetOwner)}
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-            >
-              {allowedOwners.map((o) => (
-                <option key={o} value={o}>Post as: {OWNER_LABELS[o]}</option>
-              ))}
-            </select>
-          )}
           <Button onClick={() => setShowPreview(true)} disabled={!subject.trim() || !body.trim() || (toEmails.length === 0 && !includeAllCompany && !includeEgyptTeam)} variant="outline" className="border-blue-200 text-blue-600 hover:bg-blue-50" title={toEmails.length === 0 && !includeAllCompany && !includeEgyptTeam ? "Add at least one recipient to preview" : ""}>
             <Eye className="h-4 w-4" />
             Preview Email
@@ -779,7 +716,7 @@ export default function AnnouncementComposer({ fixedOwner }: { fixedOwner?: Intr
               onAction={(record) => {
                 setSubject(record.subject)
                 setBody(record.body)
-                setSignature(record.signature || defaultSignatureFor(owner))
+                setSignature(record.signature || defaultSignature())
                 setIncludeEgyptTeam((record.to ?? []).includes(EGYPT_TEAM_EMAIL))
                 setToText(joinEmails((record.to ?? []).filter((email) => email !== EGYPT_TEAM_EMAIL)))
                 setCcText(joinEmails(record.cc ?? []))
@@ -955,7 +892,7 @@ export default function AnnouncementComposer({ fixedOwner }: { fixedOwner?: Intr
                               ${signatureLogo ? `<img src="${signatureLogo}" alt="Company logo" style="height: 48px; width: auto; display: block; object-fit: contain;" />` : ''}
                             </td>
                             <td style="vertical-align: middle; text-align: left;">
-                              <p style="margin: 0; color: #1f2937; font-size: 14px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase;">${teamLabelForOwner(owner).toUpperCase()}</p>
+                              <p style="margin: 0; color: #1f2937; font-size: 14px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase;">ADMINISTRATION TEAM</p>
                               <p style="margin: 8px 0 0; color: #6b7280; font-size: 12px; letter-spacing: 0.1px; font-weight: 500;">+20222684704</p>
                             </td>
                           </tr>

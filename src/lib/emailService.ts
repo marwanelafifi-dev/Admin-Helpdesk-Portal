@@ -58,6 +58,10 @@ const POOL_OPTIONS = {
 
 function createTransporter(functionId: EmailFunctionId = "admin") {
   const saved = readEmailConfig(functionId)
+  if (!saved && functionId !== "admin") {
+    const label = functionId === "hr" ? "HR" : "Finance"
+    throw new Error(`${label} email configuration is required. Configure its own account and App Password in Platform Administration → Notifications.`)
+  }
   const key = configKey(saved)
 
   const cached = transporterCache.get(functionId)
@@ -139,7 +143,12 @@ function resolveFromAddress(defaultDisplayName = "Si-Ware Admin Helpdesk", funct
     return `"${defaultDisplayName}" <${process.env.SMTP_USER}>`
   }
   // Last-resort fallback so we never produce `From: <undefined>`.
-  return `"${defaultDisplayName}" <adminhelpdesk@si-ware.com>`
+  const fallbackEmail = functionId === "hr"
+    ? "hr@si-ware.com"
+    : functionId === "finance"
+      ? "ap@si-ware.com"
+      : "adminhelpdesk@si-ware.com"
+  return `"${defaultDisplayName}" <${fallbackEmail}>`
 }
 
 function escapeHtml(value: string) {

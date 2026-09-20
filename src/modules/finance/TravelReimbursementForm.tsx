@@ -113,7 +113,7 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
     setReimbursementFormError(null)
     if (data.paidByPersonalCreditCard) {
       if (!isEditing && !creditCardStatementFile) {
-        setCreditCardStatementError("Credit Card Statement is required when paid by personal credit card.")
+        setCreditCardStatementError("Payment evidence for the company expense is required when paid by personal credit card.")
         return
       }
     }
@@ -154,7 +154,7 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
           requesterEmail: session?.user?.email || "user@si-ware.com",
         })
 
-        // 2. Upload the supporting document + credit card statement +
+        // 2. Upload the supporting document + company-expense payment evidence +
         // reimbursement form (each required when applicable) + any
         // additional files, then patch them in
         const namedFiles: File[] = []
@@ -327,10 +327,16 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
             {paidByPersonalCreditCard && (
               <>
                 <div className="space-y-1.5">
-                  <Label>Credit Card Statement <span className="text-red-500">*</span></Label>
+                  <Label>Payment Evidence — Company Expense Only <span className="text-red-500">*</span></Label>
+                  <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900">
+                    Upload a bank receipt or a cropped transaction screenshot showing only this company expense
+                    (merchant, date, amount, and currency). Do not upload a full bank or credit-card statement.
+                    Hide account/card numbers, balances, and unrelated transactions.
+                  </div>
                   <input
                     id="creditCardStatement"
                     type="file"
+                    accept="image/*,.pdf"
                     className="hidden"
                     onChange={(e) => {
                       if (e.target.files?.[0]) {
@@ -357,7 +363,7 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
                       <>
                         <Upload className="h-6 w-6 text-amber-600" />
                         <span className="text-sm font-medium text-gray-700">Click to browse files</span>
-                        <span className="text-xs text-muted-foreground">Credit Card Statement (required)</span>
+                        <span className="text-xs text-muted-foreground">Bank receipt or cropped transaction screenshot (required)</span>
                       </>
                     )}
                   </button>

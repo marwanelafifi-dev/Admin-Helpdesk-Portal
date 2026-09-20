@@ -148,9 +148,17 @@ export function teamRolesForModule(moduleId: string): string[] {
 
 /** Maps a real role name back to the FunctionId whose team it belongs to, or null if it isn't a function "team" role (e.g. Full Access, Requester, Manager). */
 export function roleToFunctionId(role?: string | null): FunctionId | null {
-  if (role === "Administration Team") return "admin"
-  if (role === "People Team") return "hr"
-  if (role === "Finance Team") return "finance"
+  const normalized = role?.trim().toLowerCase()
+  if (!normalized) return null
+
+  const matches = (baseRole: string) => {
+    const base = baseRole.toLowerCase()
+    return normalized === base || normalized.startsWith(`${base} - `)
+  }
+
+  if (matches("Administration Team")) return "admin"
+  if (matches("People Team")) return "hr"
+  if (matches("Finance Team")) return "finance"
   return null
 }
 
@@ -169,36 +177,6 @@ export function canViewAllInOwnFunctionModules(moduleIds: string[], role?: strin
   if (role === "Full Access") return true
   const fn = roleToFunctionId(role)
   return !!fn && moduleIds.every((m) => isModuleVisibleToFunction(m, fn))
-}
-
-/**
- * Whether `role` may create/edit/delete an Intranet Quick Link or Document
- * belonging to `owner`. This is an ownership/attribution rule, not a
- * confidentiality boundary — everyone can always *read* every group.
- * "company" (company-wide) items are curated by Administration Team, same
- * as Announcements/System Notices today. Full Access can manage any group.
- */
-export type IntranetOwner = "company" | FunctionId
-
-/**
- * Whether `role` may create/edit/delete an Intranet Quick Link, Document, or
- * Announcement belonging to `owner`. Baseline rule: "company" is
- * Administration Team's own bucket; "admin"/"hr"/"finance" belong to that
- * function's team role. `intranetOwners` is a per-role override — set from
- * Admin → Roles' "Intranet Content Control" section — that grants a role
- * extra owner buckets beyond its baseline (e.g. so one team can be
- * designated to manage every bucket, not just its own). Full Access always
- * passes, matching the same super-admin bypass used for module access.
- */
-export function canManageIntranetContent(
-  owner: IntranetOwner,
-  role?: string | null,
-  intranetOwners?: IntranetOwner[] | null
-): boolean {
-  if (role === "Full Access") return true
-  if (intranetOwners?.includes(owner)) return true
-  if (owner === "company") return role === "Administration Team"
-  return roleToFunctionId(role) === owner
 }
 
 /**

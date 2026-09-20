@@ -47,7 +47,7 @@ function roleLabel(role?: string) {
 
 const SETTINGS_KEY = "arp_platform_settings"
 
-type Portal = "admin" | "hr" | "finance" | "platform-admin" | "intranet"
+type Portal = "admin" | "hr" | "finance" | "platform-admin"
 
 const NOTIFICATION_LABEL: Record<FunctionId, string> = {
   admin: "Administration",

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { readUsers } from "@/lib/userStore"
+import { roleToFunctionId } from "@/lib/functionRegistry"
 
 export const runtime = "nodejs"
 
@@ -7,10 +8,8 @@ export const runtime = "nodejs"
 // requests, once a Finance module exists. Mirrors /api/users/admin-team.
 export async function GET() {
   try {
-    const financeRoleNames = new Set(["Finance Team"])
-
     const users = readUsers()
-      .filter((u) => u.active && financeRoleNames.has(u.role))
+      .filter((u) => u.active && roleToFunctionId(u.role) === "finance")
       .map((u) => ({
         id: u.id,
         name: u.name,

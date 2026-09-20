@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { readUsers } from "@/lib/userStore"
+import { roleToFunctionId } from "@/lib/functionRegistry"
 
 export const runtime = "nodejs"
 
@@ -7,10 +8,8 @@ export const runtime = "nodejs"
 // (module "hr" and "hr_general"). Mirrors /api/users/admin-team.
 export async function GET() {
   try {
-    const hrRoleNames = new Set(["People Team"])
-
     const users = readUsers()
-      .filter((u) => u.active && hrRoleNames.has(u.role))
+      .filter((u) => u.active && roleToFunctionId(u.role) === "hr")
       .map((u) => ({
         id: u.id,
         name: u.name,

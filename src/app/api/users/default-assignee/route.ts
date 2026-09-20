@@ -2,21 +2,28 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { canManageUsers } from "@/lib/access"
 import { getDefaultAssignee, setDefaultAssignee, findUserById } from "@/lib/userStore"
+import { FUNCTION_IDS, roleToFunctionId, type FunctionId } from "@/lib/functionRegistry"
 
 export const runtime = "nodejs"
 
 /**
  * GET /api/users/default-assignee
- * Returns the user currently marked as the default assignee for new
- * requests, or null if none is set. Any signed-in user can read so that
- * the form submit handlers can fetch it without elevated permissions.
+ * Returns the selected function's default assignee, or null if none is set.
+ * Defaults to Administration for backward compatibility.
  */
-export async function GET() {
+function parseFunctionId(value: unknown): FunctionId | null {
+  return typeof value === "string" && FUNCTION_IDS.includes(value as FunctionId)
+    ? value as FunctionId
+    : null
+}
+
+export async function GET(req: Request) {
   const session = await auth()
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
-  const user = getDefaultAssignee()
+  const functionId = parseFunctionId(new URL(req.url).searchParams.get("function")) ?? "admin"
+  const user = getDefaultAssignee(functionId)
   if (!user) {
     return NextResponse.json({ data: null })
   }
@@ -25,9 +32,9 @@ export async function GET() {
 
 /**
  * POST /api/users/default-assignee
- * Body: { userId: string | null }
- * Sets the given user as the sole default assignee, clearing the flag from
- * every other user. Pass userId = null to clear the default entirely.
+ * Body: { userId: string | null, functionId: "admin" | "hr" | "finance" }
+ * Sets the given user as the selected function's sole default assignee.
+ * Pass userId = null to clear only that function's default.
  * Requires manage_users (admin only).
  */
 export async function POST(req: Request) {
@@ -36,23 +43,38 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  let body: { userId?: string | null } = {}
+  let body: { userId?: string | null; functionId?: string } = {}
   try { body = await req.json() } catch { /* ignore */ }
   const userId = body.userId ?? null
+  let functionId = parseFunctionId(body.functionId)
 
   if (userId) {
     const target = findUserById(userId)
     if (!target) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
-    if (target.role !== "Administration Team") {
+    if (!target.active) {
+      return NextResponse.json({ error: "An inactive user cannot be the default assignee" }, { status: 400 })
+    }
+    const targetFunction = roleToFunctionId(target.role)
+    if (!targetFunction) {
       return NextResponse.json(
-        { error: "Only Administration Team members can be set as the default assignee" },
+        { error: "Only Administration, HR, or Finance Team members can be set as default assignees" },
         { status: 400 }
       )
     }
+    if (functionId && functionId !== targetFunction) {
+      return NextResponse.json({ error: "The user does not belong to the selected function" }, { status: 400 })
+    }
+    functionId = targetFunction
+  } else if (!functionId) {
+    return NextResponse.json({ error: "A valid functionId is required when clearing a default assignee" }, { status: 400 })
   }
 
-  const updated = setDefaultAssignee(userId)
-  return NextResponse.json({ data: updated ? { id: updated.id, name: updated.name, email: updated.email } : null })
+  const selectedFunction = functionId ?? "admin"
+  const updated = setDefaultAssignee(userId, selectedFunction)
+  return NextResponse.json({
+    functionId: selectedFunction,
+    data: updated ? { id: updated.id, name: updated.name, email: updated.email, role: updated.role } : null,
+  })
 }

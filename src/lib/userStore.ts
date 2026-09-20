@@ -1,6 +1,7 @@
 import fs from "fs"
 import path from "path"
 import { getCompanyFromEmail, getDefaultRequesterRoleForEmail, type CompanyId } from "@/lib/userCompany"
+import { roleToFunctionId, type FunctionId } from "@/lib/functionRegistry"
 
 export type StoredUser = {
   id: string
@@ -16,10 +17,9 @@ export type StoredUser = {
   department?: string
   passwordHash?: string
   /**
-   * If true, new requests submitted via any module form are auto-assigned to
-   * this user. Only one user should carry this flag at a time — the API
-   * enforces that by clearing it from every other user when set.
-   * Only meaningful for Administration Team members.
+   * If true, new requests owned by this user's function are auto-assigned to
+   * this user. Each function can have one default assignee; the user's team
+   * role identifies the function (Administration, People/HR, or Finance).
    */
   defaultAssignee?: boolean
   /** Credential users must change their temporary password before using the portal. */
@@ -108,20 +108,28 @@ export function updateUser(id: string, data: Partial<Omit<StoredUser, "id" | "cr
   const users = readUsers()
   const idx = users.findIndex((u) => u.id === id)
   if (idx === -1) return null
-  users[idx] = { ...users[idx], ...data }
+  const roleChanged = data.role !== undefined && data.role !== users[idx].role
+  const becomesInactive = data.active === false
+  users[idx] = {
+    ...users[idx],
+    ...data,
+    ...((roleChanged || becomesInactive) && { defaultAssignee: false }),
+  }
   writeUsers(users)
   return users[idx]
 }
 
 /**
- * Mark a single user as the default assignee for new requests. Clears the
- * flag from every other user — only one default at a time. Pass `null` to
- * clear the default for everyone.
+ * Mark a single user as the default assignee for one support function. Clears
+ * the flag from other users in that function only, allowing Administration,
+ * HR, and Finance to each keep an independent default. Pass `null` to clear
+ * the selected function's default.
  */
-export function setDefaultAssignee(id: string | null): StoredUser | null {
+export function setDefaultAssignee(id: string | null, functionId: FunctionId = "admin"): StoredUser | null {
   const users = readUsers()
   let next: StoredUser | null = null
   for (const u of users) {
+    if (roleToFunctionId(u.role) !== functionId) continue
     if (id && u.id === id) {
       u.defaultAssignee = true
       next = u
@@ -133,8 +141,8 @@ export function setDefaultAssignee(id: string | null): StoredUser | null {
   return next
 }
 
-export function getDefaultAssignee(): StoredUser | null {
-  return readUsers().find((u) => u.defaultAssignee) ?? null
+export function getDefaultAssignee(functionId: FunctionId = "admin"): StoredUser | null {
+  return readUsers().find((u) => u.active && roleToFunctionId(u.role) === functionId && u.defaultAssignee) ?? null
 }
 
 export function deleteUser(id: string): boolean {

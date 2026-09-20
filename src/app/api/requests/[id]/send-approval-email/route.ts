@@ -4,11 +4,20 @@ import { requestStore } from "@/lib/requestStore"
 import { signApprovalToken } from "@/lib/approvalToken"
 import { sendPurchaseApprovalEmail, sendShippingApprovalEmail, sendTravelApprovalEmail, sendReimbursementApprovalEmail, sendTravelReimbursementApprovalEmail, sendInvoicePaymentApprovalEmail } from "@/lib/emailService"
 import { resolveRequestManagerEmail, resolveRequestManagerName } from "@/lib/approvalNotify"
-import { MANAGER_APPROVAL_MODULES } from "@/lib/functionRegistry"
+import { functionForModule, MANAGER_APPROVAL_MODULES } from "@/lib/functionRegistry"
 
 export const runtime = "nodejs"
 
 const ADMIN_HELPDESK_EMAIL = "adminhelpdesk@si-ware.com"
+const FINANCE_AP_EMAIL = "ap@si-ware.com"
+const HR_EMAIL = "hr@si-ware.com"
+
+function functionMailbox(module: string) {
+  const owner = functionForModule(module)
+  if (owner === "finance") return FINANCE_AP_EMAIL
+  if (owner === "hr") return HR_EMAIL
+  return ADMIN_HELPDESK_EMAIL
+}
 
 /**
  * POST /api/requests/:id/send-approval-email
@@ -58,8 +67,8 @@ export async function POST(
     )
   }
 
-  // Cc: requester + helpdesk + request CCs. Function team members receive
-  // the eventual approval decision, not the pending approval request.
+  // Cc: requester + the owning function's mailbox + request CCs. Function
+  // team members do not receive the pending approval request.
   // Manager is the primary recipient.
   const toLower = managerEmail.toLowerCase()
   const ccSet = new Set<string>()
@@ -68,7 +77,7 @@ export async function POST(
     if (t && t !== toLower) ccSet.add(t)
   }
   addCc(request.requesterEmail)
-  addCc(ADMIN_HELPDESK_EMAIL)
+  addCc(functionMailbox(request.module))
   // Also include any CC the requester typed on the form / admin CC list.
   for (const e of (payload.ccEmails ?? []) as string[]) addCc(e)
   for (const e of request.adminCc ?? []) addCc(e)

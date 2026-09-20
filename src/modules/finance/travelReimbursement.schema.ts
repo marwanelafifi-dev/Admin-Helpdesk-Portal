@@ -14,7 +14,8 @@ const AttachmentSchema = z.object({
   uploadedAt: z.string(),
 })
 
-// creditCardStatement is validated conditionally in the form's onSubmit
+// Company-expense payment evidence is stored under the legacy
+// creditCardStatement key and validated conditionally in the form's onSubmit
 // handler (not via zod superRefine) — see the note in
 // reimbursement.schema.ts for why.
 export const TravelReimbursementPayloadSchema = z.object({

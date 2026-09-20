@@ -206,18 +206,48 @@ interface AccountDef {
 
 const ACCOUNTS: AccountDef[] = [
   { id: "admin", label: "Administration Team", description: "adminhelpdesk@si-ware.com", accent: "text-blue-600", activeClasses: "border-blue-500 bg-blue-50 text-blue-900" },
-  { id: "hr", label: "HR Team", description: "human.resources@si-ware.com", accent: "text-teal-600", activeClasses: "border-teal-500 bg-teal-50 text-teal-900" },
-  { id: "finance", label: "Finance Team", description: "Ap@si-ware.com", accent: "text-amber-600", activeClasses: "border-amber-500 bg-amber-50 text-amber-900" },
+  { id: "hr", label: "HR Team", description: "hr@si-ware.com", accent: "text-teal-600", activeClasses: "border-teal-500 bg-teal-50 text-teal-900" },
+  { id: "finance", label: "Finance Team", description: "ap@si-ware.com", accent: "text-amber-600", activeClasses: "border-amber-500 bg-amber-50 text-amber-900" },
 ]
+
+const FUNCTION_EMAILS: Record<EmailFunctionId, string> = {
+  admin: "adminhelpdesk@si-ware.com",
+  hr: "hr@si-ware.com",
+  finance: "ap@si-ware.com",
+}
+
+function normalizeConfig(functionId: EmailFunctionId, config: Config): Config {
+  const values: Record<string, string> = { ...config.values, smtp_user: FUNCTION_EMAILS[functionId] }
+  if (["gmail_app_password", "smtp_relay"].includes(config.method) && values.smtp_password) {
+    values.smtp_password = values.smtp_password.replace(/\s/g, "")
+  }
+  return { ...config, values }
+}
+
+function defaultConfig(functionId: EmailFunctionId): Config {
+  return { method: "gmail_app_password", values: { smtp_user: FUNCTION_EMAILS[functionId] } }
+}
+
+function validateConfig(functionId: EmailFunctionId, config: Config): string | null {
+  if (!["gmail_app_password", "smtp_relay"].includes(config.method)) return null
+  if ((config.values.smtp_user ?? "").trim().toLowerCase() !== FUNCTION_EMAILS[functionId]) {
+    return `This function must use ${FUNCTION_EMAILS[functionId]}.`
+  }
+  const password = (config.values.smtp_password ?? "").replace(/\s/g, "")
+  if (!/^[A-Za-z0-9]{16}$/.test(password)) {
+    return "App Password must contain exactly 16 letters or numbers. Spaces are allowed."
+  }
+  return null
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function loadConfig(functionId: EmailFunctionId): Config {
-  if (typeof window === "undefined") return { method: "gmail_app_password", values: {} }
+  if (typeof window === "undefined") return defaultConfig(functionId)
   try {
     const raw = localStorage.getItem(`${CONFIG_KEY}_${functionId}`)
-    return raw ? JSON.parse(raw) : { method: "gmail_app_password", values: {} }
-  } catch { return { method: "gmail_app_password", values: {} } }
+    return raw ? normalizeConfig(functionId, JSON.parse(raw)) : defaultConfig(functionId)
+  } catch { return defaultConfig(functionId) }
 }
 
 function saveConfig(functionId: EmailFunctionId, config: Config) {
@@ -269,9 +299,10 @@ export default function NotificationConfigPage() {
 }
 
 function AccountPanel({ functionId }: { functionId: EmailFunctionId }) {
-  const [config, setConfig] = useState<Config>({ method: "gmail_app_password", values: {} })
+  const [config, setConfig] = useState<Config>(() => defaultConfig(functionId))
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({})
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
 
@@ -281,8 +312,9 @@ function AccountPanel({ functionId }: { functionId: EmailFunctionId }) {
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (data?.config) {
-          setConfig(data.config)
-          saveConfig(functionId, data.config)
+          const normalized = normalizeConfig(functionId, data.config)
+          setConfig(normalized)
+          saveConfig(functionId, normalized)
         } else {
           setConfig(loadConfig(functionId))
         }
@@ -295,30 +327,52 @@ function AccountPanel({ functionId }: { functionId: EmailFunctionId }) {
   function setValue(key: string, value: string) {
     setConfig((prev) => ({ ...prev, values: { ...prev.values, [key]: value } }))
     setSaved(false)
+    setSaveError(null)
     setTestResult(null)
   }
 
   async function handleSave() {
-    saveConfig(functionId, config)
-    // Also persist to server so it survives container restarts
-    await fetch("/api/notifications/config", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ config, functionId }),
-    }).catch(() => {})
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+    const normalized = normalizeConfig(functionId, config)
+    const validationError = validateConfig(functionId, normalized)
+    if (validationError) {
+      setSaveError(validationError)
+      setSaved(false)
+      return
+    }
+    try {
+      const response = await fetch("/api/notifications/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ config: normalized, functionId }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || "Could not save the configuration.")
+      saveConfig(functionId, normalized)
+      setConfig(normalized)
+      setSaveError(null)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (error) {
+      setSaved(false)
+      setSaveError(error instanceof Error ? error.message : "Could not save the configuration.")
+    }
   }
 
   async function handleTest() {
+    const normalized = normalizeConfig(functionId, config)
+    const validationError = validateConfig(functionId, normalized)
+    if (validationError) {
+      setTestResult({ ok: false, message: validationError })
+      return
+    }
     setTesting(true)
     setTestResult(null)
     try {
       const res = await fetch("/api/notifications/test-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ config }),
+        body: JSON.stringify({ config: normalized, functionId }),
       })
       const data = await res.json()
       setTestResult({ ok: res.ok, message: data.message || (res.ok ? "Test email sent successfully!" : "Test failed") })
@@ -355,7 +409,12 @@ function AccountPanel({ functionId }: { functionId: EmailFunctionId }) {
             return (
               <button
                 key={method.id}
-                onClick={() => { setConfig({ method: method.id, values: {} }); setSaved(false); setTestResult(null) }}
+                onClick={() => {
+                  setConfig({ method: method.id, values: { smtp_user: FUNCTION_EMAILS[functionId] } })
+                  setSaved(false)
+                  setSaveError(null)
+                  setTestResult(null)
+                }}
                 className={cn(
                   "text-left p-4 rounded-lg border-2 transition-all",
                   active ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
@@ -414,7 +473,8 @@ function AccountPanel({ functionId }: { functionId: EmailFunctionId }) {
                     placeholder={field.placeholder}
                     value={config.values[field.key] ?? ""}
                     onChange={(e) => setValue(field.key, e.target.value)}
-                    className="pr-10 text-sm"
+                    readOnly={field.key === "smtp_user"}
+                    className={cn("pr-10 text-sm", field.key === "smtp_user" && "bg-gray-50 cursor-not-allowed")}
                   />
                 )}
                 {field.type === "password" && (
@@ -450,6 +510,13 @@ function AccountPanel({ functionId }: { functionId: EmailFunctionId }) {
               </span>
             )}
           </div>
+
+          {saveError && (
+            <div className="flex items-start gap-2 rounded-lg px-4 py-3 text-sm border bg-red-50 text-red-800 border-red-200">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              {saveError}
+            </div>
+          )}
 
           {testResult && (
             <div className={cn(

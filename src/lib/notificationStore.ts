@@ -1,5 +1,6 @@
 import { mockUsers } from "@/lib/mock-data"
 import {
+  functionForModule,
   functionsForLegacyRequestId,
   functionsVisibleToModule,
   isModuleVisibleToFunction,
@@ -23,7 +24,16 @@ type RequestUpdateType = "status" | "comment" | "request_updated"
 
 const STORAGE_KEY = "arp_notifications"
 const ADMIN_HELPDESK_EMAIL = "adminhelpdesk@si-ware.com"
+const FINANCE_AP_EMAIL = "ap@si-ware.com"
+const HR_EMAIL = "hr@si-ware.com"
 const subscribers = new Set<(notifications: StoredNotification[]) => void>()
+
+function functionMailbox(module: string) {
+  const owner = functionForModule(module.toLowerCase())
+  if (owner === "finance") return FINANCE_AP_EMAIL
+  if (owner === "hr") return HR_EMAIL
+  return ADMIN_HELPDESK_EMAIL
+}
 
 function requestActionUrl(requestId: string, module: string) {
   const scopes = functionsVisibleToModule(module.toLowerCase())
@@ -321,32 +331,33 @@ async function notifyByEmail(params: {
   if (typeof window === "undefined") return
 
   const actionUserEmail = params.actionUserEmail?.toLowerCase()
+  const supportEmail = functionMailbox(params.module)
 
   let uniqueRecipients: string[]
   let ccEmails: string[]
 
-  // For comments: TO = Request Owner + adminhelpdesk + CC recipients
+  // For comments: TO = Request Owner + function mailbox + CC recipients
   if (params.updateType === "comment") {
     // Always include the requester, even if they're the one adding the comment
     const ownerEmail = params.requestOwnerEmail ? params.requestOwnerEmail : undefined
 
-    // TO: owner + adminhelpdesk + all CC recipients (always include requester)
+    // TO: owner + function mailbox + all CC recipients (always include requester)
     uniqueRecipients = Array.from(new Set([
       ownerEmail,
-      ADMIN_HELPDESK_EMAIL,
+      supportEmail,
       ...(params.ccEmails ?? []).filter((e): e is string => Boolean(e)),
     ].filter((e): e is string => Boolean(e))))
 
     ccEmails = []  // No separate CC since all are in TO
   } else {
-    // For status changes: TO = Owner + helpdesk + request CC recipients.
+    // For status changes: TO = Owner + function mailbox + request CC recipients.
     // Function team members only receive new-request and approval-decision emails.
     // Always include the requester, even if they made the status change
     const ownerEmail = params.requestOwnerEmail ? params.requestOwnerEmail : undefined
 
     const allEmails = Array.from(new Set([
       ownerEmail,
-      ADMIN_HELPDESK_EMAIL,
+      supportEmail,
       ...(params.ccEmails ?? []).filter((e): e is string => Boolean(e)),
     ].filter((e): e is string => Boolean(e))))
 
@@ -632,11 +643,15 @@ export function createNewRequestNotifications(params: {
   })
 
   // Email recipients:
-  //   To: every member of the module's owning/shared team(s) + the requester + adminhelpdesk.
+  //   Finance To: requester + ap@si-ware.com.
+  //   HR To: requester + hr@si-ware.com.
+  //   Administration To: every member of the module's owning/shared team(s)
+  //   + the requester + adminhelpdesk.
   //   Cc: form-provided CC emails + the selected Direct Manager (if any).
   //   Anyone already on the To: line is dropped from Cc.
   void fetchUsersForModule(moduleId).then((admins) => {
-    const adminEmails = admins.map((u) => u.email).filter(Boolean)
+    const isAdministration = functionForModule(moduleId) === "admin"
+    const adminEmails = isAdministration ? admins.map((u) => u.email).filter(Boolean) : []
 
     const toSet = new Set<string>()
     const addTo = (e?: string) => {
@@ -645,7 +660,7 @@ export function createNewRequestNotifications(params: {
     }
     adminEmails.forEach(addTo)
     addTo(params.requesterEmail)
-    addTo(ADMIN_HELPDESK_EMAIL)
+    addTo(functionMailbox(moduleId))
     const recipients = Array.from(toSet)
 
     const ccSet = new Set<string>()

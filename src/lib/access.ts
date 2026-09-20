@@ -38,11 +38,6 @@ export type RoutePermission =
   | "page:admin-announcements"
   | "page:admin-company-data"
   | "page:admin-company-data-buchi"
-  | "page:intranet-home"
-  | "page:intranet-news"
-  | "page:intranet-quick-links"
-  | "page:intranet-directory"
-  | "page:intranet-documents"
   | "create"
   | "read"
   | "read_own"
@@ -120,11 +115,6 @@ export function permissionForPath(pathname: string): RoutePermission | null {
   if (path === "/admin/announcements") return "page:admin-announcements"
   if (path === "/admin/company-data/buchi") return "page:admin-company-data-buchi"
   if (path === "/admin/company-data") return "page:admin-company-data"
-  if (path === "/departments/intranet") return "page:intranet-home"
-  if (path === "/departments/intranet/news") return "page:intranet-news"
-  if (path === "/departments/intranet/quick-links") return "page:intranet-quick-links"
-  if (path === "/departments/intranet/directory") return "page:intranet-directory"
-  if (path === "/departments/intranet/documents") return "page:intranet-documents"
 
   return null
 }

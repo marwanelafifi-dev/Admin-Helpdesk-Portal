@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { markNotificationAsRead } from "@/lib/notificationStore"
-import { FUNCTION_TEAM_ROLE, type IntranetOwner } from "@/lib/functionRegistry"
 
 type AnnouncementAttachment = {
   id: string
@@ -61,17 +60,8 @@ function writeReadIds(userId: string, ids: Set<string>) {
   window.dispatchEvent(new Event("arp:announcements-read-updated"))
 }
 
-function subtitleForScope(scope?: IntranetOwner): string {
-  if (!scope) return "Official communications from across the company"
-  if (scope === "company") return "Official communications from the Intranet"
-  return `Official communications from the ${FUNCTION_TEAM_ROLE[scope]}`
-}
-
-/**
- * Read-only announcements feed for the Administration portal. The archived
- * Intranet route can still render its preserved company-owned history.
- */
-export default function AnnouncementsFeed({ scope }: { scope?: IntranetOwner }) {
+/** Read-only announcements feed for the Administration portal. */
+export default function AnnouncementsFeed() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [readIds, setReadIds] = useState<Set<string>>(new Set())
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -87,10 +77,9 @@ export default function AnnouncementsFeed({ scope }: { scope?: IntranetOwner }) 
       setLoading(true)
       setError(null)
       try {
-        const feedUrl = scope ? `/api/announcements/feed?scope=${scope}` : "/api/announcements/feed"
         const [sessionRes, feedRes] = await Promise.all([
           fetch("/api/auth/session", { cache: "no-store" }),
-          fetch(feedUrl, { cache: "no-store" }),
+          fetch("/api/announcements/feed", { cache: "no-store" }),
         ])
         const sessionJson = await sessionRes.json()
         const currentUserId = sessionJson?.user?.id ?? sessionJson?.user?.email ?? "current-user"
@@ -112,7 +101,7 @@ export default function AnnouncementsFeed({ scope }: { scope?: IntranetOwner }) 
 
     load()
     return () => { cancelled = true }
-  }, [scope])
+  }, [])
 
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase()
@@ -173,7 +162,7 @@ export default function AnnouncementsFeed({ scope }: { scope?: IntranetOwner }) 
               </div>
               <h1 className="text-3xl font-bold">Announcements</h1>
             </div>
-            <p className="text-blue-100 mt-2">{subtitleForScope(scope)}</p>
+            <p className="text-blue-100 mt-2">Official communications from the Administration Team</p>
           </div>
           <div className="text-right">
             <Badge className={cn("px-4 py-2 text-sm font-semibold", unreadCount > 0 ? "bg-red-500 text-white" : "bg-emerald-500 text-white")}>

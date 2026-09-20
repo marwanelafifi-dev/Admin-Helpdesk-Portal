@@ -3,9 +3,18 @@ import { readCompanyData } from "@/lib/companyDataServerStore"
 import { readUsers } from "@/lib/userStore"
 import { sendRequestUpdateEmail } from "@/lib/emailService"
 import { companyFromEmail } from "@/lib/company"
-import { teamRolesForModule } from "@/lib/functionRegistry"
+import { functionForModule, teamRolesForModule } from "@/lib/functionRegistry"
 
 const ADMIN_HELPDESK_EMAIL = "adminhelpdesk@si-ware.com"
+const FINANCE_AP_EMAIL = "ap@si-ware.com"
+const HR_EMAIL = "hr@si-ware.com"
+
+function functionMailbox(module: string) {
+  const owner = functionForModule(module)
+  if (owner === "finance") return FINANCE_AP_EMAIL
+  if (owner === "hr") return HR_EMAIL
+  return ADMIN_HELPDESK_EMAIL
+}
 
 /** Find the Direct Manager email for a Purchase / HR / Shipping request. */
 export function resolveRequestManagerEmail(request: EngineRequest): string | undefined {
@@ -69,7 +78,7 @@ export function resolveRequestManagerName(request: EngineRequest): string | unde
   return undefined
 }
 
-/** Fan out a decision notification to the team, requester, helpdesk, and manager. */
+/** Fan out a decision notification according to the owning function's email policy. */
 export async function notifyDecision(params: {
   request: EngineRequest
   action: "approved" | "rejected"
@@ -77,14 +86,16 @@ export async function notifyDecision(params: {
   managerName?: string
   reason?: string
 }): Promise<void> {
-  // Notify the module's owning/shared team(s), not unconditionally
-  // "Administration Team" — e.g. a Reimbursement decision should reach
-  // Finance Team, not Admin Team.
+  // Non-Finance functions notify the module's owning/shared team(s).
+  // Finance decisions use the dedicated AP mailbox instead of team-wide email.
+  const isAdministration = functionForModule(params.request.module) === "admin"
   const teamRoles = new Set(teamRolesForModule(params.request.module))
-  const adminEmails = readUsers()
-    .filter((u) => u.active && teamRoles.has(u.role))
-    .map((u) => u.email)
-    .filter(Boolean)
+  const adminEmails = isAdministration
+    ? readUsers()
+      .filter((u) => u.active && teamRoles.has(u.role))
+      .map((u) => u.email)
+      .filter(Boolean)
+    : []
 
   const recipients = new Set<string>()
   const add = (e?: string) => {
@@ -93,7 +104,7 @@ export async function notifyDecision(params: {
   }
   adminEmails.forEach(add)
   add(params.request.requesterEmail)
-  add(ADMIN_HELPDESK_EMAIL)
+  add(functionMailbox(params.request.module))
   if (params.managerEmail) add(params.managerEmail)
   const payloadCc = (params.request.payload as any)?.ccEmails
   if (Array.isArray(payloadCc)) payloadCc.forEach((e) => add(e))

@@ -11,17 +11,11 @@ import {
 } from "@/lib/announcementStore"
 import { readUsers } from "@/lib/userStore"
 import { sendAnnouncementEmail } from "@/lib/emailService"
-import { canManageIntranetContent, type IntranetOwner } from "@/lib/functionRegistry"
 
 export const runtime = "nodejs"
 
-// Administration owns announcements. The company bucket is retained for
-// archived Intranet records, which are also administered by that function.
-const VALID_OWNERS: IntranetOwner[] = ["company", "admin"]
-
 type Payload = {
   mode?: "send" | "draft" | "template"
-  owner?: IntranetOwner
   id?: string
   templateName?: string
   subject?: string
@@ -61,24 +55,7 @@ function canUseAnnouncements(session: any): boolean {
   return role === "Administration Team" || role === "Full Access" || role?.toLowerCase() === "super_admin"
 }
 
-/**
- * The owner a non-Full-Access caller is allowed to act as, derived strictly
- * from their real role — never trust a client-supplied owner unless the
- * signed-in Administration user is actually allowed to manage that bucket.
- */
-function effectiveOwnerFor(session: any, requestedOwner: unknown, intranetOwners?: IntranetOwner[]): IntranetOwner {
-  const role = session?.user?.role
-  if (
-    VALID_OWNERS.includes(requestedOwner as IntranetOwner)
-    && canManageIntranetContent(requestedOwner as IntranetOwner, role, intranetOwners)
-  ) {
-    return requestedOwner as IntranetOwner
-  }
-  if (role === "Administration Team") return "admin"
-  return "company"
-}
-
-export async function GET(req: NextRequest) {
+export async function GET() {
   const session = await auth()
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -87,20 +64,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  const ownerParam = new URL(req.url).searchParams.get("owner")
-  if (!VALID_OWNERS.includes(ownerParam as IntranetOwner)) {
-    return NextResponse.json({ error: "owner query param is required" }, { status: 400 })
-  }
-  const owner = ownerParam as IntranetOwner
-  if (!canManageIntranetContent(owner, session.user.role, (session.user as any).intranetOwners)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
-
   const store = readAnnouncementStore()
   const data = {
-    sent: store.sent.filter((item) => (item.owner ?? "company") === owner),
-    drafts: store.drafts.filter((item) => (item.owner ?? "company") === owner),
-    templates: store.templates.filter((item) => (item.owner ?? "company") === owner),
+    sent: store.sent,
+    drafts: store.drafts,
+    templates: store.templates,
   }
 
   const users = readUsers()
@@ -121,11 +89,6 @@ export async function POST(req: NextRequest) {
   }
 
   const body = (await req.json()) as Payload
-  const intranetOwners = (session.user as any).intranetOwners as IntranetOwner[] | undefined
-  const owner = effectiveOwnerFor(session, body.owner, intranetOwners)
-  if (!canManageIntranetContent(owner, session.user.role, intranetOwners)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
 
   const now = new Date().toISOString()
   const id = body.id || `ANN-${Date.now()}`
@@ -145,7 +108,6 @@ export async function POST(req: NextRequest) {
     }
     const template = saveAnnouncementTemplate({
       id,
-      owner,
       name,
       subject,
       body: messageBody,
@@ -173,7 +135,6 @@ export async function POST(req: NextRequest) {
 
   const message = {
     id,
-    owner,
     subject,
     body: messageBody,
     signature,
@@ -210,7 +171,7 @@ export async function POST(req: NextRequest) {
       signature: message.signature,
       signatureLogo: message.signatureLogo,
       senderName: message.createdBy,
-      functionId: owner === "company" ? "admin" : owner,
+      functionId: "admin",
       attachments: attachments.map(dataUrlToEmailAttachment).filter(Boolean) as any[],
     })
   } catch (emailError) {
@@ -244,13 +205,9 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Invalid delete request" }, { status: 400 })
   }
 
-  const store = readAnnouncementStore()
-  const record = store[type].find((item) => item.id === id)
-  if (!record) {
+  const recordExists = readAnnouncementStore()[type].some((item) => item.id === id)
+  if (!recordExists) {
     return NextResponse.json({ error: "Not found" }, { status: 404 })
-  }
-  if (!canManageIntranetContent(record.owner ?? "company", session.user.role, (session.user as any).intranetOwners)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
   return NextResponse.json({ success: deleteAnnouncementRecord(type, id) })

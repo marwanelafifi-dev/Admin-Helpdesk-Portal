@@ -1213,7 +1213,7 @@ export default function RequestDetailPage() {
               additionalAttachments: "Additional",
               // Finance named fields
               supportingDocument: "Supporting Document",
-              creditCardStatement: "Credit Card Statement",
+              creditCardStatement: "Payment Evidence — Company Expense Only",
               reimbursementForm: "Reimbursement Form",
               invoiceFile: "Invoice File",
             }

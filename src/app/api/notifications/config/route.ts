@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { readEmailConfig, writeEmailConfig, type EmailFunctionId } from "@/lib/emailConfig"
+import { readEmailConfig, validateEmailConfig, writeEmailConfig, type EmailFunctionId } from "@/lib/emailConfig"
 
 export const runtime = "nodejs"
 
@@ -26,6 +26,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid config" }, { status: 400 })
   }
   const functionId = parseFunctionId(rawFunctionId ?? null)
+  const validationError = validateEmailConfig(functionId, config)
+  if (validationError) {
+    return NextResponse.json({ error: validationError }, { status: 400 })
+  }
   writeEmailConfig(functionId, config)
   return NextResponse.json({ ok: true })
 }

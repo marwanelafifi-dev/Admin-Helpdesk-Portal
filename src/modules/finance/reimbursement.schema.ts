@@ -16,7 +16,8 @@ const AttachmentSchema = z.object({
   uploadedAt: z.string(),
 })
 
-// poNumbers / directManager / creditCardStatement are validated
+// poNumbers / directManager / company-expense payment evidence (stored under
+// the legacy creditCardStatement key) are validated
 // conditionally in the form's onSubmit handler (not via zod superRefine) —
 // a discriminated-toggle field failing zod validation before onSubmit runs
 // has previously blocked submission entirely for other conditional forms
