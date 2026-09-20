@@ -50,6 +50,14 @@ const REQUEST_MODULES = [
   { id: "travel",      label: "Travel",      icon: Plane,         color: "text-cyan-600",   bg: "bg-cyan-50",   border: "border-cyan-200" },
   { id: "hr",          label: "HR",          icon: UserCog,       color: "text-teal-600",   bg: "bg-teal-50",   border: "border-teal-200" },
   { id: "general",     label: "General",     icon: Inbox,         color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-200" },
+  // HR function requests
+  { id: "hr_general", label: "HR · General Request", icon: UserCog, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-200" },
+  { id: "hr_letter", label: "HR · Letter Request", icon: UserCog, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-200" },
+  { id: "hr_travel_letter", label: "HR · Travel Letter", icon: Plane, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-200" },
+  // Finance function requests
+  { id: "finance_reimbursement", label: "Finance · Reimbursement", icon: Package, color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200" },
+  { id: "finance_travel_reimbursement", label: "Finance · Travel Reimbursement", icon: Plane, color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200" },
+  { id: "finance_invoice_payment", label: "Finance · Invoice Payment", icon: ShoppingCart, color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200" },
 ] as const
 
 // Note: Team Requests is a view (filtered by direct manager), not a module —

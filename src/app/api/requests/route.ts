@@ -6,20 +6,12 @@ import { getDefaultAssignee } from "@/lib/userStore"
 import type { EngineRequest } from "@/services/engineService"
 import { getCompanyFromEmail, getRequestCompany } from "@/lib/userCompany"
 import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
-import { functionForModule, isRequestVisibleToViewer } from "@/lib/functionRegistry"
+import { functionForModule, isRequestVisibleToViewer, MODULE_REGISTRY } from "@/lib/functionRegistry"
 
 export const runtime = "nodejs"
 
-const REQUEST_MODULES = new Set([
-  "shipping",
-  "maintenance",
-  "purchase",
-  "event",
-  "travel",
-  "hr",
-  "hr_general",
-  "general",
-])
+// Keep imports in sync with every function's registered request modules.
+const REQUEST_MODULES = new Set(Object.keys(MODULE_REGISTRY))
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0

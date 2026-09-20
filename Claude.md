@@ -1882,3 +1882,11 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
   - [ ] Move attachments to durable object storage with signed access links. Ensure backups include attachments and all required operational data, use off-host storage, encrypt secrets, and test restore procedures.
   - [ ] Remove production TLS certificate-validation bypasses, then enable TypeScript, lint, and automated checks in the production build before deployment.
 - [ ] A PostgreSQL-based single application deployment is sufficient as the first scaling step; separate microservices are not a prerequisite. Benchmark database query patterns and notification load after pagination and migration before adding infrastructure.
+
+## Phase 7x: Function Request Coverage in Database Administration (20 Sep 2026)
+
+- [x] Platform Administration's Database page now lists request modules from Administration, HR, and Finance in its per-module counts and clear controls.
+- [x] HR modules covered: General Request, Letter Request, and Travel Letter. Finance modules covered: Reimbursement, Travel Reimbursement, and Invoice Payment.
+- [x] Request JSON import validation derives allowed module IDs from `MODULE_REGISTRY`, keeping imports aligned with registered function modules as the platform grows.
+- [x] Full backup and restore capture the shared request dataset (all functions); Clear All clears that shared dataset. Per-module clearing deletes the selected module's requests from both the browser cache and server store.
+- [ ] When adding a request module, ensure it is registered in `src/lib/functionRegistry.ts` and represented in the Database page's module metadata so counts, imports, and clear-by-module actions stay complete.
