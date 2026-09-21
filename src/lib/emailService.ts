@@ -1232,6 +1232,7 @@ export async function sendReimbursementApprovalEmail(params: {
   requestTitle: string
   amount?: number
   currency?: string
+  totalsByCurrency?: Record<string, number>
   costCenter?: string
   requesterName?: string
   requesterEmail?: string
@@ -1254,9 +1255,14 @@ export async function sendReimbursementApprovalEmail(params: {
       </tr>`
   }
 
-  const amountDisplay = typeof params.amount === "number"
-    ? `${params.amount.toLocaleString()} ${params.currency ?? ""}`.trim()
-    : "—"
+  const currencyTotals = Object.entries(params.totalsByCurrency ?? {})
+    .filter(([, amount]) => Number(amount) > 0)
+    .map(([currency, amount]) => `${Number(amount).toLocaleString()} ${currency}`)
+  const amountDisplay = currencyTotals.length > 0
+    ? currencyTotals.join(" · ")
+    : typeof params.amount === "number"
+      ? `${params.amount.toLocaleString()} ${params.currency ?? ""}`.trim()
+      : "—"
 
   const detailsTable = `
       <table style="width:100%;border-collapse:collapse;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;background:#f8fafc;">
@@ -1346,6 +1352,7 @@ export async function sendTravelReimbursementApprovalEmail(params: {
   requestTitle: string
   amount?: number
   currency?: string
+  totalsByCurrency?: Record<string, number>
   costCenter?: string
   requesterName?: string
   requesterEmail?: string
@@ -1368,9 +1375,14 @@ export async function sendTravelReimbursementApprovalEmail(params: {
       </tr>`
   }
 
-  const amountDisplay = typeof params.amount === "number"
-    ? `${params.amount.toLocaleString()} ${params.currency ?? ""}`.trim()
-    : "—"
+  const currencyTotals = Object.entries(params.totalsByCurrency ?? {})
+    .filter(([, amount]) => Number(amount) > 0)
+    .map(([currency, amount]) => `${Number(amount).toLocaleString()} ${currency}`)
+  const amountDisplay = currencyTotals.length > 0
+    ? currencyTotals.join(" · ")
+    : typeof params.amount === "number"
+      ? `${params.amount.toLocaleString()} ${params.currency ?? ""}`.trim()
+      : "—"
 
   const detailsTable = `
       <table style="width:100%;border-collapse:collapse;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;background:#f8fafc;">

@@ -3,11 +3,12 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { useForm, Controller } from "react-hook-form"
+import { useForm, Controller, useFieldArray, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import {
   TRAVEL_REIMBURSEMENT_CURRENCIES,
+  TRAVEL_EXPENSE_DESCRIPTIONS,
   TravelReimbursementPayloadSchema,
 } from "./travelReimbursement.schema"
 import { submitRequest, updateRequest, pushToServer, type EngineRequest } from "@/services/engineService"
@@ -19,19 +20,19 @@ import { Label } from "@/components/ui/label"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
-import { AlertCircle, Wallet, Upload, X, FileText, FileCheck2, Mail, CreditCard, Download } from "lucide-react"
+import { AlertCircle, Wallet, Upload, X, FileText, FileCheck2, Mail, CreditCard, Plus, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
 import { Checkbox } from "@/components/ui/checkbox"
-import { FinancePriorityField } from "./FinancePriorityField"
+import { FinanceProcessingNotice } from "./FinancePriorityField"
 import { getList, getAuthorizedManagerEmail } from "@/lib/companyDataStore"
 import { filesToAttachments } from "@/lib/attachments"
 
 const BRAND = "#d97706" // amber-600 — Finance brand color
-const REIMBURSEMENT_FORM_TEMPLATE_URL = encodeURI("/Finance - Forms/Reimbursement Form - Travel.xls")
-
 type TravelReimbursementFormValues = z.infer<typeof TravelReimbursementPayloadSchema>
+
+const EMPTY_EXPENSE_ROW = { description: "Uber" as const, otherDescription: "", usdAmount: 0, eurAmount: 0, egpAmount: 0 }
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null
@@ -64,24 +65,32 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
   const { data: session } = useSession()
   const [supportingDocFile, setSupportingDocFile] = useState<File | null>(null)
   const [creditCardStatementFile, setCreditCardStatementFile] = useState<File | null>(null)
-  const [reimbursementFormFile, setReimbursementFormFile] = useState<File | null>(null)
   const [additionalFiles, setAdditionalFiles] = useState<File[]>([])
   const [supportingDocError, setSupportingDocError] = useState<string | null>(null)
   const [creditCardStatementError, setCreditCardStatementError] = useState<string | null>(null)
-  const [reimbursementFormError, setReimbursementFormError] = useState<string | null>(null)
   const [authorizedManagers, setAuthorizedManagers] = useState<string[]>([])
   const [costCenters, setCostCenters] = useState<string[]>([])
+  const [expenseDescriptions, setExpenseDescriptions] = useState<string[]>([...TRAVEL_EXPENSE_DESCRIPTIONS])
   useEffect(() => {
     setAuthorizedManagers(getList("authorized_managers"))
     setCostCenters(getList("cost_centers"))
+    const configured = getList("travel_expense_descriptions")
+    setExpenseDescriptions(configured.includes("Others") ? configured : [...configured, "Others"])
   }, [])
 
   const { register, control, handleSubmit, watch, setError, formState: { errors, isSubmitting }, reset } = useForm<TravelReimbursementFormValues>({
     resolver: zodResolver(TravelReimbursementPayloadSchema),
-    defaultValues: { currency: "EGP", priority: "Normal", paidByPersonalCreditCard: false, ccEmails: [] },
+    defaultValues: { priority: "Normal", expenseRows: [{ ...EMPTY_EXPENSE_ROW }], paidByPersonalCreditCard: false, ccEmails: [] },
   })
 
+  const { fields: expenseFields, append: appendExpense, remove: removeExpense } = useFieldArray({ control, name: "expenseRows" })
+  const expenseRows = useWatch({ control, name: "expenseRows" }) ?? []
   const paidByPersonalCreditCard = watch("paidByPersonalCreditCard")
+  const totalsByCurrency = expenseRows.reduce((totals, row) => ({
+    USD: totals.USD + (Number.isFinite(Number(row.usdAmount)) ? Number(row.usdAmount) : 0),
+    EUR: totals.EUR + (Number.isFinite(Number(row.eurAmount)) ? Number(row.eurAmount) : 0),
+    EGP: totals.EGP + (Number.isFinite(Number(row.egpAmount)) ? Number(row.egpAmount) : 0),
+  }), { USD: 0, EUR: 0, EGP: 0 })
 
   useEffect(() => {
     if (isEditing && editingRequest?.payload) {
@@ -90,8 +99,15 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
         requestTitle: editingRequest.title || "",
         priority: payload.priority || "Normal",
         costCenter: payload.costCenter || "",
-        amount: payload.amount || 0,
-        currency: payload.currency || "EGP",
+        expenseRows: Array.isArray(payload.expenseRows) && payload.expenseRows.length > 0
+          ? payload.expenseRows
+          : [{
+              description: "Others",
+              otherDescription: editingRequest.title || "Legacy expense",
+              usdAmount: payload.currency === "USD" ? payload.amount || 0 : 0,
+              eurAmount: payload.currency === "EUR" ? payload.amount || 0 : 0,
+              egpAmount: payload.currency === "EGP" ? payload.amount || 0 : 0,
+            }],
         authorizedManager: payload.authorizedManager || "",
         paidByPersonalCreditCard: payload.paidByPersonalCreditCard || false,
       })
@@ -106,11 +122,6 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
       return
     }
     setSupportingDocError(null)
-    if (!isEditing && !reimbursementFormFile) {
-      setReimbursementFormError("The filled Reimbursement Form - Travel is required to submit this request.")
-      return
-    }
-    setReimbursementFormError(null)
     if (data.paidByPersonalCreditCard) {
       if (!isEditing && !creditCardStatementFile) {
         setCreditCardStatementError("Payment evidence for the company expense is required when paid by personal credit card.")
@@ -130,12 +141,19 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
       }
     }
 
+    const payload = {
+      ...data,
+      amount: totalsByCurrency.USD + totalsByCurrency.EUR + totalsByCurrency.EGP,
+      currency: undefined,
+      totalsByCurrency,
+      directManagerEmail: managerEmail ?? "",
+    }
+
     let redirectTo: string | null = null
     try {
       if (isEditing && editingRequest) {
         updateRequest(editingRequest.id, {
-          ...data,
-          directManagerEmail: managerEmail ?? "",
+          ...payload,
         }, {
           title: data.requestTitle,
           requesterId: editingRequest.requesterId,
@@ -145,8 +163,7 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
       } else {
         // 1. Create request first (server-assigns the ID)
         const newReq = await submitRequest("finance_travel_reimbursement", {
-          ...data,
-          directManagerEmail: managerEmail ?? "",
+          ...payload,
         } as any, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
@@ -154,22 +171,19 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
           requesterEmail: session?.user?.email || "user@si-ware.com",
         })
 
-        // 2. Upload the supporting document + company-expense payment evidence +
-        // reimbursement form (each required when applicable) + any
-        // additional files, then patch them in
+        // 2. Upload the invoice, company-expense payment evidence (when
+        // applicable), and any additional files, then patch them in.
         const namedFiles: File[] = []
         if (supportingDocFile) namedFiles.push(supportingDocFile)
         if (creditCardStatementFile) namedFiles.push(creditCardStatementFile)
-        if (reimbursementFormFile) namedFiles.push(reimbursementFormFile)
         const filesToUpload = [...namedFiles, ...additionalFiles]
         if (filesToUpload.length > 0) {
           const attachments = await filesToAttachments(filesToUpload, newReq.id)
           let idx = 0
           const supportingDocument = supportingDocFile ? attachments[idx++] : undefined
           const creditCardStatement = creditCardStatementFile ? attachments[idx++] : undefined
-          const reimbursementForm = reimbursementFormFile ? attachments[idx++] : undefined
           const additionalAttachments = attachments.slice(idx)
-          const updated = updateRequest(newReq.id, { ...data, directManagerEmail: managerEmail ?? "", supportingDocument, creditCardStatement, reimbursementForm, additionalAttachments } as any, { title: data.requestTitle })
+          const updated = updateRequest(newReq.id, { ...payload, supportingDocument, creditCardStatement, additionalAttachments } as any, { title: data.requestTitle })
           if (updated) {
             void pushToServer(updated)
           }
@@ -197,7 +211,7 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
   }
 
   return (
-    <div className="space-y-5 max-w-3xl mx-auto">
+    <div className="space-y-5 max-w-6xl mx-auto">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {/* Request Title */}
         <Card>
@@ -210,14 +224,8 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
           </CardContent>
         </Card>
 
-        {/* Priority & SLA */}
-        <Controller
-          name="priority"
-          control={control}
-          render={({ field }) => (
-            <FinancePriorityField value={field.value} onChange={field.onChange} hasError={!!errors.priority} hasApproval />
-          )}
-        />
+        {/* Processing time */}
+        <FinanceProcessingNotice hasApproval />
 
         {/* Approval */}
         <Card>
@@ -268,38 +276,81 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
           </CardContent>
         </Card>
 
-        {/* Amount */}
+        {/* Expense rows */}
         <Card>
-          <SectionHeader icon={Wallet} title="Amount" subtitle="How much is being reimbursed?" />
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="amount">Amount <span className="text-red-500">*</span></Label>
-                <Input id="amount" type="number" min="0" step="0.01" placeholder="0.00" {...register("amount", { valueAsNumber: true })} className={cn(errors.amount && "border-red-400")} />
-                <FieldError message={errors.amount?.message} />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="currency">Currency <span className="text-red-500">*</span></Label>
-                <Controller
-                  name="currency"
-                  control={control}
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger className={cn(errors.currency && "border-red-400")}>
-                        <SelectValue placeholder="Select currency" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TRAVEL_REIMBURSEMENT_CURRENCIES.map((c) => (
-                          <SelectItem key={c} value={c}>{c}</SelectItem>
+          <SectionHeader icon={Wallet} title="Expense Details" subtitle="Add a row for each travel expense" />
+          <CardContent className="space-y-4">
+            <div className="overflow-x-auto rounded-lg border">
+              <table className="w-full min-w-[760px] border-collapse text-sm">
+                <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                  <tr>
+                    <th className="border-b px-3 py-3">Description <span className="text-red-500">*</span></th>
+                    <th className="w-40 border-b px-3 py-3">USD</th>
+                    <th className="w-40 border-b px-3 py-3">Euro</th>
+                    <th className="w-40 border-b px-3 py-3">EGP</th>
+                    <th className="w-14 border-b px-2 py-3"><span className="sr-only">Actions</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {expenseFields.map((expenseField, index) => {
+                    const rowErrors = errors.expenseRows?.[index]
+                    const selectedDescription = expenseRows[index]?.description
+                    return (
+                      <tr key={expenseField.id} className="align-top">
+                        <td className="border-b px-3 py-3">
+                          <Controller
+                            name={`expenseRows.${index}.description`}
+                            control={control}
+                            render={({ field }) => (
+                              <Select value={field.value} onValueChange={field.onChange}>
+                                <SelectTrigger className={cn(rowErrors?.description && "border-red-400")}>
+                                  <SelectValue placeholder="Select description" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {expenseDescriptions.map((description) => <SelectItem key={description} value={description}>{description}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          />
+                          <FieldError message={rowErrors?.description?.message} />
+                          {selectedDescription === "Others" && (
+                            <div className="mt-2">
+                              <Input placeholder="Enter description" {...register(`expenseRows.${index}.otherDescription`)} className={cn(rowErrors?.otherDescription && "border-red-400")} />
+                              <FieldError message={rowErrors?.otherDescription?.message} />
+                            </div>
+                          )}
+                        </td>
+                        {([
+                          ["usdAmount", "USD"],
+                          ["eurAmount", "EUR"],
+                          ["egpAmount", "EGP"],
+                        ] as const).map(([fieldName, currency]) => (
+                          <td key={fieldName} className="border-b px-3 py-3">
+                            <Input type="number" min="0" step="0.01" placeholder="0.00" {...register(`expenseRows.${index}.${fieldName}`, { valueAsNumber: true })} className={cn(rowErrors?.[fieldName] && "border-red-400")} aria-label={`${currency} amount for row ${index + 1}`} />
+                            <FieldError message={rowErrors?.[fieldName]?.message} />
+                          </td>
                         ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                <FieldError message={errors.currency?.message} />
-              </div>
+                        <td className="border-b px-2 py-3 text-center">
+                          <Button type="button" variant="ghost" size="icon" disabled={expenseFields.length === 1} onClick={() => removeExpense(index)} aria-label={`Remove expense row ${index + 1}`}>
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  <tr className="bg-amber-50/70 font-semibold text-amber-950">
+                    <td className="px-3 py-3 text-right">Total by currency</td>
+                    {TRAVEL_REIMBURSEMENT_CURRENCIES.map((currency) => (
+                      <td key={currency} className="px-3 py-3">{currency}: {totalsByCurrency[currency].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    ))}
+                    <td />
+                  </tr>
+                </tbody>
+              </table>
             </div>
+            <Button type="button" variant="outline" onClick={() => appendExpense({ ...EMPTY_EXPENSE_ROW })} className="gap-2">
+              <Plus className="h-4 w-4" /> Add Expense Row
+            </Button>
           </CardContent>
         </Card>
 
@@ -330,7 +381,7 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
                   <Label>Payment Evidence — Company Expense Only <span className="text-red-500">*</span></Label>
                   <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900">
                     Upload a bank receipt or a cropped transaction screenshot showing only this company expense
-                    (merchant, date, amount, and currency). Do not upload a full bank or credit-card statement.
+                    (merchant, date, amount, and currency).
                     Hide account/card numbers, balances, and unrelated transactions.
                   </div>
                   <input
@@ -374,63 +425,14 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
           </CardContent>
         </Card>
 
-        {/* Reimbursement Form (Travel) — download template, then upload filled copy */}
-        <Card>
-          <SectionHeader icon={FileCheck2} title="Reimbursement Form - Travel" subtitle="Download the template, fill it in, then upload it here" />
-          <CardContent>
-            <div className="space-y-3">
-              <a
-                href={REIMBURSEMENT_FORM_TEMPLATE_URL}
-                download
-                className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100 transition-colors"
-              >
-                <Download className="h-4 w-4" />
-                Download Reimbursement Form - Travel Template
-              </a>
-
-              <input
-                id="reimbursementForm"
-                type="file"
-                className="hidden"
-                onChange={(e) => {
-                  if (e.target.files?.[0]) {
-                    setReimbursementFormFile(e.target.files[0])
-                    setReimbursementFormError(null)
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => document.getElementById("reimbursementForm")?.click()}
-                className={cn(
-                  "w-full px-6 py-8 border-2 border-dashed rounded-lg transition-all duration-200 flex flex-col items-center justify-center gap-2",
-                  reimbursementFormFile ? "border-amber-400 bg-amber-50/60 hover:bg-amber-50" : "border-amber-300 hover:border-amber-500 hover:bg-amber-50"
-                )}
-              >
-                {reimbursementFormFile ? (
-                  <>
-                    <FileText className="h-5 w-5 text-amber-600" />
-                    <span className="text-sm font-semibold text-amber-700">{reimbursementFormFile.name}</span>
-                    <span className="text-xs text-amber-500">Click to replace</span>
-                  </>
-                ) : (
-                  <>
-                    <Upload className="h-6 w-6 text-amber-600" />
-                    <span className="text-sm font-medium text-gray-700">Click to browse files</span>
-                    <span className="text-xs text-muted-foreground">Filled Reimbursement Form - Travel (required)</span>
-                  </>
-                )}
-              </button>
-              <FieldError message={reimbursementFormError ?? undefined} />
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Supporting Documents */}
         <Card>
-          <SectionHeader icon={FileCheck2} title="Attach Supporting Documents" subtitle="Upload proof of the expense" />
+          <SectionHeader icon={FileCheck2} title="Attach Invoice" subtitle="Upload proof of the expense" />
           <CardContent>
             <div className="space-y-3">
+              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                If you have a hard copy, please provide it to the Finance Team.
+              </p>
               <input
                 id="supportingDocument"
                 type="file"

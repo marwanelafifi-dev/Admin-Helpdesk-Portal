@@ -1891,5 +1891,34 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] Full backup and restore capture the shared request dataset (all functions); Clear All clears that shared dataset. Per-module clearing deletes the selected module's requests from both the browser cache and server store.
 - [ ] When adding a request module, ensure it is registered in `src/lib/functionRegistry.ts` and represented in the Database page's module metadata so counts, imports, and clear-by-module actions stay complete.
 
+## Phase 7y: Finance Expense Tables, Standardized Invoices & SLA Reminders (Completed - 21 Sep 2026)
+
+- [x] **Finance processing notice standardized across all three request forms:**
+  - Removed the requester-facing Normal/Urgent selection and replaced it with a single **Processing Time & Requirements** notice.
+  - The standard SLA is 4 working days. Requests without an approval cycle count from submission; requests with an approval cycle count from the timestamp when approval is received.
+  - Kept the note: "If any documents are missing, the request will be delayed an extra 2 working days after receiving the missing documents."
+- [x] **General Reimbursement expense table:**
+  - Replaced the single amount/currency/cost-center inputs with repeatable required rows: PO (only when **Has PO** is selected), Description, Cost Center, Currency, and Amount.
+  - Cost Center values come from Company Data; currencies are USD, EUR, and EGP; users can add/remove rows; the final row always shows every currency total, including zero totals.
+  - **No PO** removes the PO column and continues to require Direct Manager approval. The old downloadable/uploaded General Reimbursement Form section was removed.
+- [x] **Travel Reimbursement expense table:**
+  - Added repeatable Description / USD / Euro / EGP rows with totals for all three currencies.
+  - Default descriptions are Uber, Air Ticket, Hotel, Roaming, Train, Breakfast, and Others. Selecting Others requires free text.
+  - Travel descriptions are editable in Platform Administration -> Company Data - Si-Ware and are included in Company Data server sync, backup, restore, and clear operations.
+  - Removed the old downloadable/uploaded Travel Reimbursement Form section.
+- [x] **Invoice wording and behavior:**
+  - Every Finance request now uses the exact attachment heading **Attach Invoice** and shows: "If you have a hard copy, please provide it to the Finance Team."
+  - Removed the sentence prohibiting a full bank/credit-card statement from the personal-card evidence instructions.
+  - Renamed payment method **Ramp** to **Company Credit Card**, while displaying the new label for legacy Ramp records.
+  - PO / Contract / Other is visible to every Invoices Payment requester. The optional approval selector remains restricted to the exact Finance Team role.
+- [x] **Finance list and approval-email compatibility:** General and Travel list expansions show their row tables and per-currency totals; approval emails display per-currency totals when present; legacy single-amount records remain readable.
+- [x] **Automatic third-working-day SLA reminders:**
+  - `src/lib/financeSlaReminderScheduler.ts` runs hourly in the Node instrumentation process and creates one persistent in-app reminder per qualifying request for every active Finance Team member.
+  - For requests without approval, the SLA starts at submission. For requests requiring approval, no reminder is produced until approval is received, and the clock starts at that approval timestamp.
+  - Egypt working days are used (Friday and Saturday excluded). Completed, cancelled, delivered, and rejected requests are skipped. Deterministic reminder IDs prevent duplicates.
+  - The reminder states that one working day remains, includes the calculated deadline, and links directly to the Finance request.
+- [x] **SLA reminder history page:** `/departments/finance/sla-reminders` is listed under **Finance Team** in the sidebar and shows request, service, requester, SLA basis/start, deadline, reminder time, and current status. Both Finance Team and Full Access can view the page; other roles are redirected server-side. Reminder delivery remains Finance-Team-only.
+- [x] **Persistence and deployment:** reminder history is stored in `data/finance-sla-reminders.json` under the existing Docker `/app/data` bind mount. `.next-dev` is excluded from the Docker context so the image builds the current source instead of copying a stale host build. The production build passed, the Docker image was rebuilt, the container is healthy at `http://localhost:3003`, and scheduler startup was confirmed in container logs.
+
 ## Recent Runtime Update (2026-09-20)
 - [x] Database page: added "Select Function" UI (Administration Team / HR Team / Finance Team) and function-filtered request pages — deployed to the running container at http://localhost:3003. Change was observed in the running instance but applied directly to the container rebuild and had not been committed at the time of deployment; committed note added to repository on 2026-09-20.

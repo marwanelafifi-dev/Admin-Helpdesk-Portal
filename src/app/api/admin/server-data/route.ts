@@ -140,7 +140,7 @@ export async function DELETE() {
       f.filename === "requests.json" ? [] :
       (f.filename === "company-data.json" || f.filename === "company-data-buchi.json") ? {
         suppliers: [], cost_centers: [], managers: [],
-        authorized_managers: [], carriers: [], departments: [], sectors: [],
+        authorized_managers: [], travel_expense_descriptions: [], carriers: [], departments: [], sectors: [],
       } :
       {}
     if (writeFileSafe(f.filename, emptyShape)) cleared.push(f.filename)

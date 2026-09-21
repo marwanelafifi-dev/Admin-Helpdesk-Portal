@@ -474,7 +474,7 @@ export default function InvoicePaymentRequestsPage() {
                           </div>
                           <div>
                             <p className="font-semibold text-gray-700">Method</p>
-                            <p className="text-gray-600">{String(payload.paymentMethod ?? "—")}</p>
+                            <p className="text-gray-600">{String(payload.paymentMethod === "Ramp" ? "Company Credit Card" : payload.paymentMethod ?? "—")}</p>
                           </div>
                           {!!payload.directManagerEmail && (
                             <div>

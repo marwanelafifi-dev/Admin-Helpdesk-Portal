@@ -16,6 +16,14 @@ const AttachmentSchema = z.object({
   uploadedAt: z.string(),
 })
 
+export const ReimbursementExpenseRowSchema = z.object({
+  po: z.string().trim().optional(),
+  description: z.string().trim().min(1, "Description is required"),
+  costCenter: z.string().trim().min(1, "Cost center is required"),
+  currency: z.enum(REIMBURSEMENT_CURRENCIES),
+  amount: z.number().positive("Amount must be greater than 0"),
+})
+
 // poNumbers / directManager / company-expense payment evidence (stored under
 // the legacy creditCardStatement key) are validated
 // conditionally in the form's onSubmit handler (not via zod superRefine) —
@@ -26,18 +34,29 @@ const AttachmentSchema = z.object({
 export const ReimbursementPayloadSchema = z.object({
   requestTitle: z.string().min(1, "Request title is required"),
   priority: z.enum(FINANCE_PRIORITIES),
+  expenseRows: z.array(ReimbursementExpenseRowSchema).min(1, "Add at least one expense row"),
+  // Legacy summary fields are retained for existing requests, list views,
+  // exports, and notifications. New submissions derive them from expenseRows.
   poOption: z.enum(PO_OPTIONS),
   poNumbers: z.array(z.string().min(1)).optional(),
   directManager: z.string().optional(),
-  costCenter: z.string().min(1, "Cost center is required"),
-  amount: z.number().min(0.01, "Amount must be greater than 0"),
-  currency: z.enum(REIMBURSEMENT_CURRENCIES),
-  paidByPersonalCreditCard: z.boolean().default(false),
+  costCenter: z.string().optional(),
+  amount: z.number().optional(),
+  currency: z.enum(REIMBURSEMENT_CURRENCIES).optional(),
+  paidByPersonalCreditCard: z.boolean(),
   creditCardStatement: AttachmentSchema.optional(),
   reimbursementForm: AttachmentSchema.optional(),
   supportingDocument: AttachmentSchema.optional(),
   additionalAttachments: z.array(AttachmentSchema).optional(),
-  ccEmails: z.array(z.string().email()).default([]),
+  ccEmails: z.array(z.string().email()),
+}).superRefine((data, ctx) => {
+  if (data.poOption === "has_po") {
+    data.expenseRows.forEach((row, index) => {
+      if (!row.po?.trim()) {
+        ctx.addIssue({ code: "custom", message: "PO is required", path: ["expenseRows", index, "po"] })
+      }
+    })
+  }
 })
 
 export type ReimbursementPayload = z.infer<typeof ReimbursementPayloadSchema>

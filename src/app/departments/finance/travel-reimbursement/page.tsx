@@ -66,6 +66,12 @@ const COLS: { key: SortKey; label: string; defaultW: number }[] = [
 ]
 
 function formatAmount(payload: Record<string, unknown>): string {
+  if (payload.totalsByCurrency && typeof payload.totalsByCurrency === "object") {
+    return Object.entries(payload.totalsByCurrency as Record<string, number>)
+      .filter(([, amount]) => Number(amount) > 0)
+      .map(([currency, amount]) => `${Number(amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`)
+      .join(" · ") || "—"
+  }
   const amount = Number(payload.amount ?? 0)
   const currency = String(payload.currency ?? "")
   return `${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`.trim()
@@ -466,6 +472,36 @@ export default function TravelReimbursementRequestsPage() {
                             <p className="text-gray-600">{req.requesterName}</p>
                           </div>
                         </div>
+                        {Array.isArray(payload.expenseRows) && payload.expenseRows.length > 0 && (
+                          <div className="overflow-x-auto rounded-lg border border-blue-100 bg-white">
+                            <table className="w-full min-w-[640px] text-left text-xs">
+                              <thead className="bg-slate-50 text-slate-600">
+                                <tr>
+                                  <th className="px-3 py-2">Description</th>
+                                  <th className="px-3 py-2 text-right">USD</th>
+                                  <th className="px-3 py-2 text-right">EUR</th>
+                                  <th className="px-3 py-2 text-right">EGP</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {(payload.expenseRows as Array<Record<string, unknown>>).map((expense, index) => (
+                                  <tr key={index} className="border-t">
+                                    <td className="px-3 py-2">{String(expense.description === "Others" ? expense.otherDescription || "Others" : expense.description || "—")}</td>
+                                    <td className="px-3 py-2 text-right">{Number(expense.usdAmount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                    <td className="px-3 py-2 text-right">{Number(expense.eurAmount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                    <td className="px-3 py-2 text-right">{Number(expense.egpAmount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                  </tr>
+                                ))}
+                                <tr className="border-t bg-amber-50 font-semibold text-amber-950">
+                                  <td className="px-3 py-2 text-right">Total by currency</td>
+                                  {(["USD", "EUR", "EGP"] as const).map((currency) => (
+                                    <td key={currency} className="px-3 py-2 text-right">{Number((payload.totalsByCurrency as Record<string, number> | undefined)?.[currency] ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                  ))}
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>

@@ -860,7 +860,7 @@ export default function DatabasePage() {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            suppliers: [], cost_centers: [], managers: [], authorized_managers: [],
+            suppliers: [], cost_centers: [], managers: [], authorized_managers: [], travel_expense_descriptions: [],
             carriers: [], departments: [], sectors: [],
           }),
         })
@@ -911,7 +911,7 @@ export default function DatabasePage() {
           body: JSON.stringify({ data: { "announcements.json": { sent: [], drafts: [], templates: [] } } }),
         })
       } else if (key === "server:company-data") {
-        const empty = { suppliers: [], cost_centers: [], managers: [], authorized_managers: [], carriers: [], departments: [], sectors: [] }
+        const empty = { suppliers: [], cost_centers: [], managers: [], authorized_managers: [], travel_expense_descriptions: [], carriers: [], departments: [], sectors: [] }
         await fetch("/api/company-data?company=siware", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -919,7 +919,7 @@ export default function DatabasePage() {
         })
         try { localStorage.removeItem("arp_company_data") } catch {}
       } else if (key === "server:company-data-buchi") {
-        const empty = { suppliers: [], cost_centers: [], managers: [], authorized_managers: [], carriers: [], departments: [], sectors: [] }
+        const empty = { suppliers: [], cost_centers: [], managers: [], authorized_managers: [], travel_expense_descriptions: [], carriers: [], departments: [], sectors: [] }
         await fetch("/api/company-data?company=buchi", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },

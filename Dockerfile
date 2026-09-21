@@ -2,7 +2,7 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-RUN apk add --no-cache wget netcat-openbsd
+RUN apk add --no-cache --no-check-certificate wget netcat-openbsd
 
 # Install dependencies (full deps, including dev — we may need to build)
 COPY package*.json ./

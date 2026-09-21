@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
 import { PoNumbersField } from "@/components/ui/PoNumbersField"
-import { FinancePriorityField } from "./FinancePriorityField"
+import { FinanceProcessingNotice } from "./FinancePriorityField"
 import { ApproverField } from "./ApproverField"
 import { getList } from "@/lib/companyDataStore"
 import { filesToAttachments } from "@/lib/attachments"
@@ -81,8 +81,7 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
   const approverEmail = watch("approverEmail")
   const approverName = watch("approverName")
   const role = session?.user?.role as string | undefined
-  const permissions = (session?.user?.permissions as string[]) ?? []
-  const isFinanceTeam = role === "Finance Team" || role === "Full Access" || permissions.includes("*")
+  const isFinanceTeam = role === "Finance Team"
 
   useEffect(() => {
     if (isEditing && editingRequest?.payload) {
@@ -97,7 +96,7 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
         amount: payload.amount || 0,
         currency: payload.currency || "USD",
         paymentTerms: payload.paymentTerms || "",
-        paymentMethod: payload.paymentMethod || undefined,
+        paymentMethod: payload.paymentMethod === "Ramp" ? "Company Credit Card" : payload.paymentMethod || undefined,
         approverEmail: payload.approverEmail || "",
         approverName: payload.approverName || "",
       })
@@ -112,9 +111,6 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
       return
     }
     setInvoiceFileError(null)
-    // Contract / Other are Finance-Team-only choices — force PO for anyone
-    // else regardless of what the (hidden, for them) form field holds.
-    if (!isFinanceTeam) data.poOrContract = "po"
     if (data.poOrContract === "po" && (!data.poNumbers || data.poNumbers.length === 0)) {
       setError("poNumbers", { type: "manual", message: "At least one PO number is required" })
       return
@@ -200,14 +196,8 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
           </CardContent>
         </Card>
 
-        {/* Priority & SLA */}
-        <Controller
-          name="priority"
-          control={control}
-          render={({ field }) => (
-            <FinancePriorityField value={field.value} onChange={field.onChange} hasError={!!errors.priority} hasApproval={!!approverEmail} />
-          )}
-        />
+        {/* Processing time */}
+        <FinanceProcessingNotice hasApproval={!!approverEmail} />
 
         {/* Approval — Finance Team only */}
         {isFinanceTeam && (
@@ -249,8 +239,7 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
               <FieldError message={errors.supplier?.message} />
             </div>
 
-            {isFinanceTeam && (
-              <div className="space-y-1.5">
+            <div className="space-y-1.5">
                 <Label>PO or Contract <span className="text-red-500">*</span></Label>
                 <Controller
                   name="poOrContract"
@@ -291,10 +280,9 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
                     </div>
                   )}
                 />
-              </div>
-            )}
+            </div>
 
-            {(!isFinanceTeam || poOrContract === "po") && (
+            {poOrContract === "po" && (
               <div className="space-y-1.5">
                 <Label>PO Number(s) <span className="text-red-500">*</span></Label>
                 <Controller
@@ -308,7 +296,7 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
               </div>
             )}
 
-            {isFinanceTeam && poOrContract === "other" && (
+            {poOrContract === "other" && (
               <div className="space-y-1.5">
                 <Label htmlFor="otherDetails">Details (optional)</Label>
                 <Input id="otherDetails" placeholder="Add any relevant details" {...register("otherDetails")} />
@@ -372,11 +360,14 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
           </CardContent>
         </Card>
 
-        {/* Invoice File */}
+        {/* Attach Invoice */}
         <Card>
-          <SectionHeader icon={FileText} title="Invoice File" subtitle="Upload the vendor invoice" />
+          <SectionHeader icon={FileText} title="Attach Invoice" subtitle="Upload the vendor invoice" />
           <CardContent>
             <div className="space-y-3">
+              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                If you have a hard copy, please provide it to the Finance Team.
+              </p>
               <input
                 id="invoiceFile"
                 type="file"

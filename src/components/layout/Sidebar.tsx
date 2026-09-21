@@ -35,10 +35,11 @@ import {
   Receipt,
   CreditCard,
   Headphones,
+  AlarmClock,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { canAccessPath, canAccessModule, getFirstAllowedPlatformAdminPath, type UserWithModuleAccess } from "@/lib/access"
-import { modulesVisibleToFunction } from "@/lib/functionRegistry"
+import { modulesVisibleToFunction, roleToFunctionId } from "@/lib/functionRegistry"
 
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { useUnreadNotices } from "@/hooks/useUnreadNotices"
@@ -154,6 +155,7 @@ const financeNavItems: NavItem[] = [
     children: [
       { title: "Dashboard", href: "/departments/finance", icon: LayoutDashboard },
       { title: "Team Tasks", href: "/departments/finance/tasks", icon: CheckSquare },
+      { title: "SLA Reminders", href: "/departments/finance/sla-reminders", icon: AlarmClock },
       { title: "All Requests", href: "/departments/finance/all-requests", icon: ClipboardList },
     ],
   },
@@ -193,7 +195,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
     pathname === "/departments/hr" || pathname.startsWith("/departments/hr/all-requests") || pathname.startsWith("/departments/hr/tasks") || pathname.startsWith("/departments/hr/feedback")
   )
   const [financeTeamExpanded, setFinanceTeamExpanded] = useState(
-    pathname === "/departments/finance" || pathname.startsWith("/departments/finance/all-requests") || pathname.startsWith("/departments/finance/tasks")
+    pathname === "/departments/finance" || pathname.startsWith("/departments/finance/all-requests") || pathname.startsWith("/departments/finance/tasks") || pathname.startsWith("/departments/finance/sla-reminders")
   )
   // When the sidebar is collapsed, clicking a parent opens a flyout popover
   // anchored to that parent's row so the user can pick a child page without
@@ -326,13 +328,16 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
 
   const visibleNavItems = useMemo(() =>
     navItemsForPortal.reduce<NavItem[]>((items, item) => {
-      const children = item.children?.filter((child) => canSee(child.href))
+      const canSeeFinanceSlaHistory = role === "Full Access" || roleToFunctionId(role) === "finance"
+      const children = item.children?.filter((child) =>
+        canSee(child.href) && (child.href !== "/departments/finance/sla-reminders" || canSeeFinanceSlaHistory)
+      )
       const itemVisible = canSee(item.href) || Boolean(children?.length)
       if (!itemVisible) return items
       items.push({ ...item, children: children?.length ? children : undefined })
       return items
     }, []),
-    [canSee, portal]
+    [canSee, portal, role]
   )
 
   const isActive = useCallback((href: string) => {
@@ -418,7 +423,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
             } else if (isFinanceTeam) {
               expanded = financeTeamExpanded
               setExpandedFn = (val) => setFinanceTeamExpanded(val)
-              active = pathname === "/departments/finance" || pathname.startsWith("/departments/finance/all-requests") || pathname.startsWith("/departments/finance/tasks")
+              active = pathname === "/departments/finance" || pathname.startsWith("/departments/finance/all-requests") || pathname.startsWith("/departments/finance/tasks") || pathname.startsWith("/departments/finance/sla-reminders")
             }
 
             const isFlyoutOpen = flyoutOpen === item.title

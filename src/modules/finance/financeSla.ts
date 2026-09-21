@@ -1,21 +1,14 @@
+// Retained for compatibility with existing request payloads.
 export const FINANCE_PRIORITIES = ["Normal", "Urgent"] as const
 export type FinancePriority = (typeof FINANCE_PRIORITIES)[number]
 
-/** Working-day SLA promised to the requester per priority, shown as a note on every Finance request form. */
-export const FINANCE_PRIORITY_SLA_DAYS: Record<FinancePriority, number> = {
-  Normal: 4,
-  Urgent: 2,
-}
+export const FINANCE_PROCESSING_DAYS = 4
 
-/**
- * @param hasApproval Whether this specific request goes through a manager/
- * approver approval cycle. When it does, the SLA clock only starts once
- * approval is received; when it doesn't, the SLA note applies as-is from
- * submission.
- */
-export function financeSlaNote(priority: FinancePriority, hasApproval: boolean = false): string {
-  const base = `Will be finished within ${FINANCE_PRIORITY_SLA_DAYS[priority]} Working Days`
-  return hasApproval ? `${base} after receiving approval` : base
+/** Requests requiring approval begin their processing period after approval. */
+export function financeSlaNote(hasApproval: boolean = false): string {
+  return hasApproval
+    ? `Your request will be completed within ${FINANCE_PROCESSING_DAYS} working days after receiving the required approval.`
+    : `Your request will be completed within ${FINANCE_PROCESSING_DAYS} working days after submission. If approval is required, this period starts after receiving approval.`
 }
 
 export const FINANCE_MISSING_DOCS_NOTE =

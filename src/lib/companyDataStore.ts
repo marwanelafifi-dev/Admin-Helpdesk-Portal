@@ -5,6 +5,7 @@ export type CompanyDataKey =
   | "cost_centers"
   | "managers"
   | "authorized_managers"
+  | "travel_expense_descriptions"
   | "carriers"
   | "departments"
   | "sectors"
@@ -22,6 +23,7 @@ interface StoredCompanyData {
   cost_centers: string[]
   managers: Array<string | Manager>
   authorized_managers: Array<string | Manager>
+  travel_expense_descriptions: string[]
   carriers: string[]
   departments: string[]
   sectors: string[]
@@ -45,6 +47,7 @@ const DEFAULTS: StoredCompanyData = {
   cost_centers: [],
   managers: [],
   authorized_managers: [],
+  travel_expense_descriptions: ["Uber", "Air Ticket", "Hotel", "Roaming", "Train", "Breakfast", "Others"],
   carriers: [],
   departments: [],
   sectors: [],
@@ -61,6 +64,7 @@ function readRaw(company?: CompanyId): StoredCompanyData {
       cost_centers:        Array.isArray(parsed.cost_centers)        ? parsed.cost_centers        : DEFAULTS.cost_centers,
       managers:            Array.isArray(parsed.managers)            ? parsed.managers            : DEFAULTS.managers,
       authorized_managers: Array.isArray(parsed.authorized_managers) ? parsed.authorized_managers : DEFAULTS.authorized_managers,
+      travel_expense_descriptions: Array.isArray(parsed.travel_expense_descriptions) ? parsed.travel_expense_descriptions : DEFAULTS.travel_expense_descriptions,
       carriers:            Array.isArray(parsed.carriers)            ? parsed.carriers            : DEFAULTS.carriers,
       departments:         Array.isArray(parsed.departments)         ? parsed.departments         : DEFAULTS.departments,
       sectors:             Array.isArray(parsed.sectors)             ? parsed.sectors             : DEFAULTS.sectors,
@@ -109,6 +113,7 @@ export async function syncCompanyDataFromServer(company?: CompanyId): Promise<vo
       cost_centers:        Array.isArray(remote.cost_centers)        ? remote.cost_centers        : [],
       managers:            Array.isArray(remote.managers)            ? remote.managers            : [],
       authorized_managers: Array.isArray(remote.authorized_managers) ? remote.authorized_managers : [],
+      travel_expense_descriptions: Array.isArray(remote.travel_expense_descriptions) ? remote.travel_expense_descriptions : DEFAULTS.travel_expense_descriptions,
       carriers:            Array.isArray(remote.carriers)            ? remote.carriers            : [],
       departments:         Array.isArray(remote.departments)         ? remote.departments         : [],
       sectors:             Array.isArray(remote.sectors)             ? remote.sectors             : [],
@@ -136,6 +141,7 @@ export function getCompanyData(company?: CompanyId): CompanyData {
     cost_centers: raw.cost_centers,
     managers: raw.managers.map(managerName),
     authorized_managers: raw.authorized_managers.map(managerName),
+    travel_expense_descriptions: raw.travel_expense_descriptions,
     carriers: raw.carriers,
     departments: raw.departments,
     sectors: raw.sectors,
@@ -171,6 +177,7 @@ export function saveCompanyData(data: CompanyData, company?: CompanyId): void {
     cost_centers: data.cost_centers,
     managers: merged,
     authorized_managers: mergedAuth,
+    travel_expense_descriptions: data.travel_expense_descriptions,
     carriers: data.carriers,
     departments: data.departments,
     sectors: data.sectors,

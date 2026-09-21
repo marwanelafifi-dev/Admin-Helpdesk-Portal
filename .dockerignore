@@ -1,6 +1,7 @@
 node_modules
 npm-debug.log
 .next
+.next-dev
 .git
 .gitignore
 README.md

@@ -68,9 +68,28 @@ const COLS: { key: SortKey; label: string; defaultW: number }[] = [
 ]
 
 function formatAmount(payload: Record<string, unknown>): string {
+  if (Array.isArray(payload.expenseRows) && payload.expenseRows.length > 0) {
+    const totals = new Map<string, number>()
+    for (const item of payload.expenseRows) {
+      const row = item as Record<string, unknown>
+      const currency = String(row.currency ?? "")
+      const amount = Number(row.amount ?? 0)
+      if (currency) totals.set(currency, (totals.get(currency) ?? 0) + (Number.isFinite(amount) ? amount : 0))
+    }
+    return Array.from(totals.entries())
+      .map(([currency, amount]) => `${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`)
+      .join(" · ")
+  }
   const amount = Number(payload.amount ?? 0)
   const currency = String(payload.currency ?? "")
   return `${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`.trim()
+}
+
+function formatCostCenters(payload: Record<string, unknown>): string {
+  if (Array.isArray(payload.expenseRows) && payload.expenseRows.length > 0) {
+    return Array.from(new Set(payload.expenseRows.map((item) => String((item as Record<string, unknown>).costCenter ?? "")).filter(Boolean))).join(", ")
+  }
+  return String(payload.costCenter ?? "—")
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -398,7 +417,7 @@ export default function ReimbursementRequestsPage() {
                     </span>
                   </td>
                   <td className="py-3 px-3">
-                    <span className="text-sm font-medium text-gray-700">{String(payload.costCenter ?? "—")}</span>
+                    <span className="text-sm font-medium text-gray-700">{formatCostCenters(payload)}</span>
                   </td>
                   <td className="py-3 px-3">
                     <span className="text-sm font-medium text-gray-700">{formatAmount(payload)}</span>
@@ -449,13 +468,13 @@ export default function ReimbursementRequestsPage() {
                           </div>
                           <div>
                             <p className="font-semibold text-gray-700">Cost Center</p>
-                            <p className="text-gray-600">{String(payload.costCenter ?? "—")}</p>
+                            <p className="text-gray-600">{formatCostCenters(payload)}</p>
                           </div>
                           <div>
                             <p className="font-semibold text-gray-700">Amount</p>
                             <p className="text-gray-600">{formatAmount(payload)}</p>
                           </div>
-                          {payload.poOption === "has_po" ? (
+                          {!Array.isArray(payload.expenseRows) && (payload.poOption === "has_po" ? (
                             <div>
                               <p className="font-semibold text-gray-700">PO Number(s)</p>
                               <p className="text-gray-600">{Array.isArray(payload.poNumbers) && payload.poNumbers.length > 0 ? payload.poNumbers.join(", ") : "—"}</p>
@@ -465,7 +484,7 @@ export default function ReimbursementRequestsPage() {
                               <p className="font-semibold text-gray-700">Direct Manager</p>
                               <p className="text-gray-600">{String(payload.directManager ?? "—")}</p>
                             </div>
-                          )}
+                          ))}
                           <div>
                             <p className="font-semibold text-gray-700">Status</p>
                             <p className="text-gray-600">{STATUS_LABELS[req.status] || req.status}</p>
@@ -475,6 +494,36 @@ export default function ReimbursementRequestsPage() {
                             <p className="text-gray-600">{req.requesterName}</p>
                           </div>
                         </div>
+                        {Array.isArray(payload.expenseRows) && payload.expenseRows.length > 0 && (
+                          <div className="overflow-x-auto rounded-lg border border-blue-100 bg-white">
+                            <table className="w-full min-w-[720px] text-left text-xs">
+                              <thead className="bg-slate-50 text-slate-600">
+                                <tr>
+                                  {payload.poOption === "has_po" && <th className="px-3 py-2">PO</th>}
+                                  <th className="px-3 py-2">Description</th>
+                                  <th className="px-3 py-2">Cost Center</th>
+                                  <th className="px-3 py-2">Currency</th>
+                                  <th className="px-3 py-2 text-right">Amount</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {(payload.expenseRows as Array<Record<string, unknown>>).map((expense, index) => (
+                                  <tr key={index} className="border-t">
+                                    {payload.poOption === "has_po" && <td className="px-3 py-2">{String(expense.po ?? "—")}</td>}
+                                    <td className="px-3 py-2">{String(expense.description ?? "—")}</td>
+                                    <td className="px-3 py-2">{String(expense.costCenter ?? "—")}</td>
+                                    <td className="px-3 py-2">{String(expense.currency ?? "—")}</td>
+                                    <td className="px-3 py-2 text-right font-medium">{Number(expense.amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                  </tr>
+                                ))}
+                                <tr className="border-t bg-amber-50 font-semibold text-amber-950">
+                                  <td colSpan={payload.poOption === "has_po" ? 3 : 2} className="px-3 py-2 text-right">Total by currency</td>
+                                  <td colSpan={2} className="px-3 py-2">{formatAmount(payload)}</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>

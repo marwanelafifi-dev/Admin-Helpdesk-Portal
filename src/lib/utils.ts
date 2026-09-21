@@ -72,11 +72,23 @@ export function getSearchablePayloadText(request: EngineRequest): string {
     case "finance_reimbursement":
       if (payload.costCenter) searchableParts.push(String(payload.costCenter))
       if (Array.isArray(payload.poNumbers)) searchableParts.push(payload.poNumbers.join(" "))
+      if (Array.isArray(payload.expenseRows)) {
+        for (const item of payload.expenseRows) {
+          const row = item as Record<string, unknown>
+          searchableParts.push(String(row.po ?? ""), String(row.description ?? ""), String(row.costCenter ?? ""), String(row.currency ?? ""), String(row.amount ?? ""))
+        }
+      }
       if (payload.directManager) searchableParts.push(String(payload.directManager))
       break
     case "finance_travel_reimbursement":
       if (payload.costCenter) searchableParts.push(String(payload.costCenter))
       if (payload.authorizedManager) searchableParts.push(String(payload.authorizedManager))
+      if (Array.isArray(payload.expenseRows)) {
+        for (const item of payload.expenseRows) {
+          const row = item as Record<string, unknown>
+          searchableParts.push(String(row.description ?? ""), String(row.otherDescription ?? ""), String(row.usdAmount ?? ""), String(row.eurAmount ?? ""), String(row.egpAmount ?? ""))
+        }
+      }
       break
     case "finance_invoice_payment":
       if (payload.supplier) searchableParts.push(String(payload.supplier))

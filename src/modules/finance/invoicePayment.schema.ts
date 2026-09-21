@@ -21,7 +21,7 @@ export const INVOICE_PAYMENT_CURRENCIES = [
   "YER", "ZAR", "ZMW", "ZWL",
 ] as const
 
-export const PAYMENT_METHODS = ["Wire Transfer", "Ramp", "Cash", "Check"] as const
+export const PAYMENT_METHODS = ["Wire Transfer", "Company Credit Card", "Cash", "Check"] as const
 export const PO_OR_CONTRACT_OPTIONS = ["po", "contract", "other"] as const
 
 export type InvoicePaymentCurrency = (typeof INVOICE_PAYMENT_CURRENCIES)[number]

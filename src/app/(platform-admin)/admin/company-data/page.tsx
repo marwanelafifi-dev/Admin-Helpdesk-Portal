@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { usePathname } from "next/navigation"
-import { Building2, Layers, Users, Truck, Plus, X, Upload, Download, Check, Search, ChevronDown, ChevronUp, Briefcase, Network } from "lucide-react"
+import { Building2, Layers, Users, Truck, Plus, X, Upload, Download, Check, Search, ChevronDown, ChevronUp, Briefcase, Network, Plane } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -63,6 +63,14 @@ const SECTIONS: SectionConfig[] = [
     icon: Users,
     iconColor: "text-teal-600",
     iconBg: "bg-teal-50",
+  },
+  {
+    key: "travel_expense_descriptions",
+    label: "Travel Expense Descriptions",
+    description: "Options shown in the Travel Reimbursement expense description dropdown",
+    icon: Plane,
+    iconColor: "text-orange-600",
+    iconBg: "bg-orange-50",
   },
   {
     key: "carriers",
@@ -630,6 +638,7 @@ export default function CompanyDataPage() {
     cost_centers: [],
     managers: [],
     authorized_managers: [],
+    travel_expense_descriptions: [],
     carriers: [],
     departments: [],
     sectors: [],

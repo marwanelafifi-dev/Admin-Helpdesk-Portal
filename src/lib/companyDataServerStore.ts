@@ -23,6 +23,7 @@ export interface CompanyDataShape {
   cost_centers: string[]
   managers: Array<string | CompanyDataManagerEntry>
   authorized_managers: Array<string | CompanyDataManagerEntry>
+  travel_expense_descriptions: string[]
   carriers: string[]
   departments: string[]
   sectors: string[]
@@ -37,6 +38,7 @@ const DEFAULTS: CompanyDataShape = {
   cost_centers: [],
   managers: [],
   authorized_managers: [],
+  travel_expense_descriptions: ["Uber", "Air Ticket", "Hotel", "Roaming", "Train", "Breakfast", "Others"],
   carriers: [],
   departments: [],
   sectors: [],
@@ -60,6 +62,7 @@ export function readCompanyData(company: CompanyId = "siware"): CompanyDataShape
       cost_centers:        Array.isArray(parsed.cost_centers)        ? parsed.cost_centers        : DEFAULTS.cost_centers,
       managers:            Array.isArray(parsed.managers)            ? parsed.managers            : DEFAULTS.managers,
       authorized_managers: Array.isArray(parsed.authorized_managers) ? parsed.authorized_managers : DEFAULTS.authorized_managers,
+      travel_expense_descriptions: Array.isArray(parsed.travel_expense_descriptions) ? parsed.travel_expense_descriptions : DEFAULTS.travel_expense_descriptions,
       carriers:            Array.isArray(parsed.carriers)            ? parsed.carriers            : DEFAULTS.carriers,
       departments:         Array.isArray(parsed.departments)         ? parsed.departments         : DEFAULTS.departments,
       sectors:             Array.isArray(parsed.sectors)             ? parsed.sectors             : DEFAULTS.sectors,
