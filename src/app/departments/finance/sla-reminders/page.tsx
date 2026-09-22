@@ -5,6 +5,8 @@ import { auth } from "@/auth"
 import { readFinanceSlaReminders } from "@/lib/financeSlaReminderStore"
 import { roleToFunctionId } from "@/lib/functionRegistry"
 import { requestStore } from "@/lib/requestStore"
+import { loadSettingsServer } from "@/lib/settingsServer"
+import { normalizeFinanceReminderDay, normalizeFinanceSlaDays } from "@/modules/finance/financeSla"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -54,6 +56,10 @@ export default async function FinanceSlaRemindersPage() {
   const reminders = readFinanceSlaReminders().sort(
     (a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime()
   )
+  const settings = loadSettingsServer()
+  const slaDays = normalizeFinanceSlaDays(settings.financeSlaWorkingDays)
+  const reminderDay = normalizeFinanceReminderDay(settings.financeSlaReminderDay, slaDays)
+  const daysRemaining = slaDays - reminderDay
   const requests = new Map(requestStore.getAll().map((request) => [request.id, request]))
   const approvalBased = reminders.filter((item) => item.slaBasis === "approval").length
   const open = reminders.filter((item) => {
@@ -71,7 +77,7 @@ export default async function FinanceSlaRemindersPage() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Finance SLA Reminders</h1>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-              History of reminders sent on the third working day, one working day before the Finance SLA deadline.
+              History of reminders sent on working day {reminderDay}, {daysRemaining} working {daysRemaining === 1 ? "day" : "days"} before the {slaDays}-working-day Finance SLA deadline.
             </p>
           </div>
         </div>
@@ -97,7 +103,7 @@ export default async function FinanceSlaRemindersPage() {
           <div className="px-6 py-16 text-center">
             <AlarmClock className="mx-auto h-10 w-10 text-slate-300" />
             <h2 className="mt-3 font-semibold text-slate-900 dark:text-white">No SLA reminders yet</h2>
-            <p className="mt-1 text-sm text-slate-500">Reminders will appear here when a Finance request reaches its third working day.</p>
+            <p className="mt-1 text-sm text-slate-500">Reminders will appear here when a Finance request reaches working day {reminderDay}.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">

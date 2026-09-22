@@ -7,8 +7,8 @@ export default function HRAllRequestsPage() {
       aggregateModules={modulesVisibleToFunction("hr")}
       basePath="/departments/hr/general"
       detailPath="/departments/hr/requests"
-      pageTitle="HR Team - All Requests"
-      pageSubtitle="Every request submitted to the HR Team, across all HR modules"
+      pageTitle="People Team - All Requests"
+      pageSubtitle="Every request submitted to the People Team, across all People modules"
       hideCreateButton
     />
   )

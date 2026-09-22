@@ -2,7 +2,9 @@ import { roleToFunctionId } from "@/lib/functionRegistry"
 import { addFinanceSlaReminder } from "@/lib/financeSlaReminderStore"
 import { requestStore } from "@/lib/requestStore"
 import { serverNotificationStore, type ServerNotification } from "@/lib/serverNotificationStore"
+import { loadSettingsServer } from "@/lib/settingsServer"
 import { readUsers } from "@/lib/userStore"
+import { normalizeFinanceReminderDay, normalizeFinanceSlaDays } from "@/modules/finance/financeSla"
 import type { EngineRequest } from "@/services/engineService"
 
 const CHECK_INTERVAL_MS = 60 * 60 * 1000
@@ -82,6 +84,10 @@ function formatDeadline(date: LocalDate): string {
 
 export function runFinanceSlaReminderCheck(now = new Date()): number {
   const todayKey = dateKey(cairoDate(now))
+  const settings = loadSettingsServer()
+  const slaDays = normalizeFinanceSlaDays(settings.financeSlaWorkingDays)
+  const reminderDay = normalizeFinanceReminderDay(settings.financeSlaReminderDay, slaDays)
+  const daysRemaining = slaDays - reminderDay
   const financeUsers = readUsers().filter((user) => user.active && roleToFunctionId(user.role) === "finance")
   if (financeUsers.length === 0) return 0
 
@@ -92,24 +98,24 @@ export function runFinanceSlaReminderCheck(now = new Date()): number {
     if (!slaStart || !Number.isFinite(new Date(slaStart.at).getTime())) continue
 
     const startDate = cairoDate(new Date(slaStart.at))
-    const reminderDate = addWorkingDays(startDate, 3)
+    const reminderDate = addWorkingDays(startDate, reminderDay)
     if (dateKey(reminderDate) !== todayKey) continue
 
-    const deadlineDate = addWorkingDays(startDate, 4)
-    const recordId = `FIN-SLA-DAY3-${request.id}-${dateKey(startDate)}`
+    const deadlineDate = addWorkingDays(startDate, slaDays)
+    const recordId = `FIN-SLA-DAY${reminderDay}-${request.id}-${dateKey(startDate)}`
     const sentAt = now.toISOString()
     const wasAdded = addFinanceSlaReminder({
       id: recordId, requestId: request.id, requestTitle: request.title, module: request.module,
       requesterName: request.requesterName, slaStartedAt: slaStart.at, slaBasis: slaStart.basis,
-      deadlineDate: dateKey(deadlineDate), sentAt,
+      deadlineDate: dateKey(deadlineDate), sentAt, slaWorkingDays: slaDays, reminderWorkingDay: reminderDay,
     })
     if (!wasAdded) continue
 
     const basisText = slaStart.basis === "approval" ? "after approval" : "after submission"
     const notifications: ServerNotification[] = financeUsers.map((user) => ({
       id: `${recordId}-${user.id}`, userId: user.id, type: "finance_sla_reminder",
-      title: `One working day left: ${request.id}`,
-      description: `${request.title} has reached its third working day ${basisText}. The 4-working-day SLA is due ${formatDeadline(deadlineDate)}.`,
+      title: `${daysRemaining} working ${daysRemaining === 1 ? "day" : "days"} left: ${request.id}`,
+      description: `${request.title} has reached working day ${reminderDay} ${basisText}. The ${slaDays}-working-day SLA is due ${formatDeadline(deadlineDate)}.`,
       requestId: request.id, actionUrl: `/departments/finance/requests/${request.id}`,
       functionIds: ["finance"], createdAt: sentAt, read: false,
     }))

@@ -142,7 +142,7 @@ function formatModule(m: string) { return m.charAt(0).toUpperCase() + m.slice(1)
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function RequestsPage() {
+export default function RequestsPage({ moduleScope }: { moduleScope?: string[] }) {
   const { data: session } = useSession()
   // Match the request to the logged-in user by id, email (case-insensitive),
   // or session name — whichever the request was saved with. Older requests
@@ -240,19 +240,19 @@ export default function RequestsPage() {
     return sortDir === "asc" ? <ChevronUp className="h-3 w-3 ml-1 shrink-0" /> : <ChevronDown className="h-3 w-3 ml-1 shrink-0" />
   }
 
-  // This "My Requests" page lives only in the Admin Portal sidebar, so it
-  // only shows requests from modules visible to Administration Team (see
-  // src/lib/functionRegistry.ts) — a Finance or HR-exclusive request the
-  // user submitted elsewhere doesn't belong here, for the same reason it's
-  // excluded from Admin's Dashboard and All Requests.
-  const adminVisibleModules = useMemo(() => modulesVisibleToFunction("admin"), [])
+  // Department wrappers pass their own function scope. The shared Admin page
+  // retains the Administration scope by default.
+  const visibleModules = useMemo(
+    () => moduleScope ?? modulesVisibleToFunction("admin"),
+    [moduleScope],
+  )
   const userRequests = useMemo(() => requests.filter((r) => {
-    if (!adminVisibleModules.includes(r.module)) return false
+    if (!visibleModules.includes(r.module)) return false
     if (currentUserId && r.requesterId === currentUserId) return true
     if (currentUserEmail && (r.requesterEmail ?? "").toLowerCase() === currentUserEmail) return true
     if (currentUserName && r.requesterName === currentUserName) return true
     return false
-  }), [requests, currentUserId, currentUserEmail, currentUserName, adminVisibleModules])
+  }), [requests, currentUserId, currentUserEmail, currentUserName, visibleModules])
 
   // User's completed/delivered requests that still don't have a submitted
   // feedback response — these drive the "Please rate" reminder banner.
@@ -440,7 +440,7 @@ export default function RequestsPage() {
                   moduleFilter === "all" ? "bg-gray-900 border-gray-900 text-white" : "bg-white border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700"
                 )}
               >All</button>
-              {MODULES.map((m) => (
+              {visibleModules.map((m) => (
                 <button
                   key={m}
                   onClick={() => setModuleFilter(m)}

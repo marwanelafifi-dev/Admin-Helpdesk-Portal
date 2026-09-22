@@ -7,7 +7,7 @@ export default function NewHRGeneralRequestPage() {
       <NewGeneralRequestPage
         moduleId="hr_general"
         basePath="/departments/hr/general"
-        departmentName="HR Team"
+        departmentName="People Team"
       />
     </Suspense>
   )

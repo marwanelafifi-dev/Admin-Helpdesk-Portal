@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, isUserInCc, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { cn, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
-import { canViewAllInOwnFunctionModules } from "@/lib/functionRegistry"
+import { canViewAllInOwnFunctionModules, canViewOwnRequests } from "@/lib/functionRegistry"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { useCommentSearch } from "@/hooks/useCommentSearch"
@@ -92,6 +92,7 @@ export default function TravelReimbursementRequestsPage() {
   const tableRef = useRef<HTMLTableElement>(null)
 
   const canUpdateStatus = ((session?.user?.permissions as string[])?.includes("update_status") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  const canCreateRequest = ((session?.user?.permissions as string[])?.includes("create") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canEditRequest = ((session?.user?.permissions as string[])?.includes("edit_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canCancelRequest = ((session?.user?.permissions as string[])?.includes("cancel_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canPermanentDelete = (
@@ -105,10 +106,16 @@ export default function TravelReimbursementRequestsPage() {
     initializeMockData()
     const all = getRequests().filter((r) => r.module === MODULE_ID)
 
-    const canSeeAll = canViewAllInOwnFunctionModules([MODULE_ID], session?.user?.role)
+    const canSeeAll = canViewAllInOwnFunctionModules(
+      [MODULE_ID],
+      session?.user?.role,
+      (session?.user?.permissions as string[] | undefined) ?? [],
+      ((session?.user as any)?.readAllModules as string[] | undefined) ?? [],
+    )
+    const canSeeOwn = canViewOwnRequests((session?.user?.permissions as string[] | undefined) ?? [])
     const email = session?.user?.email?.toLowerCase()
-    setRequests(canSeeAll ? all : all.filter((r) => r.requesterId === session?.user?.id || r.requesterEmail?.toLowerCase() === email))
-  }, [session?.user?.id, session?.user?.email, session?.user?.role])
+    setRequests(canSeeAll ? all : canSeeOwn ? all.filter((r) => r.requesterId === session?.user?.id || r.requesterEmail?.toLowerCase() === email) : [])
+  }, [session?.user?.id, session?.user?.email, session?.user?.role, session?.user?.permissions, (session?.user as any)?.readAllModules])
 
   useEffect(() => {
     loadRequests()
@@ -235,7 +242,7 @@ export default function TravelReimbursementRequestsPage() {
     total:      companyRequests.length,
     new:        companyRequests.filter((r) => r.status === "new").length,
     awaiting:   companyRequests.filter((r) => r.status === "awaiting_approval").length,
-    inProgress: companyRequests.filter((r) => r.status === "in_progress").length,
+    inProgress: companyRequests.filter((r) => String(r.status) === "in_progress").length,
     completed:  companyRequests.filter((r) => r.status === "completed").length,
   }), [companyRequests])
 
@@ -259,12 +266,12 @@ export default function TravelReimbursementRequestsPage() {
         {(newRequestsCount > 0 || newTasksCount > 0) && (
           <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
         )}
-        <Link href="/departments/finance/travel-reimbursement/new">
+        {canCreateRequest && <Link href="/departments/finance/travel-reimbursement/new">
           <Button style={{ backgroundColor: "#d97706" }} className="text-white hover:opacity-90 ml-4">
             <Plus className="h-4 w-4 mr-2" />
             New Travel Reimbursement Request
           </Button>
-        </Link>
+        </Link>}
       </div>
 
       {/* Stat Cards */}
@@ -473,30 +480,33 @@ export default function TravelReimbursementRequestsPage() {
                           </div>
                         </div>
                         {Array.isArray(payload.expenseRows) && payload.expenseRows.length > 0 && (
-                          <div className="overflow-x-auto rounded-lg border border-blue-100 bg-white">
-                            <table className="w-full min-w-[640px] text-left text-xs">
+                          <div className="overflow-hidden rounded-lg border border-blue-100 bg-white">
+                            <table className="w-full table-fixed text-left text-xs">
                               <thead className="bg-slate-50 text-slate-600">
                                 <tr>
                                   <th className="px-3 py-2">Description</th>
-                                  <th className="px-3 py-2 text-right">USD</th>
-                                  <th className="px-3 py-2 text-right">EUR</th>
-                                  <th className="px-3 py-2 text-right">EGP</th>
+                                  <th className="px-3 py-2 text-right">Invoice Amount</th>
+                                  <th className="px-3 py-2">Invoice Currency</th>
+                                  <th className="px-3 py-2 text-right">Refund Amount</th>
+                                  <th className="px-3 py-2 text-center">Refund Currency</th>
                                 </tr>
                               </thead>
                               <tbody>
-                                {(payload.expenseRows as Array<Record<string, unknown>>).map((expense, index) => (
-                                  <tr key={index} className="border-t">
+                                {(payload.expenseRows as Array<Record<string, unknown>>).map((expense, index) => {
+                                  const legacyCurrency = Number(expense.usdAmount ?? 0) > 0 ? "USD" : Number(expense.eurAmount ?? 0) > 0 ? "EUR" : "EGP"
+                                  const legacyAmount = Number(expense[`${legacyCurrency.toLowerCase()}Amount`] ?? 0)
+                                  return <tr key={index} className="border-t">
                                     <td className="px-3 py-2">{String(expense.description === "Others" ? expense.otherDescription || "Others" : expense.description || "—")}</td>
-                                    <td className="px-3 py-2 text-right">{Number(expense.usdAmount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                    <td className="px-3 py-2 text-right">{Number(expense.eurAmount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                    <td className="px-3 py-2 text-right">{Number(expense.egpAmount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                    <td className="px-3 py-2 text-right">{Number(expense.invoiceAmount ?? legacyAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                    <td className="px-3 py-2">{String(expense.invoiceCurrency ?? legacyCurrency)}</td>
+                                    <td className="px-3 py-2 text-right">{Number(expense.refundAmount ?? legacyAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                    <td className="px-3 py-2 text-center font-medium">{String(expense.refundCurrency ?? legacyCurrency)}</td>
                                   </tr>
-                                ))}
-                                <tr className="border-t bg-amber-50 font-semibold text-amber-950">
-                                  <td className="px-3 py-2 text-right">Total by currency</td>
-                                  {(["USD", "EUR", "EGP"] as const).map((currency) => (
-                                    <td key={currency} className="px-3 py-2 text-right">{Number((payload.totalsByCurrency as Record<string, number> | undefined)?.[currency] ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                  ))}
+                                })}
+                                <tr className="border-t bg-amber-50 font-bold text-slate-950">
+                                  <td className="px-3 py-2 text-right" colSpan={2}>Refund total by currency</td>
+                                  <td className="px-3 py-2" colSpan={3}>{(["USD", "EUR", "EGP"] as const).map((currency) => `${currency}: ${Number((payload.refundTotalsByCurrency as Record<string, number> | undefined)?.[currency] ?? (payload.totalsByCurrency as Record<string, number> | undefined)?.[currency] ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).join("  ·  ")}</td>
+                                  <td />
                                 </tr>
                               </tbody>
                             </table>

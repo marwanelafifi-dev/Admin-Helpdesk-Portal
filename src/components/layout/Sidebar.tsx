@@ -36,6 +36,7 @@ import {
   CreditCard,
   Headphones,
   AlarmClock,
+  MessageSquare,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { canAccessPath, canAccessModule, getFirstAllowedPlatformAdminPath, type UserWithModuleAccess } from "@/lib/access"
@@ -56,7 +57,7 @@ import {
 const PORTAL_SWITCHER_ITEMS: { key: "admin" | "hr" | "finance"; name: string; href: string; icon: React.ElementType }[] = [
   { key: "admin", name: "Administration Team", href: "/departments/admin", icon: Building2 },
   { key: "finance", name: "Finance Team", href: "/departments/finance/services", icon: Calculator },
-  { key: "hr", name: "HR Team", href: "/departments/hr/services", icon: Users },
+  { key: "hr", name: "People Team", href: "/departments/hr/services", icon: Users },
 ]
 
 interface NavItem {
@@ -127,9 +128,9 @@ const platformAdminNavItems: NavItem[] = [
 ]
 
 const hrNavItems: NavItem[] = [
-  { title: "HR Team Services", href: "/departments/hr/services", icon: LayoutDashboard },
+  { title: "People Team Services", href: "/departments/hr/services", icon: LayoutDashboard },
   {
-    title: "HR Team",
+    title: "People Team",
     href: "/departments/hr",
     icon: Users,
     children: [
@@ -139,7 +140,9 @@ const hrNavItems: NavItem[] = [
       { title: "All Requests", href: "/departments/hr/all-requests", icon: ClipboardList },
     ],
   },
-  // Requester-facing module pages live outside the HR Team group — one entry
+  { title: "My Requests", href: "/departments/hr/my-requests", icon: ClipboardList },
+  { title: "Team Requests", href: "/departments/hr/team-requests", icon: UsersRound },
+  // Requester-facing module pages live outside the People Team group — one entry
   // per HR module (mirrors "General Request" sitting outside "Administration
   // Team" in the admin sidebar). Add new HR modules here as they're built.
   { title: "General Request", href: "/departments/hr/general", icon: Inbox },
@@ -155,10 +158,13 @@ const financeNavItems: NavItem[] = [
     children: [
       { title: "Dashboard", href: "/departments/finance", icon: LayoutDashboard },
       { title: "Team Tasks", href: "/departments/finance/tasks", icon: CheckSquare },
+      { title: "Feedback & Reports", href: "/departments/finance/feedback", icon: MessageSquare },
       { title: "SLA Reminders", href: "/departments/finance/sla-reminders", icon: AlarmClock },
       { title: "All Requests", href: "/departments/finance/all-requests", icon: ClipboardList },
     ],
   },
+  { title: "My Requests", href: "/departments/finance/my-requests", icon: ClipboardList },
+  { title: "Team Requests", href: "/departments/finance/team-requests", icon: UsersRound },
   // Requester-facing module pages live outside the Finance Team group — one
   // entry per Finance module. Add new Finance modules here as they're built.
   { title: "General Reimbursement", href: "/departments/finance/reimbursement", icon: Receipt },
@@ -183,7 +189,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
     return () => window.removeEventListener("arp:toggle-sidebar", onToggle)
   }, [])
   const [brandName, setBrandName] = useState(
-    portal === "hr" ? "HR Portal" : portal === "finance" ? "Finance Portal" : portal === "platform-admin" ? "Platform Admin" : "Admin Portal"
+    portal === "hr" ? "People Portal" : portal === "finance" ? "Finance Portal" : portal === "platform-admin" ? "Platform Admin" : "Admin Portal"
   )
   const [brandSubtitle, setBrandSubtitle] = useState("Si-Ware Systems")
   const [administrationExpanded, setAdministrationExpanded] = useState(
@@ -351,7 +357,13 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
     }
     if (href === "/departments/finance") return pathname === "/departments/finance"
     if (href === "/departments/finance/reimbursement") {
-      return pathname.startsWith("/departments/finance/reimbursement") || pathname.startsWith("/departments/finance/requests/")
+      return pathname.startsWith("/departments/finance/reimbursement") || (pathname.startsWith("/departments/finance/requests/") && source === "reimbursement")
+    }
+    if (href === "/departments/finance/travel-reimbursement") {
+      return pathname.startsWith("/departments/finance/travel-reimbursement") || (pathname.startsWith("/departments/finance/requests/") && source === "travel-reimbursement")
+    }
+    if (href === "/departments/finance/invoices") {
+      return pathname.startsWith("/departments/finance/invoices") || (pathname.startsWith("/departments/finance/requests/") && source === "invoices")
     }
     if (pathname.startsWith("/requests/")) {
       if (href === "/admin/all-requests") return source === "all-requests"
@@ -397,7 +409,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
             const isShipping = item.title === "Shipping"
             const isHR = item.title === "HR"
             const isAdministration = item.title === "Administration Team"
-            const isHRTeam = item.title === "HR Team"
+            const isHRTeam = item.title === "People Team"
             const isFinanceTeam = item.title === "Finance Team"
 
             let expanded = false

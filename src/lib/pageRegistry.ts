@@ -24,6 +24,11 @@ export interface PageDefinition {
   /** Route path used by middleware to match the incoming request. */
   path: string
   /**
+   * False keeps a retained legacy route protected, but removes it from the
+   * normal Roles editor so it cannot be assigned to new function roles.
+   */
+  assignable?: boolean
+  /**
    * Optional group label — purely cosmetic, used by the Roles dialog to
    * organize checkboxes. Leave undefined to show under "General".
    */
@@ -51,8 +56,10 @@ export const PAGES: PageDefinition[] = [
   { id: "hr-new",             label: "HR New",               path: "/hr/new",                    group: "Modules" },
   { id: "hr-onboarding",      label: "HR Onboarding",        path: "/hr/onboarding",             group: "Modules" },
   { id: "hr-offboarding",     label: "HR Offboarding",       path: "/hr/offboarding",            group: "Modules" },
-  { id: "hr-letter",          label: "HR Letter",            path: "/hr/letter",                 group: "Modules" },
-  { id: "hr-travel-letter",   label: "HR Travel Letter",     path: "/departments/hr/requests/[id]", group: "Modules" },
+  // Retained only for legacy links. New People roles use the People portal's
+  // "HR Letter Request" and "People Request Detail" permissions instead.
+  { id: "hr-letter",          label: "HR Letter",            path: "/hr/letter",                 group: "Modules", assignable: false },
+  { id: "hr-travel-letter",   label: "HR Travel Letter",     path: "/departments/hr/requests/[id]", group: "Modules", assignable: false },
   { id: "maintenance",        label: "Maintenance",          path: "/maintenance",               group: "Modules" },
   { id: "maintenance-new",    label: "Maintenance New",      path: "/maintenance/new",           group: "Modules" },
   { id: "purchase",           label: "Purchase",             path: "/purchase",                  group: "Modules" },
@@ -63,6 +70,31 @@ export const PAGES: PageDefinition[] = [
   { id: "travel-new",         label: "Travel New",           path: "/travel/new",                group: "Modules" },
   { id: "general",            label: "General Request",      path: "/general",                   group: "Modules" },
   { id: "general-new",        label: "General Request New",  path: "/general/new",               group: "Modules" },
+
+  // Function portals — these are separate shells with their own dashboards,
+  // work queues, and requester pages.
+  { id: "finance-dashboard",  label: "Finance Dashboard",    path: "/departments/finance",                         group: "Finance" },
+  { id: "finance-services",   label: "Finance Services",     path: "/departments/finance/services",                group: "Finance" },
+  { id: "finance-reimbursement", label: "General Reimbursement", path: "/departments/finance/reimbursement",          group: "Finance" },
+  { id: "finance-travel",     label: "Travel Reimbursement", path: "/departments/finance/travel-reimbursement",      group: "Finance" },
+  { id: "finance-invoices",   label: "Invoices Payment",     path: "/departments/finance/invoices",                group: "Finance" },
+  { id: "finance-my-requests", label: "Finance My Requests", path: "/departments/finance/my-requests",              group: "Finance" },
+  { id: "finance-team-requests", label: "Finance Team Requests", path: "/departments/finance/team-requests",        group: "Finance" },
+  { id: "finance-all-requests", label: "Finance All Requests", path: "/departments/finance/all-requests",           group: "Finance" },
+  { id: "finance-tasks",      label: "Finance Team Tasks",   path: "/departments/finance/tasks",                   group: "Finance" },
+  { id: "finance-sla-reminders", label: "Finance SLA Reminders", path: "/departments/finance/sla-reminders",         group: "Finance" },
+  { id: "finance-feedback",   label: "Finance Feedback & Reports", path: "/departments/finance/feedback",           group: "Finance" },
+  { id: "finance-request-detail", label: "Finance Request Detail", path: "/departments/finance/requests/[id]",       group: "Finance" },
+  { id: "hr-dashboard",       label: "People Dashboard",     path: "/departments/hr",                              group: "People" },
+  { id: "hr-services",        label: "People Services",      path: "/departments/hr/services",                     group: "People" },
+  { id: "hr-general",         label: "People General Request", path: "/departments/hr/general",                     group: "People" },
+  { id: "hr-letter-request",  label: "HR Letter Request",    path: "/departments/hr/letter",                       group: "People" },
+  { id: "hr-my-requests",     label: "People My Requests",   path: "/departments/hr/my-requests",                  group: "People" },
+  { id: "hr-team-requests",   label: "People Team Requests", path: "/departments/hr/team-requests",                group: "People" },
+  { id: "hr-all-requests",    label: "People All Requests",  path: "/departments/hr/all-requests",                 group: "People" },
+  { id: "hr-tasks",           label: "People Team Tasks",    path: "/departments/hr/tasks",                        group: "People" },
+  { id: "hr-feedback",        label: "People Feedback & Reports", path: "/departments/hr/feedback",                  group: "People" },
+  { id: "hr-request-detail",  label: "People Request Detail", path: "/departments/hr/requests/[id]",                group: "People" },
 
   // Admin
   { id: "admin-users",         label: "Users (Admin)",         path: "/admin/users",          group: "Admin" },
@@ -89,9 +121,10 @@ export const PAGE_PERMISSIONS_BY_PATH: Record<string, string> = Object.fromEntri
 )
 
 /** Group label -> pages in that group, for the Roles UI to render. */
-export function pagesByGroup(): Array<{ group: string; pages: PageDefinition[] }> {
+export function pagesByGroup(includeNonAssignable = false): Array<{ group: string; pages: PageDefinition[] }> {
   const groups: Record<string, PageDefinition[]> = {}
   for (const page of PAGES) {
+    if (!includeNonAssignable && page.assignable === false) continue
     const g = page.group ?? "General"
     if (!groups[g]) groups[g] = []
     groups[g].push(page)

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { sendFeedbackSurveyEmail } from "@/lib/emailService"
 import { feedbackStore } from "@/lib/feedbackStore"
 import { loadSettingsServer } from "@/lib/settingsServer"
+import { requestStore } from "@/lib/requestStore"
+import { auth } from "@/auth"
 
 export const runtime = "nodejs"
 
@@ -11,12 +13,17 @@ export const runtime = "nodejs"
 // can actually open the link from any device.
 export async function POST(req: NextRequest) {
   try {
+    const session = await auth()
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     const body = await req.json()
-    const { requesterName, requesterEmail, requestId, requestTitle, module } = body
+    const { requestId } = body
 
-    if (!requesterEmail || !requestId) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
-    }
+    if (!requestId || typeof requestId !== "string") return NextResponse.json({ error: "Missing request ID" }, { status: 400 })
+    const request = requestStore.get(requestId)
+    if (!request) return NextResponse.json({ error: "Request not found" }, { status: 404 })
+    if (!["completed", "delivered"].includes(request.status)) return NextResponse.json({ error: "Feedback is available only after completion" }, { status: 409 })
+    if (!request.requesterEmail) return NextResponse.json({ error: "Request has no requester email" }, { status: 400 })
+    const requesterEmail = request.requesterEmail
 
     // Check admin setting — surveys can be disabled from Admin → Settings
     const platformSettings = loadSettingsServer()
@@ -35,10 +42,10 @@ export async function POST(req: NextRequest) {
 
     const survey = feedbackStore.createSurvey({
       requestId,
-      requesterEmail,
-      requesterName: requesterName || "Unknown User",
-      requestTitle: requestTitle || requestId,
-      module: module || "general",
+      requesterEmail: request.requesterEmail,
+      requesterName: request.requesterName || "Unknown User",
+      requestTitle: request.title || requestId,
+      module: request.module,
     })
 
     await sendFeedbackSurveyEmail({

@@ -115,6 +115,8 @@ export async function GET(req: Request) {
     isRequestVisibleToViewer({
       moduleId: r.module,
       role: viewerRole,
+      permissions: session.user.permissions ?? [],
+      readAllModules: (session.user as any).readAllModules ?? [],
       viewerEmail,
       requesterEmail: r.requesterEmail,
       ccEmails: [
@@ -245,6 +247,44 @@ export async function POST(req: Request) {
       { error: `Request ID ${incoming.id} already exists` },
       { status: 409 }
     )
+  }
+
+  // Convert old browser-only Travel letters (HRLTR-<timestamp>-<random>) the
+  // first time they reach the shared store. This keeps historical records in
+  // the same HRLTR-YYYY-#### series as new letters and repairs the linked
+  // Travel request at the same time. clientRequestId makes repeated syncs
+  // idempotent.
+  const isLegacyTravelLetter = incoming.module === "hr_travel_letter"
+    && /^HRLTR-\d{10,}-[a-z0-9]+$/i.test(incoming.id)
+  if (isLegacyTravelLetter) {
+    const linkedTravelRequestId = (incoming.payload as any)?.linkedTravelRequestId
+    const alreadyMigrated = requestStore.getAll().find((item) =>
+      item.module === "hr_travel_letter"
+      && (item.payload as any)?.linkedTravelRequestId === linkedTravelRequestId
+      && /^HRLTR-\d{4}-\d+$/.test(item.id)
+    )
+    const saved = alreadyMigrated ?? requestStore.create({
+      ...requestToSave,
+      clientRequestId: requestToSave.clientRequestId ?? incoming.id,
+    })
+
+    if (linkedTravelRequestId) {
+      const travel = requestStore.get(linkedTravelRequestId)
+      if (travel && (travel.payload as any)?.linkedHrLetterRequestId !== saved.id) {
+        requestStore.upsert({
+          ...travel,
+          payload: { ...(travel.payload as any), linkedHrLetterRequestId: saved.id },
+          updatedAt: new Date().toISOString(),
+        })
+      }
+    }
+    // The sequential record is the canonical replacement. Remove the old
+    // timestamp-style record so the People HR Letter queue never shows the
+    // same Travel letter twice.
+    if (saved.id !== incoming.id) {
+      requestStore.remove(incoming.id)
+    }
+    return NextResponse.json({ request: saved })
   }
 
   const saved = body.operation === "create"

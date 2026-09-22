@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, isUserInCc, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { cn, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
-import { canViewAllInOwnFunctionModules } from "@/lib/functionRegistry"
+import { canViewAllInOwnFunctionModules, canViewOwnRequests } from "@/lib/functionRegistry"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { useCommentSearch } from "@/hooks/useCommentSearch"
@@ -72,8 +72,8 @@ function formatAmount(payload: Record<string, unknown>): string {
     const totals = new Map<string, number>()
     for (const item of payload.expenseRows) {
       const row = item as Record<string, unknown>
-      const currency = String(row.currency ?? "")
-      const amount = Number(row.amount ?? 0)
+      const currency = String(row.refundCurrency ?? row.currency ?? "")
+      const amount = Number(row.refundAmount ?? row.amount ?? 0)
       if (currency) totals.set(currency, (totals.get(currency) ?? 0) + (Number.isFinite(amount) ? amount : 0))
     }
     return Array.from(totals.entries())
@@ -107,6 +107,7 @@ export default function ReimbursementRequestsPage() {
   const tableRef = useRef<HTMLTableElement>(null)
 
   const canUpdateStatus = ((session?.user?.permissions as string[])?.includes("update_status") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  const canCreateRequest = ((session?.user?.permissions as string[])?.includes("create") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canEditRequest = ((session?.user?.permissions as string[])?.includes("edit_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canCancelRequest = ((session?.user?.permissions as string[])?.includes("cancel_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canPermanentDelete = (
@@ -120,10 +121,16 @@ export default function ReimbursementRequestsPage() {
     initializeMockData()
     const all = getRequests().filter((r) => r.module === "finance_reimbursement")
 
-    const canSeeAll = canViewAllInOwnFunctionModules(["finance_reimbursement"], session?.user?.role)
+    const canSeeAll = canViewAllInOwnFunctionModules(
+      ["finance_reimbursement"],
+      session?.user?.role,
+      (session?.user?.permissions as string[] | undefined) ?? [],
+      ((session?.user as any)?.readAllModules as string[] | undefined) ?? [],
+    )
+    const canSeeOwn = canViewOwnRequests((session?.user?.permissions as string[] | undefined) ?? [])
     const email = session?.user?.email?.toLowerCase()
-    setRequests(canSeeAll ? all : all.filter((r) => r.requesterId === session?.user?.id || r.requesterEmail?.toLowerCase() === email))
-  }, [session?.user?.id, session?.user?.email, session?.user?.role])
+    setRequests(canSeeAll ? all : canSeeOwn ? all.filter((r) => r.requesterId === session?.user?.id || r.requesterEmail?.toLowerCase() === email) : [])
+  }, [session?.user?.id, session?.user?.email, session?.user?.role, session?.user?.permissions, (session?.user as any)?.readAllModules])
 
   useEffect(() => {
     loadRequests()
@@ -274,12 +281,12 @@ export default function ReimbursementRequestsPage() {
         {(newRequestsCount > 0 || newTasksCount > 0) && (
           <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
         )}
-        <Link href="/departments/finance/reimbursement/new">
+        {canCreateRequest && <Link href="/departments/finance/reimbursement/new">
           <Button style={{ backgroundColor: "#d97706" }} className="text-white hover:opacity-90 ml-4">
             <Plus className="h-4 w-4 mr-2" />
             New General Reimbursement Request
           </Button>
-        </Link>
+        </Link>}
       </div>
 
       {/* Stat Cards */}
@@ -496,14 +503,16 @@ export default function ReimbursementRequestsPage() {
                         </div>
                         {Array.isArray(payload.expenseRows) && payload.expenseRows.length > 0 && (
                           <div className="overflow-x-auto rounded-lg border border-blue-100 bg-white">
-                            <table className="w-full min-w-[720px] text-left text-xs">
+                            <table className="w-full min-w-[960px] text-left text-xs">
                               <thead className="bg-slate-50 text-slate-600">
                                 <tr>
                                   {payload.poOption === "has_po" && <th className="px-3 py-2">PO</th>}
                                   <th className="px-3 py-2">Description</th>
                                   <th className="px-3 py-2">Cost Center</th>
-                                  <th className="px-3 py-2">Currency</th>
-                                  <th className="px-3 py-2 text-right">Amount</th>
+                                  <th className="px-3 py-2 text-right">Invoice Amount</th>
+                                  <th className="px-3 py-2">Invoice Currency</th>
+                                  <th className="px-3 py-2 text-right">Refund Amount</th>
+                                  <th className="px-3 py-2">Refund Currency</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -512,13 +521,15 @@ export default function ReimbursementRequestsPage() {
                                     {payload.poOption === "has_po" && <td className="px-3 py-2">{String(expense.po ?? "—")}</td>}
                                     <td className="px-3 py-2">{String(expense.description ?? "—")}</td>
                                     <td className="px-3 py-2">{String(expense.costCenter ?? "—")}</td>
-                                    <td className="px-3 py-2">{String(expense.currency ?? "—")}</td>
-                                    <td className="px-3 py-2 text-right font-medium">{Number(expense.amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                    <td className="px-3 py-2 text-right">{Number(expense.invoiceAmount ?? expense.amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                    <td className="px-3 py-2">{String(expense.invoiceCurrency ?? expense.currency ?? "—")}</td>
+                                    <td className="px-3 py-2 text-right font-medium">{Number(expense.refundAmount ?? expense.amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                    <td className="px-3 py-2">{String(expense.refundCurrency ?? expense.currency ?? "—")}</td>
                                   </tr>
                                 ))}
-                                <tr className="border-t bg-amber-50 font-semibold text-amber-950">
-                                  <td colSpan={payload.poOption === "has_po" ? 3 : 2} className="px-3 py-2 text-right">Total by currency</td>
-                                  <td colSpan={2} className="px-3 py-2">{formatAmount(payload)}</td>
+                                <tr className="border-t bg-amber-50 font-bold text-slate-950">
+                                  <td colSpan={payload.poOption === "has_po" ? 3 : 2} className="px-3 py-2 text-right">Refund total by currency</td>
+                                  <td colSpan={4} className="px-3 py-2">{formatAmount(payload)}</td>
                                 </tr>
                               </tbody>
                             </table>

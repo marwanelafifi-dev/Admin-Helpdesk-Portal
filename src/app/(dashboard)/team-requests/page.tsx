@@ -20,6 +20,7 @@ import { useCommentSearch } from "@/hooks/useCommentSearch"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { CompanyBadge } from "@/components/ui/CompanyBadge"
 import { buildLabelDrivenMaps } from "@/lib/statusPalette"
+import { modulesVisibleToFunction } from "@/lib/functionRegistry"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -158,7 +159,7 @@ function isDirectManagerOf(
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function TeamRequestsPage() {
+export default function TeamRequestsPage({ moduleScope }: { moduleScope?: string[] }) {
   const { data: session } = useSession()
   const currentUserName  = session?.user?.name  ?? ""
   const currentUserEmail = (session?.user?.email ?? "").toLowerCase()
@@ -236,11 +237,21 @@ export default function TeamRequestsPage() {
       : <ChevronDown className="h-3 w-3 ml-1 shrink-0" />
   }
 
-  // All requests where the logged-in user is the selected Direct Manager
+  // Department wrappers pass their own function scope. The shared Admin page
+  // retains the Administration scope by default.
+  const visibleModules = useMemo(
+    () => moduleScope ?? modulesVisibleToFunction("admin"),
+    [moduleScope],
+  )
+
+  // All requests where the logged-in user is the selected Direct Manager.
   const teamRequests = useMemo(() => {
     if (!currentUserName && !currentUserEmail) return []
-    return requests.filter((r) => isDirectManagerOf(r, currentUserName, currentUserEmail))
-  }, [requests, currentUserName, currentUserEmail])
+    return requests.filter((r) =>
+      visibleModules.includes(r.module)
+      && isDirectManagerOf(r, currentUserName, currentUserEmail)
+    )
+  }, [requests, currentUserName, currentUserEmail, visibleModules])
 
   function updateRequestStatus(id: string, nextStatus: string) {
     setRequests((prev) =>
@@ -356,7 +367,7 @@ export default function TeamRequestsPage() {
               >
                 All Modules
               </button>
-              {MODULES.map((m) => (
+              {visibleModules.map((m) => (
                 <button
                   key={m}
                   onClick={() => setModuleFilter(moduleFilter === m ? "all" : m)}

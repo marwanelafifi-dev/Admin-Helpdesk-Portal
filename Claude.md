@@ -1922,3 +1922,43 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 
 ## Recent Runtime Update (2026-09-20)
 - [x] Database page: added "Select Function" UI (Administration Team / HR Team / Finance Team) and function-filtered request pages — deployed to the running container at http://localhost:3003. Change was observed in the running instance but applied directly to the container rebuild and had not been committed at the time of deployment; committed note added to repository on 2026-09-20.
+
+## Phase 7z: Finance Request Experience, People Function Isolation & Travel HR Letters (Completed — 22 Sep 2026)
+
+- [x] **Finance Request Details and print output:**
+  - Reworked Finance request details into clear field cards and dedicated expense/invoice tables.
+  - Removed redundant standalone Amount and Priority cards where the information is represented by the relevant detail table.
+  - Supporting documents in request details now show filenames only; attachments remain on the Attachments tab and in **Print with Attachments**, not on the first printed sheet.
+  - Print output includes the Finance detail tables, with currency totals rendered in black and bold.
+- [x] **Standardized Finance expense tables:**
+  - General and Travel Reimbursement use matching repeatable expense-row tables and matching **Refund totals** rows: USD, EUR, and EGP shown in black/bold, including zero values.
+  - Request Details mirrors the submitted expense table and its totals rather than flattening values into unrelated cards.
+  - Invoices Payment now uses repeatable invoice rows with Supplier, PO Number when PO is selected, Invoice Amount, Currency, Payment Terms, and Payment Method.
+  - Contract removes the PO Number column; Other replaces it with an optional Description column. Invoice Amount totals are shown by currency and tables use the full available form width without nested scrollbars.
+- [x] **Finance SLA communication:**
+  - Request-facing SLA messaging states the working schedule: Sunday–Thursday, 9:00 AM–6:00 PM.
+  - This prevents after-hours submissions from being interpreted as if they started processing outside Finance working hours.
+- [x] **Function naming, navigation, and role model:**
+  - Renamed the dedicated HR function UI to **People Team / People Portal** to distinguish it from Administration's legacy HR onboarding/offboarding module; stable route and module IDs remain `hr` where required for compatibility.
+  - Added Finance and People navigation entries for My Requests and Team Requests after their team groups.
+  - Added function page registry entries for Finance Feedback & Reports and all Finance/People team pages.
+  - Roles support Finance Team, People Team, Administration Team, Full Access, Manager, Requester - Si-Ware, and Requester - BUCHI; the roles editor separates **Accessible Modules** (own-request visibility) from **View ALL Requests From** (all-request visibility).
+  - Removed legacy HR Letter and HR Travel Letter entries from the Administration role editor; they are People-only request channels.
+- [x] **Three-function request confidentiality:**
+  - `MODULE_REGISTRY` is the authoritative ownership model: Administration owns operational modules (including Travel), Finance owns its three finance modules, and People owns People General, HR Letter, and Travel-created HR Letter records.
+  - My Requests, Team Requests, All Requests, dashboards, feedback, notifications, request details, and sidebars are scoped by active function and enforced server-side for non-Full-Access users.
+  - Administration pages show Administration modules; People pages show People modules; Finance pages show Finance modules. A Full Access user can still use a direct URL by design, but each selected portal renders only its own function data.
+  - Team-role variants created in Roles (for example `People Team - Payroll` or legacy dash-suffixed People roles) retain their function identity while their explicit Read / Read Own permissions continue to determine data visibility.
+- [x] **Feedback and email function routing:**
+  - Feedback surveys and responses derive the request module/function from the stored request on the server rather than trusting browser input.
+  - Feedback stays inside its owning function's Feedback & Reports page and uses the corresponding function mailbox: Administration, People, or Finance.
+  - Function-specific fallback display names are Si-Ware Administration Team, Si-Ware People Team, and Si-Ware Finance Team.
+- [x] **Travel → People HR Letter integration:**
+  - A Travel request that requests an HR letter creates one People-owned `hr_travel_letter` record when it enters processing.
+  - Standard and Travel-created HR Letters share the readable sequential ID series `HRLTR-YYYY-####`; the Travel request stores the generated HR Letter ID as its link.
+  - Legacy timestamp-style HR Letter IDs are migrated idempotently to the sequential series, their Travel link is repaired, and the old record is removed so it cannot appear twice.
+  - Travel-created HR Letters appear in both People Team → HR Letter Requests and People Team → All Requests. HR Letter permissions include the linked Travel-letter queue so People staff can work all letters assigned to their function.
+  - The People HR Letter detail view displays the original Travel ID and copied reference data as read-only. It no longer links People users to Administration → All Requests; it explicitly states that the source Travel request is restricted to the Administration Team.
+- [x] **Verification and deployment:**
+  - Targeted TypeScript checks and `git diff --check` were run for the changed files.
+  - The Docker application was rebuilt after the changes and `company-portal-app` is healthy on `http://localhost:3003`.

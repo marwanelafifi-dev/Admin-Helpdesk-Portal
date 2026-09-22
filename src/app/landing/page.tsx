@@ -28,7 +28,7 @@ const baseFunctions: SupportFunction[] = [
     status: "Available",
   },
   {
-    name: "HR Team",
+    name: "People Team",
     description: "Access Human Resources services, policies, and employee support.",
     href: "/departments/hr/services",
     icon: Users,

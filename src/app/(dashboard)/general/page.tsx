@@ -15,7 +15,7 @@ import { createRequestUpdateNotifications, createAssignmentNotifications } from 
 import { AssigneeSelect } from "@/components/ui/AssigneeSelect"
 import { cn, fmtDate, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
 import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
-import { canViewAllInOwnFunctionModules } from "@/lib/functionRegistry"
+import { canViewAllInOwnFunctionModules, canViewOwnRequests } from "@/lib/functionRegistry"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { useExpandedRows } from "@/hooks/useExpandedRows"
@@ -133,6 +133,7 @@ export default function GeneralRequestPage({
   const tableRef = useRef<HTMLTableElement>(null)
 
   const canUpdateStatus = ((session?.user?.permissions as string[])?.includes("update_status") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  const canCreateRequest = ((session?.user?.permissions as string[])?.includes("create") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canEditRequest = ((session?.user?.permissions as string[])?.includes("edit_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canCancelRequest = ((session?.user?.permissions as string[])?.includes("cancel_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canAssign = ((session?.user?.permissions as string[])?.includes("assign_requests") || (session?.user?.permissions as string[])?.includes("*")) ?? false
@@ -151,19 +152,25 @@ export default function GeneralRequestPage({
     // Apply module-level access control if user has restrictions
     const userWithModules: UserWithModuleAccess = {
       id: session?.user?.id,
-      email: session?.user?.email,
+      email: session?.user?.email ?? undefined,
       role: session?.user?.role as string,
       readModules: (session?.user as any)?.readModules,
       readAllModules: (session?.user as any)?.readAllModules,
     }
     if (aggregateModules || moduleId.startsWith("hr_") || moduleId.startsWith("finance_")) {
-      const canSeeAll = canViewAllInOwnFunctionModules(aggregateModules ?? [moduleId], session?.user?.role)
+      const canSeeAll = canViewAllInOwnFunctionModules(
+        aggregateModules ?? [moduleId],
+        session?.user?.role,
+        (session?.user?.permissions as string[] | undefined) ?? [],
+        ((session?.user as any)?.readAllModules as string[] | undefined) ?? [],
+      )
+      const canSeeOwn = canViewOwnRequests((session?.user?.permissions as string[] | undefined) ?? [])
       const email = session?.user?.email?.toLowerCase()
-      setRequests(canSeeAll ? all : all.filter((request) => request.requesterId === session?.user?.id || request.requesterEmail.toLowerCase() === email))
+      setRequests(canSeeAll ? all : canSeeOwn ? all.filter((request) => request.requesterId === session?.user?.id || request.requesterEmail.toLowerCase() === email) : [])
     } else {
       setRequests(scopeRequestsByModuleAccess(all, userWithModules, session?.user))
     }
-  }, [moduleId, aggregateModules, session?.user?.id, session?.user?.email, session?.user?.role])
+  }, [moduleId, aggregateModules, session?.user?.id, session?.user?.email, session?.user?.role, session?.user?.permissions, (session?.user as any)?.readAllModules])
 
   useEffect(() => {
     loadRequests()
@@ -336,7 +343,7 @@ export default function GeneralRequestPage({
         {(newRequestsCount > 0 || newTasksCount > 0) && (
           <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
         )}
-        {!hideCreateButton && (
+        {!hideCreateButton && canCreateRequest && (
           <Link href={`${basePath}/new`}>
             <Button className="bg-blue-600 hover:bg-blue-700 text-white ml-4">
               <Plus className="h-4 w-4 mr-2" />

@@ -12,7 +12,6 @@ const CD_BUCHI_STORAGE_KEY = "arp_company_data_buchi"
 
 async function backfillLocalToServer() {
   if (typeof window === "undefined") return
-  if (localStorage.getItem(MIGRATION_KEY)) return
 
   const local = getRequests()
   if (local.length === 0) {
@@ -21,6 +20,11 @@ async function backfillLocalToServer() {
   }
 
   try {
+    // Keep retrying local records on future visits. Earlier portal versions
+    // marked this migration complete even when a browser-only request (such
+    // as a Travel-generated HR Letter) had never reached the shared store.
+    // The server upsert is timestamp-safe, so replaying an unchanged local
+    // record cannot replace a newer shared version.
     for (const req of local) {
       await fetch("/api/requests", {
         method: "POST",

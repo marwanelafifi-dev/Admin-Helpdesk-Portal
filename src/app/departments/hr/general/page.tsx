@@ -6,8 +6,8 @@ export default function HRGeneralRequestsPage() {
       moduleId="hr_general"
       basePath="/departments/hr/general"
       detailPath="/departments/hr/requests"
-      pageTitle="HR Team - General Requests"
-      pageSubtitle="Submit and manage general requests addressed to the HR Team"
+      pageTitle="People Team - General Requests"
+      pageSubtitle="Submit and manage general requests addressed to the People Team"
     />
   )
 }

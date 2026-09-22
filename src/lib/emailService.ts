@@ -148,7 +148,12 @@ function resolveFromAddress(defaultDisplayName = "Si-Ware Admin Helpdesk", funct
     : functionId === "finance"
       ? "ap@si-ware.com"
       : "adminhelpdesk@si-ware.com"
-  return `"${defaultDisplayName}" <${fallbackEmail}>`
+  const fallbackName = functionId === "hr"
+    ? "Si-Ware People Team"
+    : functionId === "finance"
+      ? "Si-Ware Finance Team"
+      : "Si-Ware Administration Team"
+  return `"${fallbackName}" <${fallbackEmail}>`
 }
 
 function escapeHtml(value: string) {
@@ -606,6 +611,7 @@ export async function sendFeedbackSurveyEmail(params: {
   customBody?: string
 }) {
   const emailFn = functionForModule(params.module)
+  const functionLabel = emailFn === "finance" ? "Finance Team" : emailFn === "hr" ? "People Team" : "Administration Team"
   const transporter = createTransporter(emailFn)
   const baseUrl = getBaseUrl()
   const surveyUrl = `${baseUrl}/feedback-survey?id=${params.surveyId}`
@@ -757,7 +763,7 @@ export async function sendFeedbackSurveyEmail(params: {
 
   const surveyLogoBuffer = getLogoBuffer()
   await sendMailWithRetry(transporter, {
-    from: resolveFromAddress("Si-Ware Admin Helpdesk", emailFn),
+    from: resolveFromAddress(`Si-Ware ${functionLabel}`, emailFn),
     to: params.requesterEmail,
     subject,
     html,

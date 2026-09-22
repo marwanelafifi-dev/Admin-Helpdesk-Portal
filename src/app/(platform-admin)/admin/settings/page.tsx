@@ -11,73 +11,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { DEFAULT_PLATFORM_SETTINGS, type PlatformSettings } from "@/lib/platformSettings"
 
 export const HEADER_LOGO_KEY = "arp_logo_header"
 export const LOGIN_LOGO_KEY = "arp_logo_login"
 
 export const SETTINGS_KEY = "arp_platform_settings"
 
-export interface PlatformSettings {
-  // General
-  platformName: string
-  orgName: string
-  supportEmail: string
-  timezone: string
-  dateFormat: string
-  // Security
-  sessionTimeout: string
-  enforcePasswordExpiry: boolean
-  passwordExpiryDays: string
-  requireStrongPasswords: boolean
-  allowMultipleSessions: boolean
-  // Login page
-  loginTitle: string
-  loginSubtitle: string
-  loginCardTitle: string
-  loginCardSubtitle: string
-  loginFooterLine1: string
-  loginFooterLine2: string
-  loginFooterEmail: string
-  showGoogleLogin: boolean
-  // Sidebar
-  sidebarBrandName: string
-  sidebarBrandSubtitle: string
-  // Header
-  headerShowLogo: boolean
-  headerLogoAlt: string
-  // Feedback Survey
-  feedbackSurveyEnabled: boolean
-  feedbackSurveySubject: string
-  feedbackSurveyBody: string
-}
-
-export const DEFAULTS: PlatformSettings = {
-  platformName: "Admin Helpdesk Portal",
-  orgName: "Si-Ware Systems",
-  supportEmail: "adminhelpdesk@si-ware.com",
-  timezone: "Africa/Cairo",
-  dateFormat: "DD-MMM-YYYY",
-  sessionTimeout: "480",
-  enforcePasswordExpiry: false,
-  passwordExpiryDays: "90",
-  requireStrongPasswords: true,
-  allowMultipleSessions: true,
-  loginTitle: "Si-Ware Company Portal",
-  loginSubtitle: "Welcome to the Si-Ware Systems company portal. Sign in with your corporate credentials to access support functions and company services.",
-  loginCardTitle: "Sign in securely",
-  loginCardSubtitle: "Authorized Si-Ware Employees only.\nPlease use your corporate credentials to continue.",
-  loginFooterLine1: "Si-Ware Systems Support Functions",
-  loginFooterLine2: "For portal assistance, please contact the Administration Team.",
-  loginFooterEmail: "adminhelpdesk@si-ware.com",
-  showGoogleLogin: true,
-  sidebarBrandName: "Admin Portal",
-  sidebarBrandSubtitle: "Si-Ware Systems",
-  headerShowLogo: true,
-  headerLogoAlt: "Si-Ware Systems",
-  feedbackSurveyEnabled: true,
-  feedbackSurveySubject: "How was your {{module}} request? — {{requestTitle}}",
-  feedbackSurveyBody: "Hi {{requesterName}},\n\nYour {{module}} request \"{{requestTitle}}\" has been completed.\n\nWe'd appreciate your feedback to help us improve our services. Please take a moment to rate your experience.",
-}
+export type { PlatformSettings } from "@/lib/platformSettings"
+export const DEFAULTS = DEFAULT_PLATFORM_SETTINGS
 
 const TIMEZONES = [
   { value: "Africa/Cairo", label: "Cairo (GMT+2/+3)" },
@@ -139,6 +81,7 @@ export default function AdminSettingsPage() {
   const [sidebarSave, setSidebarSave] = useState<SaveState>("idle")
   const [headerSave, setHeaderSave] = useState<SaveState>("idle")
   const [feedbackSave, setFeedbackSave] = useState<SaveState>("idle")
+  const [financeSlaSave, setFinanceSlaSave] = useState<SaveState>("idle")
   const [headerLogo, setHeaderLogo] = useState<string | null>(null)
   const [headerLogoSave, setHeaderLogoSave] = useState<SaveState>("idle")
   const headerLogoInputRef = useRef<HTMLInputElement>(null)
@@ -153,7 +96,7 @@ export default function AdminSettingsPage() {
     if (hl) setHeaderLogo(hl)
     const ll = localStorage.getItem(LOGIN_LOGO_KEY)
     if (ll) setLoginLogo(ll)
-    // Merge server-side feedback settings (survive container restarts)
+    // Merge server-side settings shared by all users and server jobs.
     fetch("/api/admin/settings")
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
@@ -163,6 +106,8 @@ export default function AdminSettingsPage() {
             feedbackSurveyEnabled: data.settings.feedbackSurveyEnabled ?? prev.feedbackSurveyEnabled,
             feedbackSurveySubject: data.settings.feedbackSurveySubject ?? prev.feedbackSurveySubject,
             feedbackSurveyBody:    data.settings.feedbackSurveyBody    ?? prev.feedbackSurveyBody,
+            financeSlaWorkingDays: String(data.settings.financeSlaWorkingDays ?? prev.financeSlaWorkingDays),
+            financeSlaReminderDay: String(data.settings.financeSlaReminderDay ?? prev.financeSlaReminderDay),
           }))
         }
       })
@@ -251,6 +196,35 @@ export default function AdminSettingsPage() {
     }
   }
 
+  async function persistFinanceSla() {
+    const slaDays = Number.parseInt(settings.financeSlaWorkingDays, 10)
+    const reminderDay = Number.parseInt(settings.financeSlaReminderDay, 10)
+    if (!Number.isInteger(slaDays) || slaDays < 2 || slaDays > 60 || !Number.isInteger(reminderDay) || reminderDay < 1 || reminderDay >= slaDays) {
+      setFinanceSlaSave("error")
+      setTimeout(() => setFinanceSlaSave("idle"), 3000)
+      return
+    }
+
+    setFinanceSlaSave("saving")
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+      const response = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          financeSlaWorkingDays: String(slaDays),
+          financeSlaReminderDay: String(reminderDay),
+        }),
+      })
+      if (!response.ok) throw new Error("Failed to save Finance SLA settings")
+      setFinanceSlaSave("saved")
+      setTimeout(() => setFinanceSlaSave("idle"), 3000)
+    } catch {
+      setFinanceSlaSave("error")
+      setTimeout(() => setFinanceSlaSave("idle"), 3000)
+    }
+  }
+
   function resetToDefaults() {
     setSettings(DEFAULTS)
     localStorage.removeItem(SETTINGS_KEY)
@@ -314,6 +288,54 @@ export default function AdminSettingsPage() {
             </div>
           </div>
           <SaveButton state={generalSave} onClick={() => persist(setGeneralSave)} />
+        </CardContent>
+      </Card>
+
+      {/* ── Finance SLA ── */}
+      <Card className="border shadow-sm">
+        <CardHeader className="border-b bg-gray-50 rounded-t-lg">
+          <div className="flex items-center gap-2">
+            <div className="bg-amber-100 rounded-lg p-2"><Clock className="h-4 w-4 text-amber-700" /></div>
+            <div>
+              <CardTitle className="text-base font-semibold text-gray-900">Finance Team SLA</CardTitle>
+              <p className="text-xs text-gray-500 mt-0.5">Configure the processing target and automatic reminder timing for Finance requests</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-6 space-y-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-gray-700">SLA Working Days</Label>
+              <Input
+                type="number"
+                min="2"
+                max="60"
+                step="1"
+                value={settings.financeSlaWorkingDays}
+                onChange={(e) => set("financeSlaWorkingDays", e.target.value)}
+                className="text-sm"
+              />
+              <p className="text-xs text-gray-400">Shown in all Finance request forms and used to calculate the deadline.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-gray-700">SLA Reminder Day</Label>
+              <Input
+                type="number"
+                min="1"
+                max={Math.max(1, Number.parseInt(settings.financeSlaWorkingDays, 10) - 1 || 1)}
+                step="1"
+                value={settings.financeSlaReminderDay}
+                onChange={(e) => set("financeSlaReminderDay", e.target.value)}
+                className="text-sm"
+              />
+              <p className="text-xs text-gray-400">The working day on which Finance Team members receive the reminder.</p>
+            </div>
+          </div>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Current policy: requests are due within <strong>{settings.financeSlaWorkingDays || "—"} working days</strong>; the reminder is sent on working day <strong>{settings.financeSlaReminderDay || "—"}</strong>.
+          </div>
+          <p className="text-xs text-gray-500">The reminder day must be at least 1 and earlier than the SLA deadline.</p>
+          <SaveButton state={financeSlaSave} onClick={persistFinanceSla} label="Save Finance SLA" />
         </CardContent>
       </Card>
 

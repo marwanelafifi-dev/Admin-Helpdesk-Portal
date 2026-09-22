@@ -38,6 +38,28 @@ export type RoutePermission =
   | "page:admin-announcements"
   | "page:admin-company-data"
   | "page:admin-company-data-buchi"
+  | "page:finance-dashboard"
+  | "page:finance-services"
+  | "page:finance-reimbursement"
+  | "page:finance-travel"
+  | "page:finance-invoices"
+  | "page:finance-my-requests"
+  | "page:finance-team-requests"
+  | "page:finance-all-requests"
+  | "page:finance-tasks"
+  | "page:finance-sla-reminders"
+  | "page:finance-feedback"
+  | "page:finance-request-detail"
+  | "page:hr-dashboard"
+  | "page:hr-services"
+  | "page:hr-general"
+  | "page:hr-letter-request"
+  | "page:hr-my-requests"
+  | "page:hr-team-requests"
+  | "page:hr-all-requests"
+  | "page:hr-tasks"
+  | "page:hr-feedback"
+  | "page:hr-request-detail"
   | "create"
   | "read"
   | "read_own"
@@ -115,6 +137,30 @@ export function permissionForPath(pathname: string): RoutePermission | null {
   if (path === "/admin/announcements") return "page:admin-announcements"
   if (path === "/admin/company-data/buchi") return "page:admin-company-data-buchi"
   if (path === "/admin/company-data") return "page:admin-company-data"
+
+  if (path === "/departments/finance") return "page:finance-dashboard"
+  if (path === "/departments/finance/services") return "page:finance-services"
+  if (path.startsWith("/departments/finance/reimbursement")) return "page:finance-reimbursement"
+  if (path.startsWith("/departments/finance/travel-reimbursement")) return "page:finance-travel"
+  if (path.startsWith("/departments/finance/invoices")) return "page:finance-invoices"
+  if (path === "/departments/finance/my-requests") return "page:finance-my-requests"
+  if (path === "/departments/finance/team-requests") return "page:finance-team-requests"
+  if (path === "/departments/finance/all-requests") return "page:finance-all-requests"
+  if (path === "/departments/finance/tasks") return "page:finance-tasks"
+  if (path === "/departments/finance/sla-reminders") return "page:finance-sla-reminders"
+  if (path === "/departments/finance/feedback") return "page:finance-feedback"
+  if (path.startsWith("/departments/finance/requests/")) return "page:finance-request-detail"
+
+  if (path === "/departments/hr") return "page:hr-dashboard"
+  if (path === "/departments/hr/services") return "page:hr-services"
+  if (path.startsWith("/departments/hr/general")) return "page:hr-general"
+  if (path.startsWith("/departments/hr/letter")) return "page:hr-letter-request"
+  if (path === "/departments/hr/my-requests") return "page:hr-my-requests"
+  if (path === "/departments/hr/team-requests") return "page:hr-team-requests"
+  if (path === "/departments/hr/all-requests") return "page:hr-all-requests"
+  if (path === "/departments/hr/tasks") return "page:hr-tasks"
+  if (path === "/departments/hr/feedback") return "page:hr-feedback"
+  if (path.startsWith("/departments/hr/requests/")) return "page:hr-request-detail"
 
   return null
 }
@@ -279,9 +325,9 @@ export function hasPlatformAdminAccess(permissions: string[] = [], role?: string
 
 // ─── Module-Level Access Control ───────────────────────────────────────────
 
-export type RequestModule = "shipping" | "maintenance" | "purchase" | "event" | "travel" | "hr" | "general"
+export type RequestModule = "shipping" | "maintenance" | "purchase" | "event" | "travel" | "hr" | "general" | "finance_reimbursement" | "finance_travel_reimbursement" | "finance_invoice_payment" | "hr_general" | "hr_letter"
 
-export const ALL_MODULES: RequestModule[] = ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"]
+export const ALL_MODULES: RequestModule[] = ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general", "finance_reimbursement", "finance_travel_reimbursement", "finance_invoice_payment", "hr_general", "hr_letter"]
 
 export interface UserWithModuleAccess {
   id?: string

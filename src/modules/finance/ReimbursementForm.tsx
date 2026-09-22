@@ -31,7 +31,11 @@ import { filesToAttachments } from "@/lib/attachments"
 const BRAND = "#d97706" // amber-600 — Finance brand color
 type ReimbursementFormValues = z.infer<typeof ReimbursementPayloadSchema>
 
-const EMPTY_EXPENSE_ROW = { po: "", description: "", costCenter: "", currency: "EGP" as const, amount: 0 }
+const EMPTY_EXPENSE_ROW = {
+  po: "", description: "", costCenter: "",
+  invoiceAmount: 0, invoiceCurrency: "EGP" as const,
+  refundAmount: 0, refundCurrency: "EGP" as const,
+}
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null
@@ -83,15 +87,18 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
   const poOption = watch("poOption")
   const expenseRows = useWatch({ control, name: "expenseRows" }) ?? []
   const paidByPersonalCreditCard = watch("paidByPersonalCreditCard")
-  const totalsByCurrency = (() => {
+  const totalsByCurrency = (amountField: "invoiceAmount" | "refundAmount", currencyField: "invoiceCurrency" | "refundCurrency") => {
     const totals: Partial<Record<(typeof REIMBURSEMENT_CURRENCIES)[number], number>> = {}
     for (const row of expenseRows) {
-      if (!row?.currency) continue
-      const amount = Number(row.amount)
-      totals[row.currency] = (totals[row.currency] ?? 0) + (Number.isFinite(amount) ? amount : 0)
+      const currency = row?.[currencyField]
+      if (!currency) continue
+      const amount = Number(row[amountField])
+      totals[currency] = (totals[currency] ?? 0) + (Number.isFinite(amount) ? amount : 0)
     }
     return totals
-  })()
+  }
+  const invoiceTotalsByCurrency = totalsByCurrency("invoiceAmount", "invoiceCurrency")
+  const refundTotalsByCurrency = totalsByCurrency("refundAmount", "refundCurrency")
 
   useEffect(() => {
     if (isEditing && editingRequest?.payload) {
@@ -102,13 +109,21 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
         poOption: payload.poOption || "has_po",
         directManager: payload.directManager || "",
         expenseRows: Array.isArray(payload.expenseRows) && payload.expenseRows.length > 0
-          ? payload.expenseRows
+          ? payload.expenseRows.map((row: Record<string, unknown>) => ({
+              ...row,
+              invoiceAmount: row.invoiceAmount ?? row.amount ?? 0,
+              invoiceCurrency: row.invoiceCurrency ?? row.currency ?? "EGP",
+              refundAmount: row.refundAmount ?? row.amount ?? 0,
+              refundCurrency: row.refundCurrency ?? row.currency ?? "EGP",
+            }))
           : [{
               po: Array.isArray(payload.poNumbers) ? payload.poNumbers[0] ?? "" : "",
               description: editingRequest.title || "",
               costCenter: payload.costCenter || "",
-              amount: payload.amount || 0,
-              currency: payload.currency || "EGP",
+              invoiceAmount: payload.amount || 0,
+              invoiceCurrency: payload.currency || "EGP",
+              refundAmount: payload.amount || 0,
+              refundCurrency: payload.currency || "EGP",
             }],
         paidByPersonalCreditCard: payload.paidByPersonalCreditCard || false,
       })
@@ -146,16 +161,19 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
       }
     }
 
-    const currencies = Array.from(new Set(data.expenseRows.map((row) => row.currency)))
+    const refundCurrencies = Array.from(new Set(data.expenseRows.map((row) => row.refundCurrency)))
     const payload = {
       ...data,
       poNumbers: data.poOption === "has_po"
         ? Array.from(new Set(data.expenseRows.map((row) => row.po?.trim()).filter(Boolean)))
         : [],
       costCenter: Array.from(new Set(data.expenseRows.map((row) => row.costCenter))).join(", "),
-      amount: data.expenseRows.reduce((sum, row) => sum + row.amount, 0),
-      currency: currencies.length === 1 ? currencies[0] : undefined,
-      totalsByCurrency: Object.fromEntries(REIMBURSEMENT_CURRENCIES.map((currency) => [currency, totalsByCurrency[currency] ?? 0])),
+      amount: data.expenseRows.reduce((sum, row) => sum + row.refundAmount, 0),
+      currency: refundCurrencies.length === 1 ? refundCurrencies[0] : undefined,
+      // Retained for existing list/email views; it represents refund totals.
+      totalsByCurrency: Object.fromEntries(REIMBURSEMENT_CURRENCIES.map((currency) => [currency, refundTotalsByCurrency[currency] ?? 0])),
+      invoiceTotalsByCurrency: Object.fromEntries(REIMBURSEMENT_CURRENCIES.map((currency) => [currency, invoiceTotalsByCurrency[currency] ?? 0])),
+      refundTotalsByCurrency: Object.fromEntries(REIMBURSEMENT_CURRENCIES.map((currency) => [currency, refundTotalsByCurrency[currency] ?? 0])),
       directManagerEmail: managerEmail ?? "",
     }
 
@@ -307,16 +325,18 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
         <Card>
           <SectionHeader icon={Wallet} title="Expense Details" subtitle="Complete every field and add a row for each expense" />
           <CardContent className="space-y-4">
-            <div className="overflow-x-auto rounded-lg border">
-              <table className="w-full min-w-[900px] border-collapse text-sm">
-                <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+            <div className="overflow-hidden rounded-lg border">
+              <table className="w-full table-fixed border-collapse text-sm">
+                <thead className="bg-slate-50 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-600">
                   <tr>
-                    {poOption === "has_po" && <th className="border-b px-3 py-3">PO <span className="text-red-500">*</span></th>}
-                    <th className="border-b px-3 py-3">Description <span className="text-red-500">*</span></th>
-                    <th className="border-b px-3 py-3">Cost Center <span className="text-red-500">*</span></th>
-                    <th className="w-32 border-b px-3 py-3">Currency <span className="text-red-500">*</span></th>
-                    <th className="w-40 border-b px-3 py-3">Amount <span className="text-red-500">*</span></th>
-                    <th className="w-14 border-b px-2 py-3"><span className="sr-only">Actions</span></th>
+                    {poOption === "has_po" && <th className="w-[12%] border-b px-2 py-3">PO <span className="text-red-500">*</span></th>}
+                    <th className="w-[19%] border-b px-2 py-3">Description <span className="text-red-500">*</span></th>
+                    <th className="w-[17%] border-b px-2 py-3">Cost Center <span className="text-red-500">*</span></th>
+                    <th className="w-[12%] border-b px-2 py-3">Invoice Amount <span className="text-red-500">*</span></th>
+                    <th className="w-[10%] border-b px-2 py-3">Invoice Currency <span className="text-red-500">*</span></th>
+                    <th className="w-[12%] border-b px-2 py-3">Refund Amount <span className="text-red-500">*</span></th>
+                    <th className="w-[10%] border-b px-2 py-3">Refund Currency <span className="text-red-500">*</span></th>
+                    <th className="w-11 border-b px-1 py-3"><span className="sr-only">Actions</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -325,16 +345,16 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
                     return (
                       <tr key={expenseField.id} className="align-top">
                         {poOption === "has_po" && (
-                          <td className="border-b px-3 py-3">
+                          <td className="border-b px-2 py-3">
                             <Input placeholder="PO number" {...register(`expenseRows.${index}.po`)} className={cn(rowErrors?.po && "border-red-400")} />
                             <FieldError message={rowErrors?.po?.message} />
                           </td>
                         )}
-                        <td className="border-b px-3 py-3">
+                        <td className="border-b px-2 py-3">
                           <Input placeholder="Expense description" {...register(`expenseRows.${index}.description`)} className={cn(rowErrors?.description && "border-red-400")} />
                           <FieldError message={rowErrors?.description?.message} />
                         </td>
-                        <td className="border-b px-3 py-3">
+                        <td className="border-b px-2 py-3">
                           <Controller
                             name={`expenseRows.${index}.costCenter`}
                             control={control}
@@ -351,13 +371,17 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
                           />
                           <FieldError message={rowErrors?.costCenter?.message} />
                         </td>
-                        <td className="border-b px-3 py-3">
+                        <td className="border-b px-2 py-3">
+                          <Input type="number" min="0.01" step="0.01" placeholder="0.00" {...register(`expenseRows.${index}.invoiceAmount`, { valueAsNumber: true })} className={cn(rowErrors?.invoiceAmount && "border-red-400")} />
+                          <FieldError message={rowErrors?.invoiceAmount?.message} />
+                        </td>
+                        <td className="border-b px-2 py-3">
                           <Controller
-                            name={`expenseRows.${index}.currency`}
+                            name={`expenseRows.${index}.invoiceCurrency`}
                             control={control}
                             render={({ field }) => (
                               <Select value={field.value} onValueChange={field.onChange}>
-                                <SelectTrigger className={cn(rowErrors?.currency && "border-red-400")}>
+                                <SelectTrigger className={cn(rowErrors?.invoiceCurrency && "border-red-400")}>
                                   <SelectValue placeholder="Currency" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -366,13 +390,30 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
                               </Select>
                             )}
                           />
-                          <FieldError message={rowErrors?.currency?.message} />
+                          <FieldError message={rowErrors?.invoiceCurrency?.message} />
                         </td>
-                        <td className="border-b px-3 py-3">
-                          <Input type="number" min="0.01" step="0.01" placeholder="0.00" {...register(`expenseRows.${index}.amount`, { valueAsNumber: true })} className={cn(rowErrors?.amount && "border-red-400")} />
-                          <FieldError message={rowErrors?.amount?.message} />
+                        <td className="border-b px-2 py-3">
+                          <Input type="number" min="0.01" step="0.01" placeholder="0.00" {...register(`expenseRows.${index}.refundAmount`, { valueAsNumber: true })} className={cn(rowErrors?.refundAmount && "border-red-400")} />
+                          <FieldError message={rowErrors?.refundAmount?.message} />
                         </td>
-                        <td className="border-b px-2 py-3 text-center">
+                        <td className="border-b px-2 py-3">
+                          <Controller
+                            name={`expenseRows.${index}.refundCurrency`}
+                            control={control}
+                            render={({ field }) => (
+                              <Select value={field.value} onValueChange={field.onChange}>
+                                <SelectTrigger className={cn(rowErrors?.refundCurrency && "border-red-400")}>
+                                  <SelectValue placeholder="Currency" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {REIMBURSEMENT_CURRENCIES.map((currency) => <SelectItem key={currency} value={currency}>{currency}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          />
+                          <FieldError message={rowErrors?.refundCurrency?.message} />
+                        </td>
+                        <td className="border-b px-1 py-3 text-center">
                           <Button type="button" variant="ghost" size="icon" disabled={expenseFields.length === 1} onClick={() => removeExpense(index)} aria-label={`Remove expense row ${index + 1}`}>
                             <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
@@ -380,12 +421,12 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
                       </tr>
                     )
                   })}
-                  <tr className="bg-amber-50/70 font-semibold text-amber-950">
-                    <td colSpan={poOption === "has_po" ? 3 : 2} className="px-3 py-3 text-right">Total by currency</td>
-                    <td colSpan={2} className="px-3 py-3">
-                      <div className="flex flex-wrap gap-x-5 gap-y-1">
+                  <tr className="bg-amber-50/70 font-bold text-slate-950">
+                    <td colSpan={poOption === "has_po" ? 3 : 2} className="px-2 py-3 text-right text-xs">Refund totals</td>
+                    <td colSpan={4} className="px-2 py-3">
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
                         {REIMBURSEMENT_CURRENCIES.map((currency) => (
-                          <span key={currency}>{currency}: {(totalsByCurrency[currency] ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          <span key={currency}>{currency}: {(refundTotalsByCurrency[currency] ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         ))}
                       </div>
                     </td>

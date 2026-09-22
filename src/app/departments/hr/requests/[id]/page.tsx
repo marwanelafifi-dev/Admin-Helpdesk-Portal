@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { MapPin, AlertCircle, CheckCircle2, Download, Eye } from 'lucide-react';
@@ -107,7 +106,7 @@ function HrTravelLetterDetail({ id }: { id: string }) {
     setCompleting(true);
 
     const actionUserId = session?.user?.id || 'USR-UNKNOWN';
-    const actionUserName = session?.user?.name || session?.user?.email || 'HR Team';
+    const actionUserName = session?.user?.name || session?.user?.email || 'People Team';
     const actionUserEmail = session?.user?.email || undefined;
 
     await updateStatus(request.id, 'completed', actionUserName);
@@ -124,7 +123,7 @@ function HrTravelLetterDetail({ id }: { id: string }) {
       try {
         await commentsAPI.create(
           travelId,
-          'HR Letter is ready. Please contact the HR Team to collect your business trip letter.',
+          'HR Letter is ready. Please contact the People Team to collect your business trip letter.',
           actionUserId,
           actionUserName,
           actionUserEmail || 'hr@si-ware.com',
@@ -182,17 +181,10 @@ function HrTravelLetterDetail({ id }: { id: string }) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-4 border-b border-blue-200">
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Request ID</p>
-              {travelRequest ? (
-                <Link
-                  href={`/admin/all-requests?search=${payload.linkedTravelRequestId}`}
-                  className="text-blue-600 hover:underline font-bold text-base block"
-                  target="_blank"
-                >
-                  {payload.linkedTravelRequestId} ↗
-                </Link>
-              ) : (
-                <p className="font-mono text-sm">{payload.linkedTravelRequestId}</p>
-              )}
+              <p className="font-mono text-sm font-semibold">{payload.linkedTravelRequestId}</p>
+              <p className="mt-1 text-xs text-gray-500">
+                Source Travel request is restricted to the Administration Team.
+              </p>
             </div>
 
             <div>

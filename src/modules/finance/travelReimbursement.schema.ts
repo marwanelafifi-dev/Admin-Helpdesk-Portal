@@ -23,9 +23,10 @@ const AttachmentSchema = z.object({
 export const TravelExpenseRowSchema = z.object({
   description: z.string().trim().min(1, "Description is required"),
   otherDescription: z.string().trim().optional(),
-  usdAmount: z.number().min(0, "Amount cannot be negative"),
-  eurAmount: z.number().min(0, "Amount cannot be negative"),
-  egpAmount: z.number().min(0, "Amount cannot be negative"),
+  invoiceAmount: z.number().min(0, "Amount cannot be negative"),
+  invoiceCurrency: z.enum(TRAVEL_REIMBURSEMENT_CURRENCIES),
+  refundAmount: z.number().min(0, "Amount cannot be negative"),
+  refundCurrency: z.enum(TRAVEL_REIMBURSEMENT_CURRENCIES),
 })
 
 export const TravelReimbursementPayloadSchema = z.object({
@@ -48,8 +49,8 @@ export const TravelReimbursementPayloadSchema = z.object({
     if (row.description === "Others" && !row.otherDescription?.trim()) {
       ctx.addIssue({ code: "custom", message: "Enter the expense description", path: ["expenseRows", index, "otherDescription"] })
     }
-    if (row.usdAmount <= 0 && row.eurAmount <= 0 && row.egpAmount <= 0) {
-      ctx.addIssue({ code: "custom", message: "Enter an amount in at least one currency", path: ["expenseRows", index, "usdAmount"] })
+    if (row.refundAmount <= 0) {
+      ctx.addIssue({ code: "custom", message: "Enter a refund amount", path: ["expenseRows", index, "refundAmount"] })
     }
   })
 })

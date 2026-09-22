@@ -139,6 +139,267 @@ function getModuleColor(module: string) {
 
 type Tab = "details" | "activity" | "comments" | "attachments"
 
+const FINANCE_TABLE_CURRENCIES = ["USD", "EUR", "EGP"] as const
+
+function escapePrintHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;")
+}
+
+function printAmount(value: unknown): string {
+  const amount = Number(value)
+  return (Number.isFinite(amount) ? amount : 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
+function financeExpenseTotals(payload: Record<string, any>, rows: Array<Record<string, any>>) {
+  const savedTotals = payload.poOption !== undefined ? payload.refundTotalsByCurrency ?? payload.totalsByCurrency : payload.totalsByCurrency
+  const saved = savedTotals && typeof savedTotals === "object"
+    ? savedTotals as Record<string, unknown>
+    : {}
+
+  return Object.fromEntries(FINANCE_TABLE_CURRENCIES.map((currency) => {
+    const calculated = rows.reduce((sum, row) => {
+      if (payload.poOption !== undefined) {
+        const refundCurrency = row.refundCurrency ?? row.currency
+        const refundAmount = row.refundAmount ?? row.amount
+        return sum + (refundCurrency === currency && Number.isFinite(Number(refundAmount)) ? Number(refundAmount) : 0)
+      }
+      const legacyCurrency = Number(row.usdAmount ?? 0) > 0 ? "USD" : Number(row.eurAmount ?? 0) > 0 ? "EUR" : "EGP"
+      const refundCurrency = row.refundCurrency ?? row.invoiceCurrency ?? legacyCurrency
+      const refundAmount = row.refundAmount ?? row[`${legacyCurrency.toLowerCase()}Amount`]
+      return sum + (refundCurrency === currency && Number.isFinite(Number(refundAmount)) ? Number(refundAmount) : 0)
+    }, 0)
+    // Row values are the source of truth. Saved totals may belong to an
+    // older version of the form and can be stale after an edit.
+    if (calculated !== 0) return [currency, calculated]
+    const hasCurrencyColumn = rows.some((row) => payload.poOption !== undefined
+      ? row.refundCurrency === currency || row.currency === currency
+      : row.refundCurrency === currency || row.invoiceCurrency === currency || Object.prototype.hasOwnProperty.call(row, `${currency.toLowerCase()}Amount`))
+    if (hasCurrencyColumn) return [currency, 0]
+    const savedValue = Number(saved[currency])
+    return [currency, Number.isFinite(savedValue) ? savedValue : 0]
+  })) as Record<(typeof FINANCE_TABLE_CURRENCIES)[number], number>
+}
+
+function buildFinanceExpensePrintTable(module: string, payload: Record<string, any>): string {
+  if (module === "finance_invoice_payment") {
+    const rows = Array.isArray(payload.invoiceRows) && payload.invoiceRows.length > 0
+      ? payload.invoiceRows as Array<Record<string, any>>
+      : [{ supplier: payload.supplier, poNumber: Array.isArray(payload.poNumbers) ? payload.poNumbers.join(", ") : "", otherDescription: payload.otherDetails, amount: payload.amount, currency: payload.currency, paymentTerms: payload.paymentTerms, paymentMethod: payload.paymentMethod }]
+    const totals = rows.reduce<Record<string, number>>((result, row) => {
+      const currency = String(row.currency ?? "USD")
+      result[currency] = (result[currency] ?? 0) + (Number.isFinite(Number(row.amount)) ? Number(row.amount) : 0)
+      return result
+    }, {})
+    const isPo = payload.poOrContract === "po"
+    const isOther = payload.poOrContract === "other"
+    const body = rows.map((row) => `<tr><td>${escapePrintHtml(row.supplier || "—")}</td>${isPo ? `<td>${escapePrintHtml(row.poNumber || "—")}</td>` : ""}${isOther ? `<td>${escapePrintHtml(row.otherDescription || "—")}</td>` : ""}<td class="amount-cell">${printAmount(row.amount)}</td><td>${escapePrintHtml(row.currency || "—")}</td><td>${escapePrintHtml(row.paymentTerms || "—")}</td><td>${escapePrintHtml(row.paymentMethod || "—")}</td></tr>`).join("")
+    const totalCells = Object.entries(totals).map(([currency, amount]) => `<span><strong>${escapePrintHtml(currency)}:</strong> ${printAmount(amount)}</span>`).join("")
+    return `<div class="section expense-section"><div class="section-title">Invoice Details</div><table class="expense-table"><thead><tr><th>Supplier</th>${isPo ? "<th>PO Number</th>" : ""}${isOther ? "<th>Description</th>" : ""}<th class="amount-cell">Invoice Amount</th><th>Currency</th><th>Payment Terms</th><th>Payment Method</th></tr></thead><tbody>${body}</tbody><tfoot><tr><td colspan="${isPo || isOther ? 3 : 2}" class="total-label">Amount totals by currency</td><td colspan="4"><div class="currency-totals">${totalCells}</div></td></tr></tfoot></table></div>`
+  }
+
+  if (!Array.isArray(payload.expenseRows) || payload.expenseRows.length === 0) return ""
+
+  const rows = payload.expenseRows as Array<Record<string, any>>
+  const totals = financeExpenseTotals(payload, rows)
+
+  if (module === "finance_reimbursement") {
+    const hasPo = payload.poOption === "has_po"
+    const body = rows.map((row) => `
+      <tr>
+        ${hasPo ? `<td>${escapePrintHtml(row.po || "—")}</td>` : ""}
+        <td>${escapePrintHtml(row.description || "—")}</td>
+        <td>${escapePrintHtml(row.costCenter || "—")}</td>
+        <td class="amount-cell">${printAmount(row.invoiceAmount ?? row.amount)}</td>
+        <td>${escapePrintHtml(row.invoiceCurrency ?? row.currency ?? "—")}</td>
+        <td class="amount-cell">${printAmount(row.refundAmount ?? row.amount)}</td>
+        <td>${escapePrintHtml(row.refundCurrency ?? row.currency ?? "—")}</td>
+      </tr>
+    `).join("")
+    const totalsText = FINANCE_TABLE_CURRENCIES
+      .map((currency) => `<span><strong>Refund ${currency}:</strong> ${printAmount(totals[currency])}</span>`)
+      .join("")
+
+    return `
+      <div class="section expense-section">
+        <div class="section-title">Expense Details</div>
+        <table class="expense-table">
+          <thead><tr>${hasPo ? "<th>PO</th>" : ""}<th>Description</th><th>Cost Center</th><th class="amount-cell">Invoice Amount</th><th>Invoice Currency</th><th class="amount-cell">Refund Amount</th><th>Refund Currency</th></tr></thead>
+          <tbody>${body}</tbody>
+          <tfoot><tr><td colspan="${hasPo ? 3 : 2}" class="total-label">Refund total by currency</td><td colspan="4"><div class="currency-totals">${totalsText}</div></td></tr></tfoot>
+        </table>
+      </div>
+    `
+  }
+
+  if (module === "finance_travel_reimbursement") {
+    const body = rows.map((row) => {
+      const description = row.description === "Others" ? row.otherDescription || "Others" : row.description || "—"
+      const legacyCurrency = Number(row.usdAmount ?? 0) > 0 ? "USD" : Number(row.eurAmount ?? 0) > 0 ? "EUR" : "EGP"
+      const legacyAmount = row[`${legacyCurrency.toLowerCase()}Amount`]
+      return `
+        <tr>
+          <td>${escapePrintHtml(description)}</td>
+          <td class="amount-cell">${printAmount(row.invoiceAmount ?? legacyAmount)}</td>
+          <td>${escapePrintHtml(row.invoiceCurrency || legacyCurrency)}</td>
+          <td class="amount-cell">${printAmount(row.refundAmount ?? legacyAmount)}</td>
+          <td class="center-cell">${escapePrintHtml(row.refundCurrency || legacyCurrency)}</td>
+        </tr>
+      `
+    }).join("")
+
+    return `
+      <div class="section expense-section">
+        <div class="section-title">Expense Details</div>
+        <table class="expense-table">
+          <thead><tr><th>Description</th><th class="amount-cell">Invoice Amount</th><th>Invoice Currency</th><th class="amount-cell">Refund Amount</th><th class="center-cell">Refund Currency</th></tr></thead>
+          <tbody>${body}</tbody>
+          <tfoot><tr><td class="total-label">Refund total by currency</td><td colspan="4"><div class="currency-totals">${FINANCE_TABLE_CURRENCIES.map((currency) => `<span><strong>${currency}:</strong> ${printAmount(totals[currency])}</span>`).join("")}</div></td></tr></tfoot>
+        </table>
+      </div>
+    `
+  }
+
+  return ""
+}
+
+function isPrintAttachmentField(key: string): boolean {
+  if (key === "attachments" || key === "additionalAttachments") return true
+  if (key.toLowerCase().includes("attachment")) return true
+  return ["supportingDocument", "creditCardStatement", "reimbursementForm", "invoiceFile", "travelRequestForm", "passport", "amanSticker", "visaDocument", "flightPhoto", "hotelPhoto"].includes(key)
+}
+
+function buildPrintAttachments(
+  attachments: Array<Record<string, any>>,
+  requestId: string,
+  origin: string,
+): string {
+  if (!Array.isArray(attachments) || attachments.length === 0) return ""
+
+  const seen = new Set<string>()
+  const unique = attachments.filter((attachment) => {
+    const key = String(attachment.id || attachment.url || attachment.name || "")
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+  if (unique.length === 0) return ""
+
+  const rows = unique.map((attachment) => {
+    const name = attachment.name || attachment.fileName || "Attachment"
+    const category = attachment.category || attachment._fieldLabel
+    const size = Number(attachment.sizeBytes)
+    const sizeLabel = Number.isFinite(size) && size > 0 ? `${(size / 1024).toFixed(1)} KB` : ""
+    const sourceLabel = attachment.source === "comment"
+      ? `Comment by ${attachment.commentAuthor || "Unknown"}`
+      : category ? humanizeKey(String(category)) : "Request attachment"
+    const isBlobUrl = String(attachment.url || "").startsWith("blob:")
+
+    let href = ""
+    if (!isBlobUrl && attachment.id) {
+      href = `${origin}/api/requests/${encodeURIComponent(requestId)}/attachments/${encodeURIComponent(String(attachment.id))}`
+    } else if (!isBlobUrl && typeof attachment.url === "string" && !attachment.url.startsWith("data:")) {
+      try {
+        href = new URL(attachment.url, origin).href
+      } catch {
+        href = ""
+      }
+    }
+
+    return `
+      <li class="attachment-item">
+        <div class="attachment-name">
+          ${href
+            ? `<a href="${escapePrintHtml(href)}" target="_blank" rel="noopener noreferrer">${escapePrintHtml(name)}</a>`
+            : `<span>${escapePrintHtml(name)}</span>`}
+        </div>
+        <div class="attachment-meta">${escapePrintHtml(sourceLabel)}${sizeLabel ? ` · ${escapePrintHtml(sizeLabel)}` : ""}${isBlobUrl ? " · Legacy file link unavailable" : ""}</div>
+      </li>
+    `
+  }).join("")
+
+  return `
+    <div class="section attachment-section">
+      <div class="section-title">Attachments</div>
+      <ul class="attachment-list">${rows}</ul>
+    </div>
+  `
+}
+
+function attachmentDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(blob)
+  })
+}
+
+async function buildPrintAttachmentViews(
+  attachments: Array<Record<string, any>>,
+  requestId: string,
+  origin: string,
+): Promise<string> {
+  if (!Array.isArray(attachments) || attachments.length === 0) return ""
+
+  const seen = new Set<string>()
+  const unique = attachments.filter((attachment) => {
+    const key = String(attachment.id || attachment.url || attachment.name || "")
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return !String(attachment.url || "").startsWith("blob:")
+  })
+
+  const pages = await Promise.all(unique.map(async (attachment) => {
+    const name = attachment.name || attachment.fileName || "Attachment"
+    const title = attachment.category || attachment._fieldLabel
+      ? humanizeKey(String(attachment.category || attachment._fieldLabel))
+      : "Attachment"
+    const viewUrl = attachment.id
+      ? `${origin}/api/requests/${encodeURIComponent(requestId)}/attachments/${encodeURIComponent(String(attachment.id))}`
+      : typeof attachment.url === "string" && !attachment.url.startsWith("data:")
+        ? new URL(attachment.url, origin).href
+        : ""
+
+    if (!viewUrl) return ""
+
+    try {
+      const response = await fetch(viewUrl, { credentials: "include" })
+      if (!response.ok) throw new Error(`Attachment unavailable (${response.status})`)
+      const blob = await response.blob()
+      const mimeType = blob.type || attachment.mimeType || ""
+      const heading = `
+        <div class="attachment-view-heading">
+          <div class="section-title">${escapePrintHtml(title)}</div>
+          <div class="attachment-view-name">${escapePrintHtml(name)}</div>
+        </div>
+      `
+
+      if (mimeType.startsWith("image/")) {
+        const dataUrl = await attachmentDataUrl(blob)
+        return `<section class="attachment-print-page">${heading}<img class="attachment-image" src="${escapePrintHtml(dataUrl)}" alt="${escapePrintHtml(name)}" /></section>`
+      }
+
+      if (mimeType === "application/pdf") {
+        return `<section class="attachment-print-page">${heading}<object class="attachment-pdf" data="${escapePrintHtml(viewUrl)}" type="application/pdf"><a href="${escapePrintHtml(viewUrl)}" target="_blank" rel="noopener noreferrer">Open ${escapePrintHtml(name)}</a></object></section>`
+      }
+
+      return `<section class="attachment-print-page">${heading}<p class="attachment-unavailable">This file type cannot be previewed in the print document. <a href="${escapePrintHtml(viewUrl)}" target="_blank" rel="noopener noreferrer">Open attachment</a></p></section>`
+    } catch {
+      return `<section class="attachment-print-page"><div class="attachment-view-heading"><div class="section-title">${escapePrintHtml(title)}</div><div class="attachment-view-name">${escapePrintHtml(name)}</div></div><p class="attachment-unavailable">Attachment preview is unavailable. <a href="${escapePrintHtml(viewUrl)}" target="_blank" rel="noopener noreferrer">Open attachment</a></p></section>`
+    }
+  }))
+
+  return pages.filter(Boolean).join("")
+}
+
 export default function RequestDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -193,8 +454,8 @@ export default function RequestDetailPage() {
 
   const canChangeStatus = session?.user?.permissions && hasPermission(session.user.permissions, "update_status")
   const canViewActivity = session?.user?.permissions && hasPermission(session.user.permissions, "activity")
-  const canEditRequest = session?.user?.permissions && hasPermission(session.user.permissions, "edit_request")
-  const canManageCc = session?.user?.permissions ? hasPermission(session.user.permissions, "manage_users") : false
+  const canEditRequest = session?.user?.permissions && (hasPermission(session.user.permissions, "edit_request") || hasPermission(session.user.permissions, "update"))
+  const canManageCc = session?.user?.permissions ? hasPermission(session.user.permissions, "manage_cc") : false
   const currentUserId = session?.user?.id || "USR-001"
   const currentUserEmail = session?.user?.email || ""
 
@@ -340,13 +601,13 @@ export default function RequestDetailPage() {
     }
   }
 
-  const handlePrint = () => {
+  const handlePrint = async (includeAttachments = false) => {
     if (!request) return
 
     const printWindow = window.open("", "_blank")
     if (!printWindow) return
 
-    const moduleLabel = request.module.charAt(0).toUpperCase() + request.module.slice(1)
+    const moduleLabel = humanizeKey(request.module)
     const statusLabel = getStatusLabel(request.status, request.module)
 
     const requesterInfo = request.requester
@@ -364,6 +625,15 @@ export default function RequestDetailPage() {
     const adminCcList = request.adminCc && request.adminCc.length > 0
       ? request.adminCc.join(", ")
       : "None"
+
+    const expenseTableHtml = buildFinanceExpensePrintTable(request.module, request.payload || {})
+    // Standard Print keeps a compact attachment-name list. In Print with
+    // Attachments, each document is rendered on its own following page, so
+    // do not duplicate the names on the request's first page.
+    const attachmentsHtml = includeAttachments ? "" : buildPrintAttachments(request.attachments || [], request.id, window.location.origin)
+    const attachmentViewsHtml = includeAttachments
+      ? await buildPrintAttachmentViews(request.attachments || [], request.id, window.location.origin)
+      : ""
 
     const html = `
       <!DOCTYPE html>
@@ -396,14 +666,40 @@ export default function RequestDetailPage() {
           .detail-label { font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 3px; }
           .detail-value { font-size: 13px; color: #1f2937; font-weight: 500; white-space: pre-wrap; overflow-wrap: anywhere; }
           .description-box { background-color: #f9fafb; padding: 12px; border-radius: 6px; border-left: 3px solid #2563eb; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+          .expense-section { page-break-inside: auto; }
+          .expense-table { width: 100%; border-collapse: collapse; table-layout: auto; font-size: 12px; }
+          .expense-table th { background: #f3f4f6; color: #374151; font-size: 10px; text-transform: uppercase; letter-spacing: 0.35px; text-align: left; }
+          .expense-table th, .expense-table td { border: 1px solid #d1d5db; padding: 7px 8px; vertical-align: top; overflow-wrap: anywhere; }
+          .expense-table tbody tr:nth-child(even) { background: #f9fafb; }
+          .expense-table tfoot td { background: #fffbeb; color: #111827; font-weight: 700; }
+          .expense-table .amount-cell { text-align: right; white-space: nowrap; }
+          .expense-table .center-cell { text-align: center; }
+          .expense-table .total-label { text-align: right; }
+          .currency-totals { display: flex; flex-wrap: wrap; gap: 4px 16px; color: #111827; font-weight: 700; }
+          .attachment-list { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+          .attachment-item { border: 1px solid #dbe3ef; border-radius: 6px; background: #f8fafc; padding: 9px 10px; page-break-inside: avoid; }
+          .attachment-name { font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+          .attachment-name a { color: #1d4ed8; text-decoration: underline; text-underline-offset: 2px; }
+          .attachment-meta { margin-top: 3px; color: #6b7280; font-size: 10px; overflow-wrap: anywhere; }
+          .attachment-print-page { break-before: page; page-break-before: always; }
+          .attachment-view-heading { border-bottom: 2px solid #2563eb; margin-bottom: 14px; padding-bottom: 8px; }
+          .attachment-view-heading .section-title { margin-bottom: 3px; }
+          .attachment-view-name { color: #1e3a8a; font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
+          .attachment-image { display: block; width: 100%; max-height: 900px; object-fit: contain; object-position: top left; border: 1px solid #d1d5db; }
+          .attachment-pdf { display: block; width: 100%; height: 900px; border: 1px solid #d1d5db; }
+          .attachment-unavailable { border: 1px solid #fbbf24; background: #fffbeb; color: #78350f; border-radius: 6px; padding: 12px; font-size: 12px; }
+          .attachment-unavailable a { color: #1d4ed8; font-weight: 600; }
           .print-date { text-align: center; margin-top: auto; padding-top: 15px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; }
           @media print {
-            * { page-break-inside: avoid; }
             html, body { margin: 0; padding: 0; }
             body { background: white; }
             .container { padding: 15px; margin: 0; }
             .section { page-break-inside: avoid; }
             .detail-item { page-break-inside: avoid; }
+            .expense-section { page-break-inside: auto; }
+            .expense-table thead { display: table-header-group; }
+            .expense-table tfoot { display: table-footer-group; }
+            .expense-table tr { page-break-inside: avoid; }
           }
         </style>
       </head>
@@ -465,11 +761,13 @@ export default function RequestDetailPage() {
               <div class="section-title">Request Details</div>
               <div class="details-grid">
                 ${Object.entries(request.payload || {})
-                  .filter(([key]) => !["attachments", "ccEmails", "adminCc"].includes(key))
+                  .filter(([key]) => !["ccEmails", "adminCc", "expenseRows", "totalsByCurrency"].includes(key) && !isPrintAttachmentField(key) && !(request.module === "finance_invoice_payment" && ["supplier", "poOrContract", "poNumbers", "otherDetails", "amount", "currency", "paymentTerms", "paymentMethod", "invoiceRows"].includes(key)))
                   .map(([key, value]) => {
                     if (value === null || value === undefined || value === "") return ""
-                    const label = key.replace(/([A-Z])/g, " $1").trim()
-                    const displayValue = Array.isArray(value)
+                    const label = humanizeKey(key)
+                    const displayValue = typeof value === "boolean"
+                      ? value ? "Yes" : "No"
+                      : Array.isArray(value)
                       ? value.join(", ")
                       : value && typeof value === "object"
                         ? JSON.stringify(value, null, 2)
@@ -489,6 +787,9 @@ export default function RequestDetailPage() {
               </div>
             </div>
           ` : ""}
+          ${expenseTableHtml}
+          ${attachmentsHtml}
+          ${attachmentViewsHtml}
           </div>
 
           <div class="print-date">
@@ -842,12 +1143,22 @@ export default function RequestDetailPage() {
                   <div className="ml-auto flex gap-2">
                     <Button
                       variant="outline"
-                      onClick={handlePrint}
+                      onClick={() => handlePrint()}
                       title="Print request summary"
                       className="gap-2"
                     >
                       <Printer className="h-4 w-4" />
                       Print
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => handlePrint(true)}
+                      title="Print request with attachment previews"
+                      className="gap-2"
+                      disabled={!request.attachments?.length}
+                    >
+                      <Printer className="h-4 w-4" />
+                      Print with Attachments
                     </Button>
                     {canEditRequest && (
                       <Button
@@ -1008,20 +1319,21 @@ export default function RequestDetailPage() {
               {/* Request Payload Details */}
               {Object.keys(request.payload).length > 0 && (
                 <Card>
-                  <CardHeader>
+                  <CardHeader className="border-b bg-slate-50/70 py-4">
                     <CardTitle className="text-base flex items-center gap-2">
                       <FileText className="h-5 w-5" />
                       Request Details
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       {Object.entries(request.payload)
                         // ccEmails has its own panel; attachments has its own tab.
                         // Skip empty values so the grid doesn't show 20 blank rows.
                         .filter(([key, value]) => {
                           // Skip ccEmails and all attachment-related fields
-                          if (key === "ccEmails" || key === "attachments") return false
+                          if (["ccEmails", "attachments", "expenseRows", "amount", "priority", "totalsByCurrency", "refundTotalsByCurrency"].includes(key)) return false
+                          if (request.module === "finance_invoice_payment" && ["supplier", "poOrContract", "currency", "paymentTerms", "paymentMethod", "poNumbers", "invoiceRows"].includes(key)) return false
                           // Skip individual attachment fields (travelRequestForm, passport, amanSticker, flightPhoto, visaDocument, etc.)
                           if (key.includes("attachment") || key.includes("Attachment")) return false
                           // Skip known file upload fields
@@ -1036,6 +1348,7 @@ export default function RequestDetailPage() {
                           <PayloadField key={key} fieldKey={key} value={value} />
                         ))}
                     </div>
+                    <FinanceExpenseDetailsTable module={request.module} payload={request.payload as Record<string, unknown>} />
                   </CardContent>
                 </Card>
               )}
@@ -1492,13 +1805,116 @@ function humanizeKey(key: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-function PayloadField({ fieldKey, value }: { fieldKey: string; value: unknown }) {
+function isPayloadAttachmentField(fieldKey: string): boolean {
+  return ["supportingDocument", "creditCardStatement", "reimbursementForm", "invoiceFile", "travelRequestForm", "passport", "amanSticker", "visaDocument", "flightPhoto", "hotelPhoto", "additionalAttachments"].includes(fieldKey)
+    || fieldKey.toLowerCase().includes("attachment")
+}
+
+function attachmentFileNames(value: unknown): string[] {
+  const items = Array.isArray(value) ? value : [value]
+  return items
+    .map((item) => {
+      if (item && typeof item === "object") {
+        const file = item as Record<string, unknown>
+        return String(file.name ?? file.fileName ?? "")
+      }
+      return typeof item === "string" ? item : ""
+    })
+    .filter(Boolean)
+}
+
+function FinanceExpenseDetailsTable({ module, payload }: { module: string; payload: Record<string, unknown> }) {
+  if (module === "finance_invoice_payment") {
+    const rows = Array.isArray(payload.invoiceRows) && payload.invoiceRows.length > 0
+      ? payload.invoiceRows as Array<Record<string, unknown>>
+      : [{ supplier: payload.supplier, poNumber: Array.isArray(payload.poNumbers) ? payload.poNumbers.join(", ") : "", otherDescription: payload.otherDetails, amount: payload.amount, currency: payload.currency, paymentTerms: payload.paymentTerms, paymentMethod: payload.paymentMethod }]
+    const totals = rows.reduce<Record<string, number>>((result, row) => {
+      const currency = String(row.currency ?? "USD")
+      result[currency] = (result[currency] ?? 0) + (Number.isFinite(Number(row.amount)) ? Number(row.amount) : 0)
+      return result
+    }, {})
+    const leadingColumns = payload.poOrContract === "contract" ? 2 : 3
+    return (
+      <div className="mt-5 overflow-hidden rounded-lg border border-slate-200">
+        <div className="border-b bg-slate-50 px-4 py-3"><h3 className="text-sm font-semibold text-slate-800">Invoice Details</h3></div>
+        <table className="w-full table-fixed text-left text-xs">
+          <thead className="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-600"><tr><th className="px-3 py-3">Supplier</th>{payload.poOrContract === "po" && <th className="px-3 py-3">PO Number</th>}{payload.poOrContract === "other" && <th className="px-3 py-3">Description</th>}<th className="px-3 py-3 text-right">Invoice Amount</th><th className="px-3 py-3">Currency</th><th className="px-3 py-3">Payment Terms</th><th className="px-3 py-3">Payment Method</th></tr></thead>
+          <tbody>{rows.map((row, index) => <tr key={index} className="border-t text-slate-700"><td className="break-words px-3 py-3">{String(row.supplier ?? "—")}</td>{payload.poOrContract === "po" && <td className="break-words px-3 py-3">{String(row.poNumber ?? "—")}</td>}{payload.poOrContract === "other" && <td className="break-words px-3 py-3">{String(row.otherDescription ?? "—")}</td>}<td className="px-3 py-3 text-right font-bold tabular-nums text-slate-950">{printAmount(row.amount)}</td><td className="px-3 py-3">{String(row.currency ?? "—")}</td><td className="break-words px-3 py-3">{String(row.paymentTerms ?? "—")}</td><td className="break-words px-3 py-3">{String(row.paymentMethod ?? "—")}</td></tr>)}</tbody>
+          <tfoot><tr className="border-t bg-amber-50/70 font-bold text-slate-950"><td colSpan={leadingColumns} className="px-3 py-3 text-right">Amount totals by currency</td><td colSpan={4} className="px-3 py-3"><div className="flex flex-wrap justify-between gap-x-4 gap-y-1">{Object.entries(totals).map(([currency, amount]) => <span key={currency}>{currency}: {printAmount(amount)}</span>)}</div></td></tr></tfoot>
+        </table>
+      </div>
+    )
+  }
+
+  if ((module !== "finance_reimbursement" && module !== "finance_travel_reimbursement") || !Array.isArray(payload.expenseRows) || payload.expenseRows.length === 0) return null
+
+  const rows = payload.expenseRows as Array<Record<string, any>>
+  const totals = financeExpenseTotals(payload, rows)
+  const isReimbursement = module === "finance_reimbursement"
+  const hasPo = payload.poOption === "has_po"
+  const currencies = FINANCE_TABLE_CURRENCIES
+
+  const legacyCurrency = (row: Record<string, any>) => Number(row.usdAmount ?? 0) > 0 ? "USD" : Number(row.eurAmount ?? 0) > 0 ? "EUR" : "EGP"
+  const legacyAmount = (row: Record<string, any>) => Number(row[`${legacyCurrency(row).toLowerCase()}Amount`] ?? 0)
+
   return (
-    <div className="space-y-1">
+    <div className="mt-5 overflow-hidden rounded-lg border border-slate-200">
+      <div className="border-b bg-slate-50 px-4 py-3">
+        <h3 className="text-sm font-semibold text-slate-800">Expense Details</h3>
+      </div>
+      <table className="w-full table-fixed text-left text-xs">
+        <thead className="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+          <tr>
+            {isReimbursement && hasPo && <th className="w-[10%] px-2 py-3">PO</th>}
+            <th className={isReimbursement ? "w-[22%] px-2 py-3" : "w-[30%] px-2 py-3"}>Description</th>
+            {isReimbursement && <th className="w-[15%] px-2 py-3">Cost Center</th>}
+            <th className="w-[14%] px-2 py-3 text-right">Invoice Amount</th>
+            <th className="w-[13%] px-2 py-3">Invoice Currency</th>
+            <th className="w-[14%] px-2 py-3 text-right">Refund Amount</th>
+            <th className="w-[12%] px-2 py-3">Refund Currency</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {rows.map((row, index) => {
+            const description = row.description === "Others" ? row.otherDescription || "Others" : row.description || "—"
+            const fallbackCurrency = legacyCurrency(row)
+            const fallbackAmount = legacyAmount(row)
+            return (
+              <tr key={index} className="text-slate-700">
+                {isReimbursement && hasPo && <td className="px-2 py-3">{row.po || "—"}</td>}
+                <td className="break-words px-2 py-3 font-medium">{description}</td>
+                {isReimbursement && <td className="break-words px-2 py-3">{row.costCenter || "—"}</td>}
+                <td className="px-2 py-3 text-right tabular-nums">{printAmount(row.invoiceAmount ?? row.amount ?? fallbackAmount)}</td>
+                <td className="px-2 py-3">{row.invoiceCurrency ?? row.currency ?? fallbackCurrency}</td>
+                <td className="px-2 py-3 text-right tabular-nums">{printAmount(row.refundAmount ?? row.amount ?? fallbackAmount)}</td>
+                <td className="px-2 py-3">{row.refundCurrency ?? row.currency ?? fallbackCurrency}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+        <tfoot className="border-t bg-amber-50/70 font-bold text-slate-950">
+          <tr>
+            <td className="px-3 py-3 text-right text-xs font-semibold" colSpan={isReimbursement ? (hasPo ? 3 : 2) : 1}>Refund totals</td>
+            <td className="px-3 py-3" colSpan={isReimbursement ? 4 : 4}>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs font-semibold">
+                {currencies.map((currency) => <span key={currency}>{currency}: {printAmount(totals[currency])}</span>)}
+              </div>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  )
+}
+
+function PayloadField({ fieldKey, value }: { fieldKey: string; value: unknown }) {
+  const label = fieldKey === "poOption" ? "Has Purchase Order" : humanizeKey(fieldKey)
+  return (
+    <div className="min-w-0 rounded-lg border border-slate-100 bg-slate-50/50 px-3.5 py-3">
       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-        {humanizeKey(fieldKey)}
+        {label}
       </p>
-      <PayloadValue fieldKey={fieldKey} value={value} />
+      <div className="mt-1"><PayloadValue fieldKey={fieldKey} value={value} /></div>
     </div>
   )
 }
@@ -1507,6 +1923,20 @@ function PayloadValue({ fieldKey, value }: { fieldKey: string; value: unknown })
   // Skip attachments — they have their own dedicated tab
   if (fieldKey === "attachments") {
     return <p className="text-sm text-gray-500 italic">See Attachments tab</p>
+  }
+
+  // Named upload fields are persisted as attachment metadata objects. The
+  // details card should identify the document without exposing its internal
+  // storage URL, checksum, upload data, or other technical fields.
+  if (isPayloadAttachmentField(fieldKey)) {
+    const names = attachmentFileNames(value)
+    return names.length > 0
+      ? <p className="text-sm font-medium text-blue-700 break-words">{names.join(", ")}</p>
+      : <p className="text-sm text-gray-500 italic">No file attached</p>
+  }
+
+  if (fieldKey === "poOption") {
+    return <p className="text-sm font-medium text-gray-900">{value === "has_po" ? "Yes" : "No"}</p>
   }
 
   // Approvers block — render Direct Manager + Tech/PM as a small named list.

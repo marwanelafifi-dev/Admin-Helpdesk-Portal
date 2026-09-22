@@ -1,16 +1,16 @@
 import fs from "fs"
 import path from "path"
-import { DEFAULTS, type PlatformSettings } from "@/app/(platform-admin)/admin/settings/page"
+import { DEFAULT_PLATFORM_SETTINGS, type PlatformSettings } from "@/lib/platformSettings"
 
 const SETTINGS_PATH = path.join(process.cwd(), "data", "platform-settings.json")
 
 export function loadSettingsServer(): PlatformSettings {
   try {
-    if (!fs.existsSync(SETTINGS_PATH)) return DEFAULTS
+    if (!fs.existsSync(SETTINGS_PATH)) return DEFAULT_PLATFORM_SETTINGS
     const raw = fs.readFileSync(SETTINGS_PATH, "utf-8")
-    return { ...DEFAULTS, ...JSON.parse(raw) }
+    return { ...DEFAULT_PLATFORM_SETTINGS, ...JSON.parse(raw) }
   } catch {
-    return DEFAULTS
+    return DEFAULT_PLATFORM_SETTINGS
   }
 }
 

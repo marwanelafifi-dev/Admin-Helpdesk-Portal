@@ -11,6 +11,8 @@ export interface FinanceSlaReminderRecord {
   slaBasis: "submission" | "approval"
   deadlineDate: string
   sentAt: string
+  slaWorkingDays?: number
+  reminderWorkingDay?: number
 }
 
 const STORE_PATH = path.join(process.cwd(), "data", "finance-sla-reminders.json")
@@ -33,7 +35,7 @@ export function readFinanceSlaReminders(): FinanceSlaReminderRecord[] {
 
 export function addFinanceSlaReminder(record: FinanceSlaReminderRecord): boolean {
   const all = readFinanceSlaReminders()
-  if (all.some((item) => item.id === record.id)) return false
+  if (all.some((item) => item.id === record.id || (item.requestId === record.requestId && item.slaStartedAt === record.slaStartedAt))) return false
   fs.writeFileSync(STORE_PATH, JSON.stringify([record, ...all], null, 2), "utf-8")
   return true
 }

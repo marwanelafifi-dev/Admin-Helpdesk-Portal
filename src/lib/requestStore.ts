@@ -19,6 +19,11 @@ const MODULE_PREFIX: Record<string, string> = {
   travel: "TRV",
   hr: "HR",
   hr_general: "HRG",
+  // Standard People Team letters and Travel-created letters share one
+  // human-readable sequence. A Travel letter is still distinguished by its
+  // module/payload, not by a timestamp-based ID.
+  hr_letter: "HRLTR",
+  hr_travel_letter: "HRLTR",
   general: "GEN",
 }
 

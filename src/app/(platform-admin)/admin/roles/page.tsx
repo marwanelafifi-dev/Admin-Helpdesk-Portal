@@ -66,9 +66,9 @@ const AVAILABLE_PERMISSIONS = [
   "settings",
 ]
 
-// Pages come from the central registry — adding a page in src/lib/pageRegistry.ts
-// makes it appear here automatically.
-const PAGES = REGISTERED_PAGES
+// Legacy routes can remain protected in the registry without being offered as
+// assignable permissions in the normal Roles editor.
+const PAGES = REGISTERED_PAGES.filter((page) => page.assignable !== false)
 
 function roleCardColor(roleName: string, companyId: "si_ware" | "buchi"): string {
   if (roleName === "Full Access") return "border-yellow-200 bg-yellow-50"
@@ -237,17 +237,35 @@ export default function AdminRolesPage() {
     }))
   }
 
-  const MODULES = ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"] as const
+  // Module access is deliberately separate from page access. Selecting a
+  // module grants requester-level visibility (own requests); the second
+  // control below explicitly upgrades it to all requests for that module.
+  const MODULES = [
+    { id: "shipping", label: "Administration — Shipping", pages: ["shipping", "shipping-new"] },
+    { id: "maintenance", label: "Administration — Maintenance", pages: ["maintenance", "maintenance-new"] },
+    { id: "purchase", label: "Administration — Purchase", pages: ["purchase", "purchase-new"] },
+    { id: "event", label: "Administration — Event", pages: ["event", "event-new"] },
+    { id: "travel", label: "Administration — Travel", pages: ["travel", "travel-new"] },
+    { id: "hr", label: "Administration — HR", pages: ["hr", "hr-new"] },
+    { id: "general", label: "Administration — General Request", pages: ["general", "general-new"] },
+    { id: "finance_reimbursement", label: "Finance — General Reimbursement", pages: ["finance-reimbursement"] },
+    { id: "finance_travel_reimbursement", label: "Finance — Travel Reimbursement", pages: ["finance-travel"] },
+    { id: "finance_invoice_payment", label: "Finance — Invoices Payment", pages: ["finance-invoices"] },
+    { id: "hr_general", label: "People — General Request", pages: ["hr-general"] },
+    { id: "hr_letter", label: "People — HR Letter Request", pages: ["hr-letter-request"] },
+  ] as const
 
   const toggleModule = (module: string) => {
     setFormData((current) => {
+      const option = MODULES.find((item) => item.id === module)
+      if (!option) return current
       const isSelected = current.readModules.includes(module)
       const newReadModules = isSelected
         ? current.readModules.filter((m) => m !== module)
         : [...current.readModules, module]
 
       // Auto-sync page permissions: add/remove corresponding page access when module is selected/deselected
-      const pagePermissions = [`${module}`, `${module}-new`]
+      const pagePermissions: readonly string[] = option.pages
       let newPages = current.pages
 
       if (isSelected) {
@@ -480,14 +498,14 @@ export default function AdminRolesPage() {
                     <div className="grid grid-cols-3 gap-2 p-3 border rounded-lg bg-blue-50">
                       {MODULES.map((module) => (
                         <label
-                          key={module}
-                          className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded capitalize"
+                          key={module.id}
+                          className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded"
                         >
                           <Checkbox
-                            checked={formData.readModules.includes(module)}
-                            onCheckedChange={() => toggleModule(module)}
+                            checked={formData.readModules.includes(module.id)}
+                            onCheckedChange={() => toggleModule(module.id)}
                           />
-                          <span className="text-sm font-medium">{module}</span>
+                          <span className="text-sm font-medium">{module.label}</span>
                         </label>
                       ))}
                     </div>
@@ -498,15 +516,15 @@ export default function AdminRolesPage() {
                     <div className="grid grid-cols-3 gap-2 p-3 border rounded-lg bg-emerald-50">
                       {MODULES.map((module) => (
                         <label
-                          key={`readall-${module}`}
-                          className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded capitalize"
+                          key={`readall-${module.id}`}
+                          className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded"
                         >
                           <Checkbox
-                            checked={formData.readAllModules.includes(module)}
-                            onCheckedChange={() => toggleReadAllModule(module)}
-                            disabled={!formData.readModules.includes(module)}
+                            checked={formData.readAllModules.includes(module.id)}
+                            onCheckedChange={() => toggleReadAllModule(module.id)}
+                            disabled={!formData.readModules.includes(module.id)}
                           />
-                          <span className="text-sm font-medium text-gray-700">{module}</span>
+                          <span className="text-sm font-medium text-gray-700">{module.label}</span>
                         </label>
                       ))}
                     </div>

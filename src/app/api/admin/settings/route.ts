@@ -23,6 +23,16 @@ export async function POST(req: NextRequest) {
   if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json()
+  if (body.financeSlaWorkingDays !== undefined || body.financeSlaReminderDay !== undefined) {
+    const current = loadSettingsServer()
+    const slaDays = Number.parseInt(String(body.financeSlaWorkingDays ?? current.financeSlaWorkingDays), 10)
+    const reminderDay = Number.parseInt(String(body.financeSlaReminderDay ?? current.financeSlaReminderDay), 10)
+    if (!Number.isInteger(slaDays) || slaDays < 2 || slaDays > 60 || !Number.isInteger(reminderDay) || reminderDay < 1 || reminderDay >= slaDays) {
+      return NextResponse.json({ error: "Reminder day must be at least 1 and earlier than the Finance SLA deadline." }, { status: 400 })
+    }
+    body.financeSlaWorkingDays = String(slaDays)
+    body.financeSlaReminderDay = String(reminderDay)
+  }
   writeSettingsServer(body)
   return NextResponse.json({ success: true })
 }

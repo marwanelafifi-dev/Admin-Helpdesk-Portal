@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { useForm, Controller } from "react-hook-form"
+import { useForm, Controller, useFieldArray, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import {
@@ -20,11 +20,10 @@ import { Label } from "@/components/ui/label"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
-import { AlertCircle, Upload, X, FileText, CreditCard, Mail, UserCheck, FileCheck2, FileSignature, Check, MoreHorizontal } from "lucide-react"
+import { AlertCircle, Upload, X, FileText, CreditCard, Mail, UserCheck, FileCheck2, FileSignature, Check, MoreHorizontal, Plus, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
-import { PoNumbersField } from "@/components/ui/PoNumbersField"
 import { FinanceProcessingNotice } from "./FinancePriorityField"
 import { ApproverField } from "./ApproverField"
 import { getList } from "@/lib/companyDataStore"
@@ -34,6 +33,8 @@ const BRAND = "#d97706" // amber-600 — Finance brand color
 const CURRENCY_OPTIONS: string[] = [...INVOICE_PAYMENT_CURRENCIES]
 
 type InvoicePaymentFormValues = z.infer<typeof InvoicePaymentPayloadSchema>
+
+const EMPTY_INVOICE_ROW = { supplier: "", poNumber: "", otherDescription: "", amount: 0, currency: "USD" as const, paymentTerms: "", paymentMethod: "Wire Transfer" as const }
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null
@@ -74,9 +75,16 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
 
   const { register, control, handleSubmit, watch, setValue, setError, formState: { errors, isSubmitting }, reset } = useForm<InvoicePaymentFormValues>({
     resolver: zodResolver(InvoicePaymentPayloadSchema),
-    defaultValues: { currency: "USD", priority: "Normal", poOrContract: "po", poNumbers: [], approverEmail: "", approverName: "", ccEmails: [] },
+    defaultValues: { priority: "Normal", poOrContract: "po", poNumbers: [], invoiceRows: [{ ...EMPTY_INVOICE_ROW }], approverEmail: "", approverName: "", ccEmails: [] },
   })
 
+  const { fields: invoiceFields, append: appendInvoice, remove: removeInvoice } = useFieldArray({ control, name: "invoiceRows" })
+  const invoiceRows = useWatch({ control, name: "invoiceRows" }) ?? []
+  const invoiceTotalsByCurrency = invoiceRows.reduce<Record<string, number>>((totals, row) => {
+    const currency = row.currency || "USD"
+    totals[currency] = (totals[currency] ?? 0) + (Number.isFinite(Number(row.amount)) ? Number(row.amount) : 0)
+    return totals
+  }, {})
   const poOrContract = watch("poOrContract")
   const approverEmail = watch("approverEmail")
   const approverName = watch("approverName")
@@ -89,14 +97,8 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
       reset({
         requestTitle: editingRequest.title || "",
         priority: payload.priority || "Normal",
-        supplier: payload.supplier || "",
         poOrContract: payload.poOrContract || "po",
-        poNumbers: Array.isArray(payload.poNumbers) ? payload.poNumbers : [],
-        otherDetails: payload.otherDetails || "",
-        amount: payload.amount || 0,
-        currency: payload.currency || "USD",
-        paymentTerms: payload.paymentTerms || "",
-        paymentMethod: payload.paymentMethod === "Ramp" ? "Company Credit Card" : payload.paymentMethod || undefined,
+        invoiceRows: Array.isArray(payload.invoiceRows) && payload.invoiceRows.length > 0 ? payload.invoiceRows : [{ supplier: payload.supplier || "", poNumber: Array.isArray(payload.poNumbers) ? payload.poNumbers[0] || "" : "", otherDescription: payload.otherDetails || "", amount: payload.amount || 0, currency: payload.currency || "USD", paymentTerms: payload.paymentTerms || "", paymentMethod: payload.paymentMethod === "Ramp" ? "Company Credit Card" : payload.paymentMethod || "Wire Transfer" }],
         approverEmail: payload.approverEmail || "",
         approverName: payload.approverName || "",
       })
@@ -111,8 +113,8 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
       return
     }
     setInvoiceFileError(null)
-    if (data.poOrContract === "po" && (!data.poNumbers || data.poNumbers.length === 0)) {
-      setError("poNumbers", { type: "manual", message: "At least one PO number is required" })
+    if (data.poOrContract === "po" && data.invoiceRows.some((row) => !row.poNumber?.trim())) {
+      setError("invoiceRows", { type: "manual", message: "Enter a PO number for every invoice row" })
       return
     }
 
@@ -131,10 +133,12 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
     const directManagerEmail = approverEmailTrimmed ?? ""
     const directManager = approverEmailTrimmed ? (data.approverName?.trim() || approverEmailTrimmed) : ""
 
+    const primaryRow = data.invoiceRows[0]
+    const payload = { ...data, supplier: primaryRow.supplier, poNumbers: data.invoiceRows.map((row) => row.poNumber).filter(Boolean), amount: data.invoiceRows.reduce((sum, row) => sum + Number(row.amount || 0), 0), currency: primaryRow.currency, paymentTerms: primaryRow.paymentTerms, paymentMethod: primaryRow.paymentMethod, directManagerEmail, directManager }
     let redirectTo: string | null = null
     try {
       if (isEditing && editingRequest) {
-        updateRequest(editingRequest.id, { ...data, directManagerEmail, directManager }, {
+        updateRequest(editingRequest.id, payload, {
           title: data.requestTitle,
           requesterId: editingRequest.requesterId,
           requesterName: editingRequest.requesterName,
@@ -142,7 +146,7 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
         })
       } else {
         // 1. Create request first (server-assigns the ID)
-        const newReq = await submitRequest("finance_invoice_payment", { ...data, directManagerEmail, directManager } as any, {
+        const newReq = await submitRequest("finance_invoice_payment", payload as any, {
           title: data.requestTitle,
           requesterId: session?.user?.id || "USR-001",
           requesterName: session?.user?.name || session?.user?.email || "Current User",
@@ -155,7 +159,7 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
           const attachments = await filesToAttachments(filesToUpload, newReq.id)
           const uploadedInvoiceFile = invoiceFile ? attachments[0] : undefined
           const additionalAttachments = invoiceFile ? attachments.slice(1) : attachments
-          const updated = updateRequest(newReq.id, { ...data, directManagerEmail, directManager, invoiceFile: uploadedInvoiceFile, additionalAttachments } as any, { title: data.requestTitle })
+          const updated = updateRequest(newReq.id, { ...payload, invoiceFile: uploadedInvoiceFile, additionalAttachments } as any, { title: data.requestTitle })
           if (updated) {
             void pushToServer(updated)
           }
@@ -183,7 +187,7 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
   }
 
   return (
-    <div className="space-y-5 max-w-3xl mx-auto">
+    <div className="space-y-5 max-w-7xl mx-auto">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {/* Request Title */}
         <Card>
@@ -221,24 +225,6 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
         <Card>
           <SectionHeader icon={CreditCard} title="Invoice Details" subtitle="Which vendor invoice should be paid?" />
           <CardContent className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Supplier <span className="text-red-500">*</span></Label>
-              <Controller
-                name="supplier"
-                control={control}
-                render={({ field }) => (
-                  <SearchableSelect
-                    value={field.value ?? ""}
-                    onChange={field.onChange}
-                    options={suppliers}
-                    placeholder="Select supplier"
-                    hasError={!!errors.supplier}
-                  />
-                )}
-              />
-              <FieldError message={errors.supplier?.message} />
-            </div>
-
             <div className="space-y-1.5">
                 <Label>PO or Contract <span className="text-red-500">*</span></Label>
                 <Controller
@@ -282,81 +268,34 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
                 />
             </div>
 
-            {poOrContract === "po" && (
-              <div className="space-y-1.5">
-                <Label>PO Number(s) <span className="text-red-500">*</span></Label>
-                <Controller
-                  name="poNumbers"
-                  control={control}
-                  render={({ field }) => (
-                    <PoNumbersField value={field.value ?? []} onChange={field.onChange} hasError={!!errors.poNumbers} />
-                  )}
-                />
-                <FieldError message={errors.poNumbers?.message} />
-              </div>
-            )}
-
-            {poOrContract === "other" && (
-              <div className="space-y-1.5">
-                <Label htmlFor="otherDetails">Details (optional)</Label>
-                <Input id="otherDetails" placeholder="Add any relevant details" {...register("otherDetails")} />
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="amount">Amount <span className="text-red-500">*</span></Label>
-                <Input id="amount" type="number" min="0" step="0.01" placeholder="0.00" {...register("amount", { valueAsNumber: true })} className={cn(errors.amount && "border-red-400")} />
-                <FieldError message={errors.amount?.message} />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label>Currency <span className="text-red-500">*</span></Label>
-                <Controller
-                  name="currency"
-                  control={control}
-                  render={({ field }) => (
-                    <SearchableSelect
-                      value={field.value ?? ""}
-                      onChange={field.onChange}
-                      options={CURRENCY_OPTIONS}
-                      placeholder="Select currency"
-                      hasError={!!errors.currency}
-                    />
-                  )}
-                />
-                <FieldError message={errors.currency?.message} />
-              </div>
+            <div className="overflow-visible rounded-lg border">
+              <table className="w-full table-fixed text-sm">
+                <thead className="bg-slate-50 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                  <tr>
+                    <th className="border-b px-2 py-3">Supplier <span className="text-red-500">*</span></th>
+                    {poOrContract === "po" && <th className="border-b px-2 py-3">PO Number <span className="text-red-500">*</span></th>}
+                    {poOrContract === "other" && <th className="border-b px-2 py-3">Description</th>}
+                    <th className="border-b px-2 py-3">Invoice Amount <span className="text-red-500">*</span></th>
+                    <th className="w-[13%] border-b px-2 py-3">Currency <span className="text-red-500">*</span></th>
+                    <th className="w-[16%] border-b px-2 py-3">Payment Terms <span className="text-red-500">*</span></th>
+                    <th className="w-[17%] border-b px-2 py-3">Payment Method <span className="text-red-500">*</span></th>
+                    <th className="w-10 border-b px-1 py-3" />
+                  </tr>
+                </thead>
+                <tbody>{invoiceFields.map((invoiceField, index) => <tr key={invoiceField.id} className="align-top border-b last:border-0">
+                  <td className="px-2 py-3"><Controller name={`invoiceRows.${index}.supplier`} control={control} render={({ field }) => <SearchableSelect value={field.value ?? ""} onChange={field.onChange} options={suppliers} placeholder="Select supplier" hasError={!!errors.invoiceRows?.[index]?.supplier} />} /><FieldError message={errors.invoiceRows?.[index]?.supplier?.message} /></td>
+                  {poOrContract === "po" && <td className="px-2 py-3"><Input placeholder="PO number" {...register(`invoiceRows.${index}.poNumber`)} className={cn(errors.invoiceRows?.[index]?.poNumber && "border-red-400")} /><FieldError message={errors.invoiceRows?.[index]?.poNumber?.message} /></td>}
+                  {poOrContract === "other" && <td className="px-2 py-3"><Input placeholder="Optional description" {...register(`invoiceRows.${index}.otherDescription`)} /></td>}
+                  <td className="px-2 py-3"><Input type="number" min="0" step="0.01" placeholder="0.00" {...register(`invoiceRows.${index}.amount`, { valueAsNumber: true })} className={cn(errors.invoiceRows?.[index]?.amount && "border-red-400")} /><FieldError message={errors.invoiceRows?.[index]?.amount?.message} /></td>
+                  <td className="px-2 py-3"><Controller name={`invoiceRows.${index}.currency`} control={control} render={({ field }) => <SearchableSelect value={field.value ?? ""} onChange={field.onChange} options={CURRENCY_OPTIONS} placeholder="Currency" hasError={!!errors.invoiceRows?.[index]?.currency} />} /></td>
+                  <td className="px-2 py-3"><Input placeholder="e.g. Net 30" {...register(`invoiceRows.${index}.paymentTerms`)} className={cn(errors.invoiceRows?.[index]?.paymentTerms && "border-red-400")} /><FieldError message={errors.invoiceRows?.[index]?.paymentTerms?.message} /></td>
+                  <td className="px-2 py-3"><Controller name={`invoiceRows.${index}.paymentMethod`} control={control} render={({ field }) => <Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue placeholder="Method" /></SelectTrigger><SelectContent>{PAYMENT_METHODS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select>} /></td>
+                  <td className="px-1 py-3 text-center"><Button type="button" variant="ghost" size="icon" disabled={invoiceFields.length === 1} onClick={() => removeInvoice(index)}><Trash2 className="h-4 w-4 text-red-500" /></Button></td>
+                </tr>)}</tbody>
+                <tfoot><tr className="border-t bg-amber-50/70 font-bold text-slate-950"><td colSpan={poOrContract === "contract" ? 2 : 3} className="px-3 py-3 text-right text-xs">Amount totals by currency</td><td colSpan={4} className="px-3 py-3"><div className="flex flex-wrap gap-x-5 gap-y-1 text-xs">{Object.entries(invoiceTotalsByCurrency).map(([currency, amount]) => <span key={currency}>{currency}: {amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>)}</div></td></tr></tfoot>
+              </table>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="paymentTerms">Payment Terms <span className="text-red-500">*</span></Label>
-                <Input id="paymentTerms" placeholder="e.g. Net 30" {...register("paymentTerms")} className={cn(errors.paymentTerms && "border-red-400")} />
-                <FieldError message={errors.paymentTerms?.message} />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="paymentMethod">Method <span className="text-red-500">*</span></Label>
-                <Controller
-                  name="paymentMethod"
-                  control={control}
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger className={cn(errors.paymentMethod && "border-red-400")}>
-                        <SelectValue placeholder="Select payment method" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PAYMENT_METHODS.map((m) => (
-                          <SelectItem key={m} value={m}>{m}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                <FieldError message={errors.paymentMethod?.message} />
-              </div>
-            </div>
+            <Button type="button" variant="outline" className="gap-2" onClick={() => appendInvoice({ ...EMPTY_INVOICE_ROW })}><Plus className="h-4 w-4" /> Add Invoice Row</Button>
           </CardContent>
         </Card>
 

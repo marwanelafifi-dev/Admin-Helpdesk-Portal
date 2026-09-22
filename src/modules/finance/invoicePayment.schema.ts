@@ -28,6 +28,16 @@ export type InvoicePaymentCurrency = (typeof INVOICE_PAYMENT_CURRENCIES)[number]
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number]
 export type PoOrContract = (typeof PO_OR_CONTRACT_OPTIONS)[number]
 
+export const InvoicePaymentRowSchema = z.object({
+  supplier: z.string().min(1, "Supplier is required"),
+  poNumber: z.string().optional(),
+  otherDescription: z.string().optional(),
+  amount: z.number().min(0.01, "Amount must be greater than 0"),
+  currency: z.enum(INVOICE_PAYMENT_CURRENCIES),
+  paymentTerms: z.string().min(1, "Payment terms are required"),
+  paymentMethod: z.enum(PAYMENT_METHODS),
+})
+
 const AttachmentSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -43,14 +53,15 @@ const AttachmentSchema = z.object({
 export const InvoicePaymentPayloadSchema = z.object({
   requestTitle: z.string().min(1, "Request title is required"),
   priority: z.enum(FINANCE_PRIORITIES),
-  supplier: z.string().min(1, "Supplier is required"),
+  supplier: z.string().optional(),
   poOrContract: z.enum(PO_OR_CONTRACT_OPTIONS),
   poNumbers: z.array(z.string().min(1)).optional(),
   otherDetails: z.string().optional(),
-  amount: z.number().min(0.01, "Amount must be greater than 0"),
-  currency: z.enum(INVOICE_PAYMENT_CURRENCIES),
-  paymentTerms: z.string().min(1, "Payment terms are required"),
-  paymentMethod: z.enum(PAYMENT_METHODS),
+  amount: z.number().optional(),
+  currency: z.enum(INVOICE_PAYMENT_CURRENCIES).optional(),
+  paymentTerms: z.string().optional(),
+  paymentMethod: z.enum(PAYMENT_METHODS).optional(),
+  invoiceRows: z.array(InvoicePaymentRowSchema).min(1, "Add at least one invoice row"),
   // Finance-Team-only: optionally route this request through an approver
   // before it can move to In Progress. Any portal user or free-typed email
   // — not limited to the Company Data manager lists other modules use.

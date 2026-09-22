@@ -5,7 +5,7 @@ export default function HRDepartmentPage() {
   return (
     <DashboardPage
       moduleScope={modulesVisibleToFunction("hr")}
-      title="HR Team - Dashboard"
+      title="People Team - Dashboard"
       detailBasePath="/departments/hr/requests"
       moduleLinks={{ hr_general: "/departments/hr/general", hr_letter: "/departments/hr/letter" }}
     />

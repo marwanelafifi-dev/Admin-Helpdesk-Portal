@@ -1,9 +1,15 @@
 import { prisma } from "@/lib/prisma"
 
-export const DEFAULT_USER_ROLES = ["Full Access", "admin", "manager", "Manager - BUCHI", "Requester - Si-Ware", "Requester - BUCHI", "viewer"] as const
+export const DEFAULT_USER_ROLES = ["Full Access", "Administration Team", "Finance Team", "People Team", "Manager", "Manager - BUCHI", "Requester - Si-Ware", "Requester - BUCHI", "viewer"] as const
 
 const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   "Full Access": ["*"],
+  "finance team": [
+    "page:finance-dashboard", "page:finance-services", "page:finance-reimbursement", "page:finance-travel", "page:finance-invoices", "page:finance-my-requests", "page:finance-team-requests", "page:finance-all-requests", "page:finance-tasks", "page:finance-sla-reminders", "page:finance-feedback", "page:finance-request-detail", "page:my-requests", "page:team-requests", "page:request-detail",
+  ],
+  "people team": [
+    "page:hr-dashboard", "page:hr-services", "page:hr-general", "page:hr-letter-request", "page:hr-my-requests", "page:hr-team-requests", "page:hr-all-requests", "page:hr-tasks", "page:hr-feedback", "page:hr-request-detail", "page:my-requests", "page:team-requests", "page:request-detail",
+  ],
   admin: [
     "page:dashboard",
     "page:feedback-reports",
@@ -58,6 +64,11 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     "update_status",
     "cancel_request",
     "edit_request",
+    "page:team-requests",
+    "page:finance-team-requests",
+    "page:hr-team-requests",
+    "page:finance-request-detail",
+    "page:hr-request-detail",
   ],
   "manager - buchi": [
     "page:dashboard",

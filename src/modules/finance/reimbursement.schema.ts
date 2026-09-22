@@ -20,8 +20,10 @@ export const ReimbursementExpenseRowSchema = z.object({
   po: z.string().trim().optional(),
   description: z.string().trim().min(1, "Description is required"),
   costCenter: z.string().trim().min(1, "Cost center is required"),
-  currency: z.enum(REIMBURSEMENT_CURRENCIES),
-  amount: z.number().positive("Amount must be greater than 0"),
+  invoiceAmount: z.number().positive("Invoice amount must be greater than 0"),
+  invoiceCurrency: z.enum(REIMBURSEMENT_CURRENCIES),
+  refundAmount: z.number().positive("Refund amount must be greater than 0"),
+  refundCurrency: z.enum(REIMBURSEMENT_CURRENCIES),
 })
 
 // poNumbers / directManager / company-expense payment evidence (stored under

@@ -100,7 +100,7 @@ export function functionsVisibleToModule(moduleId: string): FunctionId[] {
  */
 export function functionsForLegacyRequestId(requestId?: string): FunctionId[] {
   const prefix = (requestId ?? "").split("-")[0]?.toUpperCase()
-  if (["HRG", "HRL"].includes(prefix)) return ["hr"]
+  if (["HRG", "HRL", "HRLTR"].includes(prefix)) return ["hr"]
   if (["REI", "TRE", "INV"].includes(prefix)) return ["finance"]
   if (prefix === "HR") return ["admin", "hr"]
   return ["admin"]
@@ -151,15 +151,22 @@ export function roleToFunctionId(role?: string | null): FunctionId | null {
   const normalized = role?.trim().toLowerCase()
   if (!normalized) return null
 
-  const matches = (baseRole: string) => {
-    const base = baseRole.toLowerCase()
-    return normalized === base || normalized.startsWith(`${base} - `)
-  }
+  // Team-role variants created in the Roles editor (for example,
+  // "People Team - Payroll" or the legacy "People Team -----") retain
+  // their function identity. Their individual permissions still decide
+  // which requests they may read.
+  const matches = (baseRole: string) => normalized.startsWith(baseRole.toLowerCase())
 
   if (matches("Administration Team")) return "admin"
   if (matches("People Team")) return "hr"
   if (matches("Finance Team")) return "finance"
   return null
+}
+
+/** A Travel-created HR letter is handled in the same People queue as a standard HR letter. */
+function hasReadAllModuleAccess(readAllModules: string[], moduleId: string): boolean {
+  return readAllModules.includes(moduleId)
+    || (moduleId === "hr_travel_letter" && readAllModules.includes("hr_letter"))
 }
 
 /**
@@ -173,10 +180,28 @@ export function roleToFunctionId(role?: string | null): FunctionId | null {
  * mechanism here would show an empty list to e.g. every real "Finance Team"
  * user, including on their own submissions.
  */
-export function canViewAllInOwnFunctionModules(moduleIds: string[], role?: string | null): boolean {
-  if (role === "Full Access") return true
+export function canViewAllInOwnFunctionModules(
+  moduleIds: string[],
+  role?: string | null,
+  permissions: string[] = [],
+  readAllModules: string[] = [],
+): boolean {
+  if (role === "Full Access" || permissions.includes("*")) return true
+  // Owning a function only identifies which modules this role may work with.
+  // The Read capability is the explicit switch for seeing every request;
+  // without it, the page must remain scoped to the requester's own records.
+  if (!permissions.includes("read")) return false
+  // An explicit per-module "View ALL Requests From" grant in Roles may
+  // extend a team member into another function. This is intentionally more
+  // specific than the team-role default and must take precedence here.
+  if (moduleIds.every((moduleId) => hasReadAllModuleAccess(readAllModules, moduleId))) return true
   const fn = roleToFunctionId(role)
   return !!fn && moduleIds.every((m) => isModuleVisibleToFunction(m, fn))
+}
+
+/** Read Own is the explicit permission for a requester's personal records. */
+export function canViewOwnRequests(permissions: string[] = []): boolean {
+  return permissions.includes("*") || permissions.includes("read") || permissions.includes("read_own")
 }
 
 /**
@@ -192,14 +217,20 @@ export function canViewAllInOwnFunctionModules(moduleIds: string[], role?: strin
 export function isRequestVisibleToViewer(params: {
   moduleId: string
   role?: string | null
+  permissions?: string[]
+  readAllModules?: string[]
   viewerEmail?: string | null
   requesterEmail?: string | null
   ccEmails?: string[]
 }): boolean {
-  if (params.role === "Full Access") return true
+  if (params.role === "Full Access" || params.permissions?.includes("*")) return true
   if (isModuleVisibleToFunction(params.moduleId, "admin")) return true
   const fn = roleToFunctionId(params.role)
-  if (fn && isModuleVisibleToFunction(params.moduleId, fn)) return true
+  if (params.permissions?.includes("read") && (
+    (fn && isModuleVisibleToFunction(params.moduleId, fn))
+    || hasReadAllModuleAccess(params.readAllModules ?? [], params.moduleId)
+  )) return true
+  if (!params.permissions?.includes("read_own")) return false
   const viewer = (params.viewerEmail ?? "").trim().toLowerCase()
   if (!viewer) return false
   if ((params.requesterEmail ?? "").trim().toLowerCase() === viewer) return true

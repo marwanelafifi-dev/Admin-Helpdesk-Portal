@@ -43,7 +43,9 @@ export function autoCreateHrLetterFromTravel(request: EngineRequest): void {
   }
 
   const hrLetter: EngineRequest = {
-    id: `HRLTR-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    // requestStore.create() issues the shared HRLTR-YYYY-#### sequence.
+    // This placeholder is never persisted.
+    id: "PENDING-HRLTR",
     module: "hr_travel_letter",
     title: `HR Letter - ${request.title}`,
     status: "new",
@@ -62,14 +64,14 @@ export function autoCreateHrLetterFromTravel(request: EngineRequest): void {
     updatedAt: now,
   } as EngineRequest
 
-  requestStore.upsert(hrLetter)
+  const savedHrLetter = requestStore.create(hrLetter)
 
   // Link the HR Letter back onto the Travel request so this only ever fires once.
   const updatedTravel: EngineRequest = {
     ...request,
     payload: {
       ...payload,
-      linkedHrLetterRequestId: hrLetter.id,
+      linkedHrLetterRequestId: savedHrLetter.id,
     },
     updatedAt: now,
   }
@@ -79,7 +81,7 @@ export function autoCreateHrLetterFromTravel(request: EngineRequest): void {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      hrLetterRequestId: hrLetter.id,
+      hrLetterRequestId: savedHrLetter.id,
       travelRequestId: request.id,
       traveler: request.requesterName,
       destination: payload.destination,

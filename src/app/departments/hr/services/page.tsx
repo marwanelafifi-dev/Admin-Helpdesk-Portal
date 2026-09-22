@@ -14,11 +14,11 @@ interface Service {
 }
 
 // HR — Onboarding/Offboarding are NOT here: those are requests other
-// departments submit *to* the HR Team via the Admin Portal's Admin Team
-// Services page. This page only lists services the HR Team offers directly
+// departments submit *to* the People Team via the Admin Portal's Admin Team
+// Services page. This page only lists services the People Team offers directly
 // to requesters. Add future HR-facing services here as they're built.
 const services: Service[] = [
-  { title: "General Request", description: "Submit a general inquiry or request to the HR Team.", href: "/departments/hr/general", icon: Inbox },
+  { title: "General Request", description: "Submit a general inquiry or request to the People Team.", href: "/departments/hr/general", icon: Inbox },
   { title: "HR Letter Request", description: "Request an official HR letter or certificate (e.g. employment verification, salary certificate).", href: "/departments/hr/letter", icon: FileText },
 ]
 
@@ -34,7 +34,7 @@ export default async function HRDepartmentServicesPage() {
     <div className="space-y-6">
       <div className="rounded-xl border bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-teal-600 text-white"><Users className="h-7 w-7" /></div>
-        <h1 className="mt-5 text-3xl font-bold text-slate-900 dark:text-white">HR Team Services</h1>
+        <h1 className="mt-5 text-3xl font-bold text-slate-900 dark:text-white">People Team Services</h1>
         <p className="mt-3 text-slate-600 dark:text-slate-400">Select an HR service to submit a request or review your existing requests.</p>
       </div>
 

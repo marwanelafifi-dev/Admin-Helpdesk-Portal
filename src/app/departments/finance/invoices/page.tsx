@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, isUserInCc, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { cn, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
-import { canViewAllInOwnFunctionModules } from "@/lib/functionRegistry"
+import { canViewAllInOwnFunctionModules, canViewOwnRequests } from "@/lib/functionRegistry"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { useCommentSearch } from "@/hooks/useCommentSearch"
@@ -89,6 +89,7 @@ export default function InvoicePaymentRequestsPage() {
   const tableRef = useRef<HTMLTableElement>(null)
 
   const canUpdateStatus = ((session?.user?.permissions as string[])?.includes("update_status") || (session?.user?.permissions as string[])?.includes("*")) ?? false
+  const canCreateRequest = ((session?.user?.permissions as string[])?.includes("create") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canEditRequest = ((session?.user?.permissions as string[])?.includes("edit_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canCancelRequest = ((session?.user?.permissions as string[])?.includes("cancel_request") || (session?.user?.permissions as string[])?.includes("*")) ?? false
   const canPermanentDelete = (
@@ -102,10 +103,16 @@ export default function InvoicePaymentRequestsPage() {
     initializeMockData()
     const all = getRequests().filter((r) => r.module === MODULE_ID)
 
-    const canSeeAll = canViewAllInOwnFunctionModules([MODULE_ID], session?.user?.role)
+    const canSeeAll = canViewAllInOwnFunctionModules(
+      [MODULE_ID],
+      session?.user?.role,
+      (session?.user?.permissions as string[] | undefined) ?? [],
+      ((session?.user as any)?.readAllModules as string[] | undefined) ?? [],
+    )
+    const canSeeOwn = canViewOwnRequests((session?.user?.permissions as string[] | undefined) ?? [])
     const email = session?.user?.email?.toLowerCase()
-    setRequests(canSeeAll ? all : all.filter((r) => r.requesterId === session?.user?.id || r.requesterEmail?.toLowerCase() === email))
-  }, [session?.user?.id, session?.user?.email, session?.user?.role])
+    setRequests(canSeeAll ? all : canSeeOwn ? all.filter((r) => r.requesterId === session?.user?.id || r.requesterEmail?.toLowerCase() === email) : [])
+  }, [session?.user?.id, session?.user?.email, session?.user?.role, session?.user?.permissions, (session?.user as any)?.readAllModules])
 
   useEffect(() => {
     loadRequests()
@@ -256,12 +263,12 @@ export default function InvoicePaymentRequestsPage() {
         {(newRequestsCount > 0 || newTasksCount > 0) && (
           <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
         )}
-        <Link href="/departments/finance/invoices/new">
+        {canCreateRequest && <Link href="/departments/finance/invoices/new">
           <Button style={{ backgroundColor: "#d97706" }} className="text-white hover:opacity-90 ml-4">
             <Plus className="h-4 w-4 mr-2" />
             New Invoice Payment Request
           </Button>
-        </Link>
+        </Link>}
       </div>
 
       {/* Stat Cards */}

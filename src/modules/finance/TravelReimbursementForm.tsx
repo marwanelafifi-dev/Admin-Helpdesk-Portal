@@ -32,7 +32,14 @@ import { filesToAttachments } from "@/lib/attachments"
 const BRAND = "#d97706" // amber-600 — Finance brand color
 type TravelReimbursementFormValues = z.infer<typeof TravelReimbursementPayloadSchema>
 
-const EMPTY_EXPENSE_ROW = { description: "Uber" as const, otherDescription: "", usdAmount: 0, eurAmount: 0, egpAmount: 0 }
+const EMPTY_EXPENSE_ROW = {
+  description: "Uber" as const,
+  otherDescription: "",
+  invoiceAmount: 0,
+  invoiceCurrency: "EGP" as const,
+  refundAmount: 0,
+  refundCurrency: "EGP" as const,
+}
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null
@@ -86,10 +93,9 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
   const { fields: expenseFields, append: appendExpense, remove: removeExpense } = useFieldArray({ control, name: "expenseRows" })
   const expenseRows = useWatch({ control, name: "expenseRows" }) ?? []
   const paidByPersonalCreditCard = watch("paidByPersonalCreditCard")
-  const totalsByCurrency = expenseRows.reduce((totals, row) => ({
-    USD: totals.USD + (Number.isFinite(Number(row.usdAmount)) ? Number(row.usdAmount) : 0),
-    EUR: totals.EUR + (Number.isFinite(Number(row.eurAmount)) ? Number(row.eurAmount) : 0),
-    EGP: totals.EGP + (Number.isFinite(Number(row.egpAmount)) ? Number(row.egpAmount) : 0),
+  const refundTotalsByCurrency = expenseRows.reduce((totals, row) => ({
+    ...totals,
+    [row.refundCurrency]: totals[row.refundCurrency] + (Number.isFinite(Number(row.refundAmount)) ? Number(row.refundAmount) : 0),
   }), { USD: 0, EUR: 0, EGP: 0 })
 
   useEffect(() => {
@@ -100,13 +106,24 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
         priority: payload.priority || "Normal",
         costCenter: payload.costCenter || "",
         expenseRows: Array.isArray(payload.expenseRows) && payload.expenseRows.length > 0
-          ? payload.expenseRows
+          ? payload.expenseRows.map((row: Record<string, any>) => {
+              const legacyCurrency = (["USD", "EUR", "EGP"] as const).find((currency) => Number(row[`${currency.toLowerCase()}Amount`] ?? 0) > 0) ?? "EGP"
+              const legacyAmount = Number(row[`${legacyCurrency.toLowerCase()}Amount`] ?? 0)
+              return {
+                ...row,
+                invoiceAmount: row.invoiceAmount ?? legacyAmount,
+                invoiceCurrency: row.invoiceCurrency ?? legacyCurrency,
+                refundAmount: row.refundAmount ?? legacyAmount,
+                refundCurrency: row.refundCurrency === "USD" || row.refundCurrency === "EUR" || row.refundCurrency === "EGP" ? row.refundCurrency : legacyCurrency,
+              }
+            })
           : [{
               description: "Others",
               otherDescription: editingRequest.title || "Legacy expense",
-              usdAmount: payload.currency === "USD" ? payload.amount || 0 : 0,
-              eurAmount: payload.currency === "EUR" ? payload.amount || 0 : 0,
-              egpAmount: payload.currency === "EGP" ? payload.amount || 0 : 0,
+              invoiceAmount: payload.amount || 0,
+              invoiceCurrency: payload.currency === "USD" || payload.currency === "EUR" || payload.currency === "EGP" ? payload.currency : "EGP",
+              refundAmount: payload.amount || 0,
+              refundCurrency: payload.currency === "USD" || payload.currency === "EUR" || payload.currency === "EGP" ? payload.currency : "EGP",
             }],
         authorizedManager: payload.authorizedManager || "",
         paidByPersonalCreditCard: payload.paidByPersonalCreditCard || false,
@@ -143,9 +160,10 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
 
     const payload = {
       ...data,
-      amount: totalsByCurrency.USD + totalsByCurrency.EUR + totalsByCurrency.EGP,
+      amount: refundTotalsByCurrency.USD + refundTotalsByCurrency.EUR + refundTotalsByCurrency.EGP,
       currency: undefined,
-      totalsByCurrency,
+      totalsByCurrency: refundTotalsByCurrency,
+      refundTotalsByCurrency,
       directManagerEmail: managerEmail ?? "",
     }
 
@@ -280,15 +298,16 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
         <Card>
           <SectionHeader icon={Wallet} title="Expense Details" subtitle="Add a row for each travel expense" />
           <CardContent className="space-y-4">
-            <div className="overflow-x-auto rounded-lg border">
-              <table className="w-full min-w-[760px] border-collapse text-sm">
+            <div className="overflow-hidden rounded-lg border">
+              <table className="w-full table-fixed border-collapse text-sm">
                 <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
                   <tr>
-                    <th className="border-b px-3 py-3">Description <span className="text-red-500">*</span></th>
-                    <th className="w-40 border-b px-3 py-3">USD</th>
-                    <th className="w-40 border-b px-3 py-3">Euro</th>
-                    <th className="w-40 border-b px-3 py-3">EGP</th>
-                    <th className="w-14 border-b px-2 py-3"><span className="sr-only">Actions</span></th>
+                    <th className="w-[31%] border-b px-2 py-3">Description <span className="text-red-500">*</span></th>
+                    <th className="w-[15%] border-b px-2 py-3">Invoice Amount <span className="text-red-500">*</span></th>
+                    <th className="w-[14%] border-b px-2 py-3">Invoice Currency <span className="text-red-500">*</span></th>
+                    <th className="w-[15%] border-b px-2 py-3">Refund Amount <span className="text-red-500">*</span></th>
+                    <th className="w-[14%] border-b px-2 py-3">Refund Currency <span className="text-red-500">*</span></th>
+                    <th className="w-11 border-b px-1 py-3"><span className="sr-only">Actions</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -297,40 +316,67 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
                     const selectedDescription = expenseRows[index]?.description
                     return (
                       <tr key={expenseField.id} className="align-top">
-                        <td className="border-b px-3 py-3">
+                        <td className="border-b px-2 py-3">
+                          <div className="flex items-start gap-2">
+                            <div className={cn("min-w-0", selectedDescription === "Others" ? "w-1/2 shrink-0" : "w-full")}>
+                              <Controller
+                                name={`expenseRows.${index}.description`}
+                                control={control}
+                                render={({ field }) => (
+                                  <Select value={field.value} onValueChange={field.onChange}>
+                                    <SelectTrigger className={cn(rowErrors?.description && "border-red-400")}>
+                                      <SelectValue placeholder="Select description" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {expenseDescriptions.map((description) => <SelectItem key={description} value={description}>{description}</SelectItem>)}
+                                    </SelectContent>
+                                  </Select>
+                                )}
+                              />
+                              <FieldError message={rowErrors?.description?.message} />
+                            </div>
+                            {selectedDescription === "Others" && (
+                              <div className="min-w-0 flex-1">
+                                <Input placeholder="Enter description" {...register(`expenseRows.${index}.otherDescription`)} className={cn(rowErrors?.otherDescription && "border-red-400")} />
+                                <FieldError message={rowErrors?.otherDescription?.message} />
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="border-b px-2 py-3">
+                          <Input type="number" min="0" step="0.01" placeholder="0.00" {...register(`expenseRows.${index}.invoiceAmount`, { valueAsNumber: true })} className={cn(rowErrors?.invoiceAmount && "border-red-400")} aria-label={`Invoice amount for row ${index + 1}`} />
+                          <FieldError message={rowErrors?.invoiceAmount?.message} />
+                        </td>
+                        <td className="border-b px-2 py-3">
+                          <Controller name={`expenseRows.${index}.invoiceCurrency`} control={control} render={({ field }) => (
+                            <Select value={field.value} onValueChange={field.onChange}><SelectTrigger aria-label={`Invoice currency for row ${index + 1}`}><SelectValue placeholder="Currency" /></SelectTrigger><SelectContent>{TRAVEL_REIMBURSEMENT_CURRENCIES.map((currency) => <SelectItem key={currency} value={currency}>{currency}</SelectItem>)}</SelectContent></Select>
+                          )} />
+                          <FieldError message={rowErrors?.invoiceCurrency?.message} />
+                        </td>
+                        <td className="border-b px-2 py-3">
+                          <Input type="number" min="0" step="0.01" placeholder="0.00" {...register(`expenseRows.${index}.refundAmount`, { valueAsNumber: true })} className={cn(rowErrors?.refundAmount && "border-red-400")} aria-label={`Refund amount for row ${index + 1}`} />
+                          <FieldError message={rowErrors?.refundAmount?.message} />
+                        </td>
+                        <td className="border-b px-2 py-3">
                           <Controller
-                            name={`expenseRows.${index}.description`}
+                            name={`expenseRows.${index}.refundCurrency`}
                             control={control}
                             render={({ field }) => (
                               <Select value={field.value} onValueChange={field.onChange}>
-                                <SelectTrigger className={cn(rowErrors?.description && "border-red-400")}>
-                                  <SelectValue placeholder="Select description" />
+                                <SelectTrigger aria-label={`Refund currency for row ${index + 1}`}>
+                                  <SelectValue placeholder="Select currency" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {expenseDescriptions.map((description) => <SelectItem key={description} value={description}>{description}</SelectItem>)}
+                                  {TRAVEL_REIMBURSEMENT_CURRENCIES.map((currency) => (
+                                    <SelectItem key={currency} value={currency}>{currency}</SelectItem>
+                                  ))}
                                 </SelectContent>
                               </Select>
                             )}
                           />
-                          <FieldError message={rowErrors?.description?.message} />
-                          {selectedDescription === "Others" && (
-                            <div className="mt-2">
-                              <Input placeholder="Enter description" {...register(`expenseRows.${index}.otherDescription`)} className={cn(rowErrors?.otherDescription && "border-red-400")} />
-                              <FieldError message={rowErrors?.otherDescription?.message} />
-                            </div>
-                          )}
+                          <FieldError message={rowErrors?.refundCurrency?.message} />
                         </td>
-                        {([
-                          ["usdAmount", "USD"],
-                          ["eurAmount", "EUR"],
-                          ["egpAmount", "EGP"],
-                        ] as const).map(([fieldName, currency]) => (
-                          <td key={fieldName} className="border-b px-3 py-3">
-                            <Input type="number" min="0" step="0.01" placeholder="0.00" {...register(`expenseRows.${index}.${fieldName}`, { valueAsNumber: true })} className={cn(rowErrors?.[fieldName] && "border-red-400")} aria-label={`${currency} amount for row ${index + 1}`} />
-                            <FieldError message={rowErrors?.[fieldName]?.message} />
-                          </td>
-                        ))}
-                        <td className="border-b px-2 py-3 text-center">
+                        <td className="border-b px-1 py-3 text-center">
                           <Button type="button" variant="ghost" size="icon" disabled={expenseFields.length === 1} onClick={() => removeExpense(index)} aria-label={`Remove expense row ${index + 1}`}>
                             <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
@@ -338,11 +384,15 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
                       </tr>
                     )
                   })}
-                  <tr className="bg-amber-50/70 font-semibold text-amber-950">
-                    <td className="px-3 py-3 text-right">Total by currency</td>
-                    {TRAVEL_REIMBURSEMENT_CURRENCIES.map((currency) => (
-                      <td key={currency} className="px-3 py-3">{currency}: {totalsByCurrency[currency].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    ))}
+                  <tr className="bg-amber-50/70 font-bold text-slate-950">
+                    <td className="px-2 py-3 text-right text-xs">Refund totals</td>
+                    <td colSpan={4} className="px-2 py-3">
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                        {TRAVEL_REIMBURSEMENT_CURRENCIES.map((currency) => (
+                          <span key={currency}>{currency}: {refundTotalsByCurrency[currency].toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        ))}
+                      </div>
+                    </td>
                     <td />
                   </tr>
                 </tbody>
