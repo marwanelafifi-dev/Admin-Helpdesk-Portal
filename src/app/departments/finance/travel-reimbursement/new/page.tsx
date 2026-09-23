@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import TravelReimbursementForm from "@/modules/finance/TravelReimbursementForm"
 import { getRequests, type EngineRequest } from "@/services/engineService"
+import { FirstRequestGuide } from "@/components/help/FirstRequestGuide"
 
 export default function NewTravelReimbursementRequestPage() {
   const router = useRouter()
@@ -29,6 +30,7 @@ export default function NewTravelReimbursementRequestPage() {
         <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
         <p className="text-muted-foreground text-sm mt-0.5">{subtitle}</p>
       </div>
+      <FirstRequestGuide moduleId="finance_travel_reimbursement" isEditing={isEditing} />
 
       <TravelReimbursementForm
         onCancel={() => router.push("/departments/finance/travel-reimbursement")}

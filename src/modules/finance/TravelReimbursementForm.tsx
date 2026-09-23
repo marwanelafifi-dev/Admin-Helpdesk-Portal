@@ -11,6 +11,7 @@ import {
   TRAVEL_EXPENSE_DESCRIPTIONS,
   TravelReimbursementPayloadSchema,
 } from "./travelReimbursement.schema"
+import { INVOICE_PAYMENT_CURRENCIES } from "./invoicePayment.schema"
 import { submitRequest, updateRequest, pushToServer, type EngineRequest } from "@/services/engineService"
 import { createNewRequestNotifications } from "@/lib/notificationStore"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -298,7 +299,7 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
         <Card>
           <SectionHeader icon={Wallet} title="Expense Details" subtitle="Add a row for each travel expense" />
           <CardContent className="space-y-4">
-            <div className="overflow-hidden rounded-lg border">
+            <div className="overflow-visible rounded-lg border">
               <table className="w-full table-fixed border-collapse text-sm">
                 <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
                   <tr>
@@ -349,7 +350,13 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
                         </td>
                         <td className="border-b px-2 py-3">
                           <Controller name={`expenseRows.${index}.invoiceCurrency`} control={control} render={({ field }) => (
-                            <Select value={field.value} onValueChange={field.onChange}><SelectTrigger aria-label={`Invoice currency for row ${index + 1}`}><SelectValue placeholder="Currency" /></SelectTrigger><SelectContent>{TRAVEL_REIMBURSEMENT_CURRENCIES.map((currency) => <SelectItem key={currency} value={currency}>{currency}</SelectItem>)}</SelectContent></Select>
+                            <SearchableSelect
+                              value={field.value ?? ""}
+                              onChange={field.onChange}
+                              options={[...INVOICE_PAYMENT_CURRENCIES]}
+                              placeholder="Currency"
+                              hasError={!!rowErrors?.invoiceCurrency}
+                            />
                           )} />
                           <FieldError message={rowErrors?.invoiceCurrency?.message} />
                         </td>

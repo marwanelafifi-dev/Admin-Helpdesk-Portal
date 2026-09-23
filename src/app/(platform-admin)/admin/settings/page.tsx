@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation"
 import {
   Globe, Bell, Shield, Save, CheckCircle2, AlertTriangle,
   ExternalLink, Clock, Lock, RefreshCw, Key, LogIn, Layout, Monitor,
-  Upload, Trash2, Star,
+  Upload, Trash2, Star, AppWindow, Headset, Globe2, LayoutGrid, Building2, UsersRound,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { DEFAULT_PLATFORM_SETTINGS, type PlatformSettings } from "@/lib/platformSettings"
+import { DEFAULT_PLATFORM_SETTINGS, type MainAppIcon, type MainAppSettings, type PlatformSettings, type SupportFunctionId } from "@/lib/platformSettings"
 
 export const HEADER_LOGO_KEY = "arp_logo_header"
 export const LOGIN_LOGO_KEY = "arp_logo_login"
@@ -34,6 +34,17 @@ const DATE_FORMATS = [
   { value: "DD/MM/YYYY", label: "DD/MM/YYYY (15/05/2026)" },
   { value: "MM/DD/YYYY", label: "MM/DD/YYYY (05/15/2026)" },
   { value: "YYYY-MM-DD", label: "YYYY-MM-DD (2026-05-15)" },
+]
+
+const MAIN_APP_ICON_OPTIONS: Array<{ value: MainAppIcon; label: string; icon: typeof Headset }> = [
+  { value: "headset", label: "Support", icon: Headset }, { value: "monitor", label: "Computer", icon: Monitor }, { value: "globe", label: "Globe", icon: Globe2 },
+  { value: "layout", label: "Grid", icon: LayoutGrid }, { value: "building", label: "Building", icon: Building2 }, { value: "users", label: "People", icon: UsersRound },
+]
+const SUPPORT_FUNCTION_OPTIONS: Array<{ id: SupportFunctionId; name: string; icon: typeof Headset }> = [
+  { id: "administration", name: "Administration Team", icon: Building2 },
+  { id: "people", name: "People Team", icon: UsersRound },
+  { id: "finance", name: "Finance Team", icon: Globe2 },
+  { id: "it", name: "IT Team", icon: Headset },
 ]
 
 type SaveState = "idle" | "saving" | "saved" | "error"
@@ -82,7 +93,14 @@ export default function AdminSettingsPage() {
   const [headerSave, setHeaderSave] = useState<SaveState>("idle")
   const [feedbackSave, setFeedbackSave] = useState<SaveState>("idle")
   const [financeSlaSave, setFinanceSlaSave] = useState<SaveState>("idle")
-  const [itServiceDeskSave, setItServiceDeskSave] = useState<SaveState>("idle")
+  const [mainAppsSave, setMainAppsSave] = useState<SaveState>("idle")
+  const [mainAppIconUpload, setMainAppIconUpload] = useState<string | null>(null)
+  const [mainAppIconUploadError, setMainAppIconUploadError] = useState<string | null>(null)
+  const mainAppIconInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const [supportLogoSave, setSupportLogoSave] = useState<SaveState>("idle")
+  const [supportLogoUpload, setSupportLogoUpload] = useState<SupportFunctionId | null>(null)
+  const supportLogoInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const [itTeamSave, setItTeamSave] = useState<SaveState>("idle")
   const [headerLogo, setHeaderLogo] = useState<string | null>(null)
   const [headerLogoSave, setHeaderLogoSave] = useState<SaveState>("idle")
   const headerLogoInputRef = useRef<HTMLInputElement>(null)
@@ -111,6 +129,10 @@ export default function AdminSettingsPage() {
             financeSlaReminderDay: String(data.settings.financeSlaReminderDay ?? prev.financeSlaReminderDay),
             itServiceDeskEnabled: data.settings.itServiceDeskEnabled ?? prev.itServiceDeskEnabled,
             itServiceDeskUrl: data.settings.itServiceDeskUrl ?? prev.itServiceDeskUrl,
+            supportFunctionLogos: { ...prev.supportFunctionLogos, ...data.settings.supportFunctionLogos },
+            mainApps: Array.isArray(data.settings.mainApps)
+              ? DEFAULT_PLATFORM_SETTINGS.mainApps.map((fallback, index) => ({ ...fallback, ...data.settings.mainApps[index], id: fallback.id }))
+              : prev.mainApps,
           }))
         }
       })
@@ -164,6 +186,42 @@ export default function AdminSettingsPage() {
 
   function set<K extends keyof PlatformSettings>(key: K, value: PlatformSettings[K]) {
     setSettings((prev) => ({ ...prev, [key]: value }))
+  }
+
+  function updateMainApp(index: number, patch: Partial<MainAppSettings>) {
+    setSettings((prev) => ({
+      ...prev,
+      mainApps: prev.mainApps.map((app, appIndex) => appIndex === index ? { ...app, ...patch } : app),
+    }))
+  }
+
+  async function handleMainAppIconUpload(index: number, appId: string, event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    if (!/^image\/(png|jpeg)$/.test(file.type) || file.size > 5 * 1024 * 1024) {
+      setMainAppIconUploadError("Choose a PNG or JPG image up to 5 MB.")
+      setMainAppsSave("error")
+      setTimeout(() => setMainAppsSave("idle"), 3000)
+      event.target.value = ""
+      return
+    }
+    try {
+      setMainAppIconUpload(appId)
+      setMainAppIconUploadError(null)
+      const formData = new FormData()
+      formData.append("file", file)
+      const response = await fetch(`/api/admin/main-app-icons/${appId}`, { method: "POST", body: formData })
+      const payload = await response.json()
+      if (!response.ok || !payload.url) throw new Error(payload.error || "Icon upload failed")
+      updateMainApp(index, { iconImage: payload.url })
+    } catch (error) {
+      setMainAppIconUploadError(error instanceof Error ? error.message : "Icon upload failed.")
+      setMainAppsSave("error")
+      setTimeout(() => setMainAppsSave("idle"), 3000)
+    } finally {
+      setMainAppIconUpload(null)
+    }
+    event.target.value = ""
   }
 
   function persist(setSave: (s: SaveState) => void) {
@@ -228,23 +286,64 @@ export default function AdminSettingsPage() {
     }
   }
 
-  async function persistItServiceDesk() {
-    setItServiceDeskSave("saving")
+  async function persistMainApps() {
+    setMainAppsSave("saving")
     try {
       const response = await fetch("/api/admin/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          itServiceDeskEnabled: settings.itServiceDeskEnabled,
-          itServiceDeskUrl: settings.itServiceDeskUrl,
-        }),
+        body: JSON.stringify({ mainApps: settings.mainApps }),
       })
-      if (!response.ok) throw new Error("Failed to save IT Service Desk settings")
-      setItServiceDeskSave("saved")
-      setTimeout(() => setItServiceDeskSave("idle"), 3000)
+      if (!response.ok) throw new Error("Failed to save Main Apps")
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+      setMainAppsSave("saved")
+      setTimeout(() => setMainAppsSave("idle"), 3000)
     } catch {
-      setItServiceDeskSave("error")
-      setTimeout(() => setItServiceDeskSave("idle"), 3000)
+      setMainAppsSave("error")
+      setTimeout(() => setMainAppsSave("idle"), 3000)
+    }
+  }
+
+  async function handleSupportLogoUpload(id: SupportFunctionId, event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file || !/^image\/(png|jpeg)$/.test(file.type) || file.size > 5 * 1024 * 1024) {
+      setSupportLogoSave("error")
+      setTimeout(() => setSupportLogoSave("idle"), 3000)
+      return
+    }
+    try {
+      setSupportLogoUpload(id)
+      const formData = new FormData()
+      formData.append("file", file)
+      const response = await fetch(`/api/admin/support-function-icons/${id}`, { method: "POST", body: formData })
+      const payload = await response.json()
+      if (!response.ok || !payload.url) throw new Error("Upload failed")
+      const supportFunctionLogos = { ...settings.supportFunctionLogos, [id]: payload.url }
+      setSettings((previous) => ({ ...previous, supportFunctionLogos }))
+      const saveResponse = await fetch("/api/admin/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ supportFunctionLogos }) })
+      if (!saveResponse.ok) throw new Error("Save failed")
+      setSupportLogoSave("saved")
+      setTimeout(() => setSupportLogoSave("idle"), 3000)
+    } catch {
+      setSupportLogoSave("error")
+      setTimeout(() => setSupportLogoSave("idle"), 3000)
+    } finally {
+      setSupportLogoUpload(null)
+    }
+  }
+
+  async function persistItTeam() {
+    setItTeamSave("saving")
+    try {
+      const response = await fetch("/api/admin/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ itServiceDeskEnabled: settings.itServiceDeskEnabled, itServiceDeskUrl: settings.itServiceDeskUrl }) })
+      if (!response.ok) throw new Error("Failed to save IT Team settings")
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+      setItTeamSave("saved")
+      setTimeout(() => setItTeamSave("idle"), 3000)
+    } catch {
+      setItTeamSave("error")
+      setTimeout(() => setItTeamSave("idle"), 3000)
     }
   }
 
@@ -364,37 +463,39 @@ export default function AdminSettingsPage() {
 
       {/* ── IT Service Desk ── */}
       <Card className="border shadow-sm">
+        <CardHeader className="border-b bg-gray-50 rounded-t-lg"><div className="flex items-center gap-2"><div className="bg-violet-100 rounded-lg p-2"><ExternalLink className="h-4 w-4 text-violet-700" /></div><div><CardTitle className="text-base font-semibold text-gray-900">IT Team</CardTitle><p className="text-xs text-gray-500 mt-0.5">Configure the Service Desk link shown in Support Functions</p></div></div></CardHeader>
+        <CardContent className="p-6 space-y-5"><div className="flex items-center justify-between"><div><p className="text-sm font-medium text-gray-800">Show IT Team</p><p className="text-xs text-gray-500 mt-0.5">Users open this link to submit IT incidents and service requests.</p></div><Toggle checked={settings.itServiceDeskEnabled} onChange={(itServiceDeskEnabled) => set("itServiceDeskEnabled", itServiceDeskEnabled)} /></div><div className="space-y-1.5"><Label className="text-sm font-medium text-gray-700">Service Desk URL</Label><Input type="url" value={settings.itServiceDeskUrl} onChange={(e) => set("itServiceDeskUrl", e.target.value)} disabled={!settings.itServiceDeskEnabled} placeholder="https://your-company.samanage.com" /><p className="text-xs text-gray-400">Use a full HTTP or HTTPS URL.</p></div><SaveButton state={itTeamSave} onClick={persistItTeam} label="Save IT Team Link" /></CardContent>
+      </Card>
+
+      <Card className="border shadow-sm">
         <CardHeader className="border-b bg-gray-50 rounded-t-lg">
           <div className="flex items-center gap-2">
-            <div className="bg-violet-100 rounded-lg p-2"><ExternalLink className="h-4 w-4 text-violet-700" /></div>
+            <div className="bg-violet-100 rounded-lg p-2"><AppWindow className="h-4 w-4 text-violet-700" /></div>
             <div>
-              <CardTitle className="text-base font-semibold text-gray-900">IT Service Desk</CardTitle>
-              <p className="text-xs text-gray-500 mt-0.5">Manage the external destination for the IT Team support-function link</p>
+              <CardTitle className="text-base font-semibold text-gray-900">Main Apps</CardTitle>
+              <p className="text-xs text-gray-500 mt-0.5">Add up to nine external applications to the Company Portal landing page</p>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-6 space-y-5">
-          <div className="flex items-center justify-between border-b border-gray-100 pb-4">
-            <div>
-              <p className="text-sm font-medium text-gray-800">Enable IT Team link</p>
-              <p className="text-xs text-gray-500 mt-0.5">When disabled, the IT card and portal shortcut remain unavailable even for permitted users.</p>
+        <CardContent className="p-6 space-y-4">
+          <p className="text-sm text-gray-600">Enabled apps appear below Support Functions. Give each app a clear name, a full HTTP or HTTPS URL, then select an icon or upload its PNG/JPG image for the landing page.</p>
+          {settings.mainApps.map((app, index) => (
+            <div key={app.id} className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
+              <div className="flex items-center justify-between gap-4"><div className="flex items-center gap-2"><span className="flex h-8 w-8 items-center justify-center rounded-lg border border-cyan-200 bg-cyan-50 text-[#263d8b]">{(() => { const Icon = MAIN_APP_ICON_OPTIONS.find((option) => option.value === app.icon)?.icon ?? Monitor; return <Icon className="h-4 w-4" /> })()}</span><p className="text-sm font-semibold text-gray-800">App {index + 1}</p></div><div className="flex items-center gap-2"><span className="text-xs text-gray-500">Show on landing page</span><Toggle checked={app.enabled} onChange={(enabled) => updateMainApp(index, { enabled })} /></div></div>
+              <div className="grid gap-3 sm:grid-cols-[1fr_1.4fr_13rem]">
+                <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-600">Name</Label><Input value={app.name} onChange={(e) => updateMainApp(index, { name: e.target.value })} placeholder="e.g. HR System" disabled={!app.enabled} /></div>
+                <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-600">Link</Label><Input type="url" value={app.url} onChange={(e) => updateMainApp(index, { url: e.target.value })} placeholder="https://app.example.com" disabled={!app.enabled} /></div>
+                <div className="space-y-1.5"><Label className="text-xs font-medium text-gray-600">Landing page icon</Label><div className="grid grid-cols-3 gap-1.5">{MAIN_APP_ICON_OPTIONS.map((option) => { const Icon = option.icon; const selected = !app.iconImage && app.icon === option.value; return <button key={option.value} type="button" title={option.label} aria-label={`Use ${option.label} icon`} disabled={!app.enabled} onClick={() => updateMainApp(index, { icon: option.value, iconImage: "" })} className={`flex h-10 items-center justify-center rounded-md border transition ${selected ? "border-[#263d8b] bg-[#eef3ff] text-[#263d8b] shadow-sm" : "border-gray-200 bg-white text-gray-500 hover:border-cyan-300 hover:text-[#263d8b]"} disabled:cursor-not-allowed disabled:opacity-40`}><Icon className="h-4 w-4" /></button> })}</div><div className="flex items-center gap-2 pt-1"><input ref={(element) => { mainAppIconInputRefs.current[app.id] = element }} id={`main-app-icon-${app.id}`} type="file" accept="image/png,image/jpeg" className="sr-only" disabled={!app.enabled || mainAppIconUpload === app.id} onChange={(event) => handleMainAppIconUpload(index, app.id, event)} /><button type="button" disabled={!app.enabled || mainAppIconUpload === app.id} onClick={() => mainAppIconInputRefs.current[app.id]?.click()} className="inline-flex h-9 items-center gap-1.5 rounded-md border border-cyan-200 bg-cyan-50 px-2.5 text-xs font-semibold text-[#263d8b] transition hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"><Upload className="h-3.5 w-3.5" />{mainAppIconUpload === app.id ? "Uploading..." : "Upload PNG/JPG"}</button>{app.iconImage && <><img src={app.iconImage} alt="Custom app icon preview" className="h-9 w-9 rounded-md border border-gray-200 object-contain p-0.5" /><button type="button" onClick={() => updateMainApp(index, { iconImage: "" })} className="text-xs font-semibold text-red-600 hover:text-red-700">Remove</button></>}</div><p className={`text-[11px] leading-4 ${mainAppIconUploadError ? "text-red-600" : "text-gray-400"}`}>{mainAppIconUploadError || "PNG or JPG up to 5 MB. Saved securely as an app asset."}</p></div>
+              </div>
             </div>
-            <Toggle checked={settings.itServiceDeskEnabled} onChange={(v) => set("itServiceDeskEnabled", v)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium text-gray-700">SolarWinds Service Desk URL</Label>
-            <Input
-              type="url"
-              value={settings.itServiceDeskUrl}
-              onChange={(e) => set("itServiceDeskUrl", e.target.value)}
-              disabled={!settings.itServiceDeskEnabled}
-              placeholder="https://your-company.samanage.com"
-              className="text-sm"
-            />
-            <p className="text-xs text-gray-400">Use a full HTTP or HTTPS URL. If blank, the existing environment URL is used when one is configured.</p>
-          </div>
-          <SaveButton state={itServiceDeskSave} onClick={persistItServiceDesk} label="Save IT Service Desk" />
+          ))}
+          <SaveButton state={mainAppsSave} onClick={persistMainApps} label="Save Main Apps" />
         </CardContent>
+      </Card>
+
+      <Card className="border shadow-sm">
+        <CardHeader className="border-b bg-gray-50 rounded-t-lg"><div className="flex items-center gap-2"><div className="bg-cyan-100 rounded-lg p-2"><AppWindow className="h-4 w-4 text-[#263d8b]" /></div><div><CardTitle className="text-base font-semibold text-gray-900">Support Function Logos</CardTitle><p className="text-xs text-gray-500 mt-0.5">Upload the logos shown on the Support Functions cards</p></div></div></CardHeader>
+        <CardContent className="p-6"><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{SUPPORT_FUNCTION_OPTIONS.map((option) => { const Icon = option.icon; const logo = settings.supportFunctionLogos[option.id]; return <div key={option.id} className="rounded-xl border border-gray-200 bg-white p-4"><div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl border border-cyan-200 bg-cyan-50 text-[#263d8b]">{logo ? <img src={logo} alt="" className="h-full w-full object-contain p-1" /> : <Icon className="h-5 w-5" />}</span><p className="text-sm font-semibold text-gray-800">{option.name}</p></div><input ref={(element) => { supportLogoInputRefs.current[option.id] = element }} type="file" accept="image/png,image/jpeg" className="sr-only" onChange={(event) => handleSupportLogoUpload(option.id, event)} /><div className="mt-4 flex items-center gap-2"><button type="button" onClick={() => supportLogoInputRefs.current[option.id]?.click()} disabled={supportLogoUpload === option.id} className="inline-flex h-9 items-center gap-1.5 rounded-md border border-cyan-200 bg-cyan-50 px-2.5 text-xs font-semibold text-[#263d8b] hover:bg-cyan-100 disabled:opacity-50"><Upload className="h-3.5 w-3.5" />{supportLogoUpload === option.id ? "Uploading..." : "Upload logo"}</button>{logo && <button type="button" onClick={() => setSettings((previous) => ({ ...previous, supportFunctionLogos: { ...previous.supportFunctionLogos, [option.id]: "" } }))} className="text-xs font-semibold text-red-600">Remove</button>}</div></div>})}</div>{supportLogoSave === "error" && <p className="mt-3 text-xs font-medium text-red-600">Logo upload failed. Use a PNG or JPG image up to 5 MB.</p>}{supportLogoSave === "saved" && <p className="mt-3 text-xs font-medium text-emerald-600">Support Function logo saved.</p>}</CardContent>
       </Card>
 
       {/* ── Login Page ── */}

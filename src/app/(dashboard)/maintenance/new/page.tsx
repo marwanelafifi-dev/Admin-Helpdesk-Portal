@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import MaintenanceForm from "@/modules/maintenance/MaintenanceForm"
 import { getRequests, type EngineRequest } from "@/services/engineService"
+import { FirstRequestGuide } from "@/components/help/FirstRequestGuide"
 
 export default function NewMaintenanceRequestPage() {
   const router = useRouter()
@@ -32,6 +33,7 @@ export default function NewMaintenanceRequestPage() {
         <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
         <p className="text-muted-foreground text-sm mt-0.5">{subtitle}</p>
       </div>
+      <FirstRequestGuide moduleId="maintenance" isEditing={isEditing} />
 
       {/* Form */}
       <MaintenanceForm

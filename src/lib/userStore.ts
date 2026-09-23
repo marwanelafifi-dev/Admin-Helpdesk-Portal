@@ -24,6 +24,10 @@ export type StoredUser = {
   defaultAssignee?: boolean
   /** Credential users must change their temporary password before using the portal. */
   mustChangePassword?: boolean
+  /** Version of the in-product journey manual the user has completed. */
+  helpManualVersion?: number
+  /** Completed first-request guides, keyed by request module. */
+  helpModuleManualVersions?: Record<string, number>
 }
 
 const STORE_PATH = path.join(process.cwd(), "data", "users.json")

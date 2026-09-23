@@ -1,6 +1,7 @@
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import ShippingForm from "@/modules/shipping/ShippingForm"
+import { FirstRequestGuide } from "@/components/help/FirstRequestGuide"
 
 export default function NewSendingRequestPage() {
   return (
@@ -18,6 +19,7 @@ export default function NewSendingRequestPage() {
           Fill in the details below and submit for approval
         </p>
       </div>
+      <FirstRequestGuide moduleId="shipping-sending" />
 
       <ShippingForm direction="sending" />
     </div>

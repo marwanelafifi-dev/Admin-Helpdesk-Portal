@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { getRequests, type EngineRequest } from "@/services/engineService"
 import { EventForm } from "@/modules/event/EventForm"
+import { FirstRequestGuide } from "@/components/help/FirstRequestGuide"
 
 export default function NewEventRequestPage() {
   const router = useRouter()
@@ -29,6 +30,7 @@ export default function NewEventRequestPage() {
         <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
         <p className="text-muted-foreground text-sm mt-0.5">{subtitle}</p>
       </div>
+      <FirstRequestGuide moduleId="event" isEditing={isEditing} />
       <EventForm
         onCancel={() => router.push("/event")}
         isEditing={isEditing}

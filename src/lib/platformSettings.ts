@@ -1,3 +1,27 @@
+export type MainAppIcon = "headset" | "monitor" | "globe" | "layout" | "building" | "users"
+export type SupportFunctionId = "administration" | "people" | "finance" | "it"
+
+export interface MainAppSettings {
+  id: string
+  name: string
+  url: string
+  icon: MainAppIcon
+  iconImage: string
+  enabled: boolean
+}
+
+export const DEFAULT_MAIN_APPS: MainAppSettings[] = [
+  { id: "main-app-1", name: "IT Service Desk", url: "", icon: "headset", iconImage: "", enabled: true },
+  { id: "main-app-2", name: "", url: "", icon: "layout", iconImage: "", enabled: false },
+  { id: "main-app-3", name: "", url: "", icon: "globe", iconImage: "", enabled: false },
+  { id: "main-app-4", name: "", url: "", icon: "monitor", iconImage: "", enabled: false },
+  { id: "main-app-5", name: "", url: "", icon: "building", iconImage: "", enabled: false },
+  { id: "main-app-6", name: "", url: "", icon: "users", iconImage: "", enabled: false },
+  { id: "main-app-7", name: "", url: "", icon: "layout", iconImage: "", enabled: false },
+  { id: "main-app-8", name: "", url: "", icon: "globe", iconImage: "", enabled: false },
+  { id: "main-app-9", name: "", url: "", icon: "monitor", iconImage: "", enabled: false },
+]
+
 export interface PlatformSettings {
   platformName: string
   orgName: string
@@ -28,6 +52,8 @@ export interface PlatformSettings {
   financeSlaReminderDay: string
   itServiceDeskEnabled: boolean
   itServiceDeskUrl: string
+  supportFunctionLogos: Record<SupportFunctionId, string>
+  mainApps: MainAppSettings[]
 }
 
 export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
@@ -60,4 +86,6 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   financeSlaReminderDay: "3",
   itServiceDeskEnabled: true,
   itServiceDeskUrl: "",
+  supportFunctionLogos: { administration: "", people: "", finance: "", it: "" },
+  mainApps: DEFAULT_MAIN_APPS,
 }

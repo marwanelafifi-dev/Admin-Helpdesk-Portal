@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { getRequests, type EngineRequest } from "@/services/engineService"
 import { TravelForm } from "@/modules/travel/TravelForm"
+import { FirstRequestGuide } from "@/components/help/FirstRequestGuide"
 
 export default function NewTravelRequestPage() {
   const router = useRouter()
@@ -32,6 +33,7 @@ export default function NewTravelRequestPage() {
         <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
         <p className="text-muted-foreground text-sm mt-0.5">{subtitle}</p>
       </div>
+      <FirstRequestGuide moduleId="travel" isEditing={isEditing} />
 
       {/* Form */}
       <TravelForm onCancel={() => router.push("/travel")} />

@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { FINANCE_PRIORITIES } from "./financeSla"
+import { INVOICE_PAYMENT_CURRENCIES } from "./invoicePayment.schema"
 
 export const TRAVEL_REIMBURSEMENT_CURRENCIES = ["USD", "EUR", "EGP"] as const
 export const TRAVEL_EXPENSE_DESCRIPTIONS = ["Uber", "Air Ticket", "Hotel", "Roaming", "Train", "Breakfast", "Others"] as const
@@ -24,7 +25,9 @@ export const TravelExpenseRowSchema = z.object({
   description: z.string().trim().min(1, "Description is required"),
   otherDescription: z.string().trim().optional(),
   invoiceAmount: z.number().min(0, "Amount cannot be negative"),
-  invoiceCurrency: z.enum(TRAVEL_REIMBURSEMENT_CURRENCIES),
+  // A supplier invoice can be in any active ISO currency. Refunds retain
+  // their separate, Finance-approved USD/EUR/EGP list below.
+  invoiceCurrency: z.enum(INVOICE_PAYMENT_CURRENCIES),
   refundAmount: z.number().min(0, "Amount cannot be negative"),
   refundCurrency: z.enum(TRAVEL_REIMBURSEMENT_CURRENCIES),
 })

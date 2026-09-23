@@ -1,6 +1,7 @@
 "use client"
 
 import { signOut, useSession } from "next-auth/react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { LogOut, Settings, Sun, Moon, User } from "lucide-react"
 import { useTheme } from "next-themes"
@@ -39,7 +40,18 @@ export function LandingTopBar() {
   const { data: session } = useSession()
   const router = useRouter()
   const user = session?.user
-  const { theme, setTheme } = useTheme()
+  const { resolvedTheme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => setMounted(true), [])
+  const isDark = mounted && resolvedTheme === "dark"
+
+  function toggleTheme() {
+    const nextTheme = isDark ? "light" : "dark"
+    setTheme(nextTheme)
+    document.documentElement.classList.toggle("dark", nextTheme === "dark")
+    document.documentElement.style.colorScheme = nextTheme
+  }
 
   async function handleSignOut() {
     await signOut({ redirect: false })
@@ -52,11 +64,11 @@ export function LandingTopBar() {
       <Button
         variant="ghost"
         size="icon"
-        title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-        onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+        title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+        onClick={toggleTheme}
         className="text-muted-foreground hover:text-foreground"
       >
-        {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+        {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
       </Button>
 
       {/* User Avatar + Name */}

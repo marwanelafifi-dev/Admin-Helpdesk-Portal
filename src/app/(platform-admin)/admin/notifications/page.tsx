@@ -217,7 +217,7 @@ const FUNCTION_EMAILS: Record<EmailFunctionId, string> = {
 }
 
 function normalizeConfig(functionId: EmailFunctionId, config: Config): Config {
-  const values: Record<string, string> = { ...config.values, smtp_user: FUNCTION_EMAILS[functionId] }
+  const values: Record<string, string> = { ...config.values }
   if (["gmail_app_password", "smtp_relay"].includes(config.method) && values.smtp_password) {
     values.smtp_password = values.smtp_password.replace(/\s/g, "")
   }
@@ -230,8 +230,8 @@ function defaultConfig(functionId: EmailFunctionId): Config {
 
 function validateConfig(functionId: EmailFunctionId, config: Config): string | null {
   if (!["gmail_app_password", "smtp_relay"].includes(config.method)) return null
-  if ((config.values.smtp_user ?? "").trim().toLowerCase() !== FUNCTION_EMAILS[functionId]) {
-    return `This function must use ${FUNCTION_EMAILS[functionId]}.`
+  if (!(config.values.smtp_user ?? "").trim()) {
+    return "Sender email is required."
   }
   const password = (config.values.smtp_password ?? "").replace(/\s/g, "")
   if (!/^[A-Za-z0-9]{16}$/.test(password)) {
@@ -264,6 +264,25 @@ const DIFFICULTY_COLORS = {
 
 export default function NotificationConfigPage() {
   const [activeAccount, setActiveAccount] = useState<EmailFunctionId>("admin")
+  const [senderEmails, setSenderEmails] = useState<Record<EmailFunctionId, string>>(FUNCTION_EMAILS)
+
+  useEffect(() => {
+    Promise.all(
+      (Object.keys(FUNCTION_EMAILS) as EmailFunctionId[]).map(async (functionId) => {
+        const response = await fetch(`/api/notifications/config?functionId=${functionId}`, { credentials: "include" })
+        const data = response.ok ? await response.json() : null
+        return [functionId, data?.config?.values?.smtp_user] as const
+      })
+    ).then((accounts) => {
+      setSenderEmails((current) => {
+        const next = { ...current }
+        for (const [functionId, email] of accounts) {
+          if (typeof email === "string" && email.trim()) next[functionId] = email.trim()
+        }
+        return next
+      })
+    }).catch(() => undefined)
+  }, [])
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -287,18 +306,22 @@ export default function NotificationConfigPage() {
               )}
             >
               <p className={cn("text-sm font-semibold", active ? "" : "text-gray-900")}>{account.label}</p>
-              <p className={cn("text-xs mt-1", active ? account.accent : "text-gray-500")}>{account.description}</p>
+              <p className={cn("text-xs mt-1", active ? account.accent : "text-gray-500")}>{senderEmails[account.id]}</p>
             </button>
           )
         })}
       </div>
 
-      <AccountPanel key={activeAccount} functionId={activeAccount} />
+      <AccountPanel
+        key={activeAccount}
+        functionId={activeAccount}
+        onSavedEmailChange={(email) => setSenderEmails((current) => ({ ...current, [activeAccount]: email }))}
+      />
     </div>
   )
 }
 
-function AccountPanel({ functionId }: { functionId: EmailFunctionId }) {
+function AccountPanel({ functionId, onSavedEmailChange }: { functionId: EmailFunctionId; onSavedEmailChange: (email: string) => void }) {
   const [config, setConfig] = useState<Config>(() => defaultConfig(functionId))
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({})
   const [saved, setSaved] = useState(false)
@@ -350,6 +373,7 @@ function AccountPanel({ functionId }: { functionId: EmailFunctionId }) {
       if (!response.ok) throw new Error(data.error || "Could not save the configuration.")
       saveConfig(functionId, normalized)
       setConfig(normalized)
+      onSavedEmailChange(normalized.values.smtp_user.trim())
       setSaveError(null)
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
@@ -473,8 +497,7 @@ function AccountPanel({ functionId }: { functionId: EmailFunctionId }) {
                     placeholder={field.placeholder}
                     value={config.values[field.key] ?? ""}
                     onChange={(e) => setValue(field.key, e.target.value)}
-                    readOnly={field.key === "smtp_user"}
-                    className={cn("pr-10 text-sm", field.key === "smtp_user" && "bg-gray-50 cursor-not-allowed")}
+                    className="pr-10 text-sm"
                   />
                 )}
                 {field.type === "password" && (

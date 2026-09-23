@@ -10,6 +10,7 @@ import {
   REIMBURSEMENT_CURRENCIES,
   ReimbursementPayloadSchema,
 } from "./reimbursement.schema"
+import { INVOICE_PAYMENT_CURRENCIES } from "./invoicePayment.schema"
 import { submitRequest, updateRequest, pushToServer, type EngineRequest } from "@/services/engineService"
 import { createNewRequestNotifications } from "@/lib/notificationStore"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -88,7 +89,7 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
   const expenseRows = useWatch({ control, name: "expenseRows" }) ?? []
   const paidByPersonalCreditCard = watch("paidByPersonalCreditCard")
   const totalsByCurrency = (amountField: "invoiceAmount" | "refundAmount", currencyField: "invoiceCurrency" | "refundCurrency") => {
-    const totals: Partial<Record<(typeof REIMBURSEMENT_CURRENCIES)[number], number>> = {}
+    const totals: Record<string, number> = {}
     for (const row of expenseRows) {
       const currency = row?.[currencyField]
       if (!currency) continue
@@ -325,7 +326,7 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
         <Card>
           <SectionHeader icon={Wallet} title="Expense Details" subtitle="Complete every field and add a row for each expense" />
           <CardContent className="space-y-4">
-            <div className="overflow-hidden rounded-lg border">
+            <div className="overflow-visible rounded-lg border">
               <table className="w-full table-fixed border-collapse text-sm">
                 <thead className="bg-slate-50 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-600">
                   <tr>
@@ -380,14 +381,13 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
                             name={`expenseRows.${index}.invoiceCurrency`}
                             control={control}
                             render={({ field }) => (
-                              <Select value={field.value} onValueChange={field.onChange}>
-                                <SelectTrigger className={cn(rowErrors?.invoiceCurrency && "border-red-400")}>
-                                  <SelectValue placeholder="Currency" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {REIMBURSEMENT_CURRENCIES.map((currency) => <SelectItem key={currency} value={currency}>{currency}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
+                              <SearchableSelect
+                                value={field.value ?? ""}
+                                onChange={field.onChange}
+                                options={[...INVOICE_PAYMENT_CURRENCIES]}
+                                placeholder="Currency"
+                                hasError={!!rowErrors?.invoiceCurrency}
+                              />
                             )}
                           />
                           <FieldError message={rowErrors?.invoiceCurrency?.message} />

@@ -2018,3 +2018,12 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 
 - [x] **Support-function cards:** Replaced bright, app-style icon blocks with a consistent enterprise visual system: restrained outlined icon containers and professional line icons for Administration (briefcase), People (team), Finance (institution), IT (headset), and Platform Administration (shield). The change preserves card behavior, permissions, and external-link handling.
 - [x] **Verification and local deployment:** Production build passed; the local Docker image was rebuilt and the portal health check passed.
+
+### Company Portal Landing, Guidance, and Finance Currency Enhancements (24 Sep 2026)
+
+- [x] **Help and first-request guidance:** Added central module/function guidance, a Help journey manual, and first-request instructions across request forms. The Help entry remains available from the portal chrome and guidance is scoped to the user’s accessible module.
+- [x] **Finance currency consistency:** Invoice currency fields use the shared global currency set throughout Finance. Refund Currency remains intentionally restricted to its existing currency list.
+- [x] **Landing-page organization:** The landing page now presents authorized Support Functions first, including the external IT Service Desk, with an optional Platform Administration shortcut only for users with platform permissions. Configurable Main Apps appear below in a single responsive desktop row without horizontal scrolling.
+- [x] **Platform-managed applications and logos:** Platform Settings supports up to nine Main Apps with names, URLs, built-in icons, custom PNG/JPG icon assets, and enablement controls. Support Function cards also support configurable PNG/JPG logos for Administration, People, Finance, and IT. Uploaded assets are stored server-side and served to all portal users.
+- [x] **Brand and accessibility polish:** Landing-card accent lines use Si-Ware navy (`#263d8b`). Typography, card alignment, status treatment, hover states, and focused layout were refined while retaining the approved background. The landing dark-mode switch uses the resolved theme and has an explicit top-layer stacking order so it remains clickable.
+- [x] **Verification and local deployment:** Production builds passed for the final changes. The compiled application was copied to `company-portal-app`, restarted, and confirmed healthy at `http://localhost:3003`.

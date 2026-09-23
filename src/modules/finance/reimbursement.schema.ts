@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { FINANCE_PRIORITIES } from "./financeSla"
+import { INVOICE_PAYMENT_CURRENCIES } from "./invoicePayment.schema"
 
 export const REIMBURSEMENT_CURRENCIES = ["USD", "EUR", "EGP"] as const
 export const PO_OPTIONS = ["has_po", "no_po"] as const
@@ -21,7 +22,9 @@ export const ReimbursementExpenseRowSchema = z.object({
   description: z.string().trim().min(1, "Description is required"),
   costCenter: z.string().trim().min(1, "Cost center is required"),
   invoiceAmount: z.number().positive("Invoice amount must be greater than 0"),
-  invoiceCurrency: z.enum(REIMBURSEMENT_CURRENCIES),
+  // Invoice currency uses Finance's full global ISO currency list. Refunds
+  // remain limited to the three currencies Finance currently pays out in.
+  invoiceCurrency: z.enum(INVOICE_PAYMENT_CURRENCIES),
   refundAmount: z.number().positive("Refund amount must be greater than 0"),
   refundCurrency: z.enum(REIMBURSEMENT_CURRENCIES),
 })

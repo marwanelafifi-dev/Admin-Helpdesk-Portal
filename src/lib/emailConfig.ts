@@ -23,7 +23,7 @@ export function normalizeAppPassword(value: string): string {
 }
 
 function normalizeEmailConfig(functionId: EmailFunctionId, config: EmailConfig): EmailConfig {
-  const values: Record<string, string> = { ...config.values, smtp_user: FUNCTION_EMAILS[functionId] }
+  const values: Record<string, string> = { ...config.values }
   if (APP_PASSWORD_METHODS.has(config.method) && values.smtp_password) {
     values.smtp_password = normalizeAppPassword(values.smtp_password)
   }
@@ -85,9 +85,8 @@ export function validateEmailConfig(functionId: EmailFunctionId, config: EmailCo
   if (!APP_PASSWORD_METHODS.has(config.method)) return null
 
   const email = (config.values.smtp_user ?? "").trim().toLowerCase()
-  const expectedEmail = FUNCTION_EMAILS[functionId]
-  if (email !== expectedEmail) {
-    return `${functionId === "admin" ? "Administration" : functionId === "hr" ? "HR" : "Finance"} must use ${expectedEmail}.`
+  if (!email) {
+    return "Sender email is required."
   }
 
   const password = normalizeAppPassword(config.values.smtp_password ?? "")

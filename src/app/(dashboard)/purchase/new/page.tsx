@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import PurchaseForm from "@/modules/purchase/PurchaseForm"
 import { getRequests, type EngineRequest } from "@/services/engineService"
+import { FirstRequestGuide } from "@/components/help/FirstRequestGuide"
 
 export default function NewPurchaseRequestPage() {
   const router = useRouter()
@@ -32,6 +33,7 @@ export default function NewPurchaseRequestPage() {
         <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
         <p className="text-muted-foreground text-sm mt-0.5">{subtitle}</p>
       </div>
+      <FirstRequestGuide moduleId="purchase" isEditing={isEditing} />
 
       {/* Form */}
       <PurchaseForm

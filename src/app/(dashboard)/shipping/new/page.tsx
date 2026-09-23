@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import ShippingForm from "@/modules/shipping/ShippingForm"
 import { getRequests, type EngineRequest } from "@/services/engineService"
+import { FirstRequestGuide } from "@/components/help/FirstRequestGuide"
 
 export default function NewShippingRequestPage() {
   const searchParams = useSearchParams()
@@ -39,6 +40,7 @@ export default function NewShippingRequestPage() {
         <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
         <p className="text-muted-foreground text-sm mt-0.5">{subtitle}</p>
       </div>
+      <FirstRequestGuide moduleId="shipping" isEditing={isEditing} />
 
       <ShippingForm
         editingRequest={existingRequest}

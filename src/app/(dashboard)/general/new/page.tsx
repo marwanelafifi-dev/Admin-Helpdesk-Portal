@@ -20,6 +20,7 @@ import { filesToAttachments } from "@/lib/attachments"
 import { cn } from "@/lib/utils"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
 import { getList, getManagerEmail } from "@/lib/companyDataStore"
+import { FirstRequestGuide } from "@/components/help/FirstRequestGuide"
 
 const HR_LETTER_TYPES = ["Bank Account Letter", "Travel HR Letter - Personal", "Others"] as const
 const HR_LETTER_DATA = ["Name", "Title", "Start Date", "National ID", "Passport No", "Salary"] as const
@@ -249,6 +250,7 @@ export default function NewGeneralRequestPage({
             : formSubtitle ?? (departmentName ? `Submit a request to the ${departmentName}` : "Submit a request")}
         </p>
       </div>
+      <FirstRequestGuide moduleId={moduleId} isEditing={isEditing} />
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 max-w-3xl mx-auto">
 

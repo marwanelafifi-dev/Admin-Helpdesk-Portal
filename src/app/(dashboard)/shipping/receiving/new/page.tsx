@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import ShippingForm from "@/modules/shipping/ShippingForm"
+import { FirstRequestGuide } from "@/components/help/FirstRequestGuide"
 
 export default function NewReceivingRequestPage() {
   const router = useRouter()
@@ -27,6 +28,7 @@ export default function NewReceivingRequestPage() {
           Fill in the details below and submit for approval
         </p>
       </div>
+      <FirstRequestGuide moduleId="shipping-receiving" />
 
       <ShippingForm onCancel={handleCancel} direction="receiving" />
     </div>

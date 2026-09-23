@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getToken } from "@auth/core/jwt"
 import { loadSettingsServer, writeSettingsServer } from "@/lib/settingsServer"
+import { DEFAULT_MAIN_APPS, type MainAppIcon } from "@/lib/platformSettings"
 
 export const runtime = "nodejs"
 
@@ -46,6 +47,40 @@ export async function POST(req: NextRequest) {
     body.itServiceDeskUrl = url
   }
   if (body.itServiceDeskEnabled !== undefined) body.itServiceDeskEnabled = Boolean(body.itServiceDeskEnabled)
+  if (body.supportFunctionLogos !== undefined) {
+    const current = loadSettingsServer().supportFunctionLogos
+    const validSupportIds = ["administration", "people", "finance", "it"] as const
+    const source = body.supportFunctionLogos && typeof body.supportFunctionLogos === "object" ? body.supportFunctionLogos : {}
+    body.supportFunctionLogos = Object.fromEntries(validSupportIds.map((id) => {
+      const value = String(source[id] ?? current[id] ?? "")
+      return [id, /^\/api\/admin\/support-function-icons\/(administration|people|finance|it)(?:\?v=\d+)?$/.test(value) ? value : ""]
+    }))
+  }
+  if (body.mainApps !== undefined) {
+    if (!Array.isArray(body.mainApps) || body.mainApps.length > 9) return NextResponse.json({ error: "Configure up to nine Main Apps." }, { status: 400 })
+    const validIcons = new Set<MainAppIcon>(["headset", "monitor", "globe", "layout", "building", "users"])
+    try {
+      body.mainApps = DEFAULT_MAIN_APPS.map((fallback, index) => {
+        const source = body.mainApps[index] ?? fallback
+        const url = String(source.url ?? "").trim()
+        const iconImage = String(source.iconImage ?? "")
+        if (url) {
+          const parsed = new URL(url)
+          if (parsed.protocol !== "https:" && parsed.protocol !== "http:") throw new Error("Unsupported protocol")
+        }
+        return {
+          id: fallback.id,
+          name: String(source.name ?? "").trim().slice(0, 60),
+          url,
+          icon: validIcons.has(source.icon) ? source.icon : fallback.icon,
+          iconImage: (/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/=]+$/i.test(iconImage) && iconImage.length <= 1_100_000) || /^\/api\/admin\/main-app-icons\/main-app-[1-9](?:\?v=\d+)?$/.test(iconImage) ? iconImage : "",
+          enabled: Boolean(source.enabled),
+        }
+      })
+    } catch {
+      return NextResponse.json({ error: "Each Main App URL must use HTTP or HTTPS." }, { status: 400 })
+    }
+  }
   writeSettingsServer(body)
   return NextResponse.json({ success: true })
 }

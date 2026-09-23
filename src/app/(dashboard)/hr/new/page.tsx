@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { HRForm } from "@/modules/hr/HRForm"
 import { getRequests, type EngineRequest } from "@/services/engineService"
+import { FirstRequestGuide } from "@/components/help/FirstRequestGuide"
 
 export default function NewHRRequestPage() {
   const searchParams = useSearchParams()
@@ -31,6 +32,7 @@ export default function NewHRRequestPage() {
         <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
         <p className="text-muted-foreground text-sm mt-0.5">{subtitle}</p>
       </div>
+      <FirstRequestGuide moduleId="hr" isEditing={isEditing} />
       <HRForm
         defaultType={type}
         editingRequest={existingRequest}

@@ -24,6 +24,7 @@ import { useNotificationSound } from "@/hooks/useNotificationSound"
 import { markNotificationAsRead, notificationActionUrl, type StoredNotification } from "@/lib/notificationStore"
 import { fmtDateTime } from "@/lib/utils"
 import type { FunctionId } from "@/lib/functionRegistry"
+import { JourneyManual } from "@/components/help/JourneyManual"
 
 function getInitials(name?: string | null, email?: string | null) {
   const label = name || email || "User"
@@ -245,6 +246,9 @@ export function TopBar({ portal = "admin" }: { portal?: Portal }) {
         </DropdownMenu>
 
         {/* User Avatar + Name */}
+        {/* Kept immediately beside the account control so help is visible in every function. */}
+        <JourneyManual />
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-2 rounded-md px-1.5 sm:px-2 py-1.5 hover:bg-gray-100 transition-colors">
