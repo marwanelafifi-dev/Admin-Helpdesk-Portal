@@ -2013,3 +2013,8 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] **IT Team integration:** Added **IT Team Services** to the role editor under its own **IT** Page Access group. Granting `page:it-services` shows the IT Team landing card; removing the permission hides it. The card opens the configured external SolarWinds Service Desk URL, and the reserved `/departments/it` path is protected by the same permission for future in-portal use.
 - [x] **Full Access behavior:** Roles with the wildcard permission retain visibility of all support functions, including IT.
 - [x] **Verification and local deployment:** Production build passed; the Docker image was rebuilt and `company-portal-app` passed its health check.
+
+### Corporate Landing-Page Visual Refresh (23 Sep 2026)
+
+- [x] **Support-function cards:** Replaced bright, app-style icon blocks with a consistent enterprise visual system: restrained outlined icon containers and professional line icons for Administration (briefcase), People (team), Finance (institution), IT (headset), and Platform Administration (shield). The change preserves card behavior, permissions, and external-link handling.
+- [x] **Verification and local deployment:** Production build passed; the local Docker image was rebuilt and the portal health check passed.

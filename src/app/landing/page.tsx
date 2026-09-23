@@ -1,7 +1,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { Building2, Calculator, ChevronRight, Headphones, Shield, Users } from "lucide-react"
+import { BriefcaseBusiness, Building2, ChevronRight, Headset, Landmark, ShieldCheck, UsersRound } from "lucide-react"
 import { auth } from "@/auth"
 import { LandingTopBar } from "@/components/layout/LandingTopBar"
 import { canAccessPath, getFirstAllowedPlatformAdminPath, hasPermission } from "@/lib/access"
@@ -13,7 +13,7 @@ interface SupportFunction {
   name: string
   description: string
   href: string
-  icon: typeof Building2
+  icon: typeof BriefcaseBusiness
   accent: string
   status: string
   external?: boolean
@@ -26,8 +26,8 @@ const baseFunctions: SupportFunction[] = [
     name: "Administration Team",
     description: "Access the complete Administration services portal and submit operational requests.",
     href: "/departments/admin",
-    icon: Building2,
-    accent: "bg-blue-600",
+    icon: BriefcaseBusiness,
+    accent: "border-slate-200 bg-slate-50 text-slate-700",
     status: "Available",
     accessPaths: ["/departments/admin", "/dashboard", "/shipping", "/hr", "/maintenance", "/purchase", "/event", "/travel", "/general", "/requests"],
   },
@@ -35,8 +35,8 @@ const baseFunctions: SupportFunction[] = [
     name: "People Team",
     description: "Access Human Resources services, policies, and employee support.",
     href: "/departments/hr/services",
-    icon: Users,
-    accent: "bg-teal-600",
+    icon: UsersRound,
+    accent: "border-slate-200 bg-slate-50 text-slate-700",
     status: "Available",
     accessPaths: ["/departments/hr/services", "/departments/hr", "/departments/hr/general", "/departments/hr/letter", "/departments/hr/my-requests", "/departments/hr/team-requests", "/departments/hr/all-requests"],
   },
@@ -44,8 +44,8 @@ const baseFunctions: SupportFunction[] = [
     name: "Finance Team",
     description: "Access Finance services and submit finance-related requests.",
     href: "/departments/finance/services",
-    icon: Calculator,
-    accent: "bg-amber-600",
+    icon: Landmark,
+    accent: "border-slate-200 bg-slate-50 text-slate-700",
     status: "Available",
     accessPaths: ["/departments/finance/services", "/departments/finance", "/departments/finance/reimbursement", "/departments/finance/travel-reimbursement", "/departments/finance/invoices", "/departments/finance/my-requests", "/departments/finance/team-requests", "/departments/finance/all-requests"],
   },
@@ -53,8 +53,8 @@ const baseFunctions: SupportFunction[] = [
     name: "IT Team",
     description: "IT incidents and service requests are managed in the SolarWinds Service Desk.",
     href: process.env.NEXT_PUBLIC_IT_SERVICE_DESK_URL || "#it-service-desk",
-    icon: Headphones,
-    accent: "bg-violet-600",
+    icon: Headset,
+    accent: "border-slate-200 bg-slate-50 text-slate-700",
     status: "SolarWinds",
     external: true,
     requiredPermission: "page:it-services",
@@ -87,8 +87,8 @@ export default async function DepartmentSelectorPage() {
           name: "Platform Administration",
           description: "Manage users, roles, company data, audit trail, and platform settings.",
           href: platformAdminPath,
-          icon: Shield,
-          accent: "bg-slate-700",
+          icon: ShieldCheck,
+          accent: "border-slate-200 bg-slate-50 text-slate-700",
           status: "Available",
         },
       ]
@@ -118,8 +118,8 @@ export default async function DepartmentSelectorPage() {
             const content = (
               <>
                 <div className="flex items-start justify-between gap-4">
-                  <span className={`flex h-12 w-12 items-center justify-center rounded-xl text-white ${item.accent}`}>
-                    <item.icon className="h-6 w-6" />
+                  <span className={`flex h-11 w-11 items-center justify-center rounded-lg border ${item.accent}`}>
+                    <item.icon className="h-5 w-5 stroke-[1.75]" />
                   </span>
                   <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">{item.status}</span>
                 </div>
