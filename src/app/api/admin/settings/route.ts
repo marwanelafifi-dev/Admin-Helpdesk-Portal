@@ -33,6 +33,19 @@ export async function POST(req: NextRequest) {
     body.financeSlaWorkingDays = String(slaDays)
     body.financeSlaReminderDay = String(reminderDay)
   }
+  if (body.itServiceDeskUrl !== undefined) {
+    const url = String(body.itServiceDeskUrl).trim()
+    if (url) {
+      try {
+        const parsed = new URL(url)
+        if (parsed.protocol !== "https:" && parsed.protocol !== "http:") throw new Error("Unsupported protocol")
+      } catch {
+        return NextResponse.json({ error: "Enter a valid HTTP or HTTPS Service Desk URL." }, { status: 400 })
+      }
+    }
+    body.itServiceDeskUrl = url
+  }
+  if (body.itServiceDeskEnabled !== undefined) body.itServiceDeskEnabled = Boolean(body.itServiceDeskEnabled)
   writeSettingsServer(body)
   return NextResponse.json({ success: true })
 }

@@ -26,6 +26,8 @@ export interface PlatformSettings {
   feedbackSurveyBody: string
   financeSlaWorkingDays: string
   financeSlaReminderDay: string
+  itServiceDeskEnabled: boolean
+  itServiceDeskUrl: string
 }
 
 export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
@@ -56,4 +58,6 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   feedbackSurveyBody: "Hi {{requesterName}},\n\nYour {{module}} request \"{{requestTitle}}\" has been completed.\n\nWe'd appreciate your feedback to help us improve our services. Please take a moment to rate your experience.",
   financeSlaWorkingDays: "4",
   financeSlaReminderDay: "3",
+  itServiceDeskEnabled: true,
+  itServiceDeskUrl: "",
 }

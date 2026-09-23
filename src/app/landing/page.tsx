@@ -5,6 +5,7 @@ import { Building2, Calculator, ChevronRight, Headphones, Shield, Users } from "
 import { auth } from "@/auth"
 import { LandingTopBar } from "@/components/layout/LandingTopBar"
 import { canAccessPath, getFirstAllowedPlatformAdminPath, hasPermission } from "@/lib/access"
+import { loadSettingsServer } from "@/lib/settingsServer"
 
 export const runtime = "nodejs"
 
@@ -63,6 +64,10 @@ const baseFunctions: SupportFunction[] = [
 export default async function DepartmentSelectorPage() {
   const session = await auth()
   if (!session?.user) redirect("/login?callbackUrl=/landing")
+  const platformSettings = loadSettingsServer()
+  const itServiceDeskUrl = platformSettings.itServiceDeskEnabled
+    ? platformSettings.itServiceDeskUrl.trim() || process.env.NEXT_PUBLIC_IT_SERVICE_DESK_URL || ""
+    : ""
 
   // Platform Administration is only shown to users who hold at least one
   // of the platform-admin permissions (manage_users, settings, etc.) —
@@ -72,7 +77,9 @@ export default async function DepartmentSelectorPage() {
     if (item.external) return item.requiredPermission && hasPermission(session.user!.permissions, item.requiredPermission) ? [item] : []
     const allowedPath = item.accessPaths?.find((path) => canAccessPath(path, session.user!.permissions, session.user!.role))
     return allowedPath ? [{ ...item, href: allowedPath }] : []
-  })
+  }).map((item) => item.name === "IT Team"
+    ? { ...item, href: itServiceDeskUrl || "#it-service-desk", status: itServiceDeskUrl ? "SolarWinds" : "Unavailable" }
+    : item)
   const functions: SupportFunction[] = platformAdminPath
     ? [
         ...visibleFunctions,

@@ -82,6 +82,7 @@ export default function AdminSettingsPage() {
   const [headerSave, setHeaderSave] = useState<SaveState>("idle")
   const [feedbackSave, setFeedbackSave] = useState<SaveState>("idle")
   const [financeSlaSave, setFinanceSlaSave] = useState<SaveState>("idle")
+  const [itServiceDeskSave, setItServiceDeskSave] = useState<SaveState>("idle")
   const [headerLogo, setHeaderLogo] = useState<string | null>(null)
   const [headerLogoSave, setHeaderLogoSave] = useState<SaveState>("idle")
   const headerLogoInputRef = useRef<HTMLInputElement>(null)
@@ -108,6 +109,8 @@ export default function AdminSettingsPage() {
             feedbackSurveyBody:    data.settings.feedbackSurveyBody    ?? prev.feedbackSurveyBody,
             financeSlaWorkingDays: String(data.settings.financeSlaWorkingDays ?? prev.financeSlaWorkingDays),
             financeSlaReminderDay: String(data.settings.financeSlaReminderDay ?? prev.financeSlaReminderDay),
+            itServiceDeskEnabled: data.settings.itServiceDeskEnabled ?? prev.itServiceDeskEnabled,
+            itServiceDeskUrl: data.settings.itServiceDeskUrl ?? prev.itServiceDeskUrl,
           }))
         }
       })
@@ -225,6 +228,26 @@ export default function AdminSettingsPage() {
     }
   }
 
+  async function persistItServiceDesk() {
+    setItServiceDeskSave("saving")
+    try {
+      const response = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          itServiceDeskEnabled: settings.itServiceDeskEnabled,
+          itServiceDeskUrl: settings.itServiceDeskUrl,
+        }),
+      })
+      if (!response.ok) throw new Error("Failed to save IT Service Desk settings")
+      setItServiceDeskSave("saved")
+      setTimeout(() => setItServiceDeskSave("idle"), 3000)
+    } catch {
+      setItServiceDeskSave("error")
+      setTimeout(() => setItServiceDeskSave("idle"), 3000)
+    }
+  }
+
   function resetToDefaults() {
     setSettings(DEFAULTS)
     localStorage.removeItem(SETTINGS_KEY)
@@ -336,6 +359,41 @@ export default function AdminSettingsPage() {
           </div>
           <p className="text-xs text-gray-500">The reminder day must be at least 1 and earlier than the SLA deadline.</p>
           <SaveButton state={financeSlaSave} onClick={persistFinanceSla} label="Save Finance SLA" />
+        </CardContent>
+      </Card>
+
+      {/* ── IT Service Desk ── */}
+      <Card className="border shadow-sm">
+        <CardHeader className="border-b bg-gray-50 rounded-t-lg">
+          <div className="flex items-center gap-2">
+            <div className="bg-violet-100 rounded-lg p-2"><ExternalLink className="h-4 w-4 text-violet-700" /></div>
+            <div>
+              <CardTitle className="text-base font-semibold text-gray-900">IT Service Desk</CardTitle>
+              <p className="text-xs text-gray-500 mt-0.5">Manage the external destination for the IT Team support-function link</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-6 space-y-5">
+          <div className="flex items-center justify-between border-b border-gray-100 pb-4">
+            <div>
+              <p className="text-sm font-medium text-gray-800">Enable IT Team link</p>
+              <p className="text-xs text-gray-500 mt-0.5">When disabled, the IT card and portal shortcut remain unavailable even for permitted users.</p>
+            </div>
+            <Toggle checked={settings.itServiceDeskEnabled} onChange={(v) => set("itServiceDeskEnabled", v)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium text-gray-700">SolarWinds Service Desk URL</Label>
+            <Input
+              type="url"
+              value={settings.itServiceDeskUrl}
+              onChange={(e) => set("itServiceDeskUrl", e.target.value)}
+              disabled={!settings.itServiceDeskEnabled}
+              placeholder="https://your-company.samanage.com"
+              className="text-sm"
+            />
+            <p className="text-xs text-gray-400">Use a full HTTP or HTTPS URL. If blank, the existing environment URL is used when one is configured.</p>
+          </div>
+          <SaveButton state={itServiceDeskSave} onClick={persistItServiceDesk} label="Save IT Service Desk" />
         </CardContent>
       </Card>
 

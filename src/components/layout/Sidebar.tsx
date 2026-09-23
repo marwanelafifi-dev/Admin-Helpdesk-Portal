@@ -39,7 +39,7 @@ import {
   MessageSquare,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { canAccessPath, canAccessModule, getFirstAllowedPlatformAdminPath, type UserWithModuleAccess } from "@/lib/access"
+import { canAccessPath, canAccessModule, getFirstAllowedPlatformAdminPath, hasPermission, type UserWithModuleAccess } from "@/lib/access"
 import { modulesVisibleToFunction, roleToFunctionId } from "@/lib/functionRegistry"
 
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
@@ -227,7 +227,8 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
   const role = session?.user?.role
   const { open: mobileOpen } = useMobileNav()
   const platformAdminPath = getFirstAllowedPlatformAdminPath(permissions, role)
-  const itServiceDeskUrl = process.env.NEXT_PUBLIC_IT_SERVICE_DESK_URL
+  const [itServiceDeskUrl, setItServiceDeskUrl] = useState("")
+  const [itServiceDeskEnabled, setItServiceDeskEnabled] = useState(true)
 
   // Per-module "new" request counts and todo task count.
   // Drives small badges next to sidebar items so admins can see at a glance
@@ -252,6 +253,20 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
       }
     } catch {}
   }, [portal])
+
+  useEffect(() => {
+    fetch("/api/admin/settings")
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        if (!data?.settings) return
+        const enabled = data.settings.itServiceDeskEnabled !== false
+        setItServiceDeskEnabled(enabled)
+        setItServiceDeskUrl(enabled ? data.settings.itServiceDeskUrl || process.env.NEXT_PUBLIC_IT_SERVICE_DESK_URL || "" : "")
+      })
+      .catch(() => setItServiceDeskUrl(process.env.NEXT_PUBLIC_IT_SERVICE_DESK_URL || ""))
+  }, [])
+
+  const canUseItServiceDesk = hasPermission(permissions, "page:it-services")
 
   // Note: new-request and new-task tracking is centralized in useNewRequestsAndTasks
   // hook above. Storage events, focus, and a 30s interval keep it fresh.
@@ -626,7 +641,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
                 {item.name}
               </DropdownMenuItem>
             ))}
-            <DropdownMenuItem
+            {canUseItServiceDesk && <DropdownMenuItem
               onClick={() => {
                 if (itServiceDeskUrl) {
                   window.open(itServiceDeskUrl, "_blank", "noopener,noreferrer")
@@ -634,10 +649,11 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
                   router.push("/landing#it-service-desk")
                 }
               }}
+              disabled={!itServiceDeskEnabled || !itServiceDeskUrl}
             >
               <Headphones className="mr-2 h-4 w-4" />
-              IT Team
-            </DropdownMenuItem>
+              IT Team{!itServiceDeskEnabled || !itServiceDeskUrl ? " (unavailable)" : ""}
+            </DropdownMenuItem>}
             {platformAdminPath && (
               <DropdownMenuItem onClick={() => router.push(platformAdminPath)} className={cn(portal === "platform-admin" && "bg-accent")}>
                 <Shield className="mr-2 h-4 w-4" />
