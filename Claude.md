@@ -2006,3 +2006,10 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
   - Audit values are sanitized and bounded before persistence to prevent log injection through carriage returns, line feeds, or null characters.
   - The protected Audit Log API verifies the SHA-256 chain and returns the verification result for monitoring/integration use.
   - Production build validation passed and the Docker app was rebuilt and restarted successfully after the audit enhancements.
+
+## Phase 10: Permission-Aware Support Functions (Implemented - 23 Sep 2026)
+
+- [x] **Landing-page function visibility:** Administration, People, and Finance function cards are rendered only when the signed-in role has access to at least one page in that function. The card opens the first permitted page, preventing an unavailable function from appearing as selectable.
+- [x] **IT Team integration:** Added **IT Team Services** to the role editor under its own **IT** Page Access group. Granting `page:it-services` shows the IT Team landing card; removing the permission hides it. The card opens the configured external SolarWinds Service Desk URL, and the reserved `/departments/it` path is protected by the same permission for future in-portal use.
+- [x] **Full Access behavior:** Roles with the wildcard permission retain visibility of all support functions, including IT.
+- [x] **Verification and local deployment:** Production build passed; the Docker image was rebuilt and `company-portal-app` passed its health check.

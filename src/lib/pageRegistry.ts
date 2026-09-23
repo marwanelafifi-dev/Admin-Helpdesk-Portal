@@ -97,6 +97,10 @@ export const PAGES: PageDefinition[] = [
   { id: "hr-feedback",        label: "People Feedback & Reports", path: "/departments/hr/feedback",                  group: "People" },
   { id: "hr-request-detail",  label: "People Request Detail", path: "/departments/hr/requests/[id]",                group: "People" },
 
+  // IT is an external SolarWinds Service Desk integration. The permission
+  // controls visibility of its landing-card entry rather than an app route.
+  { id: "it-services",         label: "IT Team Services", path: "/departments/it",                                  group: "IT" },
+
   // Admin
   { id: "admin-users",         label: "Users (Admin)",         path: "/admin/users",          group: "Admin" },
   { id: "admin-roles",         label: "Roles - Si-Ware Systems (Admin)", path: "/admin/roles", group: "Admin" },

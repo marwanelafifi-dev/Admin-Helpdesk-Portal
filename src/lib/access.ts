@@ -3,6 +3,7 @@ import { getCompanyFromEmail, getRequestCompany } from "@/lib/userCompany"
 export type RoutePermission =
   | "page:dashboard"
   | "page:admin-services"
+  | "page:it-services"
   | "page:feedback-reports"
   | "page:tasks"
   | "page:announcements"
@@ -103,6 +104,7 @@ export function permissionForPath(pathname: string): RoutePermission | null {
 
   if (path === "/dashboard") return "page:dashboard"
   if (path === "/departments/admin") return "page:admin-services"
+  if (path === "/departments/it") return "page:it-services"
   if (path === "/feedback-reports") return "page:feedback-reports"
   if (path === "/tasks") return "page:tasks"
   if (path === "/announcements") return "page:announcements"

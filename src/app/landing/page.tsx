@@ -4,7 +4,7 @@ import { redirect } from "next/navigation"
 import { Building2, Calculator, ChevronRight, Headphones, Shield, Users } from "lucide-react"
 import { auth } from "@/auth"
 import { LandingTopBar } from "@/components/layout/LandingTopBar"
-import { getFirstAllowedPlatformAdminPath } from "@/lib/access"
+import { canAccessPath, getFirstAllowedPlatformAdminPath, hasPermission } from "@/lib/access"
 
 export const runtime = "nodejs"
 
@@ -16,6 +16,8 @@ interface SupportFunction {
   accent: string
   status: string
   external?: boolean
+  accessPaths?: string[]
+  requiredPermission?: string
 }
 
 const baseFunctions: SupportFunction[] = [
@@ -26,6 +28,7 @@ const baseFunctions: SupportFunction[] = [
     icon: Building2,
     accent: "bg-blue-600",
     status: "Available",
+    accessPaths: ["/departments/admin", "/dashboard", "/shipping", "/hr", "/maintenance", "/purchase", "/event", "/travel", "/general", "/requests"],
   },
   {
     name: "People Team",
@@ -34,6 +37,7 @@ const baseFunctions: SupportFunction[] = [
     icon: Users,
     accent: "bg-teal-600",
     status: "Available",
+    accessPaths: ["/departments/hr/services", "/departments/hr", "/departments/hr/general", "/departments/hr/letter", "/departments/hr/my-requests", "/departments/hr/team-requests", "/departments/hr/all-requests"],
   },
   {
     name: "Finance Team",
@@ -42,6 +46,7 @@ const baseFunctions: SupportFunction[] = [
     icon: Calculator,
     accent: "bg-amber-600",
     status: "Available",
+    accessPaths: ["/departments/finance/services", "/departments/finance", "/departments/finance/reimbursement", "/departments/finance/travel-reimbursement", "/departments/finance/invoices", "/departments/finance/my-requests", "/departments/finance/team-requests", "/departments/finance/all-requests"],
   },
   {
     name: "IT Team",
@@ -51,6 +56,7 @@ const baseFunctions: SupportFunction[] = [
     accent: "bg-violet-600",
     status: "SolarWinds",
     external: true,
+    requiredPermission: "page:it-services",
   },
 ]
 
@@ -62,9 +68,14 @@ export default async function DepartmentSelectorPage() {
   // of the platform-admin permissions (manage_users, settings, etc.) —
   // unlike the department tiles above, it isn't open to everyone.
   const platformAdminPath = getFirstAllowedPlatformAdminPath(session.user.permissions, session.user.role)
+  const visibleFunctions = baseFunctions.flatMap((item) => {
+    if (item.external) return item.requiredPermission && hasPermission(session.user!.permissions, item.requiredPermission) ? [item] : []
+    const allowedPath = item.accessPaths?.find((path) => canAccessPath(path, session.user!.permissions, session.user!.role))
+    return allowedPath ? [{ ...item, href: allowedPath }] : []
+  })
   const functions: SupportFunction[] = platformAdminPath
     ? [
-        ...baseFunctions,
+        ...visibleFunctions,
         {
           name: "Platform Administration",
           description: "Manage users, roles, company data, audit trail, and platform settings.",
@@ -74,7 +85,7 @@ export default async function DepartmentSelectorPage() {
           status: "Available",
         },
       ]
-    : baseFunctions
+    : visibleFunctions
 
   return (
     <main className="relative min-h-screen bg-slate-100 dark:bg-slate-950 px-4 py-10 sm:px-6">
