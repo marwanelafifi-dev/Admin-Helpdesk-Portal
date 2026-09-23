@@ -1,0 +1,6 @@
+# Local development override. Combine with docker-compose.yml when starting
+# an existing developer database that predates Prisma migration history.
+services:
+  app:
+    environment:
+      PRISMA_MIGRATION_MODE: push

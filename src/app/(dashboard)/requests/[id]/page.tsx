@@ -842,6 +842,11 @@ export default function RequestDetailPage() {
           if (response.ok) {
             const json = await response.json()
             engineRequest = json?.request as EngineRequest | undefined
+          } else if (response.status === 403) {
+            // Never fall back to localStorage for an explicitly denied
+            // request: old browser cache must not bypass server access rules.
+            setError("Access restricted — you do not have permission to view this request or its confidential details.")
+            return
           }
         } catch {
           // Fall back to local data below for offline/pending requests.
@@ -928,8 +933,31 @@ export default function RequestDetailPage() {
           }
         }) || []
 
+        // A Travel request can automatically create a People Team travel-letter
+        // request. Surface that relationship in the source request's timeline
+        // so the Admin Team can confirm the hand-off without opening another
+        // queue or inspecting its raw payload.
+        const linkedHrLetterId = engineRequest.module === "travel"
+          ? (engineRequest.payload as any)?.linkedHrLetterRequestId as string | undefined
+          : undefined
+        const linkedHrLetter = linkedHrLetterId
+          ? getRequests().find((item) => item.id === linkedHrLetterId)
+          : undefined
+        const hrLetterHistoryEntry = linkedHrLetterId ? [{
+          id: `${engineRequest.id}-hr-letter-${linkedHrLetterId}`,
+          action: "hr_travel_letter_created",
+          newValue: {
+            id: linkedHrLetterId,
+            title: linkedHrLetter?.title ?? "HR Travel Letter",
+            status: linkedHrLetter?.status ?? "new",
+          },
+          changedByUserId: "System",
+          changedByUser: { id: "System", name: "System", email: "" },
+          createdAt: linkedHrLetter?.createdAt ?? engineRequest.updatedAt,
+        }] : []
+
         // Combine and sort all history by date
-        const allHistory = [...statusHistoryEntries, ...commentHistoryEntries]
+        const allHistory = [...statusHistoryEntries, ...commentHistoryEntries, ...hrLetterHistoryEntry]
           .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
 
         let foundRequest: RequestDetail = {
@@ -1382,6 +1410,20 @@ export default function RequestDetailPage() {
                             <>
                               Status set to <span className="font-medium capitalize">{String(item.newValue).replace(/_/g, ' ')}</span>
                             </>
+                          )}
+                        </p>
+                      )}
+                      {item.action === 'hr_travel_letter_created' && (
+                        <p className="text-xs text-gray-600 mt-1">
+                          A linked HR Travel Letter was created: {" "}
+                          <Link
+                            href={`/departments/hr/requests/${String(item.newValue?.id)}`}
+                            className="font-medium text-blue-700 underline underline-offset-2 hover:text-blue-900"
+                          >
+                            {String(item.newValue?.id)}
+                          </Link>
+                          {item.newValue?.status && (
+                            <span> (status: {getStatusLabel(String(item.newValue.status))})</span>
                           )}
                         </p>
                       )}

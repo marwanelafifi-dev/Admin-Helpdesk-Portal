@@ -1,5 +1,6 @@
 import fs from "fs"
 import path from "path"
+import crypto from "crypto"
 
 export interface StoredFeedbackSurvey {
   id: string
@@ -61,7 +62,8 @@ class FeedbackStoreManager {
   createSurvey(input: Omit<StoredFeedbackSurvey, "id" | "status" | "createdAt">): StoredFeedbackSurvey {
     const survey: StoredFeedbackSurvey = {
       ...input,
-      id: `FB-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      // This id is used as the bearer token in a public feedback link.
+      id: `FB-${crypto.randomUUID()}`,
       status: "pending",
       createdAt: new Date().toISOString(),
     }

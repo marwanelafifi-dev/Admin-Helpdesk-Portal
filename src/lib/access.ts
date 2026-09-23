@@ -297,7 +297,7 @@ export function getFirstAllowedPath(permissions: string[] = [], role?: string) {
 
 // ─── Global/Platform Admin Panel ───────────────────────────────────────────
 // Platform-wide superadmin tools, intentionally decoupled from any single
-// business function's portal (Administration Team, HR Team, Finance Team).
+// business function's portal (Administration Team, People Team, Finance Team).
 // Reachable from any portal via the TopBar icon or the /landing tile —
 // see PLATFORM_ADMIN_PATHS below and src/app/(platform-admin)/layout.tsx.
 

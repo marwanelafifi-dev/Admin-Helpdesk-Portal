@@ -3,17 +3,30 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { MapPin, AlertCircle, CheckCircle2, Download, Eye } from 'lucide-react';
+import { MapPin, AlertCircle, CheckCircle2, Download, Eye, Clock, MessageCircle, Paperclip } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { getRequests, updateStatus, type EngineRequest } from '@/services/engineService';
+import { getRequests, updateStatus, updateAdminCc, type EngineRequest, type RequestStatus } from '@/services/engineService';
 import { HrTravelLetter } from '@/modules/hr/hrTravelLetter.schema';
 import { fmtDate, fmtDateTime } from '@/lib/utils';
 import { commentsAPI } from '@/lib/apiClient';
 import { createRequestUpdateNotifications } from '@/lib/notificationStore';
 import { getAuthorizedManagerEmail } from '@/lib/companyDataStore';
 import RequestDetailPage from '@/app/(dashboard)/requests/[id]/page';
+import { CommentsTab, type Comment } from '@/components/request/CommentsTab';
+import { InlineStatusSelect } from '@/components/ui/InlineStatusSelect';
+
+const HR_LETTER_STATUS_LABELS: Record<string, string> = {
+  new: 'New', in_progress: 'In Progress', completed: 'Completed', cancelled: 'Cancelled',
+};
+const HR_LETTER_STATUS_COLORS: Record<string, string> = {
+  new: 'bg-sky-100 text-sky-700', in_progress: 'bg-blue-100 text-blue-700',
+  completed: 'bg-emerald-100 text-emerald-700', cancelled: 'bg-red-100 text-red-600',
+};
+const HR_LETTER_STATUS_DOTS: Record<string, string> = {
+  new: 'bg-sky-500', in_progress: 'bg-blue-500', completed: 'bg-emerald-500', cancelled: 'bg-red-500',
+};
 
 // This route serves every HR-portal request detail link. Requests belonging
 // to the hr_travel_letter module get the specialized Travel Reference view
@@ -22,6 +35,7 @@ import RequestDetailPage from '@/app/(dashboard)/requests/[id]/page';
 export default function HrRequestDetailRouter() {
   const params = useParams();
   const id = params?.id as string;
+  const { data: session } = useSession();
   const [checkedModule, setCheckedModule] = useState<string | null>(null);
 
   useEffect(() => {
@@ -30,9 +44,35 @@ export default function HrRequestDetailRouter() {
   }, [id]);
 
   if (checkedModule === null) return <div className="text-center py-8">Loading...</div>;
+  // The Administration Team can see that a Travel request handed work off to
+  // People Team, but it must not be able to open the letter itself. The
+  // shared detail page otherwise renders this as the misleading "not found".
+  if (id.startsWith("HRLTR-") && (checkedModule === "" || session?.user?.role === "Administration Team")) {
+    return <HrTravelLetterAccessRestricted />;
+  }
   if (checkedModule !== "hr_travel_letter") return <RequestDetailPage />;
 
   return <HrTravelLetterDetail id={id} />;
+}
+
+function HrTravelLetterAccessRestricted() {
+  const router = useRouter();
+
+  return (
+    <Card className="mx-auto mt-10 max-w-2xl border-amber-200">
+      <CardContent className="flex flex-col items-center px-8 py-12 text-center">
+        <AlertCircle className="mb-4 h-10 w-10 text-amber-600" />
+        <h1 className="text-xl font-semibold text-slate-900">People Team request — access restricted</h1>
+        <p className="mt-3 max-w-lg text-sm leading-6 text-slate-600">
+          This HR Travel Letter is managed by the People Team. The linked Travel request confirms that it was created,
+          but Administration Team members do not have permission to view its contents.
+        </p>
+        <Button className="mt-6" variant="outline" onClick={() => router.back()}>
+          Return to Travel Request
+        </Button>
+      </CardContent>
+    </Card>
+  );
 }
 
 // Passport / Invitation Letter / Visa Document are uploaded and registered on
@@ -74,6 +114,9 @@ function HrTravelLetterDetail({ id }: { id: string }) {
   const [travelRequest, setTravelRequest] = useState<EngineRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState(false);
+  const [activeTab, setActiveTab] = useState<'details' | 'activity' | 'comments' | 'attachments'>('details');
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
   const router = useRouter();
   const { data: session } = useSession();
 
@@ -95,11 +138,40 @@ function HrTravelLetterDetail({ id }: { id: string }) {
     setLoading(false);
   }, [id]);
 
+  useEffect(() => {
+    setCommentsLoading(true);
+    commentsAPI.list(id)
+      .then((result) => setComments(Array.isArray(result?.data) ? result.data : []))
+      .catch(() => setComments([]))
+      .finally(() => setCommentsLoading(false));
+  }, [id]);
+
   if (loading) return <div className="text-center py-8">Loading...</div>;
   if (!request) return <div className="text-center py-8 text-red-600">HR Letter request not found</div>;
 
   const payload = request.payload as HrTravelLetter;
   const missingDocs = !payload.passportAttachment || !payload.invitationLetterAttachment;
+  const attachments = [payload.passportAttachment, payload.invitationLetterAttachment, ...(payload.visaDocumentAttachment ?? [])]
+    .filter((attachment): attachment is NonNullable<typeof attachment> => Boolean(attachment));
+  const canManageCc = (session?.user?.permissions ?? []).includes('manage_cc')
+    || (session?.user?.permissions ?? []).includes('*')
+    || session?.user?.role === 'Full Access'
+    || session?.user?.role?.startsWith('People Team')
+    || session?.user?.email?.toLowerCase() === request.requesterEmail?.toLowerCase();
+  const canChangeStatus = (session?.user?.permissions ?? []).includes('update_status')
+    || (session?.user?.permissions ?? []).includes('*')
+    || session?.user?.role === 'Full Access';
+
+  const handleAddComment = async (content: string, files: File[]) => {
+    if (!session?.user?.id) return;
+    const comment = await commentsAPI.create(request.id, content, session.user.id, session.user.name || 'User', session.user.email || '', files);
+    setComments((current) => [...current, comment]);
+  };
+
+  const handleStatusChange = async (status: RequestStatus) => {
+    const updated = await updateStatus(request.id, status, session?.user?.name || session?.user?.email || 'System');
+    if (updated) setRequest(updated);
+  };
 
   const handleComplete = async () => {
     if (missingDocs || completing) return;
@@ -156,11 +228,17 @@ function HrTravelLetterDetail({ id }: { id: string }) {
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold">{request.title}</h1>
-          <p className="text-gray-600 mt-1">
-            <Badge variant={request.status === 'completed' ? 'secondary' : 'default'}>
-              {request.status}
-            </Badge>
-          </p>
+          <div className="mt-2">
+            <InlineStatusSelect
+              currentStatus={request.status}
+              statuses={['new', 'in_progress', 'completed', 'cancelled']}
+              statusLabels={HR_LETTER_STATUS_LABELS}
+              statusColors={HR_LETTER_STATUS_COLORS}
+              statusDot={HR_LETTER_STATUS_DOTS}
+              onStatusChange={(status) => void handleStatusChange(status as RequestStatus)}
+              canUpdateStatus={canChangeStatus}
+            />
+          </div>
         </div>
         <div className="text-right text-sm text-gray-600">
           <p>Request ID: <span className="font-mono font-semibold">{request.id}</span></p>
@@ -169,6 +247,59 @@ function HrTravelLetterDetail({ id }: { id: string }) {
       </div>
 
       {/* 📋 TRAVEL REFERENCE (Read-only) */}
+      <div className="flex gap-6 border-b px-2">
+        {[
+          ['details', 'Details'],
+          ['activity', `Activity (${request.statusHistory?.length ?? 0})`],
+          ['comments', `Comments (${comments.length})`],
+          ['attachments', `Attachments (${attachments.length})`],
+        ].map(([tab, label]) => (
+          <button key={tab} onClick={() => setActiveTab(tab as typeof activeTab)} className={`border-b-2 py-3 text-sm font-medium ${activeTab === tab ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-600 hover:text-slate-900'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'activity' && (
+        <Card><CardContent className="space-y-4 py-6">
+          {(request.statusHistory ?? []).length ? request.statusHistory!.map((entry, index) => {
+            const isSystemCreation = index === 0 && entry.status === 'new' && entry.changedBy === 'System';
+            return (
+              <div key={`${entry.changedAt}-${index}`} className="flex gap-3 border-b pb-4 last:border-0">
+                <Clock className="mt-0.5 h-5 w-5 text-blue-600" />
+                <div className="text-sm">
+                  <p className="font-medium">{isSystemCreation ? 'HR Travel Letter created' : `Status changed to ${entry.status.replace(/_/g, ' ')}`}</p>
+                  {isSystemCreation && <p className="text-slate-600">Automatically created by the system from the linked Travel request.</p>}
+                  <p className="text-slate-600">By {entry.changedBy || 'System'} · {fmtDateTime(entry.changedAt)}</p>
+                </div>
+              </div>
+            );
+          }) : <p className="py-8 text-center text-sm text-slate-500">No activity yet.</p>}
+        </CardContent></Card>
+      )}
+
+      {activeTab === 'comments' && <CommentsTab
+        requestId={request.id}
+        comments={comments}
+        onAddComment={handleAddComment}
+        currentUserId={session?.user?.id}
+        isLoading={commentsLoading}
+        ccEmails={Array.isArray((request.payload as any)?.ccEmails) ? (request.payload as any).ccEmails : []}
+        adminCc={request.adminCc ?? []}
+        canEditCc={Boolean(canManageCc)}
+        onAdminCcChange={(emails) => {
+          updateAdminCc(request.id, emails);
+          setRequest((current) => current ? { ...current, adminCc: emails } : current);
+        }}
+      />}
+
+      {activeTab === 'attachments' && (
+        <Card><CardContent className="space-y-3 py-6">
+          {attachments.length ? attachments.map((attachment) => <div key={attachment.url} className="flex items-center justify-between rounded-lg border p-4"><span className="flex items-center gap-2 text-sm font-medium"><Paperclip className="h-4 w-4" />{attachment.name}</span><AttachmentLink attachment={attachment} /></div>) : <p className="py-8 text-center text-sm text-slate-500">No attachments available.</p>}
+        </CardContent></Card>
+      )}
+
+      {activeTab === 'details' && <>
       <Card className="border-l-4 border-l-blue-500 bg-blue-50">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -311,11 +442,6 @@ function HrTravelLetterDetail({ id }: { id: string }) {
 
       {/* Status & Actions */}
       <div className="flex gap-2 justify-between items-center p-4 bg-gray-50 rounded-lg border">
-        <div>
-          <p className="text-sm text-gray-600">
-            Status: <span className="font-semibold">{request.status}</span>
-          </p>
-        </div>
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -323,16 +449,9 @@ function HrTravelLetterDetail({ id }: { id: string }) {
           >
             Back
           </Button>
-          <Button
-            onClick={handleComplete}
-            disabled={missingDocs || completing || request.status === 'completed'}
-            className={missingDocs ? 'opacity-50 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'}
-          >
-            <CheckCircle2 className="h-4 w-4 mr-2" />
-            {completing ? 'Completing…' : 'Mark as Completed'}
-          </Button>
         </div>
       </div>
+      </>}
     </div>
   );
 }

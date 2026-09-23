@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { attachmentStore } from "@/lib/attachmentStore"
 import { downloadFile } from "@/lib/fileStorage"
+import { canAccessRequest } from "@/lib/requestAccess"
 
 export const runtime = "nodejs"
 
@@ -22,6 +23,9 @@ export async function GET(
   }
 
   const { id, index } = await params
+  if (!canAccessRequest(session.user, id)) {
+    return NextResponse.json({ error: "Access restricted" }, { status: 403 })
+  }
 
   const serverAtt = attachmentStore.getById(index)
   if (!serverAtt || serverAtt.requestId !== id) {

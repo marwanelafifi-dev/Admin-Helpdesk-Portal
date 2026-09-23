@@ -8,6 +8,7 @@ README.md
 CHANGELOG.md
 .env
 .env.local
+.env.docker
 .env.*.local
 .vscode
 .idea

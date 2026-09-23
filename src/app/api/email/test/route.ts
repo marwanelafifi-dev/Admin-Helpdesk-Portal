@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import nodemailer from "nodemailer"
+import { auth } from "@/auth"
+import { hasPermission, isSuperAdmin } from "@/lib/access"
 
 export const runtime = "nodejs"
 
@@ -18,7 +20,7 @@ async function testSmtpConnection() {
       pass: process.env.SMTP_PASSWORD,
     },
     tls: {
-      rejectUnauthorized: false,
+      rejectUnauthorized: true,
       minVersion: "TLSv1.2",
     },
     connectionTimeout: 10000,
@@ -63,7 +65,7 @@ async function sendTestEmail(recipientEmail: string) {
       pass: process.env.SMTP_PASSWORD,
     },
     tls: {
-      rejectUnauthorized: false,
+      rejectUnauthorized: true,
       minVersion: "TLSv1.2",
     },
     connectionTimeout: 10000,
@@ -127,6 +129,12 @@ async function sendTestEmail(recipientEmail: string) {
 }
 
 export async function POST(req: NextRequest) {
+  const session = await auth()
+  const permissions = (session?.user?.permissions as string[] | undefined) ?? []
+  if (!session?.user || (!isSuperAdmin(session.user.role) && !hasPermission(permissions, "settings"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
   try {
     const body = (await req.json()) as TestEmailPayload
 
@@ -156,6 +164,12 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  const session = await auth()
+  const permissions = (session?.user?.permissions as string[] | undefined) ?? []
+  if (!session?.user || (!isSuperAdmin(session.user.role) && !hasPermission(permissions, "settings"))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
   try {
     const searchParams = req.nextUrl.searchParams
     const testSmtp = searchParams.get("testSmtp") === "true"

@@ -5,7 +5,9 @@ export const runtime = "nodejs"
 
 function isAuthorized(req: NextRequest) {
   const secret = process.env.INBOUND_EMAIL_SECRET
-  if (!secret) return true
+  // An integration endpoint must never become public because a deployment
+  // variable was omitted.
+  if (!secret) return false
 
   const authHeader = req.headers.get("authorization")
   const bearer = authHeader?.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : ""

@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
       transportConfig = {
         host: "smtp.gmail.com", port: 465, secure: true,
         auth: { user: values.smtp_user, pass: values.smtp_password },
-        tls: { rejectUnauthorized: false },
+        tls: { rejectUnauthorized: true },
       }
     } else if (method === "gmail_oauth2") {
       transportConfig = {
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
       transportConfig = {
         host: "smtp-relay.gmail.com", port: 587, secure: false,
         auth: { user: values.smtp_user, pass: values.smtp_password },
-        tls: { rejectUnauthorized: false },
+        tls: { rejectUnauthorized: true },
       }
     } else if (method === "ses") {
       transportConfig = {

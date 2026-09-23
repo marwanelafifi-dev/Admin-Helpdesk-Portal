@@ -129,6 +129,16 @@ export async function GET(req: Request) {
   if (id) {
     const request = requests.find((item) => item.id === id)
     if (!request) {
+      // Return an explicit access result when the record exists but is outside
+      // the caller's scope. The client uses this to show a clear restricted
+      // screen instead of falling back to browser-cached confidential data.
+      const existsButRestricted = companyScoped.some((item) => item.id === id)
+      if (existsButRestricted) {
+        return NextResponse.json(
+          { error: "Access restricted", code: "REQUEST_ACCESS_DENIED" },
+          { status: 403 },
+        )
+      }
       return NextResponse.json({ error: "Request not found" }, { status: 404 })
     }
     return NextResponse.json({ request })

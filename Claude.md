@@ -1962,3 +1962,20 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] **Verification and deployment:**
   - Targeted TypeScript checks and `git diff --check` were run for the changed files.
   - The Docker application was rebuilt after the changes and `company-portal-app` is healthy on `http://localhost:3003`.
+
+## Phase 8: Function-Scoped Request Access and People HR Letter Workflow (Completed - 23 Sep 2026)
+
+- [x] **Function-scoped All Requests:**
+  - The three work queues are independently permissioned: **Administration All Requests**, **Finance All Requests**, and **People All Requests**.
+  - Opening a function-level All Requests page requires its matching Page Access permission. Data shown in that page is then limited per request module by the role's **View ALL Requests From** grants.
+  - The role editor now labels the Administration page explicitly as **Administration All Requests**, beside the existing People and Finance equivalents.
+  - Aggregate queues evaluate each request module separately. A missing grant to an unrelated shared module can no longer hide an otherwise permitted People or Finance request.
+- [x] **Confidentiality enforcement:**
+  - Request details, comments, attachments, attachment downloads, and direct request API access all enforce the same server-side function/module visibility rule.
+  - Unauthorized direct links return an access-restricted response without exposing request contents. Requesters can view only their own requests (or requests on which they are explicitly CC'd); cross-function team members cannot view another function's data unless granted access.
+- [x] **Travel-created People HR Letters:**
+  - Travel-created HR Letters are People-owned and visible to the requester and authorized People Team members, while the originating Administration Travel request remains protected.
+  - HR Letter details use the standard status selector with New, In Progress, Completed, and Cancelled; creation activity is recorded as a system creation event rather than a status change.
+  - Authorized requesters and People Team members can use Activity, Comments, Attachments, and CC recipients on the HR Letter record.
+- [x] **Local deployment:**
+  - The Docker image was rebuilt and the local application container was recreated successfully and passed its health check.

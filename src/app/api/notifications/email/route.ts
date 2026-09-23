@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { sendRequestUpdateEmail } from "@/lib/emailService"
+import { auth } from "@/auth"
 
 type RequestUpdatePayload = {
   to?: string[]
@@ -15,6 +16,13 @@ type RequestUpdatePayload = {
 }
 
 export async function POST(req: NextRequest) {
+  // Called from the signed-in browser when request activity occurs.
+  // A session is required to prevent unauthenticated SMTP abuse.
+  const session = await auth()
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   try {
     const body = (await req.json()) as RequestUpdatePayload
 

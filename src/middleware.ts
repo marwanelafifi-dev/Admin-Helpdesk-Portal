@@ -4,6 +4,22 @@ import { PAGE_PERMISSIONS_BY_PATH } from "@/lib/pageRegistry"
 
 const publicRoutes = ["/login", "/unauthorized", "/feedback-survey", "/system-maintenance"]
 
+// These endpoints have their own authentication mechanism (NextAuth, signed
+// email/approval links, or a deliberately public maintenance/survey view).
+// Every other API endpoint requires a valid session at the edge, preventing
+// accidental exposure when a route handler forgets an auth() check.
+function isPublicApi(pathname: string) {
+  return (
+    pathname.startsWith("/api/auth/") ||
+    pathname === "/api/email/inbound" ||
+    pathname === "/api/email/sync" ||
+    pathname === "/api/email/sync/cron" ||
+    pathname === "/api/maintenance/scheduled" ||
+    /^\/api\/feedback\/survey\/[^/]+(?:\/submit)?$/.test(pathname) ||
+    /^\/api\/requests\/[^/]+\/(approve|reject)$/.test(pathname)
+  )
+}
+
 // Sourced from the central page registry — adding a page in pageRegistry.ts
 // auto-wires its middleware gate (and the Admin > Roles checkbox).
 const pagePermissions: Record<string, string> = PAGE_PERMISSIONS_BY_PATH
@@ -21,12 +37,10 @@ function getPublicBase(request: NextRequest): URL {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  if (pathname.startsWith("/api/email/")) {
-    return NextResponse.next()
-  }
   const publicBase = getPublicBase(request)
 
-  const isPublicRoute = publicRoutes.includes(pathname)
+  const isApiRoute = pathname.startsWith("/api/")
+  const isPublicRoute = publicRoutes.includes(pathname) || (isApiRoute && isPublicApi(pathname))
   const token = await getToken({
     req: request,
     secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
@@ -34,6 +48,9 @@ export async function middleware(request: NextRequest) {
   })
 
   if (!token && !isPublicRoute) {
+    if (isApiRoute) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
     const loginUrl = new URL("/login", publicBase)
     // callbackUrl uses the path only — never the full request.nextUrl.href,
     // which would carry the wrong host through the auth round-trip.

@@ -206,7 +206,7 @@ interface AccountDef {
 
 const ACCOUNTS: AccountDef[] = [
   { id: "admin", label: "Administration Team", description: "adminhelpdesk@si-ware.com", accent: "text-blue-600", activeClasses: "border-blue-500 bg-blue-50 text-blue-900" },
-  { id: "hr", label: "HR Team", description: "hr@si-ware.com", accent: "text-teal-600", activeClasses: "border-teal-500 bg-teal-50 text-teal-900" },
+  { id: "hr", label: "People Team", description: "hr@si-ware.com", accent: "text-teal-600", activeClasses: "border-teal-500 bg-teal-50 text-teal-900" },
   { id: "finance", label: "Finance Team", description: "ap@si-ware.com", accent: "text-amber-600", activeClasses: "border-amber-500 bg-amber-50 text-amber-900" },
 ]
 

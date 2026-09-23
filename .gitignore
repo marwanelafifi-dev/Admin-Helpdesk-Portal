@@ -29,6 +29,7 @@ dev.out.log
 # local env files
 .env*.local
 .env
+.env.docker
 
 # vercel
 .vercel

@@ -45,7 +45,7 @@ export const PAGES: PageDefinition[] = [
   { id: "my-requests",        label: "My Requests",          path: "/requests",                  group: "Core" },
   { id: "team-requests",      label: "Team Requests",        path: "/team-requests",             group: "Core" },
   { id: "request-detail",     label: "Request Detail",       path: "/requests/[id]",             group: "Core" },
-  { id: "all-requests",       label: "All Requests",         path: "/admin/all-requests",        group: "Core" },
+  { id: "all-requests",       label: "Administration All Requests", path: "/admin/all-requests", group: "Core" },
 
   // Modules
   { id: "shipping",           label: "Shipping",             path: "/shipping",                  group: "Modules" },

@@ -35,6 +35,11 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const items = Array.isArray(body) ? body : [body]
+    // A browser may persist only its own notifications. Server-side actions
+    // that notify other users write through serverNotificationStore directly.
+    if (!items.every((item) => item && item.userId === session.user.id)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
     serverNotificationStore.addMany(items)
     return NextResponse.json({ ok: true })
   } catch {

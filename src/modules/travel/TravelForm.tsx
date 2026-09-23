@@ -1034,7 +1034,7 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
                     I need an HR Letter for this business trip
                   </span>
                   <p className="text-xs text-gray-600 mt-1">
-                    HR Team will prepare a formal business trip letter after your request is approved
+                    People Team will prepare a formal business trip letter after your request is approved
                   </p>
                 </div>
               </label>

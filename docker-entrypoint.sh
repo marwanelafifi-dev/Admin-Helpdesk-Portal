@@ -1,9 +1,11 @@
 #!/bin/sh
+set -eu
 
 # Ensure required data directories exist with proper permissions
 mkdir -p /app/data/backups
 mkdir -p /app/data/attachments
 chmod 755 /app/data /app/data/backups /app/data/attachments
+chown -R node:node /app/data /app/.next-dev 2>/dev/null || true
 
 echo "Waiting for database to be ready..."
 max_attempts=60
@@ -24,10 +26,17 @@ if [ $attempt -gt $max_attempts ]; then
 fi
 
 echo "Generating Prisma client for Linux..."
-NODE_TLS_REJECT_UNAUTHORIZED=0 npx prisma generate 2>&1 | grep -v "Update available\|major update\|pris.ly\|npm i" || true
+npx prisma generate
 
 echo "Running Prisma migrations..."
-NODE_TLS_REJECT_UNAUTHORIZED=0 npx prisma db push --skip-generate 2>&1 | grep -v "warn\|hint" || true
+if [ "${PRISMA_MIGRATION_MODE:-deploy}" = "push" ]; then
+  # Local development only: supports databases created before migration
+  # history was introduced. Production keeps the safe `migrate deploy`
+  # default and must never use schema push.
+  npx prisma db push --skip-generate
+else
+  npx prisma migrate deploy
+fi
 
 # Start email reply sync cron in background (every 5 minutes)
 # Waits 30s for the app to fully boot before first poll
@@ -40,13 +49,10 @@ NODE_TLS_REJECT_UNAUTHORIZED=0 npx prisma db push --skip-generate 2>&1 | grep -v
       wget -q -O /dev/null \
         --header="x-cron-secret: $CRON_SECRET" \
         "http://localhost:3003/api/email/sync/cron" 2>/dev/null || true
-    else
-      wget -q -O /dev/null \
-        "http://localhost:3003/api/email/sync/cron" 2>/dev/null || true
     fi
     sleep 300
   done
 ) &
 
 echo "✓ Starting application..."
-exec node_modules/.bin/next start -p 3003
+exec su-exec node node_modules/.bin/next start -p 3003

@@ -2,16 +2,15 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-RUN apk add --no-cache --no-check-certificate wget netcat-openbsd
+RUN apk add --no-cache wget netcat-openbsd su-exec
 
 # Install dependencies (full deps, including dev — we may need to build)
 COPY package*.json ./
-RUN npm config set strict-ssl false && \
-    npm ci --legacy-peer-deps
+RUN npm ci --legacy-peer-deps
 
 # Generate Prisma client for Linux
 COPY prisma/ ./prisma/
-RUN NODE_TLS_REJECT_UNAUTHORIZED=0 npx prisma generate
+RUN npx prisma generate
 
 # Copy all source. On Windows, .next-dev/ is pre-built locally and included via
 # the build context (per CLAUDE.md Phase 4 — avoids gRPC EOF errors during in-container
@@ -24,28 +23,22 @@ COPY . .
 # We pass them through as build args so the in-container build succeeds.
 # These are NOT secrets at build time — they're the same values used at runtime,
 # read from .env.local via the docker-compose build args block.
-ARG AUTH_SECRET
-ARG NEXTAUTH_SECRET
-ARG AUTH_URL=http://localhost:3003
-ARG NEXTAUTH_URL=http://localhost:3003
-
-ENV AUTH_SECRET=${AUTH_SECRET} \
-    NEXTAUTH_SECRET=${NEXTAUTH_SECRET} \
-    AUTH_URL=${AUTH_URL} \
-    NEXTAUTH_URL=${NEXTAUTH_URL}
-
 # If .next-dev was NOT shipped in the build context (Linux clean clone), build now.
 # If it WAS shipped (Windows pre-built flow), skip — the existing output is used as-is.
 RUN if [ ! -f .next-dev/BUILD_ID ]; then \
       echo "==> No pre-built .next-dev found — building inside container..."; \
-      NODE_TLS_REJECT_UNAUTHORIZED=0 npm run build; \
+      AUTH_SECRET=build-time-placeholder-that-is-never-used-at-runtime NEXTAUTH_SECRET=build-time-placeholder-that-is-never-used-at-runtime npm run build; \
     else \
       echo "==> Using pre-built .next-dev from build context."; \
     fi
 
 RUN sed -i 's/\r$//' ./docker-entrypoint.sh && \
     chmod +x ./docker-entrypoint.sh && \
-    mkdir -p .next-dev/cache/images data
+    mkdir -p .next-dev/cache/images data && \
+    # Only runtime-writable directories need to be owned by the unprivileged
+    # process. Recursively chowning all of /app also walks node_modules and
+    # makes Windows-hosted Docker builds needlessly slow.
+    chown -R node:node /app/.next-dev /app/data
 
 EXPOSE 3003
 

@@ -8,7 +8,7 @@ import { Card, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { CcVisibilityToggle } from "@/components/ui/CcVisibilityToggle"
-import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, isUserInCc, assignRequest, type EngineRequest, type RequestStatus } from "@/services/engineService"
+import { getRequests, initializeMockData, syncFromServer, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, isUserInCc, assignRequest, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { useCcVisibility } from "@/hooks/useCcVisibility"
 import { useCommentSearch } from "@/hooks/useCommentSearch"
 import { createRequestUpdateNotifications, createAssignmentNotifications } from "@/lib/notificationStore"
@@ -62,7 +62,7 @@ const BASE_COLS: { key: SortKey; label: string; defaultW: number }[] = [
   { key: "updatedAt",     label: "Last Update Date",defaultW: 140 },
 ]
 
-// Staff-facing aggregate views (e.g. HR Team - All Requests) get an
+// Staff-facing aggregate views (e.g. People Team - All Requests) get an
 // "Assigned To" column between Status and Last Update Date; the plain
 // per-module submission pages (/general, /departments/hr/general) don't.
 const ASSIGNEE_COL: { key: SortKey; label: string; defaultW: number } = { key: "assignedToName", label: "Assigned To", defaultW: 160 }
@@ -144,8 +144,12 @@ export default function GeneralRequestPage({
 
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
-  const loadRequests = useCallback(() => {
+  const loadRequests = useCallback(async () => {
     initializeMockData()
+    // Refresh the authorized shared store before filtering. Without this, an
+    // aggregate view can retain an empty browser cache after a server-created
+    // request (such as a Travel-generated HR Letter) is available to the role.
+    await syncFromServer()
     const moduleFilter = aggregateModules ?? [moduleId]
     let all = getRequests().filter((r) => moduleFilter.includes(r.module))
 
@@ -158,27 +162,34 @@ export default function GeneralRequestPage({
       readAllModules: (session?.user as any)?.readAllModules,
     }
     if (aggregateModules || moduleId.startsWith("hr_") || moduleId.startsWith("finance_")) {
-      const canSeeAll = canViewAllInOwnFunctionModules(
-        aggregateModules ?? [moduleId],
-        session?.user?.role,
-        (session?.user?.permissions as string[] | undefined) ?? [],
-        ((session?.user as any)?.readAllModules as string[] | undefined) ?? [],
-      )
       const canSeeOwn = canViewOwnRequests((session?.user?.permissions as string[] | undefined) ?? [])
       const email = session?.user?.email?.toLowerCase()
-      setRequests(canSeeAll ? all : canSeeOwn ? all.filter((request) => request.requesterId === session?.user?.id || request.requesterEmail.toLowerCase() === email) : [])
+      // Aggregate pages can span modules with different grants. Scope each
+      // module independently so missing "view all" on one shared workflow
+      // does not hide every other module the role is allowed to manage.
+      setRequests(all.filter((request) => {
+        const canSeeAllForModule = canViewAllInOwnFunctionModules(
+          [request.module],
+          session?.user?.role,
+          (session?.user?.permissions as string[] | undefined) ?? [],
+          ((session?.user as any)?.readAllModules as string[] | undefined) ?? [],
+        )
+        if (canSeeAllForModule) return true
+        return canSeeOwn && (request.requesterId === session?.user?.id || request.requesterEmail.toLowerCase() === email)
+      }))
     } else {
       setRequests(scopeRequestsByModuleAccess(all, userWithModules, session?.user))
     }
   }, [moduleId, aggregateModules, session?.user?.id, session?.user?.email, session?.user?.role, session?.user?.permissions, (session?.user as any)?.readAllModules])
 
   useEffect(() => {
-    loadRequests()
-    window.addEventListener("storage", loadRequests)
-    window.addEventListener("arp:storage", loadRequests)
+    void loadRequests()
+    const reload = () => { void loadRequests() }
+    window.addEventListener("storage", reload)
+    window.addEventListener("arp:storage", reload)
     return () => {
-      window.removeEventListener("storage", loadRequests)
-      window.removeEventListener("arp:storage", loadRequests)
+      window.removeEventListener("storage", reload)
+      window.removeEventListener("arp:storage", reload)
     }
   }, [loadRequests])
 

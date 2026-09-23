@@ -23,7 +23,7 @@ export const HrTravelLetterSchema = z.object({
   costCenter: z.string(),
   directManagerName: z.string(),
 
-  // HR LETTER SPECIFIC FIELDS (Editable by HR Team)
+  // HR LETTER SPECIFIC FIELDS (Editable by People Team)
   passportAttachment: AttachmentSchema,
   invitationLetterAttachment: AttachmentSchema,
   visaDocumentAttachment: z.array(AttachmentSchema).optional(),

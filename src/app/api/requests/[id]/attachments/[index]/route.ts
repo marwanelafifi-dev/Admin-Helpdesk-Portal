@@ -5,6 +5,7 @@ import { commentsStore } from "@/lib/commentsStore"
 import { attachmentStore } from "@/lib/attachmentStore"
 import { downloadFile } from "@/lib/fileStorage"
 import { deleteFile } from "@/lib/fileStorage"
+import { canAccessRequest } from "@/lib/requestAccess"
 
 export const runtime = "nodejs"
 
@@ -30,6 +31,9 @@ export async function GET(
   }
 
   const { id, index } = await params
+  if (!canAccessRequest(session.user, id)) {
+    return NextResponse.json({ error: "Access restricted" }, { status: 403 })
+  }
 
   // ── 1. Try server-stored attachment first (new system) ──────────────────────
   const serverAtt = attachmentStore.getById(index)

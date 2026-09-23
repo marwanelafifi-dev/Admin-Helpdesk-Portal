@@ -30,6 +30,9 @@ function getSecret(): string {
   if (!secret) {
     throw new Error("AUTH_SECRET is required to sign approval tokens")
   }
+  if (secret.length < 32) {
+    throw new Error("AUTH_SECRET must be at least 32 characters long")
+  }
   return secret
 }
 

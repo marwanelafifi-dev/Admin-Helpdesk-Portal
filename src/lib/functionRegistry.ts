@@ -48,11 +48,11 @@ export const MODULE_REGISTRY: Record<string, ModuleOwnership> = {
   general: { owner: "admin" },
 
   // "hr" (Onboarding/Offboarding) is owned by Admin, shared with HR: the
-  // HR Team is the *requester* here — informing Administration Team about
+  // People Team is the *requester* here — informing Administration Team about
   // a new hire or leaver — and Administration Team is who actually
   // executes the operational items (access card, seating, medical
   // insurance, desk/office). "hr_general", "hr_letter", and "hr_travel_letter"
-  // are different: HR-Portal-exclusive intake channels that HR Team itself
+  // are different: HR-Portal-exclusive intake channels that People Team itself
   // owns and processes, with no Admin-Portal involvement, so they stay HR-only.
   hr: { owner: "admin", sharedWith: ["hr"] },
   hr_general: { owner: "hr" },
@@ -208,11 +208,11 @@ export function canViewOwnRequests(permissions: string[] = []): boolean {
  * Whether a signed-in viewer may see a specific request, used to close the
  * gap where a module is function-exclusive (owner isn't "admin" and isn't
  * shared with "admin") — e.g. hr_general, hr_letter, finance_reimbursement.
- * Admin-visible modules stay open to any authenticated user, matching the
- * existing platform convention (module pages have always been reachable by
- * any signed-in user; aggregate views do the real scoping). Full Access
- * always sees everything. Otherwise a viewer may see the request if their
- * team owns/shares the module, or they are the requester or a CC recipient.
+ * Full Access always sees everything. Otherwise a viewer may see a request
+ * only when their team owns/shares the module, or they are the requester or
+ * a CC recipient. This is intentionally enforced for Administration-owned
+ * modules too: being signed in must never grant access to another function's
+ * confidential request data.
  */
 export function isRequestVisibleToViewer(params: {
   moduleId: string
@@ -224,7 +224,6 @@ export function isRequestVisibleToViewer(params: {
   ccEmails?: string[]
 }): boolean {
   if (params.role === "Full Access" || params.permissions?.includes("*")) return true
-  if (isModuleVisibleToFunction(params.moduleId, "admin")) return true
   const fn = roleToFunctionId(params.role)
   if (params.permissions?.includes("read") && (
     (fn && isModuleVisibleToFunction(params.moduleId, fn))

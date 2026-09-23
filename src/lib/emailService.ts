@@ -53,7 +53,7 @@ const POOL_OPTIONS = {
   connectionTimeout: 15000,
   greetingTimeout: 15000,
   socketTimeout: 60000,
-  tls: { rejectUnauthorized: false },
+  tls: { rejectUnauthorized: true },
 } as const
 
 function createTransporter(functionId: EmailFunctionId = "admin") {

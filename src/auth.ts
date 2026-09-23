@@ -1,4 +1,4 @@
-import NextAuth, { customFetch as authCustomFetch } from "next-auth"
+import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
 import Credentials from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
@@ -12,14 +12,34 @@ const credentialsSchema = z.object({
   password: z.string().min(1),
 })
 
-const disableTlsCertCheck = process.env.DISABLE_TLS_CERT_CHECK === "true"
+// Best-effort credential throttling. This is intentionally keyed by the
+// normalized email and never changes the login error, so it does not reveal
+// whether an account exists. Deployments with multiple instances should add
+// an edge/WAF rate limit as well, because process memory is not shared.
+const MAX_LOGIN_ATTEMPTS = 5
+const LOGIN_WINDOW_MS = 15 * 60 * 1000
+const loginAttempts = new Map<string, { count: number; windowStartedAt: number }>()
 
-const customFetch = disableTlsCertCheck
-  ? ((url: RequestInfo | URL, init?: RequestInit) => fetch(url, init))
-  : fetch
+function canAttemptLogin(email: string, now = Date.now()) {
+  const attempt = loginAttempts.get(email)
+  if (!attempt || now - attempt.windowStartedAt >= LOGIN_WINDOW_MS) {
+    loginAttempts.delete(email)
+    return true
+  }
+  return attempt.count < MAX_LOGIN_ATTEMPTS
+}
 
-if (disableTlsCertCheck) {
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"
+function recordFailedLogin(email: string, now = Date.now()) {
+  const attempt = loginAttempts.get(email)
+  if (!attempt || now - attempt.windowStartedAt >= LOGIN_WINDOW_MS) {
+    loginAttempts.set(email, { count: 1, windowStartedAt: now })
+    return
+  }
+  attempt.count += 1
+}
+
+function clearLoginAttempts(email: string) {
+  loginAttempts.delete(email)
 }
 
 const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET
@@ -28,6 +48,9 @@ const googleClientSecret = process.env.AUTH_GOOGLE_SECRET ?? process.env.GOOGLE_
 
 if (!authSecret) {
   throw new Error("Missing required auth secret. Set AUTH_SECRET or NEXTAUTH_SECRET.")
+}
+if (authSecret.length < 32) {
+  throw new Error("AUTH_SECRET or NEXTAUTH_SECRET must be at least 32 characters long.")
 }
 
 // Set ENABLE_GOOGLE_AUTH=false in .env.local to permanently disable Google login
@@ -52,10 +75,13 @@ async function lookupUser(email: string) {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  trustHost: true,
+  // Trust forwarded Host headers only when a trusted reverse proxy is in use.
+  trustHost: process.env.AUTH_TRUST_HOST === "true",
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60,
+    // Limit the useful lifetime of a stolen browser session to one workday.
+    maxAge: 8 * 60 * 60,
+    updateAge: 60 * 60,
   },
   pages: {
     signIn: "/login",
@@ -67,14 +93,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           Google({
             clientId: googleClientId!,
             clientSecret: googleClientSecret!,
-            allowDangerousEmailAccountLinking: true,
             authorization: {
               params: {
                 hd: "si-ware.com",
                 prompt: "select_account",
               },
             },
-            ...(disableTlsCertCheck && { [authCustomFetch]: customFetch }),
           }),
         ]
       : []),
@@ -89,12 +113,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!parsed.success) return null
 
         const email = parsed.data.email.toLowerCase()
+        if (!canAttemptLogin(email)) return null
         const user = await lookupUser(email)
 
-        if (!user || !user.active || !user.passwordHash) return null
+        if (!user || !user.active || !user.passwordHash) {
+          recordFailedLogin(email)
+          return null
+        }
 
         const passwordMatches = await bcrypt.compare(parsed.data.password, user.passwordHash)
-        if (!passwordMatches) return null
+        if (!passwordMatches) {
+          recordFailedLogin(email)
+          return null
+        }
+
+        clearLoginAttempts(email)
 
         return { id: user.id, email: user.email, name: user.name, image: user.image, role: user.role }
       },

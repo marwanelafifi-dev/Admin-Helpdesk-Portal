@@ -8,13 +8,14 @@ export const maxDuration = 60
 export async function GET(req: NextRequest) {
   try {
     const secret = process.env.INBOUND_EMAIL_SECRET
-    if (secret) {
-      const authHeader = req.headers.get("authorization")
-      const bearer = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : ""
-      const headerSecret = req.headers.get("x-cron-secret")
-      if (bearer !== secret && headerSecret !== secret) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-      }
+    if (!secret) {
+      return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
+    }
+    const authHeader = req.headers.get("authorization")
+    const bearer = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : ""
+    const headerSecret = req.headers.get("x-cron-secret")
+    if (bearer !== secret && headerSecret !== secret) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const synced = await syncInboundEmailReplies()

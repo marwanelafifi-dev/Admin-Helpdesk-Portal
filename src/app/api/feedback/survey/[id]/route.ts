@@ -10,5 +10,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   if (!survey) {
     return NextResponse.json({ error: "not_found" }, { status: 404 })
   }
-  return NextResponse.json({ survey })
+  // A survey URL is a bearer link. Do not expose the requester's identity,
+  // email address, or internal request id to anyone who obtains the URL.
+  return NextResponse.json({
+    survey: {
+      id: survey.id,
+      status: survey.status,
+      requestTitle: survey.requestTitle,
+      module: survey.module,
+    },
+  })
 }

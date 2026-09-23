@@ -895,7 +895,7 @@ export async function createHrTravelLetterRequest(
       costCenter: travel.costCenter || "",
       directManagerName: travel.directManager || "",
 
-      // HR Letter fields (empty for HR Team to fill)
+      // HR Letter fields (empty for People Team to fill)
       passportAttachment: null,
       invitationLetterAttachment: null,
       letterPreparedBy: null,
@@ -942,7 +942,7 @@ export async function createHrTravelLetterRequest(
     }
   )
 
-  // Notify HR Team about the new linked HR Letter request
+  // Notify People Team about the new linked HR Letter request
   try {
     fetch("/api/notifications/new-hr-letter", {
       method: "POST",

@@ -24,5 +24,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!response) {
     return NextResponse.json({ error: "not_found_or_already_completed" }, { status: 404 })
   }
-  return NextResponse.json({ response })
+  // The requester already knows their submission; avoid echoing stored
+  // personal/request details through this public bearer-link endpoint.
+  return NextResponse.json({ ok: true, status: response.status })
 }

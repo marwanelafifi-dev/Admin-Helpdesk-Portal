@@ -99,7 +99,7 @@ function getDefaultRoleValue(roles: RoleOption[]) {
 
 const ASSIGNEE_FUNCTION_LABELS: Record<FunctionId, string> = {
   admin: "Administration Team",
-  hr: "HR Team",
+  hr: "People Team",
   finance: "Finance Team",
 }
 

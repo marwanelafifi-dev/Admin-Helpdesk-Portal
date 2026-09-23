@@ -5,7 +5,8 @@ export const runtime = "nodejs"
 
 function isAuthorized(req: NextRequest) {
   const secret = process.env.INBOUND_EMAIL_SECRET
-  if (!secret) return true
+  // Fail closed when the webhook secret was not configured.
+  if (!secret) return false
 
   const authHeader = req.headers.get("authorization")
   const bearer = authHeader?.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : ""

@@ -162,6 +162,7 @@ export function TopBar({ portal = "admin" }: { portal?: Portal }) {
             variant="ghost"
             size="icon"
             title="Platform Administration"
+            aria-label="Open platform administration"
             onClick={() => router.push(platformAdminPath)}
             className="text-muted-foreground hover:text-foreground"
           >
@@ -174,6 +175,7 @@ export function TopBar({ portal = "admin" }: { portal?: Portal }) {
           variant="ghost"
           size="icon"
           title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           className="text-muted-foreground hover:text-foreground"
         >
@@ -183,7 +185,7 @@ export function TopBar({ portal = "admin" }: { portal?: Portal }) {
         {/* Notification Bell */}
         <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative">
+            <Button variant="ghost" size="icon" className="relative" aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}>
               <Bell className="h-5 w-5 text-slate-600" />
               {unreadCount > 0 ? (
                 <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1">

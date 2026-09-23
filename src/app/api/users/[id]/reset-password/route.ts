@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import bcrypt from "bcryptjs"
-import { findUserById, updateUser } from "@/lib/userStore"
+import { findUserByEmail, findUserById, updateUser } from "@/lib/userStore"
 import { logServerAudit } from "@/lib/serverAuditLog"
 
 export async function POST(
@@ -31,7 +31,43 @@ export async function POST(
       )
     }
 
-    const user = findUserById(userId)
+    // Local development can use database-backed accounts while the legacy
+    // user store still holds first-login state. Resolve both stores so a
+    // database session is not incorrectly reported as an unknown user.
+    let dbUser: {
+      id: string
+      email: string
+      name: string
+      passwordHash: string | null
+      googleId: string | null
+    } | null = null
+
+    try {
+      const { prisma } = await import("@/lib/prisma")
+      dbUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          passwordHash: true,
+          googleId: true,
+        },
+      })
+    } catch (error) {
+      console.warn("Database user lookup failed; using the local user store", error)
+    }
+
+    const fileUser = findUserById(userId) ?? (dbUser ? findUserByEmail(dbUser.email) : undefined)
+    const user = dbUser
+      ? {
+          id: dbUser.id,
+          email: dbUser.email,
+          name: dbUser.name,
+          passwordHash: dbUser.passwordHash ?? undefined,
+          provider: dbUser.googleId ? "google" : "credentials",
+        }
+      : fileUser
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
@@ -58,12 +94,25 @@ export async function POST(
 
     const isAdminReset = session.user.id !== userId
     const passwordHash = await bcrypt.hash(password, 12)
-    updateUser(userId, {
-      passwordHash,
-      // Self-service completes first-login setup; an admin reset creates a
-      // new temporary password and requires another change.
-      mustChangePassword: isAdminReset,
-    })
+
+    if (dbUser) {
+      const { prisma } = await import("@/lib/prisma")
+      await prisma.user.update({
+        where: { id: dbUser.id },
+        data: { passwordHash, active: true },
+      })
+    }
+
+    // Keep the local first-login flag synchronized when the account exists
+    // in both stores. This is what clears the forced-password-change screen.
+    if (fileUser) {
+      updateUser(fileUser.id, {
+        passwordHash,
+        // Self-service completes first-login setup; an admin reset creates a
+        // new temporary password and requires another change.
+        mustChangePassword: isAdminReset,
+      })
+    }
     logServerAudit({
       actor: session.user.name ?? session.user.email ?? "Unknown",
       actorEmail: session.user.email ?? "",

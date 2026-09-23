@@ -111,7 +111,7 @@ const adminNavItems: NavItem[] = [
 ]
 
 // Platform-wide superadmin tools — intentionally NOT part of any business
-// function's sidebar (Administration Team, HR Team, Finance Team). Gated
+// function's sidebar (Administration Team, People Team, Finance Team). Gated
 // purely by permission (manage_users, settings, page:admin-roles,
 // page:admin-audit, page:admin-database), reachable from any portal via the
 // TopBar icon or the /landing "Platform Administration" tile.
@@ -140,11 +140,11 @@ const hrNavItems: NavItem[] = [
       { title: "All Requests", href: "/departments/hr/all-requests", icon: ClipboardList },
     ],
   },
-  { title: "My Requests", href: "/departments/hr/my-requests", icon: ClipboardList },
-  { title: "Team Requests", href: "/departments/hr/team-requests", icon: UsersRound },
   // Requester-facing module pages live outside the People Team group — one entry
   // per HR module (mirrors "General Request" sitting outside "Administration
   // Team" in the admin sidebar). Add new HR modules here as they're built.
+  { title: "My Requests", href: "/departments/hr/my-requests", icon: ClipboardList },
+  { title: "Team Requests", href: "/departments/hr/team-requests", icon: UsersRound },
   { title: "General Request", href: "/departments/hr/general", icon: Inbox },
   { title: "HR Letter Request", href: "/departments/hr/letter", icon: FileText },
 ]
@@ -163,10 +163,10 @@ const financeNavItems: NavItem[] = [
       { title: "All Requests", href: "/departments/finance/all-requests", icon: ClipboardList },
     ],
   },
-  { title: "My Requests", href: "/departments/finance/my-requests", icon: ClipboardList },
-  { title: "Team Requests", href: "/departments/finance/team-requests", icon: UsersRound },
   // Requester-facing module pages live outside the Finance Team group — one
   // entry per Finance module. Add new Finance modules here as they're built.
+  { title: "My Requests", href: "/departments/finance/my-requests", icon: ClipboardList },
+  { title: "Team Requests", href: "/departments/finance/team-requests", icon: UsersRound },
   { title: "General Reimbursement", href: "/departments/finance/reimbursement", icon: Receipt },
   { title: "Travel Reimbursement", href: "/departments/finance/travel-reimbursement", icon: Plane },
   { title: "Invoices Payment", href: "/departments/finance/invoices", icon: CreditCard },
@@ -350,10 +350,11 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
     if (href === "/dashboard") return pathname === "/dashboard"
     if (href === "/departments/hr") return pathname === "/departments/hr"
     if (href === "/departments/hr/general") {
-      return pathname.startsWith("/departments/hr/general") || pathname.startsWith("/departments/hr/requests/")
+      return pathname.startsWith("/departments/hr/general")
+        || (pathname.startsWith("/departments/hr/requests/") && !pathname.includes("/HRLTR-"))
     }
     if (href === "/departments/hr/letter") {
-      return pathname.startsWith("/departments/hr/letter")
+      return pathname.startsWith("/departments/hr/letter") || pathname.includes("/departments/hr/requests/HRLTR-")
     }
     if (href === "/departments/finance") return pathname === "/departments/finance"
     if (href === "/departments/finance/reimbursement") {
@@ -403,7 +404,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
       </Link>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 space-y-0.5 px-2">
+      <nav aria-label="Primary navigation" className="flex-1 overflow-y-auto py-4 space-y-0.5 px-2">
         {visibleNavItems.map((item) => {
           if (item.children) {
             const isShipping = item.title === "Shipping"
@@ -460,6 +461,8 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
                     }
                   }}
                   title={collapsed ? item.title : undefined}
+                  aria-label={collapsed ? `Open ${item.title}` : undefined}
+                  aria-expanded={!collapsed ? expanded : undefined}
                   className={cn(
                     "w-full flex items-center gap-2 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
                     active
@@ -509,6 +512,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
                         <Link
                           key={child.title}
                           href={child.href}
+                          aria-current={childActive ? "page" : undefined}
                           className={cn(
                             "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
                             childActive
@@ -550,6 +554,8 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
               key={item.title}
               href={item.href}
               title={collapsed ? item.title : undefined}
+              aria-label={collapsed ? item.title : undefined}
+              aria-current={active ? "page" : undefined}
               className={cn(
                 "relative flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
                 collapsed && "justify-center",
@@ -597,6 +603,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
           <DropdownMenuTrigger asChild>
             <button
               title={collapsed ? "Switch Portal" : undefined}
+              aria-label={collapsed ? "Switch portal" : undefined}
               className={cn(
                 "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors",
                 collapsed && "justify-center"
@@ -650,6 +657,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
         <button
           onClick={() => setCollapsed(!collapsed)}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           className="w-full flex items-center justify-center p-2 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
         >
           {collapsed ? (

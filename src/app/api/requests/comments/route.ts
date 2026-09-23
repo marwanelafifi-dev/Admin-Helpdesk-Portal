@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/auth'
 import { commentsStore } from '@/lib/commentsStore'
+import { canAccessRequest } from '@/lib/requestAccess'
 
 export async function GET(req: NextRequest) {
   try {
+    const session = await auth()
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const requestId = req.nextUrl.searchParams.get('requestId')
     const limit = parseInt(req.nextUrl.searchParams.get('limit') || '50', 10)
     const offset = parseInt(req.nextUrl.searchParams.get('offset') || '0', 10)
@@ -14,6 +18,9 @@ export async function GET(req: NextRequest) {
         { error: 'requestId is required' },
         { status: 400 }
       )
+    }
+    if (!canAccessRequest(session.user, requestId)) {
+      return NextResponse.json({ error: 'Access restricted' }, { status: 403 })
     }
 
     const allComments = commentsStore.getComments(requestId)
@@ -46,9 +53,14 @@ export async function GET(req: NextRequest) {
  */
 export async function DELETE(req: NextRequest) {
   try {
+    const session = await auth()
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const requestId = req.nextUrl.searchParams.get('requestId')
     if (!requestId) {
       return NextResponse.json({ error: 'requestId is required' }, { status: 400 })
+    }
+    if (!canAccessRequest(session.user, requestId)) {
+      return NextResponse.json({ error: 'Access restricted' }, { status: 403 })
     }
     const removed = commentsStore.clearForRequest(requestId)
     return NextResponse.json({ requestId, removed })
@@ -63,6 +75,8 @@ export async function DELETE(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const formData = await req.formData()
     const requestId = (formData.get('requestId') as string)?.trim()
     const content = (formData.get('content') as string)?.trim() ?? ''
@@ -93,6 +107,9 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       )
     }
+    if (authorId !== session.user.id || !canAccessRequest(session.user, requestId)) {
+      return NextResponse.json({ error: 'Access restricted' }, { status: 403 })
+    }
 
     // Create comment ID
     const commentId = `CMT-${Date.now()}`
@@ -119,9 +136,9 @@ export async function POST(req: NextRequest) {
       content,
       authorId,
       author: {
-        id: authorId,
-        name: authorName || 'User',
-        email: authorEmail || `user@si-ware.com`,
+        id: session.user.id,
+        name: session.user.name || authorName || 'User',
+        email: session.user.email || authorEmail || 'user@si-ware.com',
       },
       attachments: attachments.length > 0 ? attachments : undefined,
       createdAt: new Date().toISOString(),

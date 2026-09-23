@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { userFeedbackStore, type FeedbackStatus } from "@/lib/userFeedbackStore"
-import { notificationStore } from "@/lib/notificationStore"
+import { serverNotificationStore } from "@/lib/serverNotificationStore"
 import { sendFeedbackStatusChangeEmail } from "@/lib/emailService"
 
 export const runtime = "nodejs"
@@ -13,7 +13,7 @@ export const runtime = "nodejs"
  */
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth()
   if (!session?.user) {
@@ -26,6 +26,7 @@ export async function PATCH(
   }
 
   try {
+    const { id } = await params
     const { status } = await req.json()
 
     if (!status) {
@@ -44,7 +45,7 @@ export async function PATCH(
     }
 
     // Get the feedback before update to check old status
-    const feedback = userFeedbackStore.getById(params.id)
+    const feedback = userFeedbackStore.getById(id)
     if (!feedback) {
       return NextResponse.json({ error: "Feedback not found" }, { status: 404 })
     }
@@ -52,7 +53,7 @@ export async function PATCH(
     const oldStatus = feedback.status
 
     // Update the status
-    const updated = userFeedbackStore.updateStatus(params.id, status as FeedbackStatus)
+    const updated = userFeedbackStore.updateStatus(id, status as FeedbackStatus)
     if (!updated) {
       return NextResponse.json({ error: "Feedback not found" }, { status: 404 })
     }
@@ -61,14 +62,14 @@ export async function PATCH(
     if (oldStatus !== status) {
       // Create in-app notification
       try {
-        notificationStore.create({
+        serverNotificationStore.add({
           userId: feedback.userId,
-          userEmail: feedback.userEmail,
           type: "feedback_status_change",
           title: `Feedback Status Changed to ${status.replace("_", " ").toUpperCase()}`,
-          message: `Your feedback "${feedback.title}" has been updated to ${status.replace("_", " ")}.`,
-          relatedId: params.id,
-          isRead: false,
+          description: `Your feedback "${feedback.title}" has been updated to ${status.replace("_", " ")}.`,
+          requestId: id,
+          createdAt: new Date().toISOString(),
+          read: false,
         })
       } catch (err) {
         console.warn("[feedback-notification] Failed to create in-app notification:", err)
