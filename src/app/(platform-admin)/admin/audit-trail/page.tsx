@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { useSession } from "next-auth/react"
-import { Shield, Search, Filter, Clock, User, FileText, ArrowRightLeft, MessageSquare, Trash2, Edit, Plus, Building2, Database } from "lucide-react"
+import { Shield, Search, Filter, Clock, User, FileText, ArrowRightLeft, MessageSquare, Trash2, Edit, Plus, Building2, Database, LogIn, ScanEye, Server, Mail } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { fmtDateTime } from "@/lib/utils"
-import { isModuleVisibleToFunction, MODULE_REGISTRY } from "@/lib/functionRegistry"
+import { functionForModule, isModuleVisibleToFunction, MODULE_REGISTRY } from "@/lib/functionRegistry"
 
 interface AuditEntry {
   id: string
@@ -19,7 +19,12 @@ interface AuditEntry {
   targetId: string
   module: string
   details: string
-  category: "request" | "status" | "comment" | "assignment" | "user" | "role" | "company_data" | "database"
+  category: "request" | "status" | "comment" | "assignment" | "user" | "role" | "company_data" | "database" | "authentication" | "access" | "system" | "email"
+  path?: string
+  ipAddress?: string
+  outcome?: "success" | "failure" | "denied"
+  functionName?: string
+  company?: string
 }
 
 const CATEGORY_COLORS: Record<AuditEntry["category"], string> = {
@@ -31,6 +36,10 @@ const CATEGORY_COLORS: Record<AuditEntry["category"], string> = {
   role:         "bg-red-100 text-red-700",
   company_data: "bg-indigo-100 text-indigo-700",
   database:     "bg-rose-100 text-rose-700",
+  authentication: "bg-violet-100 text-violet-700",
+  access:       "bg-cyan-100 text-cyan-700",
+  system:       "bg-slate-200 text-slate-700",
+  email:        "bg-pink-100 text-pink-700",
 }
 
 const CATEGORY_ICONS: Record<AuditEntry["category"], React.ElementType> = {
@@ -42,6 +51,10 @@ const CATEGORY_ICONS: Record<AuditEntry["category"], React.ElementType> = {
   role:         Shield,
   company_data: Building2,
   database:     Database,
+  authentication: LogIn,
+  access:       ScanEye,
+  system:       Server,
+  email:        Mail,
 }
 
 async function buildUserMap(): Promise<Record<string, string>> {
@@ -88,6 +101,36 @@ async function buildUserMap(): Promise<Record<string, string>> {
 function resolveActor(changedBy: string, userMap: Record<string, string>): string {
   if (!changedBy) return "System"
   return userMap[changedBy] || userMap[changedBy.toLowerCase()] || changedBy
+}
+
+function functionLabel(functionId: string) {
+  return functionId === "finance" ? "Finance"
+    : functionId === "hr" ? "People"
+    : functionId === "admin" ? "Administration"
+    : functionId
+}
+
+function inferFunction(entry: AuditEntry): string {
+  if (entry.functionName) return entry.functionName
+  if (entry.module in MODULE_REGISTRY) return functionLabel(functionForModule(entry.module))
+  const context = `${entry.details} ${entry.path ?? ""} ${entry.target} ${entry.module}`.toLowerCase()
+  const emailFunction = context.match(/function:\s*(administration|people|finance)/i)?.[1]
+  if (emailFunction) return emailFunction[0].toUpperCase() + emailFunction.slice(1).toLowerCase()
+  if (context.includes("/departments/finance") || context.includes("finance")) return "Finance"
+  if (context.includes("/departments/hr") || context.includes("people")) return "People"
+  if (context.includes("/departments/admin") || /users|roles|database|company data|audit/.test(context)) return "Platform Administration"
+  if (entry.module === "tasks" || entry.module === "system notices") return "Administration"
+  return "System"
+}
+
+function inferCompany(entry: AuditEntry, requestCompanies: Record<string, string>): string {
+  if (entry.company) return entry.company
+  if (entry.targetId && requestCompanies[entry.targetId]) return requestCompanies[entry.targetId]
+  const context = `${entry.details} ${entry.target} ${entry.actorEmail}`.toLowerCase()
+  if (context.includes("buchi")) return "BUCHI"
+  if (entry.actorEmail.toLowerCase().endsWith("@si-ware.com")) return "Si-Ware Systems"
+  if (entry.actorEmail.toLowerCase().endsWith("@buchi.com")) return "BUCHI"
+  return entry.category === "system" || entry.category === "email" ? "System / Not applicable" : "Not specified"
 }
 
 /**
@@ -280,7 +323,18 @@ async function buildAuditLog(): Promise<AuditEntry[]> {
           role_deleted:          "Role deleted",
           company_data_updated:  "Company Data updated",
           request_deleted:       "Request deleted",
+          request_created:       "Request created",
           request_edited:        "Request edited",
+          login_succeeded:       "Login succeeded",
+          login_failed:          "Login failed",
+          login_rate_limited:    "Login rate limited",
+          logout:                "Logout",
+          access_denied:         "Access denied",
+          page_view:             "Page opened",
+          system_event:          "System event",
+          email_sent:            "Email sent",
+          email_failed:          "Email failed",
+          approval_email_resent: "Approval email resent",
         }
         entries.push({
           id: ev.id,
@@ -293,24 +347,44 @@ async function buildAuditLog(): Promise<AuditEntry[]> {
           module: ev.category === "role" ? "roles" : ev.category === "user" ? "users" : ev.action === "company_data_updated" ? "company data" : ev.module ?? "",
           details: ev.details,
           category: (ev.action === "company_data_updated" ? "company_data" : ev.category) as AuditEntry["category"],
+          path: ev.path,
+          ipAddress: ev.ipAddress,
+          outcome: ev.outcome,
+          functionName: ev.functionName,
+          company: ev.company,
         })
       })
     }
   } catch {}
 
-  // Sort newest first
-  return entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+  const requestCompanies = Object.fromEntries(
+    requests
+      .filter((request) => request?.id)
+      .map((request) => [request.id, request.companyName ?? (request.companyId === "buchi" ? "BUCHI" : "Si-Ware Systems")])
+  ) as Record<string, string>
+
+  // Every record carries an explicit dimension, including legacy records
+  // and automated events which predate the structured audit fields.
+  return entries
+    .map((entry) => ({
+      ...entry,
+      functionName: inferFunction(entry),
+      company: inferCompany(entry, requestCompanies),
+    }))
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 }
 
 function fmt(iso: string) { return fmtDateTime(iso) }
 
-const ALL_CATEGORIES: AuditEntry["category"][] = ["request", "status", "comment", "assignment", "user", "role", "company_data", "database"]
+const ALL_CATEGORIES: AuditEntry["category"][] = ["authentication", "access", "email", "system", "request", "status", "comment", "assignment", "user", "role", "company_data", "database"]
 
 export default function AuditTrailPage() {
   const { data: session } = useSession()
   const [entries, setEntries] = useState<AuditEntry[]>([])
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<AuditEntry["category"] | "all">("all")
+  const [functionFilter, setFunctionFilter] = useState("all")
+  const [companyFilter, setCompanyFilter] = useState("all")
   const isFullAccess = session?.user?.role === "Full Access"
 
   useEffect(() => {
@@ -320,12 +394,17 @@ export default function AuditTrailPage() {
   const filtered = useMemo(() => {
     return entries.filter((e) => {
       const matchCat = categoryFilter === "all" || e.category === categoryFilter
+      const matchFunction = functionFilter === "all" || e.functionName === functionFilter
+      const matchCompany = companyFilter === "all" || e.company === companyFilter
       const q = search.toLowerCase()
       const matchSearch = !q || [e.actor, e.action, e.target, e.targetId, e.details, e.module]
         .some((v) => v.toLowerCase().includes(q))
-      return matchCat && matchSearch
+      return matchCat && matchFunction && matchCompany && matchSearch
     })
-  }, [entries, search, categoryFilter])
+  }, [entries, search, categoryFilter, functionFilter, companyFilter])
+
+  const functionOptions = useMemo(() => [...new Set(entries.map((entry) => entry.functionName).filter(Boolean))].sort(), [entries])
+  const companyOptions = useMemo(() => [...new Set(entries.map((entry) => entry.company).filter(Boolean))].sort(), [entries])
 
   return (
     <div className="space-y-6">
@@ -336,8 +415,8 @@ export default function AuditTrailPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        {(["request","status","comment","assignment","database"] as const).map((cat) => {
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-4">
+        {(["authentication","access","email","request","database","system"] as const).map((cat) => {
           const Icon = CATEGORY_ICONS[cat]
           const count = entries.filter((e) => e.category === cat).length
           return (
@@ -388,6 +467,16 @@ export default function AuditTrailPage() {
                   </button>
                 )
               })}
+            </div>
+            <div className="flex gap-2 flex-wrap w-full">
+              <select aria-label="Filter by function" value={functionFilter} onChange={(e) => setFunctionFilter(e.target.value)} className="h-8 rounded-md border border-gray-200 bg-white px-2 text-xs text-gray-700">
+                <option value="all">All Functions</option>
+                {functionOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+              </select>
+              <select aria-label="Filter by company" value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)} className="h-8 rounded-md border border-gray-200 bg-white px-2 text-xs text-gray-700">
+                <option value="all">All Companies</option>
+                {companyOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+              </select>
             </div>
           </div>
         </CardHeader>
@@ -441,9 +530,18 @@ export default function AuditTrailPage() {
                       {entry.details && (
                         <p className="text-xs text-gray-400 mt-0.5 italic">{entry.details}</p>
                       )}
+                      {(entry.path || entry.ipAddress || entry.outcome) && (
+                        <p className="text-[11px] text-gray-400 mt-1">
+                          {[entry.outcome, entry.path, entry.ipAddress ? `IP ${entry.ipAddress}` : ""].filter(Boolean).join(" · ")}
+                        </p>
+                      )}
                     </div>
                     <div className="text-right shrink-0">
-                      <Badge className={`text-[10px] capitalize mb-1 ${CATEGORY_COLORS[entry.category]}`}>{entry.module}</Badge>
+                      <div className="flex items-center justify-end gap-1 flex-wrap mb-1">
+                        <Badge className="text-[10px] bg-slate-100 text-slate-700">{entry.functionName}</Badge>
+                        <Badge className="text-[10px] bg-blue-50 text-blue-700">{entry.company}</Badge>
+                        {entry.module && <Badge className={`text-[10px] capitalize ${CATEGORY_COLORS[entry.category]}`}>{entry.module}</Badge>}
+                      </div>
                       <p className="text-[11px] text-gray-400 whitespace-nowrap">{fmt(entry.timestamp)}</p>
                     </div>
                   </div>

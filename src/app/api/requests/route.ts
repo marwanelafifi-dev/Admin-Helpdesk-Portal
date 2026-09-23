@@ -7,6 +7,7 @@ import type { EngineRequest } from "@/services/engineService"
 import { getCompanyFromEmail, getRequestCompany } from "@/lib/userCompany"
 import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
 import { functionForModule, isRequestVisibleToViewer, MODULE_REGISTRY } from "@/lib/functionRegistry"
+import { logServerAudit } from "@/lib/serverAuditLog"
 
 export const runtime = "nodejs"
 
@@ -198,6 +199,11 @@ export async function POST(req: Request) {
       }
 
       const imported = requestStore.importMany(normalized)
+      logServerAudit({
+        actor: session.user.name ?? session.user.email ?? "System", actorEmail: session.user.email ?? "",
+        action: "system_event", targetId: moduleId, targetTitle: "Request import",
+        details: `${imported.length} ${moduleId} request(s) imported`, category: "system", outcome: "success",
+      })
       return NextResponse.json({ imported: imported.length, requests: imported })
     } catch (error) {
       const message = error instanceof Error ? error.message : "Import failed"
@@ -301,6 +307,17 @@ export async function POST(req: Request) {
     ? requestStore.create(requestToSave)
     : requestStore.upsert(requestToSave)
 
+  logServerAudit({
+    actor: session.user.name ?? session.user.email ?? "System",
+    actorEmail: session.user.email ?? "",
+    action: isNew ? "request_created" : "request_edited",
+    targetId: saved.id,
+    targetTitle: saved.title,
+    details: isNew ? `${saved.module} request created` : `${saved.module} request updated`,
+    category: "request",
+    outcome: "success",
+  })
+
   return NextResponse.json({ request: saved })
 }
 
@@ -334,12 +351,14 @@ export async function DELETE(req: Request) {
     const all = requestStore.getAll()
     const remaining = all.filter((r) => r.module !== moduleId)
     requestStore.bulkReplace(remaining)
+    logServerAudit({ actor: session.user.name ?? session.user.email ?? "System", actorEmail: session.user.email ?? "", action: "request_deleted", targetId: moduleId, targetTitle: "Module requests deleted", details: `${all.length - remaining.length} ${moduleId} request(s) deleted`, category: "request", outcome: "success" })
     return NextResponse.json({ success: true, removed: all.length - remaining.length })
   }
 
   // No id and no module — wipe everything.
   if (!id) {
     requestStore.clear()
+    logServerAudit({ actor: session.user.name ?? session.user.email ?? "System", actorEmail: session.user.email ?? "", action: "request_deleted", targetId: "", targetTitle: "All requests deleted", details: "All requests permanently deleted", category: "request", outcome: "success" })
     return NextResponse.json({ success: true, cleared: "all" })
   }
 
@@ -353,5 +372,8 @@ export async function DELETE(req: Request) {
   }
 
   const removed = requestStore.remove(id)
+  if (removed && toDelete) {
+    logServerAudit({ actor: session.user.name ?? session.user.email ?? "System", actorEmail: session.user.email ?? "", action: "request_deleted", targetId: id, targetTitle: toDelete.title, details: `${toDelete.module} request permanently deleted`, category: "request", outcome: "success" })
+  }
   return NextResponse.json({ success: removed })
 }

@@ -5,6 +5,7 @@ import { signApprovalToken } from "@/lib/approvalToken"
 import { sendPurchaseApprovalEmail, sendShippingApprovalEmail, sendTravelApprovalEmail, sendReimbursementApprovalEmail, sendTravelReimbursementApprovalEmail, sendInvoicePaymentApprovalEmail } from "@/lib/emailService"
 import { resolveRequestManagerEmail, resolveRequestManagerName } from "@/lib/approvalNotify"
 import { functionForModule, MANAGER_APPROVAL_MODULES } from "@/lib/functionRegistry"
+import { logServerAudit } from "@/lib/serverAuditLog"
 
 export const runtime = "nodejs"
 
@@ -42,6 +43,7 @@ export async function POST(
   }
 
   const { id } = await params
+  const body = await req.json().catch(() => ({})) as { resend?: boolean }
   const request = requestStore.getAll().find((r) => r.id === id)
   if (!request) {
     return NextResponse.json({ error: "Request not found" }, { status: 404 })
@@ -225,6 +227,18 @@ export async function POST(
         requesterEmail: request.requesterEmail,
         approveUrl,
         rejectUrl,
+      })
+    }
+    if (body.resend === true) {
+      logServerAudit({
+        actor: session.user.name ?? session.user.email ?? "System",
+        actorEmail: session.user.email ?? "",
+        action: "approval_email_resent",
+        targetId: request.id,
+        targetTitle: request.title,
+        details: `Approval email resent to ${managerEmail}; CC: ${Array.from(ccSet).join(", ") || "None"}`,
+        category: "email",
+        outcome: "success",
       })
     }
     return NextResponse.json({ ok: true, to: managerEmail, cc: Array.from(ccSet) })

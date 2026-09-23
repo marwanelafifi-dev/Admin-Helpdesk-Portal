@@ -1,6 +1,6 @@
 import { getToken } from "@auth/core/jwt"
 import { NextRequest, NextResponse } from "next/server"
-import { PAGE_PERMISSIONS_BY_PATH } from "@/lib/pageRegistry"
+import { permissionForPath } from "@/lib/access"
 
 const publicRoutes = ["/login", "/unauthorized", "/feedback-survey", "/system-maintenance"]
 
@@ -22,7 +22,6 @@ function isPublicApi(pathname: string) {
 
 // Sourced from the central page registry — adding a page in pageRegistry.ts
 // auto-wires its middleware gate (and the Admin > Roles checkbox).
-const pagePermissions: Record<string, string> = PAGE_PERMISSIONS_BY_PATH
 
 // Build redirect URLs from the public base URL instead of request.nextUrl,
 // so Cloudflare Tunnel deployments (where the inbound Host header is the
@@ -104,8 +103,8 @@ export async function middleware(request: NextRequest) {
   }
 
   // Check permissions for protected pages
-  if (token && pagePermissions[pathname]) {
-    const requiredPermission = pagePermissions[pathname]
+  const requiredPermission = permissionForPath(pathname)
+  if (token && requiredPermission) {
     const userPermissions = (token.permissions as string[]) || []
     const role = token.role as string | undefined
 

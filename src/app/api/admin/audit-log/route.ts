@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { getServerAuditLog } from "@/lib/serverAuditLog"
+import { getServerAuditLog, verifyServerAuditLog } from "@/lib/serverAuditLog"
 
 export const runtime = "nodejs"
 
@@ -13,5 +13,6 @@ export async function GET() {
   const isAdmin = role === "Full Access" || perms.includes("*") || perms.includes("manage_users") || perms.includes("page:admin-audit")
   if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
-  return NextResponse.json({ data: getServerAuditLog() })
+  const data = getServerAuditLog()
+  return NextResponse.json({ data, integrity: verifyServerAuditLog(data) })
 }

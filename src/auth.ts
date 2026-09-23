@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs"
 import { getPermissionsForRole } from "@/lib/userRoles"
 import { upsertGoogleUser, findUserByEmail } from "@/lib/userStore"
 import { findRoleByName } from "@/lib/rolesStore"
+import { logServerAudit } from "@/lib/serverAuditLog"
 import { z } from "zod"
 
 const credentialsSchema = z.object({
@@ -113,21 +114,40 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!parsed.success) return null
 
         const email = parsed.data.email.toLowerCase()
-        if (!canAttemptLogin(email)) return null
+        if (!canAttemptLogin(email)) {
+          logServerAudit({
+            actor: email, actorEmail: email, action: "login_rate_limited", targetId: "", targetTitle: "Portal sign-in",
+            details: "Credential sign-in blocked after too many failed attempts", category: "authentication", outcome: "denied",
+          })
+          return null
+        }
         const user = await lookupUser(email)
 
         if (!user || !user.active || !user.passwordHash) {
           recordFailedLogin(email)
+          logServerAudit({
+            actor: email, actorEmail: email, action: "login_failed", targetId: "", targetTitle: "Portal sign-in",
+            details: "Credential sign-in failed", category: "authentication", outcome: "failure",
+          })
           return null
         }
 
         const passwordMatches = await bcrypt.compare(parsed.data.password, user.passwordHash)
         if (!passwordMatches) {
           recordFailedLogin(email)
+          logServerAudit({
+            actor: email, actorEmail: email, action: "login_failed", targetId: user.id, targetTitle: "Portal sign-in",
+            details: "Credential sign-in failed", category: "authentication", outcome: "failure",
+          })
           return null
         }
 
         clearLoginAttempts(email)
+
+        logServerAudit({
+          actor: user.name ?? email, actorEmail: user.email, action: "login_succeeded", targetId: user.id,
+          targetTitle: "Portal sign-in", details: "Credential sign-in succeeded", category: "authentication", outcome: "success",
+        })
 
         return { id: user.id, email: user.email, name: user.name, image: user.image, role: user.role }
       },
@@ -146,19 +166,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       // For Google sign-in, only allow si-ware.com domain
       if (account?.provider === "google") {
-        if (!user.email.endsWith("@si-ware.com")) return "/login?error=OAuthSignin"
+        if (!user.email.endsWith("@si-ware.com")) {
+          logServerAudit({ actor: user.email, actorEmail: user.email, action: "login_failed", targetId: "", targetTitle: "Portal sign-in", details: "Google sign-in denied: non-corporate domain", category: "authentication", outcome: "denied" })
+          return "/login?error=OAuthSignin"
+        }
         // Inactive users are blocked regardless of provider. Check the
         // file store (the actual source of truth for the .active flag).
         const existing = findUserByEmail(user.email)
         if (existing && existing.active === false) {
+          logServerAudit({ actor: user.email, actorEmail: user.email, action: "login_failed", targetId: existing.id, targetTitle: "Portal sign-in", details: "Google sign-in denied: inactive account", category: "authentication", outcome: "denied" })
           return "/login?error=AccessDenied"
         }
+        logServerAudit({ actor: user.name ?? user.email, actorEmail: user.email, action: "login_succeeded", targetId: existing?.id ?? "", targetTitle: "Portal sign-in", details: "Google sign-in succeeded", category: "authentication", outcome: "success" })
         return true
       }
 
       // Credentials provider — block inactive users by checking the file store.
       const existing = findUserByEmail(user.email)
       if (existing && existing.active === false) {
+        logServerAudit({ actor: user.email, actorEmail: user.email, action: "login_failed", targetId: existing.id, targetTitle: "Portal sign-in", details: "Credential sign-in denied: inactive account", category: "authentication", outcome: "denied" })
         return false
       }
 
@@ -275,6 +301,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
       }
       return session
+    },
+  },
+  events: {
+    async signOut(message) {
+      const token = (message as { token?: { email?: string; name?: string; userId?: string } }).token
+      if (!token?.email) return
+      logServerAudit({
+        actor: token.name ?? token.email, actorEmail: token.email, action: "logout", targetId: token.userId ?? "",
+        targetTitle: "Portal sign-out", details: "User signed out", category: "authentication", outcome: "success",
+      })
     },
   },
 })

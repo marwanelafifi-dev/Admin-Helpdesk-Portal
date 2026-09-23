@@ -583,7 +583,7 @@ export default function RequestDetailPage() {
     try {
       const response = await fetch(
         `/api/requests/${encodeURIComponent(request.id)}/send-approval-email`,
-        { method: "POST" }
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ resend: true }) }
       )
       const body = await response.json().catch(() => null)
       if (!response.ok) {

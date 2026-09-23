@@ -2,6 +2,7 @@ import { getCompanyFromEmail, getRequestCompany } from "@/lib/userCompany"
 
 export type RoutePermission =
   | "page:dashboard"
+  | "page:admin-services"
   | "page:feedback-reports"
   | "page:tasks"
   | "page:announcements"
@@ -101,6 +102,7 @@ export function permissionForPath(pathname: string): RoutePermission | null {
   const path = normalizePathname(pathname)
 
   if (path === "/dashboard") return "page:dashboard"
+  if (path === "/departments/admin") return "page:admin-services"
   if (path === "/feedback-reports") return "page:feedback-reports"
   if (path === "/tasks") return "page:tasks"
   if (path === "/announcements") return "page:announcements"
@@ -111,8 +113,8 @@ export function permissionForPath(pathname: string): RoutePermission | null {
   if (path.startsWith("/requests/")) return "page:request-detail"
   if (path === "/shipping") return "page:shipping"
   if (path === "/shipping/new") return "page:shipping-new"
-  if (path === "/shipping/sending") return "page:shipping-sending"
-  if (path === "/shipping/receiving") return "page:shipping-receiving"
+  if (path.startsWith("/shipping/sending")) return "page:shipping-sending"
+  if (path.startsWith("/shipping/receiving")) return "page:shipping-receiving"
   if (path === "/hr") return "page:hr"
   if (path === "/hr/new") return "page:hr-new"
   if (path === "/hr/onboarding") return "page:hr-onboarding"

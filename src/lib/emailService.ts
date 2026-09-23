@@ -4,6 +4,7 @@ import path from "path"
 import { readEmailConfig, type EmailFunctionId } from "./emailConfig"
 import { DEFAULT_ANNOUNCEMENT_SIGNATURE } from "./announcementStore"
 import { functionForModule } from "./functionRegistry"
+import { logServerAudit } from "./serverAuditLog"
 
 function getLogoBuffer(): Buffer | null {
   try {
@@ -206,9 +207,20 @@ export function getRequestEmailSubject(requestTitle: string, requestId: string) 
 }
 
 async function sendMailWithRetry(transporter: any, mailOptions: any, maxRetries = 3) {
+  const from = String(mailOptions.from ?? "")
+  const senderFunction = getEmailFunctionForAudit(from)
+  const requestId = String(mailOptions.headers?.["X-ARP-Request-ID"] ?? "")
+  const recipientList = (value: unknown) => Array.isArray(value) ? value.filter(Boolean).join(", ") : String(value ?? "")
+  const deliveryDetails = `Function: ${senderFunction}; From: ${from}; To: ${recipientList(mailOptions.to)}; CC: ${recipientList(mailOptions.cc) || "None"}; Subject: ${String(mailOptions.subject ?? "")}`
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      return await transporter.sendMail(mailOptions)
+      const result = await transporter.sendMail(mailOptions)
+      logServerAudit({
+        actor: "System", actorEmail: "", action: "email_sent", targetId: requestId,
+        targetTitle: requestId || "System email", details: deliveryDetails,
+        category: "email", outcome: "success", functionName: senderFunction,
+      })
+      return result
     } catch (error) {
       const err = error as Error
       const msg = err.message || ""
@@ -230,9 +242,23 @@ async function sendMailWithRetry(transporter: any, mailOptions: any, maxRetries 
         subject: mailOptions.subject,
         error: msg,
       })
+      logServerAudit({
+        actor: "System", actorEmail: "", action: "email_failed", targetId: requestId,
+        targetTitle: requestId || "System email", details: `${deliveryDetails}; Error: ${msg.slice(0, 300)}`,
+        category: "email", outcome: "failure", functionName: senderFunction,
+      })
       throw error
     }
   }
+}
+
+function getEmailFunctionForAudit(from: string): "Administration" | "People" | "Finance" {
+  const normalized = from.toLowerCase()
+  const hrEmail = readEmailConfig("hr")?.values?.smtp_user?.toLowerCase()
+  const financeEmail = readEmailConfig("finance")?.values?.smtp_user?.toLowerCase()
+  if ((hrEmail && normalized.includes(hrEmail)) || /people team|\bhr@/.test(normalized)) return "People"
+  if ((financeEmail && normalized.includes(financeEmail)) || /finance team|\bap@/.test(normalized)) return "Finance"
+  return "Administration"
 }
 
 export async function sendWelcomeEmail(params: {

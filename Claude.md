@@ -1979,3 +1979,30 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
   - Authorized requesters and People Team members can use Activity, Comments, Attachments, and CC recipients on the HR Letter record.
 - [x] **Local deployment:**
   - The Docker image was rebuilt and the local application container was recreated successfully and passed its health check.
+
+## Phase 9: Security Audit Logging (Implemented - 23 Sep 2026)
+
+- [x] **Durable security event log:**
+  - Server audit records persist in `data/audit-log.json` (inside the Docker data volume) with UTC timestamps, actor identity, action, target, outcome, route context, and available client IP/user-agent information.
+  - Each new record stores the prior record checksum and its own SHA-256 checksum, providing a tamper-evidence chain for audit review. Retention is capped at 10,000 records; production evidence requirements must define retention and export/centralized-log policy.
+- [x] **Authentication and access events:**
+  - Records credential and Google login success/failure, inactive-account denial, rate limiting, sign-out, denied-page access, and authenticated page navigation.
+  - Page navigation is recorded for Administration, Finance, People, and Platform Administration. Raw mouse clicks and form values are intentionally not logged: they create excessive noise and could capture confidential information without providing meaningful security evidence.
+- [x] **User and system actions:**
+  - Request create/update/delete, bulk imports/deletes, user and role changes, password resets, company-data changes, and existing database/maintenance operations are shown in the Audit Trail.
+  - Audit Trail adds Authentication, Access, and System categories and presents outcome, route, and IP context where available.
+- [ ] **Operational control required outside code:**
+  - Configure centralized, access-controlled log forwarding/SIEM, retention and review cadence, time synchronization, alert thresholds, incident response ownership, and tested backup/restore procedures. These are organizational controls needed to evidence ISO/IEC 27001:2022 Annex A 8.15/8.16; this application logging alone does not certify compliance.
+
+### Phase 9 Completion Addendum (23 Sep 2026)
+
+- [x] **Audit dimensions and review filters:**
+  - Every Audit Trail record displays and can be filtered by **Function** (Administration, People, Finance, Platform Administration, or System) and **Company** (Si-Ware Systems, BUCHI, System / Not applicable, or Not specified).
+  - New events retain structured Function data; legacy events are classified safely from their request/module, route, actor, and event context so no record is left without a visible classification.
+- [x] **Email delivery evidence:**
+  - The central mail sender logs every successful or failed system email in the **Email** Audit Trail category with Function, linked Request ID when available, From, To, CC, subject, and delivery outcome. Bodies and attachments are never logged.
+  - A manual **Resend Approval Email** creates both the delivery event and a distinct **Approval email resent** event identifying the actor, request, manager recipient, and CC list.
+- [x] **Logging hardening:**
+  - Audit values are sanitized and bounded before persistence to prevent log injection through carriage returns, line feeds, or null characters.
+  - The protected Audit Log API verifies the SHA-256 chain and returns the verification result for monitoring/integration use.
+  - Production build validation passed and the Docker app was rebuilt and restarted successfully after the audit enhancements.

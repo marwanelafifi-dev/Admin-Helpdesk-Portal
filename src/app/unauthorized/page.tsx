@@ -1,5 +1,7 @@
 import Link from "next/link"
 import { ShieldAlert } from "lucide-react"
+import { auth } from "@/auth"
+import { logServerAudit } from "@/lib/serverAuditLog"
 
 export const dynamic = "force-dynamic"
 
@@ -9,6 +11,21 @@ export default async function UnauthorizedPage({
   searchParams?: Promise<{ from?: string }>
 }) {
   const params = await searchParams
+  const session = await auth()
+  const blockedPath = params?.from?.startsWith("/") ? params.from.slice(0, 240) : ""
+  if (session?.user?.email) {
+    logServerAudit({
+      actor: session.user.name ?? session.user.email,
+      actorEmail: session.user.email,
+      action: "access_denied",
+      targetId: "",
+      targetTitle: blockedPath || "Protected page",
+      details: "Page access denied by role permission policy",
+      category: "access",
+      outcome: "denied",
+      path: blockedPath,
+    })
+  }
   return (
     <div
       style={{

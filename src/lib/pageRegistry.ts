@@ -36,18 +36,19 @@ export interface PageDefinition {
 }
 
 export const PAGES: PageDefinition[] = [
-  // Core / dashboard
-  { id: "dashboard",          label: "Dashboard",            path: "/dashboard",                 group: "Core" },
-  { id: "feedback-reports",   label: "Feedback & Reports",   path: "/feedback-reports",          group: "Core" },
-  { id: "tasks",              label: "Team Tasks",           path: "/tasks",                     group: "Core" },
-  { id: "announcements",      label: "Announcements",        path: "/announcements",             group: "Core" },
-  { id: "system-notices",     label: "System Notices",       path: "/system/notices",            group: "Core" },
-  { id: "my-requests",        label: "My Requests",          path: "/requests",                  group: "Core" },
-  { id: "team-requests",      label: "Team Requests",        path: "/team-requests",             group: "Core" },
-  { id: "request-detail",     label: "Request Detail",       path: "/requests/[id]",             group: "Core" },
-  { id: "all-requests",       label: "Administration All Requests", path: "/admin/all-requests", group: "Core" },
+  // Administration function / work queue
+  { id: "dashboard",          label: "Administration Dashboard", path: "/dashboard",                group: "Administration Function" },
+  { id: "admin-services",     label: "Administration Services", path: "/departments/admin",          group: "Administration Function" },
+  { id: "feedback-reports",   label: "Administration Feedback & Reports", path: "/feedback-reports", group: "Administration Function" },
+  { id: "tasks",              label: "Administration Team Tasks", path: "/tasks",                    group: "Administration Function" },
+  { id: "announcements",      label: "Administration Announcements", path: "/announcements",          group: "Administration Function" },
+  { id: "system-notices",     label: "Administration System Notices", path: "/system/notices",        group: "Administration Function" },
+  { id: "my-requests",        label: "Administration My Requests", path: "/requests",                 group: "Administration Function" },
+  { id: "team-requests",      label: "Administration Team Requests", path: "/team-requests",          group: "Administration Function" },
+  { id: "request-detail",     label: "Administration Request Detail", path: "/requests/[id]",          group: "Administration Function" },
+  { id: "all-requests",       label: "Administration All Requests", path: "/admin/all-requests", group: "Administration Function" },
 
-  // Modules
+  // Administration service modules
   { id: "shipping",           label: "Shipping",             path: "/shipping",                  group: "Modules" },
   { id: "shipping-new",       label: "Shipping New",         path: "/shipping/new",              group: "Modules" },
   { id: "shipping-sending",   label: "Shipping Export",      path: "/shipping/sending",          group: "Modules" },
@@ -125,9 +126,37 @@ export function pagesByGroup(includeNonAssignable = false): Array<{ group: strin
   const groups: Record<string, PageDefinition[]> = {}
   for (const page of PAGES) {
     if (!includeNonAssignable && page.assignable === false) continue
-    const g = page.group ?? "General"
+    const rawGroup = page.group ?? "General"
+    // Administration's legacy dashboard and module pages used separate
+    // registry group names. They are one function in the role editor, just
+    // as Finance and People each render as one section.
+    const g = rawGroup === "Administration Function" || rawGroup === "Modules" || rawGroup === "Core"
+      ? "Administration"
+      : rawGroup
     if (!groups[g]) groups[g] = []
     groups[g].push(page)
   }
-  return Object.entries(groups).map(([group, pages]) => ({ group, pages }))
+  // These labels appear only in the role editor. Keep the legacy registry
+  // values stable while making the platform-only controls unambiguous.
+  const editorGroupLabels: Record<string, string> = {
+    Admin: "Platform Administration",
+  }
+  const administrationPageOrder = [
+    "dashboard",
+    "admin-services",
+    "shipping", "shipping-new", "shipping-sending", "shipping-receiving",
+    "hr", "hr-new", "hr-onboarding", "hr-offboarding",
+    "maintenance", "maintenance-new", "purchase", "purchase-new",
+    "event", "event-new", "travel", "travel-new", "general", "general-new",
+    "my-requests", "team-requests", "all-requests", "tasks", "feedback-reports",
+    "announcements", "system-notices", "admin-announcements", "request-detail",
+  ]
+  return Object.entries(groups).map(([group, pages]) => ({
+    group: editorGroupLabels[group] ?? group,
+    // Match the Finance and People sequence: dashboard, service pages, then
+    // requester/team queues and supporting pages.
+    pages: group === "Administration"
+      ? [...pages].sort((a, b) => administrationPageOrder.indexOf(a.id) - administrationPageOrder.indexOf(b.id))
+      : pages,
+  }))
 }

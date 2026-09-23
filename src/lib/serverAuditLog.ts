@@ -8,9 +8,10 @@
 
 import fs from "fs"
 import path from "path"
+import { createHash } from "crypto"
 
 const STORE_PATH = path.join(process.cwd(), "data", "audit-log.json")
-const MAX_ENTRIES = 1000
+const MAX_ENTRIES = 10_000
 
 export type ServerAuditAction =
   | "user_created"
@@ -23,7 +24,18 @@ export type ServerAuditAction =
   | "role_deleted"
   | "company_data_updated"
   | "request_deleted"
+  | "request_created"
   | "request_edited"
+  | "login_succeeded"
+  | "login_failed"
+  | "login_rate_limited"
+  | "logout"
+  | "access_denied"
+  | "page_view"
+  | "system_event"
+  | "email_sent"
+  | "email_failed"
+  | "approval_email_resent"
 
 export interface ServerAuditEntry {
   id: string
@@ -34,7 +46,15 @@ export interface ServerAuditEntry {
   targetId: string    // userId / roleId / requestId
   targetTitle: string // user name / role name / request title
   details: string
-  category: "user" | "role" | "request"
+  category: "user" | "role" | "request" | "authentication" | "access" | "system" | "email" | "company_data"
+  outcome?: "success" | "failure" | "denied"
+  path?: string
+  ipAddress?: string
+  userAgent?: string
+  functionName?: string
+  company?: string
+  previousHash?: string
+  integrityHash?: string
 }
 
 function ensureStore() {
@@ -59,16 +79,33 @@ function writeToDisk(entries: ServerAuditEntry[]) {
   fs.writeFileSync(STORE_PATH, JSON.stringify(entries, null, 2), "utf-8")
 }
 
+function integrityHash(entry: Omit<ServerAuditEntry, "integrityHash">) {
+  // A chained checksum makes accidental alteration or removal evident during
+  // review. Production deployments should additionally forward this file to
+  // a protected, centralized log service for independent retention.
+  return createHash("sha256").update(JSON.stringify(entry)).digest("hex")
+}
+
+function sanitize(value: string | undefined) {
+  return (value ?? "").replace(/[\r\n\u0000]/g, " ").slice(0, 2_000)
+}
+
 export function logServerAudit(
   entry: Omit<ServerAuditEntry, "id" | "timestamp">
 ): void {
   try {
     const all = readFromDisk()
-    const newEntry: ServerAuditEntry = {
+    const previousHash = all[0]?.integrityHash ?? ""
+    const draft: Omit<ServerAuditEntry, "integrityHash"> = {
       ...entry,
+      actor: sanitize(entry.actor), actorEmail: sanitize(entry.actorEmail),
+      targetId: sanitize(entry.targetId), targetTitle: sanitize(entry.targetTitle), details: sanitize(entry.details),
+      path: sanitize(entry.path), ipAddress: sanitize(entry.ipAddress), userAgent: sanitize(entry.userAgent),
       id: `srv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       timestamp: new Date().toISOString(),
+      previousHash,
     }
+    const newEntry: ServerAuditEntry = { ...draft, integrityHash: integrityHash(draft) }
     const updated = [newEntry, ...all].slice(0, MAX_ENTRIES)
     writeToDisk(updated)
   } catch {
@@ -78,4 +115,14 @@ export function logServerAudit(
 
 export function getServerAuditLog(): ServerAuditEntry[] {
   return readFromDisk()
+}
+
+export function verifyServerAuditLog(entries = readFromDisk()) {
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i]
+    const expectedPrevious = entries[i + 1]?.integrityHash ?? ""
+    const { integrityHash: storedHash, ...draft } = entry
+    if (!storedHash || entry.previousHash !== expectedPrevious || integrityHash(draft) !== storedHash) return { valid: false, invalidEntryId: entry.id }
+  }
+  return { valid: true, invalidEntryId: null }
 }

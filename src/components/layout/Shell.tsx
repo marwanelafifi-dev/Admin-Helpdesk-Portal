@@ -5,6 +5,7 @@ import { TopBar } from "./TopBar"
 import { MobileNavProvider, useMobileNav } from "./MobileNavContext"
 import { useEngineSync } from "@/hooks/useEngineSync"
 import { useHeartbeat } from "@/hooks/useHeartbeat"
+import { SecurityActivityTracker } from "./SecurityActivityTracker"
 
 /**
  * Dashboard shell: sidebar (drawer on mobile) + topbar + main content area.
@@ -27,6 +28,7 @@ function ShellInner({ children, portal }: { children: React.ReactNode; portal: "
 
   return (
     <div className="flex h-screen overflow-hidden bg-background relative" suppressHydrationWarning>
+      <SecurityActivityTracker />
       {/* Sidebar — fixed drawer below lg, static beside content at lg+ */}
       <Sidebar portal={portal} />
 
