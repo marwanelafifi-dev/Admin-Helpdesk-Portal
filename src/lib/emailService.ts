@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer"
 import fs from "fs"
 import path from "path"
-import { readEmailConfig, type EmailFunctionId } from "./emailConfig"
+import { getFunctionEmailSenderName, readEmailConfig, type EmailFunctionId } from "./emailConfig"
 import { DEFAULT_ANNOUNCEMENT_SIGNATURE } from "./announcementStore"
 import { functionForModule } from "./functionRegistry"
 import { logServerAudit } from "./serverAuditLog"
@@ -131,17 +131,21 @@ function createTransporter(functionId: EmailFunctionId = "admin") {
  *   4. Hardcoded fallback (`adminhelpdesk@si-ware.com`) so we never send a
  *      `From: <undefined>` line — that's a hard 553 rejection from Gmail.
  */
-function resolveFromAddress(defaultDisplayName = "Si-Ware Admin Helpdesk", functionId: EmailFunctionId = "admin"): string {
+function emailAddressFrom(value: string): string {
+  return value.match(/<([^>]+)>/)?.[1]?.trim() || value.trim()
+}
+
+function resolveFromAddress(_defaultDisplayName = "", functionId: EmailFunctionId = "admin"): string {
+  const senderName = getFunctionEmailSenderName(functionId)
   if (functionId === "admin" && process.env.SMTP_FROM && process.env.SMTP_FROM.trim()) {
-    return process.env.SMTP_FROM.trim()
+    return `"${senderName}" <${emailAddressFrom(process.env.SMTP_FROM)}>`
   }
   const saved = readEmailConfig(functionId)
   if (saved?.values?.smtp_user) {
-    const name = (saved.values.smtp_from_name ?? defaultDisplayName).trim() || defaultDisplayName
-    return `"${name}" <${saved.values.smtp_user}>`
+    return `"${senderName}" <${saved.values.smtp_user}>`
   }
   if (functionId === "admin" && process.env.SMTP_USER && process.env.SMTP_USER.trim()) {
-    return `"${defaultDisplayName}" <${process.env.SMTP_USER}>`
+    return `"${senderName}" <${process.env.SMTP_USER}>`
   }
   // Last-resort fallback so we never produce `From: <undefined>`.
   const fallbackEmail = functionId === "hr"
@@ -149,12 +153,7 @@ function resolveFromAddress(defaultDisplayName = "Si-Ware Admin Helpdesk", funct
     : functionId === "finance"
       ? "ap@si-ware.com"
       : "adminhelpdesk@si-ware.com"
-  const fallbackName = functionId === "hr"
-    ? "Si-Ware People Team"
-    : functionId === "finance"
-      ? "Si-Ware Finance Team"
-      : "Si-Ware Administration Team"
-  return `"${fallbackName}" <${fallbackEmail}>`
+  return `"${senderName}" <${fallbackEmail}>`
 }
 
 function escapeHtml(value: string) {
@@ -776,7 +775,7 @@ export async function sendFeedbackSurveyEmail(params: {
         <td style="padding:28px 40px 32px;border-top:1px solid #f1f5f9;margin-top:28px;">
           <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;line-height:1.6;">
             This survey was sent because your request <strong>${params.requestId}</strong> was completed.<br>
-            Si-Ware Systems &bull; Admin Portal
+            Si-Ware Systems &bull; ${functionLabel}
           </p>
         </td>
       </tr>

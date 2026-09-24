@@ -19,6 +19,7 @@ interface LandingDestination {
   accent: string
   status: string
   external?: boolean
+  unavailable?: boolean
   logoUrl?: string
   accessPaths?: string[]
   requiredPermission?: string
@@ -61,7 +62,7 @@ const baseFunctions: LandingDestination[] = [
     description: "IT incidents and service requests are managed in the SolarWinds Service Desk.",
     href: process.env.NEXT_PUBLIC_IT_SERVICE_DESK_URL || "#it-service-desk",
     icon: Headset,
-    accent: "border-cyan-200 bg-cyan-50 text-[#263d8b] dark:border-cyan-500/60 dark:bg-cyan-950/60 dark:text-cyan-200",
+    accent: "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-cyan-200",
     status: "SolarWinds",
     external: true,
     requiredPermission: "page:it-services",
@@ -94,13 +95,36 @@ export default async function DepartmentSelectorPage() {
   // unlike the department tiles above, it isn't open to everyone.
   const platformAdminPath = getFirstAllowedPlatformAdminPath(session.user.permissions, session.user.role)
   const visibleFunctions = baseFunctions.flatMap((item) => {
-    if (item.external) return item.requiredPermission && hasPermission(session.user!.permissions, item.requiredPermission) ? [item] : []
+    const availability = platformSettings.supportFunctionAvailability[item.id]
+    if (item.external) {
+      if (!item.requiredPermission || !hasPermission(session.user!.permissions, item.requiredPermission)) return []
+      return availability?.enabled ? [item] : [{
+        ...item,
+        href: "#function-unavailable",
+        status: "Available soon",
+        description: availability?.unavailableMessage || `${item.name} is currently unavailable.`,
+        unavailable: true,
+      }]
+    }
     const allowedPath = item.accessPaths?.find((path) => canAccessPath(path, session.user!.permissions, session.user!.role))
-    return allowedPath ? [{ ...item, href: allowedPath }] : []
+    if (!allowedPath) return []
+    if (!availability?.enabled) {
+      return [{
+        ...item,
+        href: "#function-unavailable",
+        status: "Available soon",
+        description: availability?.unavailableMessage || `${item.name} is currently unavailable.`,
+        unavailable: true,
+      }]
+    }
+    return [{ ...item, href: allowedPath }]
   }).map((item) => item.name === "IT Team"
     ? { ...item, href: itServiceDeskUrl || "#it-service-desk", status: itServiceDeskUrl ? "SolarWinds" : "Unavailable" }
     : item)
-  const functions: LandingDestination[] = visibleFunctions.map((item) => ({ ...item, logoUrl: platformSettings.supportFunctionLogos[item.id] || "" }))
+  const supportFunctionOrder: SupportFunctionId[] = ["administration", "finance", "people", "it"]
+  const functions: LandingDestination[] = visibleFunctions
+    .sort((left, right) => supportFunctionOrder.indexOf(left.id) - supportFunctionOrder.indexOf(right.id))
+    .map((item) => ({ ...item, logoUrl: platformSettings.supportFunctionLogos[item.id] || "" }))
   const visibleMainApps = platformSettings.mainApps
     .filter((app) => app.enabled && app.name.trim())
     .map((app) => {
@@ -121,16 +145,16 @@ export default async function DepartmentSelectorPage() {
             : "xl:grid-cols-4"
 
   return (
-    <main className="relative min-h-screen bg-[#f4f8fd] px-4 py-5 text-slate-900 dark:bg-[#0b1220] dark:text-slate-100 lg:h-screen lg:overflow-hidden sm:px-6 sm:py-6">
+    <main className="landing-page app-page-enter relative min-h-screen bg-[#f4f8fd] px-4 py-4 text-slate-900 dark:bg-[#0b1220] dark:text-slate-100 lg:h-screen lg:overflow-hidden sm:px-6 sm:py-6">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[25rem] bg-[radial-gradient(ellipse_at_top,_rgba(191,219,254,0.9),_transparent_64%)] dark:bg-[radial-gradient(ellipse_at_top,_rgba(18,72,112,0.34),_transparent_64%)]" />
       <div className="pointer-events-none absolute -left-24 top-72 h-80 w-80 rounded-full bg-blue-100/30 blur-3xl dark:bg-blue-900/10" />
-      {platformAdminPath && <Link href={platformAdminPath} className="absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white/90 px-3 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:border-blue-300 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 sm:left-6 sm:top-6"><ShieldCheck className="h-4 w-4 text-blue-600" />Platform Administration</Link>}
-      <div className="absolute right-4 top-4 z-20 sm:right-6 sm:top-6">
+      {platformAdminPath && <Link href={platformAdminPath} aria-label="Open Platform Administration" title="Platform Administration" className="absolute left-3 top-3 z-10 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white/90 px-2.5 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:border-blue-300 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 sm:left-6 sm:top-6 sm:px-3"><ShieldCheck className="h-4 w-4 text-blue-600" /><span className="hidden sm:inline">Platform Administration</span></Link>}
+      <div className="absolute right-3 top-3 z-20 sm:right-6 sm:top-6">
         <LandingTopBar />
       </div>
-      <div className="relative mx-auto w-full max-w-[1728px]">
-        <header className="mb-5 flex flex-col items-center text-center sm:mb-6">
-          <div className="relative mb-1 h-14 w-40">
+      <div className="landing-content relative mx-auto w-full max-w-[1728px] pt-14 sm:pt-0">
+        <header className="landing-hero mb-5 flex flex-col items-center text-center sm:mb-6">
+          <div className="landing-logo relative mb-1 h-14 w-40">
             <Image src="/siware-logo.png" alt="Si-Ware Systems" fill className="object-contain dark:brightness-0 dark:invert" priority />
           </div>
           <h1 className="mt-3 text-[32px] font-semibold tracking-[-0.035em] text-slate-950 dark:text-white sm:text-[38px]">How can we help today?</h1>
@@ -139,19 +163,18 @@ export default async function DepartmentSelectorPage() {
           </p>
         </header>
 
-        <section className="rounded-[28px] border border-blue-100 bg-gradient-to-br from-white/95 via-white/80 to-blue-50/75 p-5 shadow-[0_18px_60px_-38px_rgba(30,64,175,0.5)] backdrop-blur-sm dark:border-[#29436b] dark:from-[#13233d] dark:via-[#101d33] dark:to-[#0d1930] sm:p-6" aria-labelledby="support-functions-heading">
-          <div className="mb-5 text-center">
+        <section className="landing-support-section rounded-[28px] border border-blue-100 bg-gradient-to-br from-white/95 via-white/80 to-blue-50/75 p-4 shadow-[0_18px_60px_-38px_rgba(30,64,175,0.5)] backdrop-blur-sm dark:border-[#29436b] dark:from-[#13233d] dark:via-[#101d33] dark:to-[#0d1930] sm:p-6" aria-labelledby="support-functions-heading">
+          <div className="landing-section-heading mb-5 text-center">
             <div>
               <h2 id="support-functions-heading" className="text-[22px] font-semibold tracking-[-0.025em] text-slate-950 dark:text-white">Support Functions</h2>
             </div>
             <p className="mt-1.5 text-sm leading-5 text-slate-500 dark:text-slate-300">Choose a team to submit or manage requests.</p>
           </div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4" aria-label="Support functions">
+        <div className="landing-support-grid grid gap-3 md:grid-cols-2 xl:grid-cols-4" aria-label="Support functions">
           {functions.map((item) => {
             const unavailableExternal = item.external && item.href.startsWith("#")
-            const statusClasses = item.external
-              ? "bg-cyan-100 text-[#263d8b] dark:bg-cyan-950/60 dark:text-cyan-200"
-              : "bg-[#eef3ff] text-[#263d8b] dark:bg-blue-950/60 dark:text-blue-200"
+            const unavailable = item.unavailable || unavailableExternal
+            const statusClasses = "bg-[#eef3ff] text-[#263d8b] dark:bg-blue-950/60 dark:text-blue-200"
             const content = (
               <>
                 <div className="flex items-start justify-between gap-4">
@@ -163,30 +186,30 @@ export default async function DepartmentSelectorPage() {
                 <h3 className="mt-4 text-[17px] font-semibold leading-6 tracking-[-0.015em] text-slate-900 dark:text-white">{item.name}</h3>
                 <p className="mt-1.5 text-sm leading-5 text-slate-600 dark:text-slate-300">{item.description}</p>
                 <div className="mt-auto flex items-center pt-4 text-sm font-bold text-blue-600 dark:text-cyan-300">
-                  {unavailableExternal ? "Service Desk URL not configured" : item.external ? "Open Service Desk" : "Open services"} {!unavailableExternal && <ChevronRight className="ml-1 h-4 w-4" />}
+                  {item.unavailable ? "Available soon" : unavailableExternal ? "Service Desk URL not configured" : item.external ? "Open Service Desk" : "Open services"} {!unavailable && <ChevronRight className="ml-1 h-4 w-4" />}
                 </div>
               </>
             )
-            const classes = "group relative flex min-h-[194px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:bg-[#263d8b] hover:-translate-y-1 hover:border-cyan-300 hover:shadow-lg hover:shadow-blue-950/5 dark:border-[#405372] dark:!bg-[#18263b] dark:hover:border-cyan-400 dark:hover:shadow-cyan-950/30"
-            if (unavailableExternal) return <div key={item.name} id="it-service-desk" className={`${classes} opacity-70`}>{content}</div>
+            const classes = "landing-support-card group relative flex min-h-[194px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:bg-[#263d8b] hover:-translate-y-1 hover:border-cyan-300 hover:shadow-lg hover:shadow-blue-950/5 dark:border-[#405372] dark:!bg-[#18263b] dark:hover:border-cyan-400 dark:hover:shadow-cyan-950/30"
+            if (unavailable) return <div key={item.name} id={item.unavailable ? "function-unavailable" : "it-service-desk"} className={`${classes} opacity-70`}>{content}</div>
             return item.external ? <a key={item.name} href={item.href} target="_blank" rel="noreferrer" className={classes}>{content}</a> : <Link key={item.name} href={item.href} className={classes}>{content}</Link>
           })}
         </div>
         </section>
 
         {visibleMainApps.length > 0 && (
-          <section className="mt-5 rounded-[24px] border border-slate-200/80 bg-white/35 p-4 shadow-[0_12px_45px_-35px_rgba(15,23,42,0.4)] dark:border-[#29436b] dark:bg-[#101d33]/90" aria-labelledby="main-apps-heading">
-            <div className="mb-3 text-center">
+          <section className="landing-apps-section mt-5 rounded-[24px] border border-slate-200/80 bg-white/35 p-4 shadow-[0_12px_45px_-35px_rgba(15,23,42,0.4)] dark:border-[#29436b] dark:bg-[#101d33]/90" aria-labelledby="main-apps-heading">
+            <div className="landing-section-heading landing-apps-heading mb-3 text-center">
               <div>
                 <h2 id="main-apps-heading" className="text-[22px] font-semibold tracking-[-0.025em] text-slate-950 dark:text-white">Main Apps</h2>
               </div>
               <p className="mt-1.5 text-sm leading-5 text-slate-500 dark:text-slate-300">Open the applications you use every day.</p>
             </div>
-            <div className={`grid min-w-0 max-w-full gap-3 overflow-hidden sm:grid-cols-2 lg:grid-cols-4 ${mainAppsGridColumns}`}>
+            <div className={`landing-apps-grid grid min-w-0 max-w-full gap-3 overflow-visible sm:grid-cols-2 md:grid-cols-4 ${mainAppsGridColumns}`}>
               {visibleMainApps.map((item, index) => {
                 const unavailable = item.href.startsWith("#")
                 const content = <><span className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border shadow-sm ${MAIN_APP_ACCENTS[index % MAIN_APP_ACCENTS.length]}`}>{item.iconImage ? <img src={item.iconImage} alt="" className="h-full w-full object-contain p-1" /> : <item.icon className="h-[18px] w-[18px]" />}</span><div className="min-w-0 flex-1"><h3 title={item.name} className="break-words text-[15px] font-semibold leading-5 tracking-[-0.01em] text-slate-950 dark:text-white">{item.name}</h3><span className="mt-1.5 inline-flex items-center gap-1 text-xs font-bold text-[#263d8b] transition-transform group-hover:translate-x-0.5 dark:text-cyan-300">{unavailable ? "URL not configured" : "Open app"}{!unavailable && <ArrowUpRight className="h-3.5 w-3.5" />}</span></div></>
-                const classes = "group flex min-h-[100px] min-w-0 items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-white hover:shadow-md dark:border-[#405372] dark:!bg-[#16243a] dark:hover:border-cyan-400 dark:hover:!bg-[#1b2e48]"
+                const classes = "landing-app-card group flex min-h-[100px] min-w-0 items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-white hover:shadow-[0_0_0_5px_rgba(191,219,254,0.34),0_16px_34px_-12px_rgba(59,130,246,0.24)] dark:border-[#405372] dark:!bg-[#16243a] dark:hover:border-cyan-400 dark:hover:!bg-[#1b2e48] dark:hover:shadow-[0_0_0_5px_rgba(34,211,238,0.12),0_16px_34px_-12px_rgba(8,47,73,0.72)]"
                 return unavailable ? <div key={item.id} id="main-apps" className={`${classes} opacity-70`}>{content}</div> : <a key={item.id} href={item.href} target="_blank" rel="noreferrer" className={classes}>{content}</a>
               })}
             </div>

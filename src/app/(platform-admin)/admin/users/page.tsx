@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Search, MoreHorizontal, UserPlus, X, FileUp, Download } from "lucide-react"
+import { Search, MoreHorizontal, UserPlus, FileUp, Download } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -33,6 +33,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 
 type PlatformUser = {
   id: string
@@ -131,6 +132,7 @@ export default function AdminUsersPage() {
     password: "",
     role: "Requester - Si-Ware",
     department: "",
+    company: "si_ware" as "si_ware" | "buchi",
   })
   const [departments, setDepartments] = useState<string[]>([])
   useEffect(() => { setDepartments(getList("departments")) }, [])
@@ -269,6 +271,7 @@ export default function AdminUsersPage() {
       password: "",
       role: getDefaultRoleValue(roles),
       department: "",
+      company: "si_ware",
     })
     setShowCreateUser(false)
   }
@@ -373,6 +376,7 @@ export default function AdminUsersPage() {
       password: "",
       role: getDefaultRoleValue(roles),
       department: "",
+      company: "si_ware",
     })
   }
 
@@ -384,6 +388,7 @@ export default function AdminUsersPage() {
       password: "",
       role: user.role,
       department: user.department || "",
+      company: user.companyId === "buchi" ? "buchi" : "si_ware",
     })
     setEditDefaultAssignee(Boolean((user as any).defaultAssignee))
     setEditMustChangePassword(Boolean(user.mustChangePassword))
@@ -464,7 +469,7 @@ export default function AdminUsersPage() {
 
     setShowEditDialog(false)
     setEditingUser(null)
-    setForm({ name: "", email: "", password: "", role: "Requester - Si-Ware", department: "" })
+    setForm({ name: "", email: "", password: "", role: "Requester - Si-Ware", department: "", company: "si_ware" })
     setEditDefaultAssignee(false)
   }
 
@@ -823,23 +828,18 @@ export default function AdminUsersPage() {
       </Card>
 
       {showCreateUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-lg bg-white shadow-xl">
+        <Dialog open={showCreateUser} onOpenChange={(open) => {
+          if (!open) {
+            setShowCreateUser(false)
+            resetCreateForm()
+          }
+        }}>
+          <DialogContent className="max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-xl overflow-y-auto rounded-xl p-0">
             <div className="flex items-center justify-between border-b px-6 py-4">
               <div>
                 <h2 className="text-lg font-semibold">Add local user</h2>
                 <p className="text-sm text-muted-foreground">Create an email and password account.</p>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  setShowCreateUser(false)
-                  resetCreateForm()
-                }}
-              >
-                <X className="h-4 w-4" />
-              </Button>
             </div>
 
             <form onSubmit={handleCreateUser} className="space-y-4 px-6 py-5">
@@ -862,6 +862,32 @@ export default function AdminUsersPage() {
                     placeholder="Select department"
                     allowClear
                   />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Company</Label>
+                  <Select value={form.company} onValueChange={(value: "si_ware" | "buchi") => setForm((current) => ({
+                    ...current,
+                    company: value,
+                    role: current.role.startsWith("Requester - ") ? (value === "buchi" ? "Requester - BUCHI" : "Requester - Si-Ware") : current.role,
+                  }))}>
+                    <SelectTrigger><SelectValue placeholder="Select company" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="si_ware">Si-Ware Systems</SelectItem>
+                      <SelectItem value="buchi">BUCHI</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Role</Label>
+                  <Select value={form.role} onValueChange={(value) => setForm((current) => ({ ...current, role: value }))}>
+                    <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
+                    <SelectContent>
+                      {roles.map((role) => <SelectItem key={role.value} value={role.value}>{role.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -889,9 +915,7 @@ export default function AdminUsersPage() {
                   required
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
-                New users are assigned automatically by email domain: <strong>Requester - Si-Ware</strong> or <strong>Requester - BUCHI</strong>.
-              </p>
+              <p className="text-xs text-muted-foreground">The selected Company and Role determine the user&apos;s portal access. The email domain must be Si-Ware or BUCHI.</p>
 
               {createError && <p className="text-sm text-destructive">{createError}</p>}
 
@@ -911,21 +935,23 @@ export default function AdminUsersPage() {
                 </Button>
               </div>
             </form>
-          </div>
-        </div>
+          </DialogContent>
+        </Dialog>
       )}
 
       {showEditDialog && editingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-lg bg-white shadow-xl">
+        <Dialog open={showEditDialog} onOpenChange={(open) => {
+          if (!open) {
+            setShowEditDialog(false)
+            setEditingUser(null)
+          }
+        }}>
+          <DialogContent className="max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-lg overflow-y-auto p-0">
             <div className="flex items-center justify-between border-b px-6 py-4">
               <div>
                 <h2 className="text-lg font-semibold">Edit user</h2>
                 <p className="text-sm text-muted-foreground">Update user details and permissions.</p>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setShowEditDialog(false)}>
-                <X className="h-4 w-4" />
-              </Button>
             </div>
 
             <form onSubmit={handleUpdateUser} className="space-y-4 px-6 py-5">
@@ -1051,8 +1077,8 @@ export default function AdminUsersPage() {
                 </Button>
               </div>
             </form>
-          </div>
-        </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   )

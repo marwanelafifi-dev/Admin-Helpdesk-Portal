@@ -134,19 +134,29 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
 
   const handleCancel = onCancel ?? (() => router.push("/departments/finance/travel-reimbursement"))
 
-  const onSubmit = async (data: TravelReimbursementFormValues) => {
+  // Files are kept outside React Hook Form because they are uploaded only
+  // after the request receives an ID. Validate them on every submit attempt,
+  // including when another form field fails schema validation.
+  const validateRequiredFiles = (paidByCard: boolean) => {
+    let valid = true
     if (!isEditing && !supportingDocFile) {
       setSupportingDocError("Supporting documents are required to submit a travel reimbursement request.")
-      return
+      valid = false
+    } else {
+      setSupportingDocError(null)
     }
-    setSupportingDocError(null)
-    if (data.paidByPersonalCreditCard) {
-      if (!isEditing && !creditCardStatementFile) {
-        setCreditCardStatementError("Payment evidence for the company expense is required when paid by personal credit card.")
-        return
-      }
+
+    if (paidByCard && !isEditing && !creditCardStatementFile) {
+      setCreditCardStatementError("Payment evidence for the company expense is required when paid by personal credit card.")
+      valid = false
+    } else {
+      setCreditCardStatementError(null)
     }
-    setCreditCardStatementError(null)
+    return valid
+  }
+
+  const onSubmit = async (data: TravelReimbursementFormValues) => {
+    if (!validateRequiredFiles(data.paidByPersonalCreditCard)) return
 
     // Auto-CC the Authorized Manager. Resolves the manager name to an email
     // via Company Data and appends it to ccEmails (case-insensitive dedupe).
@@ -231,7 +241,10 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
 
   return (
     <div className="space-y-5 max-w-6xl mx-auto">
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <form onSubmit={handleSubmit(onSubmit, () => { validateRequiredFiles(Boolean(paidByPersonalCreditCard)) })} className="space-y-5">
+        {/* Processing time */}
+        <FinanceProcessingNotice hasApproval />
+
         {/* Request Title */}
         <Card>
           <CardContent className="pt-6">
@@ -242,9 +255,6 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
             </div>
           </CardContent>
         </Card>
-
-        {/* Processing time */}
-        <FinanceProcessingNotice hasApproval />
 
         {/* Approval */}
         <Card>
@@ -300,7 +310,7 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
           <SectionHeader icon={Wallet} title="Expense Details" subtitle="Add a row for each travel expense" />
           <CardContent className="space-y-4">
             <div className="overflow-visible rounded-lg border">
-              <table className="w-full table-fixed border-collapse text-sm">
+              <table className="finance-mobile-table w-full table-fixed border-collapse text-sm">
                 <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
                   <tr>
                     <th className="w-[31%] border-b px-2 py-3">Description <span className="text-red-500">*</span></th>
@@ -316,8 +326,8 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
                     const rowErrors = errors.expenseRows?.[index]
                     const selectedDescription = expenseRows[index]?.description
                     return (
-                      <tr key={expenseField.id} className="align-top">
-                        <td className="border-b px-2 py-3">
+                      <tr key={expenseField.id} className="finance-row align-top">
+                        <td data-label="Description" className="border-b px-2 py-3">
                           <div className="flex items-start gap-2">
                             <div className={cn("min-w-0", selectedDescription === "Others" ? "w-1/2 shrink-0" : "w-full")}>
                               <Controller
@@ -344,11 +354,11 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
                             )}
                           </div>
                         </td>
-                        <td className="border-b px-2 py-3">
+                        <td data-label="Invoice Amount" className="border-b px-2 py-3">
                           <Input type="number" min="0" step="0.01" placeholder="0.00" {...register(`expenseRows.${index}.invoiceAmount`, { valueAsNumber: true })} className={cn(rowErrors?.invoiceAmount && "border-red-400")} aria-label={`Invoice amount for row ${index + 1}`} />
                           <FieldError message={rowErrors?.invoiceAmount?.message} />
                         </td>
-                        <td className="border-b px-2 py-3">
+                        <td data-label="Invoice Currency" className="border-b px-2 py-3">
                           <Controller name={`expenseRows.${index}.invoiceCurrency`} control={control} render={({ field }) => (
                             <SearchableSelect
                               value={field.value ?? ""}
@@ -360,11 +370,11 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
                           )} />
                           <FieldError message={rowErrors?.invoiceCurrency?.message} />
                         </td>
-                        <td className="border-b px-2 py-3">
+                        <td data-label="Refund Amount" className="border-b px-2 py-3">
                           <Input type="number" min="0" step="0.01" placeholder="0.00" {...register(`expenseRows.${index}.refundAmount`, { valueAsNumber: true })} className={cn(rowErrors?.refundAmount && "border-red-400")} aria-label={`Refund amount for row ${index + 1}`} />
                           <FieldError message={rowErrors?.refundAmount?.message} />
                         </td>
-                        <td className="border-b px-2 py-3">
+                        <td data-label="Refund Currency" className="border-b px-2 py-3">
                           <Controller
                             name={`expenseRows.${index}.refundCurrency`}
                             control={control}
@@ -383,7 +393,7 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
                           />
                           <FieldError message={rowErrors?.refundCurrency?.message} />
                         </td>
-                        <td className="border-b px-1 py-3 text-center">
+                        <td data-label="Actions" className="border-b px-1 py-3 text-center">
                           <Button type="button" variant="ghost" size="icon" disabled={expenseFields.length === 1} onClick={() => removeExpense(index)} aria-label={`Remove expense row ${index + 1}`}>
                             <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
@@ -391,7 +401,7 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
                       </tr>
                     )
                   })}
-                  <tr className="bg-amber-50/70 font-bold text-slate-950">
+                  <tr className="finance-totals-row bg-amber-50/70 font-bold text-slate-950">
                     <td className="px-2 py-3 text-right text-xs">Refund totals</td>
                     <td colSpan={4} className="px-2 py-3">
                       <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
@@ -458,7 +468,7 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
                     onClick={() => document.getElementById("creditCardStatement")?.click()}
                     className={cn(
                       "w-full px-6 py-8 border-2 border-dashed rounded-lg transition-all duration-200 flex flex-col items-center justify-center gap-2",
-                      creditCardStatementFile ? "border-amber-400 bg-amber-50/60 hover:bg-amber-50" : "border-amber-300 hover:border-amber-500 hover:bg-amber-50"
+                      creditCardStatementError ? "border-red-400 bg-red-50 hover:border-red-500 hover:bg-red-50" : creditCardStatementFile ? "border-amber-400 bg-amber-50/60 hover:bg-amber-50" : "border-amber-300 hover:border-amber-500 hover:bg-amber-50"
                     )}
                   >
                     {creditCardStatementFile ? (
@@ -506,7 +516,7 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
                 onClick={() => document.getElementById("supportingDocument")?.click()}
                 className={cn(
                   "w-full px-6 py-8 border-2 border-dashed rounded-lg transition-all duration-200 flex flex-col items-center justify-center gap-2",
-                  supportingDocFile ? "border-amber-400 bg-amber-50/60 hover:bg-amber-50" : "border-amber-300 hover:border-amber-500 hover:bg-amber-50"
+                  supportingDocError ? "border-red-400 bg-red-50 hover:border-red-500 hover:bg-red-50" : supportingDocFile ? "border-amber-400 bg-amber-50/60 hover:bg-amber-50" : "border-amber-300 hover:border-amber-500 hover:bg-amber-50"
                 )}
               >
                 {supportingDocFile ? (

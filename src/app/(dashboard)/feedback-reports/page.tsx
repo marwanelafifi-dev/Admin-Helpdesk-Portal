@@ -306,7 +306,7 @@ export default function FeedbackReportsPage({ moduleScope, title = "Feedback & R
 
       {/* Summary Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-        <Card className="border-0 bg-gradient-to-br from-slate-50 to-slate-100 shadow-sm">
+        <Card className="border-0 bg-gradient-to-br from-slate-50 to-slate-100 shadow-sm dark:border dark:border-slate-700 dark:!bg-[#17243a] dark:!bg-none">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-semibold text-gray-700">Total Feedback</CardTitle>
@@ -321,7 +321,7 @@ export default function FeedbackReportsPage({ moduleScope, title = "Feedback & R
           </CardContent>
         </Card>
 
-        <Card className="border-0 bg-gradient-to-br from-amber-50 to-amber-100 shadow-sm">
+        <Card className="border-0 bg-gradient-to-br from-amber-50 to-amber-100 shadow-sm dark:border dark:border-amber-800 dark:!bg-[#3a3015] dark:!bg-none">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-semibold text-gray-700">Average Rating</CardTitle>
@@ -336,7 +336,7 @@ export default function FeedbackReportsPage({ moduleScope, title = "Feedback & R
           </CardContent>
         </Card>
 
-        <Card className="border-0 bg-gradient-to-br from-emerald-50 to-emerald-100 shadow-sm">
+        <Card className="border-0 bg-gradient-to-br from-emerald-50 to-emerald-100 shadow-sm dark:border dark:border-emerald-800 dark:!bg-[#103128] dark:!bg-none">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-semibold text-gray-700">Satisfaction Rate</CardTitle>
@@ -351,7 +351,7 @@ export default function FeedbackReportsPage({ moduleScope, title = "Feedback & R
           </CardContent>
         </Card>
 
-        <Card className="border-0 bg-gradient-to-br from-blue-50 to-blue-100 shadow-sm">
+        <Card className="border-0 bg-gradient-to-br from-blue-50 to-blue-100 shadow-sm dark:border dark:border-blue-800 dark:!bg-[#15304e] dark:!bg-none">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-semibold text-gray-700">Feedback Rate</CardTitle>
@@ -368,7 +368,7 @@ export default function FeedbackReportsPage({ moduleScope, title = "Feedback & R
           </CardContent>
         </Card>
 
-        <Card className="border-0 bg-gradient-to-br from-rose-50 to-rose-100 shadow-sm">
+        <Card className="border-0 bg-gradient-to-br from-rose-50 to-rose-100 shadow-sm dark:border dark:border-rose-800 dark:!bg-[#3b202c] dark:!bg-none">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-semibold text-gray-700">Avg Resolution</CardTitle>

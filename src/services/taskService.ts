@@ -1,3 +1,5 @@
+import type { FunctionId } from "@/lib/functionRegistry"
+
 export type TaskStatus = "todo" | "in_progress" | "in_review" | "completed" | "cancelled"
 
 // Administration team roles only
@@ -46,24 +48,28 @@ export interface Task {
   ccEmails?: string[]
 }
 
-const TASKS_KEY = "admin_tasks"
+const TASKS_KEY: Record<FunctionId, string> = {
+  admin: "admin_tasks",
+  hr: "people_team_tasks",
+  finance: "finance_team_tasks",
+}
 
-export function getTasks(): Task[] {
+export function getTasks(functionId: FunctionId = "admin"): Task[] {
   if (typeof window === "undefined") return []
-  const tasks = localStorage.getItem(TASKS_KEY)
+  const tasks = localStorage.getItem(TASKS_KEY[functionId])
   return tasks ? JSON.parse(tasks) : []
 }
 
 // Single chokepoint for persisting tasks. Also broadcasts a same-tab event
 // so the Sidebar / dashboard badges refresh without a page reload — the
 // native `storage` event only fires in OTHER tabs.
-function saveTasks(tasks: Task[]): void {
+function saveTasks(tasks: Task[], functionId: FunctionId): void {
   if (typeof window === "undefined") return
-  localStorage.setItem(TASKS_KEY, JSON.stringify(tasks))
+  localStorage.setItem(TASKS_KEY[functionId], JSON.stringify(tasks))
   try { window.dispatchEvent(new Event("arp:storage")) } catch {}
 }
 
-export function createTask(task: Omit<Task, "id" | "createdAt" | "updatedAt" | "comments" | "activity"> & { attachments?: TaskAttachment[] }): Task {
+export function createTask(task: Omit<Task, "id" | "createdAt" | "updatedAt" | "comments" | "activity"> & { attachments?: TaskAttachment[] }, functionId: FunctionId = "admin"): Task {
   const id = `TSK-${Date.now()}`
   const now = new Date().toISOString()
 
@@ -86,18 +92,18 @@ export function createTask(task: Omit<Task, "id" | "createdAt" | "updatedAt" | "
   }
 
   if (typeof window !== "undefined") {
-    const tasks = getTasks()
+    const tasks = getTasks(functionId)
     tasks.push(newTask)
-    saveTasks(tasks)
+    saveTasks(tasks, functionId)
   }
 
   return newTask
 }
 
-export function updateTaskStatus(taskId: string, newStatus: TaskStatus, changedBy: string): Task | null {
+export function updateTaskStatus(taskId: string, newStatus: TaskStatus, changedBy: string, functionId: FunctionId = "admin"): Task | null {
   if (typeof window === "undefined") return null
 
-  const tasks = getTasks()
+  const tasks = getTasks(functionId)
   const task = tasks.find((t) => t.id === taskId)
   if (!task) return null
 
@@ -116,14 +122,14 @@ export function updateTaskStatus(taskId: string, newStatus: TaskStatus, changedB
     newValue: newStatus,
   })
 
-  saveTasks(tasks)
+  saveTasks(tasks, functionId)
   return task
 }
 
-export function addTaskComment(taskId: string, author: string, content: string, attachments?: TaskAttachment[]): Task | null {
+export function addTaskComment(taskId: string, author: string, content: string, attachments?: TaskAttachment[], functionId: FunctionId = "admin"): Task | null {
   if (typeof window === "undefined") return null
 
-  const tasks = getTasks()
+  const tasks = getTasks(functionId)
   const task = tasks.find((t) => t.id === taskId)
   if (!task) return null
 
@@ -147,14 +153,14 @@ export function addTaskComment(taskId: string, author: string, content: string, 
   })
 
   task.updatedAt = now
-  saveTasks(tasks)
+  saveTasks(tasks, functionId)
   return task
 }
 
-export function addTaskAttachment(taskId: string, attachment: TaskAttachment, addedBy: string): Task | null {
+export function addTaskAttachment(taskId: string, attachment: TaskAttachment, addedBy: string, functionId: FunctionId = "admin"): Task | null {
   if (typeof window === "undefined") return null
 
-  const tasks = getTasks()
+  const tasks = getTasks(functionId)
   const task = tasks.find((t) => t.id === taskId)
   if (!task) return null
 
@@ -171,19 +177,19 @@ export function addTaskAttachment(taskId: string, attachment: TaskAttachment, ad
   })
 
   task.updatedAt = now
-  saveTasks(tasks)
+  saveTasks(tasks, functionId)
   return task
 }
 
-export function getTaskById(taskId: string): Task | undefined {
-  return getTasks().find((t) => t.id === taskId)
+export function getTaskById(taskId: string, functionId: FunctionId = "admin"): Task | undefined {
+  return getTasks(functionId).find((t) => t.id === taskId)
 }
 
-export function deleteTask(taskId: string): boolean {
+export function deleteTask(taskId: string, functionId: FunctionId = "admin"): boolean {
   if (typeof window === "undefined") return false
 
-  const tasks = getTasks()
+  const tasks = getTasks(functionId)
   const filtered = tasks.filter((t) => t.id !== taskId)
-  saveTasks(filtered)
+  saveTasks(filtered, functionId)
   return filtered.length < tasks.length
 }

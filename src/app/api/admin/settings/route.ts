@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getToken } from "@auth/core/jwt"
 import { loadSettingsServer, writeSettingsServer } from "@/lib/settingsServer"
-import { DEFAULT_MAIN_APPS, type MainAppIcon } from "@/lib/platformSettings"
+import { DEFAULT_MAIN_APPS, DEFAULT_PLATFORM_SETTINGS, type FeedbackFunctionId, type MainAppIcon, type SupportFunctionId } from "@/lib/platformSettings"
 
 export const runtime = "nodejs"
 
@@ -54,6 +54,35 @@ export async function POST(req: NextRequest) {
     body.supportFunctionLogos = Object.fromEntries(validSupportIds.map((id) => {
       const value = String(source[id] ?? current[id] ?? "")
       return [id, /^\/api\/admin\/support-function-icons\/(administration|people|finance|it)(?:\?v=\d+)?$/.test(value) ? value : ""]
+    }))
+  }
+  if (body.supportFunctionAvailability !== undefined) {
+    const current = loadSettingsServer().supportFunctionAvailability
+    const ids: SupportFunctionId[] = ["administration", "people", "finance", "it"]
+    const source = body.supportFunctionAvailability && typeof body.supportFunctionAvailability === "object"
+      ? body.supportFunctionAvailability
+      : {}
+    body.supportFunctionAvailability = Object.fromEntries(ids.map((id) => {
+      const value = source[id] ?? current[id] ?? DEFAULT_PLATFORM_SETTINGS.supportFunctionAvailability[id]
+      return [id, {
+        enabled: Boolean(value.enabled),
+        unavailableMessage: String(value.unavailableMessage ?? "").trim().slice(0, 180),
+      }]
+    }))
+  }
+  if (body.feedbackSurveysByFunction !== undefined) {
+    const current = loadSettingsServer().feedbackSurveysByFunction
+    const ids: FeedbackFunctionId[] = ["admin", "hr", "finance"]
+    const source = body.feedbackSurveysByFunction && typeof body.feedbackSurveysByFunction === "object"
+      ? body.feedbackSurveysByFunction
+      : {}
+    body.feedbackSurveysByFunction = Object.fromEntries(ids.map((id) => {
+      const value = source[id] ?? current[id]
+      return [id, {
+        enabled: Boolean(value.enabled),
+        subject: String(value.subject ?? "").trim().slice(0, 220),
+        body: String(value.body ?? "").trim().slice(0, 4000),
+      }]
     }))
   }
   if (body.mainApps !== undefined) {

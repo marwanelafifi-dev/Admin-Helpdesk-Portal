@@ -143,9 +143,9 @@ export function TopBar({ portal = "admin" }: { portal?: Portal }) {
         <div className="flex-1 flex items-center justify-center min-w-0">
           <div className="relative h-10 w-40 sm:h-12 sm:w-56 lg:w-64">
             {logoSrc.startsWith("data:") ? (
-              <img src={logoSrc} alt={headerLogoAlt} className="h-full w-full object-contain" />
+              <img src={logoSrc} alt={headerLogoAlt} className="h-full w-full object-contain dark:brightness-0 dark:invert" />
             ) : (
-              <Image src={logoSrc} alt={headerLogoAlt} fill className="object-contain" priority />
+              <Image src={logoSrc} alt={headerLogoAlt} fill className="object-contain dark:brightness-0 dark:invert" priority />
             )}
           </div>
         </div>

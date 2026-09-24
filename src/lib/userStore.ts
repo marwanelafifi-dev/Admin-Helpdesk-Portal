@@ -28,6 +28,8 @@ export type StoredUser = {
   helpManualVersion?: number
   /** Completed first-request guides, keyed by request module. */
   helpModuleManualVersions?: Record<string, number>
+  /** One-time Company Portal request onboarding guide version. */
+  companyPortalFirstRequestGuideVersion?: number
 }
 
 const STORE_PATH = path.join(process.cwd(), "data", "users.json")

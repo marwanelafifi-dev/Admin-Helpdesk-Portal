@@ -85,10 +85,10 @@ function AttachmentLink({ attachment }: { attachment: { name: string; url: strin
   const previewUrl = isDownloadUrl ? attachment.url.slice(0, -"/download".length) : attachment.url
   const downloadUrl = attachment.url
   return (
-    <div className="text-right">
-      <Badge className="bg-green-600 mb-2">Uploaded</Badge>
-      <p className="text-xs text-gray-600 mb-2 max-w-[220px] truncate" title={attachment.name}>{attachment.name}</p>
-      <div className="flex items-center justify-end gap-3">
+    <div className="mt-3 w-full sm:mt-0 sm:w-auto sm:text-right">
+      <Badge className="mb-2 bg-green-600">Uploaded</Badge>
+      <p className="mb-2 max-w-full truncate text-xs text-gray-600 sm:max-w-[220px]" title={attachment.name}>{attachment.name}</p>
+      <div className="flex flex-wrap items-center justify-start gap-x-3 gap-y-1 sm:justify-end">
         <a
           href={previewUrl}
           target="_blank"
@@ -223,11 +223,11 @@ function HrTravelLetterDetail({ id }: { id: string }) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 p-6">
+    <div className="mx-auto max-w-4xl space-y-5 p-4 sm:space-y-6 sm:p-6">
       {/* Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">{request.title}</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">{request.title}</h1>
           <div className="mt-2">
             <InlineStatusSelect
               currentStatus={request.status}
@@ -240,22 +240,22 @@ function HrTravelLetterDetail({ id }: { id: string }) {
             />
           </div>
         </div>
-        <div className="text-right text-sm text-gray-600">
+        <div className="text-left text-sm text-gray-600 sm:text-right">
           <p>Request ID: <span className="font-mono font-semibold">{request.id}</span></p>
           <p>Created: {fmtDateTime(request.createdAt)}</p>
         </div>
       </div>
 
       {/* 📋 TRAVEL REFERENCE (Read-only) */}
-      <div className="flex gap-6 border-b px-2">
+      <div className="flex gap-1 border-b px-0 sm:gap-6 sm:px-2">
         {[
           ['details', 'Details'],
           ['activity', `Activity (${request.statusHistory?.length ?? 0})`],
           ['comments', `Comments (${comments.length})`],
           ['attachments', `Attachments (${attachments.length})`],
         ].map(([tab, label]) => (
-          <button key={tab} onClick={() => setActiveTab(tab as typeof activeTab)} className={`border-b-2 py-3 text-sm font-medium ${activeTab === tab ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-600 hover:text-slate-900'}`}>
-            {label}
+          <button key={tab} onClick={() => setActiveTab(tab as typeof activeTab)} className={`flex-1 whitespace-nowrap border-b-2 px-1 py-3 text-xs font-medium sm:flex-none sm:px-0 sm:text-sm ${activeTab === tab ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-600 hover:text-slate-900'}`}>
+            {tab === 'attachments' ? <><span className="sm:hidden">Files ({attachments.length})</span><span className="hidden sm:inline">{label}</span></> : label}
           </button>
         ))}
       </div>
@@ -295,7 +295,7 @@ function HrTravelLetterDetail({ id }: { id: string }) {
 
       {activeTab === 'attachments' && (
         <Card><CardContent className="space-y-3 py-6">
-          {attachments.length ? attachments.map((attachment) => <div key={attachment.url} className="flex items-center justify-between rounded-lg border p-4"><span className="flex items-center gap-2 text-sm font-medium"><Paperclip className="h-4 w-4" />{attachment.name}</span><AttachmentLink attachment={attachment} /></div>) : <p className="py-8 text-center text-sm text-slate-500">No attachments available.</p>}
+          {attachments.length ? attachments.map((attachment) => <div key={attachment.url} className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-4"><span className="flex min-w-0 items-start gap-2 text-sm font-medium"><Paperclip className="mt-0.5 h-4 w-4 shrink-0" /><span className="break-all">{attachment.name}</span></span><AttachmentLink attachment={attachment} /></div>) : <p className="py-8 text-center text-sm text-slate-500">No attachments available.</p>}
         </CardContent></Card>
       )}
 
@@ -382,7 +382,7 @@ function HrTravelLetterDetail({ id }: { id: string }) {
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Passport */}
-          <div className={`flex items-start gap-4 p-4 rounded-lg border-2 ${
+          <div className={`flex flex-col gap-3 rounded-lg border-2 p-3 sm:flex-row sm:items-start sm:gap-4 sm:p-4 ${
             payload.passportAttachment
               ? 'bg-green-50 border-green-200'
               : 'bg-red-50 border-red-200'
@@ -396,14 +396,14 @@ function HrTravelLetterDetail({ id }: { id: string }) {
             {payload.passportAttachment ? (
               <AttachmentLink attachment={payload.passportAttachment} />
             ) : (
-              <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300">
+              <Badge variant="outline" className="self-start bg-red-100 text-red-800 border-red-300 sm:self-auto">
                 Missing
               </Badge>
             )}
           </div>
 
           {/* Invitation Letter */}
-          <div className={`flex items-start gap-4 p-4 rounded-lg border-2 ${
+          <div className={`flex flex-col gap-3 rounded-lg border-2 p-3 sm:flex-row sm:items-start sm:gap-4 sm:p-4 ${
             payload.invitationLetterAttachment
               ? 'bg-green-50 border-green-200'
               : 'bg-red-50 border-red-200'
@@ -417,14 +417,14 @@ function HrTravelLetterDetail({ id }: { id: string }) {
             {payload.invitationLetterAttachment ? (
               <AttachmentLink attachment={payload.invitationLetterAttachment} />
             ) : (
-              <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300">
+              <Badge variant="outline" className="self-start bg-red-100 text-red-800 border-red-300 sm:self-auto">
                 Missing
               </Badge>
             )}
           </div>
 
           {/* Optional Visa Document */}
-          <div className="flex items-start gap-4 p-4 rounded-lg border-2 bg-amber-50 border-amber-200">
+          <div className="flex flex-col gap-3 rounded-lg border-2 border-amber-200 bg-amber-50 p-3 sm:flex-row sm:items-start sm:gap-4 sm:p-4">
             <div className="flex-1">
               <p className="text-sm font-semibold">📋 Visa Document</p>
               <p className="text-xs text-gray-600 mt-1">If visa is required for destination (optional)</p>
@@ -432,7 +432,7 @@ function HrTravelLetterDetail({ id }: { id: string }) {
             {payload.visaDocumentAttachment?.length ? (
               <AttachmentLink attachment={payload.visaDocumentAttachment[0]!} />
             ) : (
-              <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300">
+              <Badge variant="outline" className="self-start bg-amber-100 text-amber-800 border-amber-300 sm:self-auto">
                 Optional
               </Badge>
             )}

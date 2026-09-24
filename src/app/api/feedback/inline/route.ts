@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { feedbackStore } from "@/lib/feedbackStore"
 import { auth } from "@/auth"
+import { functionForModule } from "@/lib/functionRegistry"
+import { loadSettingsServer } from "@/lib/settingsServer"
+import { requestStore } from "@/lib/requestStore"
 
 export const runtime = "nodejs"
 
@@ -25,6 +28,17 @@ export async function POST(req: NextRequest) {
   const r = Number(rating)
   if (!requestId || !Number.isInteger(r) || r < 1 || r > 5) {
     return NextResponse.json({ error: "invalid_input" }, { status: 400 })
+  }
+
+  // The same function-level setting controls the in-page feedback card and
+  // feedback emails. Derive the function from the stored request where
+  // possible so a client cannot select a different function in the payload.
+  const storedRequest = requestStore.get(requestId)
+  const requestModule = storedRequest?.module || module || "general"
+  const functionId = functionForModule(requestModule)
+  const feedbackSettings = loadSettingsServer().feedbackSurveysByFunction[functionId]
+  if (!feedbackSettings.enabled) {
+    return NextResponse.json({ error: "feedback_disabled", message: "Feedback surveys are disabled for this function." }, { status: 403 })
   }
 
   const safeComment = typeof comment === "string" ? comment : ""

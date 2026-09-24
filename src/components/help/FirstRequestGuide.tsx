@@ -40,8 +40,8 @@ export function FirstRequestGuide({ moduleId, isEditing = false }: { moduleId: s
     <Dialog open={open} onOpenChange={(next) => { if (!next) void closeGuide(); else setOpen(true) }}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-blue-600" /> Your first {guide.label} request</DialogTitle>
-          <DialogDescription>{guide.summary}</DialogDescription>
+          <DialogTitle className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-blue-600" /> Getting started with {guide.label}</DialogTitle>
+          <DialogDescription>{guide.summary} This one-time guide is shown when you first use this request type in the Company Portal.</DialogDescription>
         </DialogHeader>
         <section className="rounded-lg border border-blue-200 bg-blue-50 p-4">
           <div className="flex items-center gap-2 font-semibold text-slate-900"><Info className="h-4 w-4 text-blue-600" /> Before you submit</div>

@@ -62,6 +62,13 @@ export const ReimbursementPayloadSchema = z.object({
       }
     })
   }
+  if (data.poOption === "no_po" && !data.directManager?.trim()) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Direct Manager is required when there is no PO",
+      path: ["directManager"],
+    })
+  }
 })
 
 export type ReimbursementPayload = z.infer<typeof ReimbursementPayloadSchema>

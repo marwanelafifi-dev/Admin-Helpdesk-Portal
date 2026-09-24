@@ -1,4 +1,5 @@
 import { requestStore } from "@/lib/requestStore"
+import { loadSettingsServer } from "@/lib/settingsServer"
 import type { EngineRequest } from "@/services/engineService"
 
 /**
@@ -12,6 +13,7 @@ import type { EngineRequest } from "@/services/engineService"
  * this is a no-op — a Travel request can only spawn one HR Letter.
  */
 export function autoCreateHrLetterFromTravel(request: EngineRequest): void {
+  if (!loadSettingsServer().supportFunctionAvailability.people.enabled) return
   if (request.module !== "travel") return
   const payload = request.payload as any
   if (!payload?.needsHrLetter) return

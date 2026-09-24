@@ -286,12 +286,17 @@ export function ShippingForm({ onCancel, editingRequest, isEditing, direction: d
   const addStagedFiles = useCallback((newFiles: StagedFile[]) => setStagedFiles((prev) => [...prev, ...newFiles]), [])
   const removeStagedFile = useCallback((id: string) => setStagedFiles((prev) => prev.filter((f) => f.id !== id)), [])
 
-  const onSubmit = async (data: ShippingRequestForm) => {
+  const validateRequiredDocuments = () => {
     if (!isEditing && !hasRequiredDocs(stagedFiles, direction, importType)) {
       setError("attachments", { type: "manual", message: missingDocsMessage(direction, importType) })
-      return
+      return false
     }
     clearErrors("attachments")
+    return true
+  }
+
+  const onSubmit = async (data: ShippingRequestForm) => {
+    if (!validateRequiredDocuments()) return
 
     if (!isSiwareShip(direction, importType) && !data.carrier?.trim()) {
       setError("carrier", { type: "manual", message: "Select a carrier" })
@@ -404,7 +409,7 @@ export function ShippingForm({ onCancel, editingRequest, isEditing, direction: d
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 max-w-4xl mx-auto">
+    <form onSubmit={handleSubmit(onSubmit, validateRequiredDocuments)} className="space-y-5 max-w-4xl mx-auto">
       {direction === "receiving" && (
         <Card>
           <CardHeader className="pb-4">

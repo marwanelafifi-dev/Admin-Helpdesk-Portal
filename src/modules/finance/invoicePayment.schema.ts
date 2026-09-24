@@ -30,6 +30,7 @@ export type PoOrContract = (typeof PO_OR_CONTRACT_OPTIONS)[number]
 
 export const InvoicePaymentRowSchema = z.object({
   supplier: z.string().min(1, "Supplier is required"),
+  supplierName: z.string().optional(),
   poNumber: z.string().optional(),
   otherDescription: z.string().optional(),
   amount: z.number().min(0.01, "Amount must be greater than 0"),
@@ -62,14 +63,46 @@ export const InvoicePaymentPayloadSchema = z.object({
   paymentTerms: z.string().optional(),
   paymentMethod: z.enum(PAYMENT_METHODS).optional(),
   invoiceRows: z.array(InvoicePaymentRowSchema).min(1, "Add at least one invoice row"),
-  // Finance-Team-only: optionally route this request through an approver
-  // before it can move to In Progress. Any portal user or free-typed email
-  // — not limited to the Company Data manager lists other modules use.
+  // Legacy values kept so existing invoice requests can still be opened.
   approverEmail: z.string().email().optional().or(z.literal("")),
   approverName: z.string().optional(),
+  // PO-backed invoices have already been approved through purchasing.
+  // Contract and Other invoices select a Direct Manager in the form.
+  directManager: z.string().optional(),
   invoiceFile: AttachmentSchema.optional(),
   additionalAttachments: z.array(AttachmentSchema).optional(),
   ccEmails: z.array(z.string().email()).default([]),
+}).superRefine((value, context) => {
+  if (value.poOrContract === "po") {
+    value.invoiceRows.forEach((row, index) => {
+      if (!row.poNumber?.trim()) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "PO Number is required for PO-backed invoices",
+          path: ["invoiceRows", index, "poNumber"],
+        })
+      }
+    })
+    return
+  }
+
+  if (!value.directManager?.trim()) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Direct Manager is required for Contract and Other invoices",
+      path: ["directManager"],
+    })
+  }
+
+  value.invoiceRows.forEach((row, index) => {
+    if (row.supplier === "Other" && !row.supplierName?.trim()) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Supplier Name is required when Supplier is Other",
+        path: ["invoiceRows", index, "supplierName"],
+      })
+    }
+  })
 })
 
 export type InvoicePaymentPayload = z.infer<typeof InvoicePaymentPayloadSchema>

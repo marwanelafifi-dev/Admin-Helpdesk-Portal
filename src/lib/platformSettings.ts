@@ -1,6 +1,19 @@
 export type MainAppIcon = "headset" | "monitor" | "globe" | "layout" | "building" | "users"
 export type SupportFunctionId = "administration" | "people" | "finance" | "it"
 
+export interface SupportFunctionAvailability {
+  enabled: boolean
+  unavailableMessage: string
+}
+
+export type FeedbackFunctionId = "admin" | "hr" | "finance"
+
+export interface FeedbackSurveySettings {
+  enabled: boolean
+  subject: string
+  body: string
+}
+
 export interface MainAppSettings {
   id: string
   name: string
@@ -48,11 +61,13 @@ export interface PlatformSettings {
   feedbackSurveyEnabled: boolean
   feedbackSurveySubject: string
   feedbackSurveyBody: string
+  feedbackSurveysByFunction: Record<FeedbackFunctionId, FeedbackSurveySettings>
   financeSlaWorkingDays: string
   financeSlaReminderDay: string
   itServiceDeskEnabled: boolean
   itServiceDeskUrl: string
   supportFunctionLogos: Record<SupportFunctionId, string>
+  supportFunctionAvailability: Record<SupportFunctionId, SupportFunctionAvailability>
   mainApps: MainAppSettings[]
 }
 
@@ -82,10 +97,21 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   feedbackSurveyEnabled: true,
   feedbackSurveySubject: "How was your {{module}} request? — {{requestTitle}}",
   feedbackSurveyBody: "Hi {{requesterName}},\n\nYour {{module}} request \"{{requestTitle}}\" has been completed.\n\nWe'd appreciate your feedback to help us improve our services. Please take a moment to rate your experience.",
+  feedbackSurveysByFunction: {
+    admin: { enabled: true, subject: "How was your {{module}} request? — {{requestTitle}}", body: "Hi {{requesterName}},\n\nYour {{module}} request \"{{requestTitle}}\" has been completed.\n\nWe'd appreciate your feedback to help us improve our services. Please take a moment to rate your experience." },
+    hr: { enabled: true, subject: "How was your {{module}} request? — {{requestTitle}}", body: "Hi {{requesterName}},\n\nYour {{module}} request \"{{requestTitle}}\" has been completed.\n\nWe'd appreciate your feedback to help us improve our services. Please take a moment to rate your experience." },
+    finance: { enabled: true, subject: "How was your {{module}} request? — {{requestTitle}}", body: "Hi {{requesterName}},\n\nYour {{module}} request \"{{requestTitle}}\" has been completed.\n\nWe'd appreciate your feedback to help us improve our services. Please take a moment to rate your experience." },
+  },
   financeSlaWorkingDays: "4",
   financeSlaReminderDay: "3",
   itServiceDeskEnabled: true,
   itServiceDeskUrl: "",
   supportFunctionLogos: { administration: "", people: "", finance: "", it: "" },
+  supportFunctionAvailability: {
+    administration: { enabled: true, unavailableMessage: "" },
+    people: { enabled: false, unavailableMessage: "People Team will be available soon." },
+    finance: { enabled: true, unavailableMessage: "" },
+    it: { enabled: true, unavailableMessage: "" },
+  },
   mainApps: DEFAULT_MAIN_APPS,
 }

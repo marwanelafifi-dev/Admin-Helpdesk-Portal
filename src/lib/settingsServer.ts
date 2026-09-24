@@ -9,9 +9,23 @@ export function loadSettingsServer(): PlatformSettings {
     if (!fs.existsSync(SETTINGS_PATH)) return DEFAULT_PLATFORM_SETTINGS
     const raw = fs.readFileSync(SETTINGS_PATH, "utf-8")
     const saved = JSON.parse(raw)
+    const legacyFeedback = {
+      enabled: saved.feedbackSurveyEnabled ?? DEFAULT_PLATFORM_SETTINGS.feedbackSurveyEnabled,
+      subject: saved.feedbackSurveySubject ?? DEFAULT_PLATFORM_SETTINGS.feedbackSurveySubject,
+      body: saved.feedbackSurveyBody ?? DEFAULT_PLATFORM_SETTINGS.feedbackSurveyBody,
+    }
     return {
       ...DEFAULT_PLATFORM_SETTINGS,
       ...saved,
+      supportFunctionAvailability: {
+        ...DEFAULT_PLATFORM_SETTINGS.supportFunctionAvailability,
+        ...(saved.supportFunctionAvailability ?? {}),
+      },
+      feedbackSurveysByFunction: {
+        admin: { ...DEFAULT_PLATFORM_SETTINGS.feedbackSurveysByFunction.admin, ...legacyFeedback, ...(saved.feedbackSurveysByFunction?.admin ?? {}) },
+        hr: { ...DEFAULT_PLATFORM_SETTINGS.feedbackSurveysByFunction.hr, ...legacyFeedback, ...(saved.feedbackSurveysByFunction?.hr ?? {}) },
+        finance: { ...DEFAULT_PLATFORM_SETTINGS.feedbackSurveysByFunction.finance, ...legacyFeedback, ...(saved.feedbackSurveysByFunction?.finance ?? {}) },
+      },
       mainApps: Array.isArray(saved.mainApps)
         ? DEFAULT_MAIN_APPS.map((fallback, index) => ({ ...fallback, ...saved.mainApps[index], id: fallback.id }))
         : DEFAULT_MAIN_APPS,

@@ -41,6 +41,7 @@ import {
 import { cn } from "@/lib/utils"
 import { canAccessPath, canAccessModule, getFirstAllowedPlatformAdminPath, hasPermission, type UserWithModuleAccess } from "@/lib/access"
 import { modulesVisibleToFunction, roleToFunctionId } from "@/lib/functionRegistry"
+import type { SupportFunctionId } from "@/lib/platformSettings"
 
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { useUnreadNotices } from "@/hooks/useUnreadNotices"
@@ -54,11 +55,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-const PORTAL_SWITCHER_ITEMS: { key: "admin" | "hr" | "finance"; name: string; href: string; icon: React.ElementType }[] = [
-  { key: "admin", name: "Administration Team", href: "/departments/admin", icon: Building2 },
-  { key: "finance", name: "Finance Team", href: "/departments/finance/services", icon: Calculator },
-  { key: "hr", name: "People Team", href: "/departments/hr/services", icon: Users },
+const PORTAL_SWITCHER_ITEMS: { key: "admin" | "hr" | "finance"; name: string; href: string; icon: React.ElementType; logoKey: SupportFunctionId }[] = [
+  { key: "admin", name: "Administration Team", href: "/departments/admin", icon: Building2, logoKey: "administration" },
+  { key: "finance", name: "Finance Team", href: "/departments/finance/services", icon: Calculator, logoKey: "finance" },
+  { key: "hr", name: "People Team", href: "/departments/hr/services", icon: Users, logoKey: "people" },
 ]
+
+function PortalSwitcherIcon({ logoUrl, Icon }: { logoUrl?: string; Icon: React.ElementType }) {
+  if (logoUrl) {
+    return <img src={logoUrl} alt="" aria-hidden="true" className="mr-2 h-4 w-4 shrink-0 rounded-sm object-contain" />
+  }
+  return <Icon className="mr-2 h-4 w-4 shrink-0" />
+}
 
 interface NavItem {
   title: string
@@ -189,7 +197,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
     return () => window.removeEventListener("arp:toggle-sidebar", onToggle)
   }, [])
   const [brandName, setBrandName] = useState(
-    portal === "hr" ? "People Portal" : portal === "finance" ? "Finance Portal" : portal === "platform-admin" ? "Platform Admin" : "Admin Portal"
+    portal === "hr" ? "People Portal" : portal === "finance" ? "Finance Portal" : portal === "platform-admin" ? "Platform Administration" : "Admin Portal"
   )
   const [brandSubtitle, setBrandSubtitle] = useState("Si-Ware Systems")
   const [administrationExpanded, setAdministrationExpanded] = useState(
@@ -227,8 +235,18 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
   const role = session?.user?.role
   const { open: mobileOpen } = useMobileNav()
   const platformAdminPath = getFirstAllowedPlatformAdminPath(permissions, role)
+  const portalHomeHref = portal === "hr"
+    ? "/departments/hr"
+    : portal === "finance"
+      ? "/departments/finance"
+      : portal === "platform-admin"
+        ? platformAdminPath || "/admin/users"
+        : "/dashboard"
   const [itServiceDeskUrl, setItServiceDeskUrl] = useState("")
   const [itServiceDeskEnabled, setItServiceDeskEnabled] = useState(true)
+  const [supportFunctionLogos, setSupportFunctionLogos] = useState<Record<SupportFunctionId, string>>({
+    administration: "", people: "", finance: "", it: "",
+  })
 
   // Per-module "new" request counts and todo task count.
   // Drives small badges next to sidebar items so admins can see at a glance
@@ -262,6 +280,12 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
         const enabled = data.settings.itServiceDeskEnabled !== false
         setItServiceDeskEnabled(enabled)
         setItServiceDeskUrl(enabled ? data.settings.itServiceDeskUrl || process.env.NEXT_PUBLIC_IT_SERVICE_DESK_URL || "" : "")
+        setSupportFunctionLogos({
+          administration: data.settings.supportFunctionLogos?.administration || "",
+          people: data.settings.supportFunctionLogos?.people || "",
+          finance: data.settings.supportFunctionLogos?.finance || "",
+          it: data.settings.supportFunctionLogos?.it || "",
+        })
       })
       .catch(() => setItServiceDeskUrl(process.env.NEXT_PUBLIC_IT_SERVICE_DESK_URL || ""))
   }, [])
@@ -406,17 +430,23 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
       )}
     >
       {/* Branding */}
-      <Link href="/landing" className={cn(
-        "flex items-center gap-3 border-b border-slate-700 py-4 px-5 hover:bg-slate-800 transition-colors",
+      <div className={cn(
+        "flex items-center gap-3 border-b border-slate-700 py-4 px-5",
         collapsed && "justify-center px-0"
       )} suppressHydrationWarning>
         <div className={cn("overflow-hidden", collapsed && "hidden")} suppressHydrationWarning>
-          <span className="font-bold text-sm tracking-tight whitespace-nowrap text-white">
-            {brandName}
-          </span>
+          <div className="flex items-center gap-1 text-sm font-bold tracking-tight whitespace-nowrap">
+            <Link href="/landing" className="rounded text-white transition-colors hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">
+              Home
+            </Link>
+            <span className="text-slate-500" aria-hidden="true">/</span>
+            <Link href={portalHomeHref} className="rounded text-white transition-colors hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">
+              {brandName}
+            </Link>
+          </div>
           <p className="text-xs text-slate-400 mt-0.5">{brandSubtitle}</p>
         </div>
-      </Link>
+      </div>
 
       {/* Navigation */}
       <nav aria-label="Primary navigation" className="flex-1 overflow-y-auto py-4 space-y-0.5 px-2">
@@ -637,7 +667,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
                 onClick={() => router.push(item.href)}
                 className={cn(portal === item.key && "bg-accent")}
               >
-                <item.icon className="mr-2 h-4 w-4" />
+                <PortalSwitcherIcon logoUrl={supportFunctionLogos[item.logoKey]} Icon={item.icon} />
                 {item.name}
               </DropdownMenuItem>
             ))}
@@ -651,7 +681,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
               }}
               disabled={!itServiceDeskEnabled || !itServiceDeskUrl}
             >
-              <Headphones className="mr-2 h-4 w-4" />
+              <PortalSwitcherIcon logoUrl={supportFunctionLogos.it} Icon={Headphones} />
               IT Team{!itServiceDeskEnabled || !itServiceDeskUrl ? " (unavailable)" : ""}
             </DropdownMenuItem>}
             {platformAdminPath && (

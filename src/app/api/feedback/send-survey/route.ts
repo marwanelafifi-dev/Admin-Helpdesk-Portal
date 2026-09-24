@@ -3,6 +3,7 @@ import { sendFeedbackSurveyEmail } from "@/lib/emailService"
 import { feedbackStore } from "@/lib/feedbackStore"
 import { loadSettingsServer } from "@/lib/settingsServer"
 import { requestStore } from "@/lib/requestStore"
+import { functionForModule } from "@/lib/functionRegistry"
 import { auth } from "@/auth"
 
 export const runtime = "nodejs"
@@ -25,10 +26,11 @@ export async function POST(req: NextRequest) {
     if (!request.requesterEmail) return NextResponse.json({ error: "Request has no requester email" }, { status: 400 })
     const requesterEmail = request.requesterEmail
 
-    // Check admin setting — surveys can be disabled from Admin → Settings
     const platformSettings = loadSettingsServer()
-    if (!platformSettings.feedbackSurveyEnabled) {
-      console.log(`[feedback] Surveys disabled — skipping for ${requestId}`)
+    const functionId = functionForModule(request.module)
+    const surveySettings = platformSettings.feedbackSurveysByFunction[functionId]
+    if (!surveySettings.enabled) {
+      console.log(`[feedback] Surveys disabled for ${functionId} — skipping ${requestId}`)
       return NextResponse.json({ success: true, skipped: true, reason: "surveys_disabled" })
     }
 
@@ -55,8 +57,8 @@ export async function POST(req: NextRequest) {
       requestId: survey.requestId,
       requestTitle: survey.requestTitle,
       module: survey.module,
-      customSubject: platformSettings.feedbackSurveySubject || undefined,
-      customBody: platformSettings.feedbackSurveyBody || undefined,
+      customSubject: surveySettings.subject || undefined,
+      customBody: surveySettings.body || undefined,
     })
 
     feedbackStore.markSent(survey.id)

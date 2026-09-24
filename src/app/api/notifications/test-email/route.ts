@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { validateEmailConfig, type EmailFunctionId } from "@/lib/emailConfig"
+import { getFunctionEmailSenderName, validateEmailConfig, type EmailFunctionId } from "@/lib/emailConfig"
 
 export const runtime = "nodejs"
 
@@ -23,7 +23,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const toEmail = session.user.email!
-    const fromName = values.smtp_from_name || "Si-Ware Admin Portal"
+    const fromName = getFunctionEmailSenderName(functionId)
+    const subject = `✅ ${fromName} — Email Test`
     const fromEmail = values.smtp_user || "noreply@si-ware.com"
 
     if (method === "sendgrid") {
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           personalizations: [{ to: [{ email: toEmail }] }],
           from: { email: fromEmail, name: fromName },
-          subject: "✅ Admin Portal — Email Test",
+          subject,
           content: [{ type: "text/html", value: testHtml(fromName) }],
         }),
       })
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           sender: { email: fromEmail, name: fromName },
           to: [{ email: toEmail }],
-          subject: "✅ Admin Portal — Email Test",
+          subject,
           htmlContent: testHtml(fromName),
         }),
       })
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
     await transporter.sendMail({
       from: `${fromName} <${fromEmail}>`,
       to: toEmail,
-      subject: "✅ Admin Portal — Email Test",
+      subject,
       html: testHtml(fromName),
     })
 
@@ -134,6 +135,6 @@ function testHtml(fromName: string) {
       ✓ Email delivered successfully
     </p>
   </div>
-  <p style="color:#9ca3af;font-size:12px;margin-top:24px;text-align:center;">Si-Ware Systems — Admin Portal</p>
+  <p style="color:#9ca3af;font-size:12px;margin-top:24px;text-align:center;">${fromName}</p>
 </div>`
 }

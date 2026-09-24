@@ -16,6 +16,16 @@ export const FUNCTION_EMAILS: Record<EmailFunctionId, string> = {
   finance: "ap@si-ware.com",
 }
 
+export const FUNCTION_EMAIL_SENDER_NAMES: Record<EmailFunctionId, string> = {
+  admin: "Administration Team",
+  hr: "People Team",
+  finance: "Finance Team",
+}
+
+export function getFunctionEmailSenderName(functionId: EmailFunctionId): string {
+  return FUNCTION_EMAIL_SENDER_NAMES[functionId]
+}
+
 const APP_PASSWORD_METHODS = new Set(["gmail_app_password", "smtp_relay"])
 
 export function normalizeAppPassword(value: string): string {

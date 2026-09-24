@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 import { auth } from "@/auth"
 import { canAccessModule, canAccessPath, type RequestModule, type UserWithModuleAccess } from "@/lib/access"
+import { loadSettingsServer } from "@/lib/settingsServer"
 
 export const runtime = "nodejs"
 
@@ -72,11 +73,12 @@ export default async function AdminDepartmentPage() {
   const visibleGroups = serviceGroups
     .map((group) => ({ ...group, services: group.services.filter(canSee) }))
     .filter((group) => group.services.length > 0)
+  const logoUrl = loadSettingsServer().supportFunctionLogos.administration
 
   return (
     <div className="space-y-6">
       <div className="rounded-xl border bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-blue-600 text-white"><Building2 className="h-7 w-7" /></div>
+        <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-blue-600 text-white">{logoUrl ? <img src={logoUrl} alt="Administration Team" className="h-full w-full object-contain p-1.5" /> : <Building2 className="h-7 w-7" />}</div>
         <h1 className="mt-5 text-3xl font-bold text-slate-900 dark:text-white">Administration Team Services</h1>
         <p className="mt-3 text-slate-600 dark:text-slate-400">Access the complete Administration services portal and submit operational requests.</p>
       </div>

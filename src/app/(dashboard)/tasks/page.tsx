@@ -10,8 +10,9 @@ import { Badge } from "@/components/ui/badge"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
-import { getTasks, createTask, updateTaskStatus, addTaskComment, type Task, type TaskStatus, type TaskAttachment, ADMIN_TEAM_ROLES } from "@/services/taskService"
+import { getTasks, createTask, updateTaskStatus, addTaskComment, type Task, type TaskStatus, type TaskAttachment } from "@/services/taskService"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
+import { FUNCTION_TEAM_ROLE, type FunctionId } from "@/lib/functionRegistry"
 
 const STATUS_COLORS: Record<TaskStatus, { bg: string; text: string; border: string }> = {
   todo: { bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200" },
@@ -41,14 +42,18 @@ interface ExtendedTask extends Task {
   _expanded?: boolean
 }
 
-export default function TasksPage() {
+interface TasksPageProps {
+  functionId?: FunctionId
+}
+
+export default function TasksPage({ functionId = "admin" }: TasksPageProps) {
   const { data: session } = useSession()
   const [tasks, setTasks] = useState<ExtendedTask[]>([])
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("all")
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null)
   const [showNewTaskForm, setShowNewTaskForm] = useState(false)
-  const [adminTeamMembers, setAdminTeamMembers] = useState<{ name: string; role: string }[]>([])
+  const [teamMembers, setTeamMembers] = useState<{ name: string; role: string }[]>([])
   const [roleError, setRoleError] = useState<string | null>(null)
   const [newTaskData, setNewTaskData] = useState({
     title: "",
@@ -62,17 +67,16 @@ export default function TasksPage() {
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
   useEffect(() => {
-    setTasks(getTasks() as ExtendedTask[])
+    setTasks(getTasks(functionId) as ExtendedTask[])
     // Fetch real assignable users (those with page:tasks permission)
     fetch("/api/users/assignable")
       .then((r) => r.json())
       .then(({ data }) => {
         if (Array.isArray(data)) {
-          // Only show Administration Team members (not Full Access/Super Admin)
-          setAdminTeamMembers(
+          setTeamMembers(
             data
               .filter((u: { name: string; role: string }) =>
-                u.role === "Administration Team"
+                u.role === FUNCTION_TEAM_ROLE[functionId]
               )
               .map((u: { name: string; role: string }) => ({
                 name: u.name,
@@ -82,7 +86,7 @@ export default function TasksPage() {
         }
       })
       .catch(() => {})
-  }, [])
+  }, [functionId])
 
   const filtered = useMemo(() => {
     return tasks.filter((task) => {
@@ -143,13 +147,12 @@ export default function TasksPage() {
       return
     }
 
-    // Validate that assigned member is in admin team
-    const assignedMember = adminTeamMembers.find(
+    const assignedMember = teamMembers.find(
       (member) => member.name.toLowerCase() === newTaskData.assignedTo.toLowerCase()
     )
 
     if (!assignedMember) {
-      setRoleError(`"${newTaskData.assignedTo}" is not found in the administration team`)
+      setRoleError(`"${newTaskData.assignedTo}" is not found in the ${FUNCTION_TEAM_ROLE[functionId].toLowerCase()}`)
       return
     }
 
@@ -161,7 +164,7 @@ export default function TasksPage() {
       assignedBy: session?.user?.name || "Current User",
       attachments: taskAttachments,
       ccEmails: taskCcEmails.length > 0 ? taskCcEmails : undefined,
-    })
+    }, functionId)
     setTasks([...tasks, task as ExtendedTask])
     setNewTaskData({ title: "", description: "", assignedTo: "" })
     setTaskAttachments([])
@@ -171,7 +174,7 @@ export default function TasksPage() {
   }
 
   const handleStatusChange = (taskId: string, newStatus: TaskStatus) => {
-    const updatedTask = updateTaskStatus(taskId, newStatus, "Current User")
+    const updatedTask = updateTaskStatus(taskId, newStatus, "Current User", functionId)
     if (updatedTask) {
       setTasks(tasks.map((t) => (t.id === taskId ? updatedTask as ExtendedTask : t)))
     }
@@ -188,7 +191,8 @@ export default function TasksPage() {
       taskId,
       session?.user?.name || "Current User",
       commentText[taskId],
-      commentAttachments[taskId]
+      commentAttachments[taskId],
+      functionId,
     )
     if (updatedTask) {
       setTasks(tasks.map((t) => (t.id === taskId ? updatedTask as ExtendedTask : t)))
@@ -204,7 +208,7 @@ export default function TasksPage() {
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
             <h1 className="text-3xl font-bold text-gray-900">Team Tasks</h1>
-            <p className="text-gray-600 mt-2">Manage and track tasks across the administration team</p>
+            <p className="text-gray-600 mt-2">Manage and track tasks for the {FUNCTION_TEAM_ROLE[functionId]}</p>
           </div>
           {(newRequestsCount > 0 || newTasksCount > 0) && (
             <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
@@ -314,13 +318,13 @@ export default function TasksPage() {
                 className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               >
                 <option value="">Select a team member...</option>
-                {adminTeamMembers.map((member) => (
+                {teamMembers.map((member) => (
                   <option key={member.name} value={member.name}>
                     {member.name}
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-gray-500 mt-2">Only Administration Team members can be assigned</p>
+              <p className="text-xs text-gray-500 mt-2">Only {FUNCTION_TEAM_ROLE[functionId]} members can be assigned</p>
             </div>
 
             {/* CC Notifications — last field before the action buttons */}
@@ -349,31 +353,31 @@ export default function TasksPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Card className="border-0 bg-gradient-to-br from-slate-50 to-slate-100 shadow-sm">
+        <Card className="border-0 bg-gradient-to-br from-slate-50 to-slate-100 shadow-sm dark:border dark:border-slate-700 dark:!bg-[#17243a] dark:!bg-none">
           <CardContent className="p-6">
             <p className="text-xs font-semibold text-gray-700 uppercase">Total Tasks</p>
             <p className="text-3xl font-bold text-gray-900 mt-2">{stats.total}</p>
           </CardContent>
         </Card>
-        <Card className="border-0 bg-gradient-to-br from-slate-50 to-slate-100 shadow-sm">
+        <Card className="border-0 bg-gradient-to-br from-slate-50 to-slate-100 shadow-sm dark:border dark:border-slate-700 dark:!bg-[#17243a] dark:!bg-none">
           <CardContent className="p-6">
             <p className="text-xs font-semibold text-gray-700 uppercase">To Do</p>
             <p className="text-3xl font-bold text-gray-900 mt-2">{stats.todo}</p>
           </CardContent>
         </Card>
-        <Card className="border-0 bg-gradient-to-br from-blue-50 to-blue-100 shadow-sm">
+        <Card className="border-0 bg-gradient-to-br from-blue-50 to-blue-100 shadow-sm dark:border dark:border-blue-800 dark:!bg-[#15304e] dark:!bg-none">
           <CardContent className="p-6">
             <p className="text-xs font-semibold text-blue-700 uppercase">In Progress</p>
             <p className="text-3xl font-bold text-blue-900 mt-2">{stats.inProgress}</p>
           </CardContent>
         </Card>
-        <Card className="border-0 bg-gradient-to-br from-amber-50 to-amber-100 shadow-sm">
+        <Card className="border-0 bg-gradient-to-br from-amber-50 to-amber-100 shadow-sm dark:border dark:border-amber-800 dark:!bg-[#3a3015] dark:!bg-none">
           <CardContent className="p-6">
             <p className="text-xs font-semibold text-amber-700 uppercase">In Review</p>
             <p className="text-3xl font-bold text-amber-900 mt-2">{stats.inReview}</p>
           </CardContent>
         </Card>
-        <Card className="border-0 bg-gradient-to-br from-emerald-50 to-emerald-100 shadow-sm">
+        <Card className="border-0 bg-gradient-to-br from-emerald-50 to-emerald-100 shadow-sm dark:border dark:border-emerald-800 dark:!bg-[#103128] dark:!bg-none">
           <CardContent className="p-6">
             <p className="text-xs font-semibold text-emerald-700 uppercase">Completed</p>
             <p className="text-3xl font-bold text-emerald-900 mt-2">{stats.completed}</p>

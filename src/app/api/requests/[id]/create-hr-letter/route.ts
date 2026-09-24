@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { requestStore } from "@/lib/requestStore"
 import { autoCreateHrLetterFromTravel } from "@/lib/hrLetterAutoCreate"
+import { loadSettingsServer } from "@/lib/settingsServer"
 
 export const runtime = "nodejs"
 
@@ -28,6 +29,11 @@ export async function POST(
   const request = requestStore.getAll().find((r) => r.id === id)
   if (!request) {
     return NextResponse.json({ error: "Request not found" }, { status: 404 })
+  }
+
+  const peopleTeam = loadSettingsServer().supportFunctionAvailability.people
+  if (!peopleTeam.enabled) {
+    return NextResponse.json({ error: peopleTeam.unavailableMessage || "People Team is currently unavailable." }, { status: 409 })
   }
 
   try {

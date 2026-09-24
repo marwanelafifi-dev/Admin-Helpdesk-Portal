@@ -24,11 +24,11 @@ const AttachmentSchema = z.object({
 export const TravelExpenseRowSchema = z.object({
   description: z.string().trim().min(1, "Description is required"),
   otherDescription: z.string().trim().optional(),
-  invoiceAmount: z.number().min(0, "Amount cannot be negative"),
+  invoiceAmount: z.number().positive("Enter an invoice amount"),
   // A supplier invoice can be in any active ISO currency. Refunds retain
   // their separate, Finance-approved USD/EUR/EGP list below.
   invoiceCurrency: z.enum(INVOICE_PAYMENT_CURRENCIES),
-  refundAmount: z.number().min(0, "Amount cannot be negative"),
+  refundAmount: z.number().positive("Enter a refund amount"),
   refundCurrency: z.enum(TRAVEL_REIMBURSEMENT_CURRENCIES),
 })
 
@@ -51,9 +51,6 @@ export const TravelReimbursementPayloadSchema = z.object({
   data.expenseRows.forEach((row, index) => {
     if (row.description === "Others" && !row.otherDescription?.trim()) {
       ctx.addIssue({ code: "custom", message: "Enter the expense description", path: ["expenseRows", index, "otherDescription"] })
-    }
-    if (row.refundAmount <= 0) {
-      ctx.addIssue({ code: "custom", message: "Enter a refund amount", path: ["expenseRows", index, "refundAmount"] })
     }
   })
 })

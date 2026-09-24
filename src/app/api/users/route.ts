@@ -7,7 +7,6 @@ import { readUsers, createUser, findUserByEmail } from "@/lib/userStore"
 import { sendWelcomeEmail } from "@/lib/emailService"
 import { logServerAudit } from "@/lib/serverAuditLog"
 import { getCompanyFromEmail } from "@/lib/userCompany"
-import { getDefaultRequesterRoleForEmail } from "@/lib/userCompany"
 
 const createUserSchema = z.object({
   name: z.string().trim().min(1, "Name is required"),
@@ -18,6 +17,7 @@ const createUserSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters").optional(),
   role: z.string().trim().min(1),
   department: z.string().trim().optional(),
+  company: z.enum(["si_ware", "buchi"]),
 })
 
 export async function GET() {
@@ -34,6 +34,7 @@ export async function GET() {
     email: u.email,
     name: u.name,
     role: u.role,
+    department: u.department ?? null,
     active: u.active,
     createdAt: u.createdAt,
     image: u.image,
@@ -77,7 +78,10 @@ export async function POST(request: Request) {
     const user = createUser({
       email,
       name: parsed.data.name,
-      role: getDefaultRequesterRoleForEmail(email),
+      role: parsed.data.role,
+      department: parsed.data.department || undefined,
+      companyId: parsed.data.company,
+      companyName: parsed.data.company === "buchi" ? "BUCHI" : "Si-Ware Systems",
       image: null,
       active: true,
       provider: "credentials",

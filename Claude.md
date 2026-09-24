@@ -2033,3 +2033,11 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] **Clear Si-Ware dark theme:** Strengthened landing-page dark-mode contrast with navy panel surfaces, distinct card layers, readable secondary text, cyan action states, and visible icon containers. The Si-Ware logo uses a high-contrast dark treatment while the landing background remains consistent with the approved design.
 - [x] **Interactive feedback:** Support and Main App cards retain their motion but now provide clearer dark-mode borders and cyan hover feedback. The top bar stays above page content so the theme switch remains clickable.
 - [x] **Verification and local deployment:** Production build passed; `company-portal-app` was restarted and passed its health check.
+
+### Company Portal UX, Branding, and Responsive Refinement (24 Sep 2026)
+
+- [x] **Per-module onboarding:** Every authenticated user receives the one-time Company Portal guidance when opening their first new request in each module. Completion is saved independently by user and module, so viewing Shipping guidance does not suppress Travel, People, or Finance guidance. Existing users receive the updated guidance version on their next first use of each module.
+- [x] **Configurable support-function branding:** Uploaded Administration, People, Finance, and IT logos are used consistently on landing cards, the Switch Portal menu, and each in-portal service hub header. Built-in icons remain as accessible fallbacks if no custom logo is configured.
+- [x] **Landing visual consistency:** The IT Team card uses the same Si-Ware navy status, logo-frame, and card treatment as the other Support Functions while retaining its SolarWinds label. Main App cards use a wider background-colour hover halo and soft shadow; the grid allows the effect to extend on every side without clipping.
+- [x] **Responsive Users management:** Create User and Edit User dialogs use the shared portal dialog layer, remain within the viewport on mobile, and scroll internally when their content exceeds the screen height. The Create User flow includes selectable Company and Role fields.
+- [x] **Verification and local deployment:** Production builds passed for these changes. The compiled application was copied to `company-portal-app`, restarted, and confirmed healthy at `http://localhost:3003`.

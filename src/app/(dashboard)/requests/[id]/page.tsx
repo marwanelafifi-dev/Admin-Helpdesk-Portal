@@ -24,7 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { MarkdownDisplay } from "@/components/ui/MarkdownDisplay"
-import { MANAGER_APPROVAL_MODULES } from "@/lib/functionRegistry"
+import { functionForModule, MANAGER_APPROVAL_MODULES } from "@/lib/functionRegistry"
 
 const STATUS_COLORS: Record<string, string> = {
   draft:             "bg-zinc-100 text-zinc-600",
@@ -417,6 +417,7 @@ export default function RequestDetailPage() {
   const [surveyHover, setSurveyHover] = useState(0)
   const [surveyComment, setSurveyComment] = useState("")
   const [surveySubmitted, setSurveySubmitted] = useState(false)
+  const [feedbackSurveyEnabled, setFeedbackSurveyEnabled] = useState<boolean | null>(null)
   const [approvalEmailStatus, setApprovalEmailStatus] = useState<{
     type: "idle" | "sending" | "success" | "error"
     message: string
@@ -1040,6 +1041,21 @@ export default function RequestDetailPage() {
 
         setRequest(foundRequest)
 
+        // Feedback is configured by the function that owns the request. Keep
+        // the request page aligned with the server-side email/feedback guard.
+        const feedbackFunction = functionForModule(foundRequest.module)
+        try {
+          const settingsResponse = await fetch("/api/admin/settings")
+          if (settingsResponse.ok) {
+            const settingsData = await settingsResponse.json()
+            setFeedbackSurveyEnabled(settingsData.settings?.feedbackSurveysByFunction?.[feedbackFunction]?.enabled !== false)
+          } else {
+            setFeedbackSurveyEnabled(true)
+          }
+        } catch {
+          setFeedbackSurveyEnabled(true)
+        }
+
         // Restore feedback state if already submitted for this request
         try {
           const res = await fetch("/api/feedback/responses")
@@ -1128,7 +1144,7 @@ export default function RequestDetailPage() {
           <div className="space-y-4">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
+                <div className="mb-2 flex flex-wrap items-center gap-2 sm:gap-3">
                   <span className="text-2xl">{getModuleIcon(request.module)}</span>
                   <Badge className={`${getModuleColor(request.module)} border capitalize`}>
                     {request.module === "hr_general" ? "HR General Request" : request.module}
@@ -1168,12 +1184,12 @@ export default function RequestDetailPage() {
                   </DropdownMenu>
 
                   {/* Print and Edit Buttons */}
-                  <div className="ml-auto flex gap-2">
+                  <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto sm:flex-nowrap">
                     <Button
                       variant="outline"
                       onClick={() => handlePrint()}
                       title="Print request summary"
-                      className="gap-2"
+                      className="flex-1 gap-2 sm:flex-none"
                     >
                       <Printer className="h-4 w-4" />
                       Print
@@ -1182,7 +1198,7 @@ export default function RequestDetailPage() {
                       variant="outline"
                       onClick={() => handlePrint(true)}
                       title="Print request with attachment previews"
-                      className="gap-2"
+                      className="flex-1 gap-2 sm:flex-none"
                       disabled={!request.attachments?.length}
                     >
                       <Printer className="h-4 w-4" />
@@ -1190,7 +1206,8 @@ export default function RequestDetailPage() {
                     </Button>
                     {canEditRequest && (
                       <Button
-                        variant="outline"
+                      variant="outline"
+                      className="flex-1 sm:flex-none"
                         onClick={() => window.open(`/${request.module}/new?id=${request.id}`, '_blank')}
                       >
                         Edit
@@ -1198,7 +1215,7 @@ export default function RequestDetailPage() {
                     )}
                   </div>
                 </div>
-                <h1 className="text-3xl font-bold tracking-tight">{request.title}</h1>
+                <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{request.title}</h1>
                 <p className="text-sm text-muted-foreground mt-1">Request ID: {request.id}</p>
               </div>
             </div>
@@ -1241,7 +1258,7 @@ export default function RequestDetailPage() {
       {/* Tabs */}
       <Card>
         <div className="border-b">
-          <div className="flex gap-8 px-6 bg-white rounded-t-lg">
+          <div className="flex gap-0 rounded-t-lg bg-white px-2 sm:gap-8 sm:px-6">
             {[
               { id: "details", label: "Details" },
               ...(canViewActivity ? [{ id: "activity", label: `Activity ${request.history?.length ? `(${request.history.length})` : ""}` }] : []),
@@ -1252,13 +1269,13 @@ export default function RequestDetailPage() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as Tab)}
                 className={cn(
-                  "py-4 px-1 border-b-2 font-medium text-sm transition-colors",
+                  "flex-1 whitespace-nowrap border-b-2 px-1 py-4 text-xs font-medium transition-colors sm:flex-none sm:text-sm",
                   activeTab === tab.id
                     ? "border-blue-600 text-blue-600"
                     : "border-transparent text-gray-600 hover:text-gray-900"
                 )}
               >
-                {tab.label}
+                {tab.id === "attachments" ? <><span className="sm:hidden">Files {request.attachments?.length ? `(${request.attachments.length})` : ""}</span><span className="hidden sm:inline">{tab.label}</span></> : tab.label}
               </button>
             ))}
           </div>
@@ -1347,7 +1364,7 @@ export default function RequestDetailPage() {
               {/* Request Payload Details */}
               {Object.keys(request.payload).length > 0 && (
                 <Card>
-                  <CardHeader className="border-b bg-slate-50/70 py-4">
+                  <CardHeader className="border-b bg-slate-50/70 py-4 dark:border-slate-700 dark:!bg-[#142139]">
                     <CardTitle className="text-base flex items-center gap-2">
                       <FileText className="h-5 w-5" />
                       Request Details
@@ -1677,16 +1694,16 @@ export default function RequestDetailPage() {
       </Card>
 
       {/* Feedback Survey — hidden for Administration Team role (they process requests, not evaluate them) */}
-      {(request.status === "completed" || request.status === "delivered") && session?.user?.role !== "Administration Team" && (
-        <Card className="border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-white shadow-sm">
-          <CardHeader className="pb-3 border-b border-emerald-100">
+      {(request.status === "completed" || request.status === "delivered") && session?.user?.role !== "Administration Team" && feedbackSurveyEnabled === true && (
+        <Card className="border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-white shadow-sm dark:border-emerald-700 dark:!bg-[#102a2b] dark:!bg-none">
+          <CardHeader className="pb-3 border-b border-emerald-100 dark:border-emerald-800 dark:!bg-[#123033]">
             <div className="flex items-center gap-3">
               <div className="bg-emerald-100 rounded-lg p-2">
                 <Star className="h-5 w-5 text-emerald-700" />
               </div>
               <div>
-                <CardTitle className="text-base font-semibold text-gray-900">Service Feedback</CardTitle>
-                <p className="text-xs text-gray-500 mt-0.5">How satisfied are you with this {request.module} request?</p>
+                <CardTitle className="text-base font-semibold text-gray-900 dark:text-emerald-50">Service Feedback</CardTitle>
+                <p className="text-xs text-gray-500 mt-0.5 dark:text-emerald-100/80">How satisfied are you with this {request.module} request?</p>
               </div>
             </div>
           </CardHeader>
@@ -1708,7 +1725,7 @@ export default function RequestDetailPage() {
               <div className="space-y-5">
                 {/* Star rating */}
                 <div>
-                  <p className="text-sm font-medium text-gray-700 mb-3">Rate your experience</p>
+                  <p className="text-sm font-medium text-gray-700 mb-3 dark:text-slate-100">Rate your experience</p>
                   <div className="flex gap-2">
                     {[1,2,3,4,5].map((star) => (
                       <button
@@ -1723,7 +1740,7 @@ export default function RequestDetailPage() {
                           "h-8 w-8 transition-colors",
                           (surveyHover || surveyRating) >= star
                             ? "fill-yellow-400 text-yellow-400"
-                            : "text-gray-300 hover:text-yellow-300"
+                            : "text-gray-300 hover:text-yellow-300 dark:text-slate-500 dark:hover:text-yellow-300"
                         )} />
                       </button>
                     ))}
@@ -1737,13 +1754,13 @@ export default function RequestDetailPage() {
 
                 {/* Comment */}
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-2 block">Additional comments (optional)</label>
+                  <label className="text-sm font-medium text-gray-700 mb-2 block dark:text-slate-100">Additional comments (optional)</label>
                   <textarea
                     value={surveyComment}
                     onChange={(e) => setSurveyComment(e.target.value)}
                     placeholder="Tell us what we can improve..."
                     rows={3}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-400"
                   />
                 </div>
 
@@ -1900,12 +1917,12 @@ function FinanceExpenseDetailsTable({ module, payload }: { module: string; paylo
   const legacyAmount = (row: Record<string, any>) => Number(row[`${legacyCurrency(row).toLowerCase()}Amount`] ?? 0)
 
   return (
-    <div className="mt-5 overflow-hidden rounded-lg border border-slate-200">
-      <div className="border-b bg-slate-50 px-4 py-3">
-        <h3 className="text-sm font-semibold text-slate-800">Expense Details</h3>
+    <div className="mt-5 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+      <div className="border-b bg-slate-50 px-4 py-3 dark:border-slate-700 dark:!bg-[#142139]">
+        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Expense Details</h3>
       </div>
       <table className="w-full table-fixed text-left text-xs">
-        <thead className="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+        <thead className="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-600 dark:!bg-[#111d30] dark:text-slate-300">
           <tr>
             {isReimbursement && hasPo && <th className="w-[10%] px-2 py-3">PO</th>}
             <th className={isReimbursement ? "w-[22%] px-2 py-3" : "w-[30%] px-2 py-3"}>Description</th>
@@ -1916,13 +1933,13 @@ function FinanceExpenseDetailsTable({ module, payload }: { module: string; paylo
             <th className="w-[12%] px-2 py-3">Refund Currency</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
           {rows.map((row, index) => {
             const description = row.description === "Others" ? row.otherDescription || "Others" : row.description || "—"
             const fallbackCurrency = legacyCurrency(row)
             const fallbackAmount = legacyAmount(row)
             return (
-              <tr key={index} className="text-slate-700">
+              <tr key={index} className="text-slate-700 dark:text-slate-200">
                 {isReimbursement && hasPo && <td className="px-2 py-3">{row.po || "—"}</td>}
                 <td className="break-words px-2 py-3 font-medium">{description}</td>
                 {isReimbursement && <td className="break-words px-2 py-3">{row.costCenter || "—"}</td>}
@@ -1934,7 +1951,7 @@ function FinanceExpenseDetailsTable({ module, payload }: { module: string; paylo
             )
           })}
         </tbody>
-        <tfoot className="border-t bg-amber-50/70 font-bold text-slate-950">
+        <tfoot className="border-t bg-amber-50/70 font-bold text-slate-950 dark:border-slate-600 dark:!bg-[#1d3652] dark:text-slate-100">
           <tr>
             <td className="px-3 py-3 text-right text-xs font-semibold" colSpan={isReimbursement ? (hasPo ? 3 : 2) : 1}>Refund totals</td>
             <td className="px-3 py-3" colSpan={isReimbursement ? 4 : 4}>
@@ -1952,8 +1969,8 @@ function FinanceExpenseDetailsTable({ module, payload }: { module: string; paylo
 function PayloadField({ fieldKey, value }: { fieldKey: string; value: unknown }) {
   const label = fieldKey === "poOption" ? "Has Purchase Order" : humanizeKey(fieldKey)
   return (
-    <div className="min-w-0 rounded-lg border border-slate-100 bg-slate-50/50 px-3.5 py-3">
-      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+    <div className="min-w-0 rounded-lg border border-slate-100 bg-slate-50/50 px-3.5 py-3 dark:border-slate-700 dark:!bg-[#17243a]">
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide dark:text-slate-400">
         {label}
       </p>
       <div className="mt-1"><PayloadValue fieldKey={fieldKey} value={value} /></div>

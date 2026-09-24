@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react"
+import { isModuleVisibleToFunction, type FunctionId } from "@/lib/functionRegistry"
 
 /**
  * Reads from arp_requests / admin_tasks and exposes new-item counts for
@@ -16,25 +17,40 @@ import { useState, useEffect, useRef } from "react"
 type Counts = Record<string, number>
 
 const REQUESTS_KEY = "arp_requests"
-const TASKS_KEY    = "admin_tasks"
+const TASKS_KEY: Record<FunctionId, string> = {
+  admin: "admin_tasks",
+  hr: "people_team_tasks",
+  finance: "finance_team_tasks",
+}
 
 // Cached raw strings — skip recompute when nothing actually changed.
 let _cachedRequestsRaw = ""
-let _cachedTasksRaw    = ""
-let _cachedResult: { total: number; byModule: Counts } = { total: 0, byModule: {} }
-let _cachedTasksCount = 0
+const _cachedResults: Partial<Record<FunctionId, { total: number; byModule: Counts }>> = {}
+const _cachedTasksRaw: Partial<Record<FunctionId, string>> = {}
+const _cachedTasksCount: Partial<Record<FunctionId, number>> = {}
 
-function computeRequests(): { total: number; byModule: Counts } {
+function functionForActivePortal(): FunctionId {
+  if (typeof window === "undefined") return "admin"
+  const pathname = window.location.pathname
+  if (pathname.startsWith("/departments/finance")) return "finance"
+  if (pathname.startsWith("/departments/hr")) return "hr"
+  return "admin"
+}
+
+function computeRequests(functionId: FunctionId): { total: number; byModule: Counts } {
   if (typeof window === "undefined") return { total: 0, byModule: {} }
   const raw = localStorage.getItem(REQUESTS_KEY) ?? ""
-  if (raw === _cachedRequestsRaw) return _cachedResult
-  _cachedRequestsRaw = raw
+  if (raw === _cachedRequestsRaw && _cachedResults[functionId]) return _cachedResults[functionId]
+  if (raw !== _cachedRequestsRaw) {
+    _cachedRequestsRaw = raw
+    for (const key of Object.keys(_cachedResults) as FunctionId[]) delete _cachedResults[key]
+  }
   try {
     const requests: any[] = raw ? JSON.parse(raw) : []
     const byModule: Counts = {}
     let total = 0
     for (const r of requests) {
-      if (r?.status !== "new") continue
+      if (r?.status !== "new" || !isModuleVisibleToFunction(String(r?.module ?? ""), functionId)) continue
       total++
       const mod = String(r.module ?? "")
       if (!mod) continue
@@ -50,25 +66,25 @@ function computeRequests(): { total: number; byModule: Counts } {
         byModule[key] = (byModule[key] ?? 0) + 1
       }
     }
-    _cachedResult = { total, byModule }
+    _cachedResults[functionId] = { total, byModule }
   } catch {
-    _cachedResult = { total: 0, byModule: {} }
+    _cachedResults[functionId] = { total: 0, byModule: {} }
   }
-  return _cachedResult
+  return _cachedResults[functionId]!
 }
 
-function computeTasks(): number {
+function computeTasks(functionId: FunctionId): number {
   if (typeof window === "undefined") return 0
-  const raw = localStorage.getItem(TASKS_KEY) ?? ""
-  if (raw === _cachedTasksRaw) return _cachedTasksCount
-  _cachedTasksRaw = raw
+  const raw = localStorage.getItem(TASKS_KEY[functionId]) ?? ""
+  if (raw === _cachedTasksRaw[functionId]) return _cachedTasksCount[functionId] ?? 0
+  _cachedTasksRaw[functionId] = raw
   try {
     const tasks: any[] = raw ? JSON.parse(raw) : []
-    _cachedTasksCount = tasks.filter((t) => t?.status === "todo").length
+    _cachedTasksCount[functionId] = tasks.filter((t) => t?.status === "todo").length
   } catch {
-    _cachedTasksCount = 0
+    _cachedTasksCount[functionId] = 0
   }
-  return _cachedTasksCount
+  return _cachedTasksCount[functionId] ?? 0
 }
 
 export function useNewRequestsAndTasks() {
@@ -81,10 +97,11 @@ export function useNewRequestsAndTasks() {
     if (typeof window === "undefined") return
 
     const recompute = () => {
-      const { total, byModule } = computeRequests()
+      const functionId = functionForActivePortal()
+      const { total, byModule } = computeRequests(functionId)
       setNewRequestsCount(total)
       setNewRequestsByModule(byModule)
-      setNewTasksCount(computeTasks())
+      setNewTasksCount(computeTasks(functionId))
     }
 
     // Debounced version for noisy events (focus, cross-tab storage)

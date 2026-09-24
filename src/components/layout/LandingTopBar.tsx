@@ -113,7 +113,7 @@ export function LandingTopBar() {
         variant="ghost"
         size="icon"
         title="Log out"
-        className="text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950"
+        className="hidden text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950 sm:inline-flex"
         onClick={handleSignOut}
       >
         <LogOut className="h-5 w-5" />

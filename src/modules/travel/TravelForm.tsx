@@ -101,6 +101,8 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
   const [flightPhotoFile, setFlightPhotoFile] = useState<File | null>(null)
   const [invitationLetterFile, setInvitationLetterFile] = useState<File | null>(null)
   const [additionalFiles, setAdditionalFiles] = useState<File[]>([])
+  const [peopleTeamAvailable, setPeopleTeamAvailable] = useState(true)
+  const [peopleTeamMessage, setPeopleTeamMessage] = useState("People Team will be available soon.")
 
   const {
     control,
@@ -142,6 +144,23 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
     },
   })
 
+  useEffect(() => {
+    fetch("/api/admin/settings")
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        const people = data?.settings?.supportFunctionAvailability?.people
+        if (!people) return
+        const enabled = people.enabled !== false
+        setPeopleTeamAvailable(enabled)
+        setPeopleTeamMessage(people.unavailableMessage || "People Team will be available soon.")
+        if (!enabled) {
+          setValue("needsHrLetter", false)
+          setInvitationLetterFile(null)
+        }
+      })
+      .catch(() => {})
+  }, [setValue])
+
   // Load company data (client-only to avoid hydration mismatch)
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -172,22 +191,27 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
     setValue("estimatedTotalCosts", total)
   }, [tripAllowance, airTicket, hotel, transportationCarRental, othersAmount, othersText, setValue])
 
-  const onSubmit = async (data: FormData) => {
-    setAttachmentError("")
-
-    // Validate required attachments
+  // These uploads are local files rather than registered form values. Validate
+  // them during both successful and failed React Hook Form submissions.
+  const validateRequiredAttachments = () => {
     if (travelType === "visa_application" && !amanStickerFile) {
       setAttachmentError("Aman Sticker is required")
-      return
+      return false
     }
     if (!passportFile) {
       setAttachmentError("Passport is required")
-      return
+      return false
     }
     if (needsHrLetter && !invitationLetterFile) {
       setAttachmentError("Invitation Letter is required when requesting an HR Letter")
-      return
+      return false
     }
+    setAttachmentError("")
+    return true
+  }
+
+  const onSubmit = async (data: FormData) => {
+    if (!validateRequiredAttachments()) return
 
     try {
       // Step 1: create the request first to get a real ID
@@ -255,7 +279,7 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="max-w-4xl mx-auto space-y-6 pb-6">
+    <form onSubmit={handleSubmit(onSubmit, validateRequiredAttachments)} className="max-w-4xl mx-auto space-y-6 pb-6">
       {/* Travel Type Selector */}
       <Card>
         <CardHeader className="pb-4">
@@ -1021,21 +1045,20 @@ export function TravelForm({ onCancel }: { onCancel?: () => void }) {
             name="needsHrLetter"
             control={control}
             render={({ field }) => (
-              <label className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-3 rounded transition-colors">
+              <label className={cn("flex items-center gap-3 p-3 rounded transition-colors", peopleTeamAvailable ? "cursor-pointer hover:bg-gray-50" : "cursor-not-allowed bg-slate-50 opacity-70")}>
                 <input
                   type="checkbox"
                   checked={field.value ?? false}
                   onChange={(e) => field.onChange(e.target.checked)}
-                  className="h-4 w-4 rounded cursor-pointer"
+                  disabled={!peopleTeamAvailable}
+                  className="h-4 w-4 rounded cursor-pointer disabled:cursor-not-allowed"
                   style={{ accentColor: BRAND }}
                 />
                 <div className="flex-1">
                   <span className="text-sm font-medium text-gray-900">
                     I need an HR Letter for this business trip
                   </span>
-                  <p className="text-xs text-gray-600 mt-1">
-                    People Team will prepare a formal business trip letter after your request is approved
-                  </p>
+                  <p className="text-xs text-gray-600 mt-1">{peopleTeamAvailable ? "People Team will prepare a formal business trip letter after your request is approved" : peopleTeamMessage}</p>
                 </div>
               </label>
             )}

@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { DEFAULT_PLATFORM_SETTINGS, type MainAppIcon, type MainAppSettings, type PlatformSettings, type SupportFunctionId } from "@/lib/platformSettings"
+import { DEFAULT_PLATFORM_SETTINGS, type FeedbackFunctionId, type MainAppIcon, type MainAppSettings, type PlatformSettings, type SupportFunctionId } from "@/lib/platformSettings"
 
 export const HEADER_LOGO_KEY = "arp_logo_header"
 export const LOGIN_LOGO_KEY = "arp_logo_login"
@@ -45,6 +45,11 @@ const SUPPORT_FUNCTION_OPTIONS: Array<{ id: SupportFunctionId; name: string; ico
   { id: "people", name: "People Team", icon: UsersRound },
   { id: "finance", name: "Finance Team", icon: Globe2 },
   { id: "it", name: "IT Team", icon: Headset },
+]
+const FEEDBACK_FUNCTION_OPTIONS: Array<{ id: FeedbackFunctionId; name: string }> = [
+  { id: "admin", name: "Administration Team" },
+  { id: "hr", name: "People Team" },
+  { id: "finance", name: "Finance Team" },
 ]
 
 type SaveState = "idle" | "saving" | "saved" | "error"
@@ -101,6 +106,7 @@ export default function AdminSettingsPage() {
   const [supportLogoUpload, setSupportLogoUpload] = useState<SupportFunctionId | null>(null)
   const supportLogoInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const [itTeamSave, setItTeamSave] = useState<SaveState>("idle")
+  const [functionAvailabilitySave, setFunctionAvailabilitySave] = useState<SaveState>("idle")
   const [headerLogo, setHeaderLogo] = useState<string | null>(null)
   const [headerLogoSave, setHeaderLogoSave] = useState<SaveState>("idle")
   const headerLogoInputRef = useRef<HTMLInputElement>(null)
@@ -122,14 +128,13 @@ export default function AdminSettingsPage() {
         if (data?.settings) {
           setSettings((prev) => ({
             ...prev,
-            feedbackSurveyEnabled: data.settings.feedbackSurveyEnabled ?? prev.feedbackSurveyEnabled,
-            feedbackSurveySubject: data.settings.feedbackSurveySubject ?? prev.feedbackSurveySubject,
-            feedbackSurveyBody:    data.settings.feedbackSurveyBody    ?? prev.feedbackSurveyBody,
+            feedbackSurveysByFunction: { ...prev.feedbackSurveysByFunction, ...data.settings.feedbackSurveysByFunction },
             financeSlaWorkingDays: String(data.settings.financeSlaWorkingDays ?? prev.financeSlaWorkingDays),
             financeSlaReminderDay: String(data.settings.financeSlaReminderDay ?? prev.financeSlaReminderDay),
             itServiceDeskEnabled: data.settings.itServiceDeskEnabled ?? prev.itServiceDeskEnabled,
             itServiceDeskUrl: data.settings.itServiceDeskUrl ?? prev.itServiceDeskUrl,
             supportFunctionLogos: { ...prev.supportFunctionLogos, ...data.settings.supportFunctionLogos },
+            supportFunctionAvailability: { ...prev.supportFunctionAvailability, ...data.settings.supportFunctionAvailability },
             mainApps: Array.isArray(data.settings.mainApps)
               ? DEFAULT_PLATFORM_SETTINGS.mainApps.map((fallback, index) => ({ ...fallback, ...data.settings.mainApps[index], id: fallback.id }))
               : prev.mainApps,
@@ -236,24 +241,21 @@ export default function AdminSettingsPage() {
     }
   }
 
-  async function persistFeedback(setSave: (s: SaveState) => void) {
-    setSave("saving")
+  async function persistFeedback() {
+    setFeedbackSave("saving")
     try {
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
-      await fetch("/api/admin/settings", {
+      const response = await fetch("/api/admin/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          feedbackSurveyEnabled: settings.feedbackSurveyEnabled,
-          feedbackSurveySubject: settings.feedbackSurveySubject,
-          feedbackSurveyBody: settings.feedbackSurveyBody,
-        }),
+        body: JSON.stringify({ feedbackSurveysByFunction: settings.feedbackSurveysByFunction }),
       })
-      setTimeout(() => setSave("saved"), 400)
-      setTimeout(() => setSave("idle"), 3000)
+      if (!response.ok) throw new Error("Failed to save feedback settings")
+      setFeedbackSave("saved")
+      setTimeout(() => setFeedbackSave("idle"), 3000)
     } catch {
-      setSave("error")
-      setTimeout(() => setSave("idle"), 3000)
+      setFeedbackSave("error")
+      setTimeout(() => setFeedbackSave("idle"), 3000)
     }
   }
 
@@ -301,6 +303,24 @@ export default function AdminSettingsPage() {
     } catch {
       setMainAppsSave("error")
       setTimeout(() => setMainAppsSave("idle"), 3000)
+    }
+  }
+
+  async function persistFunctionAvailability() {
+    setFunctionAvailabilitySave("saving")
+    try {
+      const response = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ supportFunctionAvailability: settings.supportFunctionAvailability }),
+      })
+      if (!response.ok) throw new Error("Failed to save function availability")
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+      setFunctionAvailabilitySave("saved")
+      setTimeout(() => setFunctionAvailabilitySave("idle"), 3000)
+    } catch {
+      setFunctionAvailabilitySave("error")
+      setTimeout(() => setFunctionAvailabilitySave("idle"), 3000)
     }
   }
 
@@ -458,6 +478,17 @@ export default function AdminSettingsPage() {
           </div>
           <p className="text-xs text-gray-500">The reminder day must be at least 1 and earlier than the SLA deadline.</p>
           <SaveButton state={financeSlaSave} onClick={persistFinanceSla} label="Save Finance SLA" />
+        </CardContent>
+      </Card>
+
+      <Card className="border shadow-sm">
+        <CardHeader className="border-b bg-gray-50 rounded-t-lg"><div className="flex items-center gap-2"><div className="bg-blue-100 rounded-lg p-2"><Shield className="h-4 w-4 text-[#263d8b]" /></div><div><CardTitle className="text-base font-semibold text-gray-900">Support Function Availability</CardTitle><p className="text-xs text-gray-500 mt-0.5">Turn a function on or off and choose the message users see while it is unavailable.</p></div></div></CardHeader>
+        <CardContent className="p-6 space-y-4">
+          {SUPPORT_FUNCTION_OPTIONS.map((option) => {
+            const availability = settings.supportFunctionAvailability[option.id]
+            return <div key={option.id} className="rounded-xl border border-gray-200 bg-white p-4"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-semibold text-gray-800">{option.name}</p><p className="mt-1 text-xs text-gray-500">{availability.enabled ? "Available to authorized users." : "Hidden from use and shown as available soon on the landing page."}</p></div><div className="flex items-center gap-2"><span className="text-xs font-medium text-gray-600">{availability.enabled ? "Enabled" : "Available soon"}</span><Toggle checked={availability.enabled} onChange={(enabled) => setSettings((prev) => ({ ...prev, supportFunctionAvailability: { ...prev.supportFunctionAvailability, [option.id]: { ...prev.supportFunctionAvailability[option.id], enabled } } }))} /></div></div><div className="mt-3 space-y-1.5"><Label className="text-xs font-medium text-gray-600">Unavailable message</Label><Input value={availability.unavailableMessage} onChange={(event) => setSettings((prev) => ({ ...prev, supportFunctionAvailability: { ...prev.supportFunctionAvailability, [option.id]: { ...prev.supportFunctionAvailability[option.id], unavailableMessage: event.target.value } } }))} placeholder={`${option.name} will be available soon.`} maxLength={180} /><p className="text-[11px] text-gray-400">Clear this field to use the standard unavailable message.</p></div></div>
+          })}
+          <SaveButton state={functionAvailabilitySave} onClick={persistFunctionAvailability} label="Save Function Availability" />
         </CardContent>
       </Card>
 
@@ -824,82 +855,90 @@ export default function AdminSettingsPage() {
         </CardContent>
       </Card>
 
-      {/* ── Feedback Survey ── */}
+      {/* ── Feedback Surveys ── */}
       <Card className="border shadow-sm">
         <CardHeader className="border-b bg-gray-50 rounded-t-lg">
           <div className="flex items-center gap-2">
             <div className="bg-amber-100 rounded-lg p-2"><Star className="h-4 w-4 text-amber-700" /></div>
             <div>
-              <CardTitle className="text-base font-semibold text-gray-900">Feedback Survey</CardTitle>
-              <p className="text-xs text-gray-500 mt-0.5">Configure the automated satisfaction survey sent after a request is completed</p>
+              <CardTitle className="text-base font-semibold text-gray-900">Feedback Surveys</CardTitle>
+              <p className="text-xs text-gray-500 mt-0.5">Configure delivery and the survey message separately for each function</p>
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-6 space-y-5">
+          <p className="text-xs text-gray-500">
+            Available variables: <code className="bg-gray-100 px-1 rounded text-[11px]">{"{{requesterName}}"}</code>{" "}
+            <code className="bg-gray-100 px-1 rounded text-[11px]">{"{{requestTitle}}"}</code>{" "}
+            <code className="bg-gray-100 px-1 rounded text-[11px]">{"{{requestId}}"}</code>{" "}
+            <code className="bg-gray-100 px-1 rounded text-[11px]">{"{{module}}"}</code>
+          </p>
 
-          {/* Enable / Disable toggle */}
-          <div className="flex items-center justify-between py-3 border-b border-gray-100">
-            <div className="flex items-start gap-3">
-              <Bell className="h-4 w-4 text-gray-500 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-gray-800">Enable Feedback Surveys</p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  When enabled, a satisfaction survey email is automatically sent to the requester when their request is marked Completed or Delivered
-                </p>
-              </div>
-            </div>
-            <Toggle checked={settings.feedbackSurveyEnabled} onChange={(v) => set("feedbackSurveyEnabled", v)} />
-          </div>
+          {FEEDBACK_FUNCTION_OPTIONS.map((functionOption) => {
+            const feedback = settings.feedbackSurveysByFunction[functionOption.id]
+            const defaults = DEFAULTS.feedbackSurveysByFunction[functionOption.id]
 
-          {/* Email subject */}
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium text-gray-800">Email Subject</Label>
-            <p className="text-xs text-gray-500">
-              Available variables: <code className="bg-gray-100 px-1 rounded text-[11px]">{"{{requesterName}}"}</code>{" "}
-              <code className="bg-gray-100 px-1 rounded text-[11px]">{"{{requestTitle}}"}</code>{" "}
-              <code className="bg-gray-100 px-1 rounded text-[11px]">{"{{requestId}}"}</code>{" "}
-              <code className="bg-gray-100 px-1 rounded text-[11px]">{"{{module}}"}</code>
-            </p>
-            <Input
-              value={settings.feedbackSurveySubject}
-              onChange={(e) => set("feedbackSurveySubject", e.target.value)}
-              disabled={!settings.feedbackSurveyEnabled}
-              placeholder="How was your {{module}} request? — {{requestTitle}}"
-              className="h-9 text-sm disabled:opacity-50"
-            />
-          </div>
+            const updateFeedback = (changes: Partial<typeof feedback>) => {
+              setSettings((previous) => ({
+                ...previous,
+                feedbackSurveysByFunction: {
+                  ...previous.feedbackSurveysByFunction,
+                  [functionOption.id]: {
+                    ...previous.feedbackSurveysByFunction[functionOption.id],
+                    ...changes,
+                  },
+                },
+              }))
+            }
 
-          {/* Email body */}
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium text-gray-800">Email Body (greeting paragraph)</Label>
-            <p className="text-xs text-gray-500">
-              This text appears in the greeting section of the survey email, above the star rating buttons. Same variables apply.
-            </p>
-            <textarea
-              value={settings.feedbackSurveyBody}
-              onChange={(e) => set("feedbackSurveyBody", e.target.value)}
-              disabled={!settings.feedbackSurveyEnabled}
-              rows={5}
-              placeholder="Hi {{requesterName}}, your request has been completed..."
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 resize-y"
-            />
-          </div>
+            return (
+              <section key={functionOption.id} className="rounded-xl border border-gray-200 bg-gray-50/50 p-4 space-y-4">
+                <div className="flex items-start justify-between gap-5">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-lg bg-amber-100 p-2"><Bell className="h-4 w-4 text-amber-700" /></div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900">{functionOption.name} feedback</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">Send a survey email when this function’s request is completed or delivered.</p>
+                    </div>
+                  </div>
+                  <Toggle checked={feedback.enabled} onChange={(enabled) => updateFeedback({ enabled })} />
+                </div>
 
-          {/* Reset to default link */}
-          <div className="flex items-center gap-2 pt-1">
-            <button
-              type="button"
-              onClick={() => {
-                set("feedbackSurveySubject", DEFAULTS.feedbackSurveySubject)
-                set("feedbackSurveyBody", DEFAULTS.feedbackSurveyBody)
-              }}
-              className="text-xs text-blue-600 hover:underline"
-            >
-              Reset to default text
-            </button>
-          </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-gray-800">Email subject</Label>
+                  <Input
+                    value={feedback.subject}
+                    onChange={(event) => updateFeedback({ subject: event.target.value })}
+                    disabled={!feedback.enabled}
+                    placeholder="How was your {{module}} request? — {{requestTitle}}"
+                    className="h-9 text-sm disabled:opacity-50"
+                  />
+                </div>
 
-          <SaveButton state={feedbackSave} onClick={() => persistFeedback(setFeedbackSave)} label="Save Survey Settings" />
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-gray-800">Email body</Label>
+                  <textarea
+                    value={feedback.body}
+                    onChange={(event) => updateFeedback({ body: event.target.value })}
+                    disabled={!feedback.enabled}
+                    rows={4}
+                    placeholder="Hi {{requesterName}}, your request has been completed..."
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 resize-y"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => updateFeedback({ subject: defaults.subject, body: defaults.body })}
+                  className="text-xs font-medium text-blue-600 hover:underline"
+                >
+                  Reset this message to default
+                </button>
+              </section>
+            )
+          })}
+
+          <SaveButton state={feedbackSave} onClick={persistFeedback} label="Save Feedback Survey Settings" />
         </CardContent>
       </Card>
     </div>

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { Calculator, ChevronRight, Receipt, Plane, CreditCard } from "lucide-react"
 import { auth } from "@/auth"
 import { canAccessPath } from "@/lib/access"
+import { loadSettingsServer } from "@/lib/settingsServer"
 
 export const runtime = "nodejs"
 
@@ -27,11 +28,12 @@ export default async function FinanceDepartmentServicesPage() {
   const permissions = session.user.permissions
   const role = session.user.role
   const visibleServices = services.filter((service) => canAccessPath(service.href, permissions, role))
+  const logoUrl = loadSettingsServer().supportFunctionLogos.finance
 
   return (
     <div className="space-y-6">
       <div className="rounded-xl border bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-amber-600 text-white"><Calculator className="h-7 w-7" /></div>
+        <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-amber-600 text-white">{logoUrl ? <img src={logoUrl} alt="Finance Team" className="h-full w-full object-contain p-1.5" /> : <Calculator className="h-7 w-7" />}</div>
         <h1 className="mt-5 text-3xl font-bold text-slate-900 dark:text-white">Finance Team Services</h1>
         <p className="mt-3 text-slate-600 dark:text-slate-400">Select a Finance service to submit a request or review your existing requests.</p>
       </div>

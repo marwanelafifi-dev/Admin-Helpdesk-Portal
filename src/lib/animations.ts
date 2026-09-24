@@ -10,10 +10,10 @@ export const animations = {
 }
 
 export const animationClasses = {
-  headerFadeIn: "animate-fade-in [animation-duration:600ms]",
-  statCardStagger: (index: number) => `animate-slide-in-up [animation-duration:500ms] [animation-delay:${index * 75}ms]`,
-  tableRowFadeIn: (index: number) => `animate-fade-in [animation-duration:400ms] [animation-delay:${index * 30}ms]`,
-  cardFadeIn: "animate-fade-in [animation-duration:700ms]",
-  buttonHoverScale: "hover:scale-105 transition-transform duration-200",
-  pillHoverPulse: "hover:shadow-md transition-shadow duration-200",
+  headerFadeIn: "animate-fade-in [animation-duration:480ms]",
+  statCardStagger: (index: number) => `animate-slide-in-up [animation-duration:480ms] [animation-delay:${index * 70}ms]`,
+  tableRowFadeIn: (index: number) => `animate-fade-in [animation-duration:420ms] [animation-delay:${index * 35}ms]`,
+  cardFadeIn: "animate-fade-in [animation-duration:480ms]",
+  buttonHoverScale: "hover:scale-[1.02] transition-transform duration-250",
+  pillHoverPulse: "hover:shadow-md transition-shadow duration-250",
 }

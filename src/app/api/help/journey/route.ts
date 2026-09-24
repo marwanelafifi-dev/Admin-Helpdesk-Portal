@@ -5,7 +5,9 @@ import { getModuleGuide } from "@/lib/helpGuidance"
 
 // Increase this only when the onboarding journey changes materially and users
 // should be shown the new version once more.
-export const JOURNEY_MANUAL_VERSION = 1
+// Version 2 starts the Company Portal rollout guide for every request module.
+// A user sees it once per module when opening that module's new-request form.
+export const JOURNEY_MANUAL_VERSION = 2
 
 function moduleIdFromRequest(request: Request) {
   return new URL(request.url).searchParams.get("module")

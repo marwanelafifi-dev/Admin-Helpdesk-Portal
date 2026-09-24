@@ -133,23 +133,33 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
 
   const handleCancel = onCancel ?? (() => router.push("/departments/finance/reimbursement"))
 
+  // File uploads are submitted separately from React Hook Form. Run this
+  // check for both valid and invalid form submissions so every required error
+  // is visible together.
+  const validateRequiredFiles = (paidByCard: boolean) => {
+    let valid = true
+    if (!isEditing && !supportingDocFile) {
+      setSupportingDocError("Supporting documents are required to submit a reimbursement request.")
+      valid = false
+    } else {
+      setSupportingDocError(null)
+    }
+
+    if (paidByCard && !isEditing && !creditCardStatementFile) {
+      setCreditCardStatementError("Payment evidence for the company expense is required when paid by personal credit card.")
+      valid = false
+    } else {
+      setCreditCardStatementError(null)
+    }
+    return valid
+  }
+
   const onSubmit = async (data: ReimbursementFormValues) => {
     if (data.poOption === "no_po" && !data.directManager?.trim()) {
       setError("directManager", { type: "manual", message: "Direct Manager is required when there is no PO" })
       return
     }
-    if (!isEditing && !supportingDocFile) {
-      setSupportingDocError("Supporting documents are required to submit a reimbursement request.")
-      return
-    }
-    setSupportingDocError(null)
-    if (data.paidByPersonalCreditCard) {
-      if (!isEditing && !creditCardStatementFile) {
-        setCreditCardStatementError("Payment evidence for the company expense is required when paid by personal credit card.")
-        return
-      }
-    }
-    setCreditCardStatementError(null)
+    if (!validateRequiredFiles(data.paidByPersonalCreditCard)) return
 
     // Auto-CC the Direct Manager (only relevant when there's no PO — that's
     // the only case a Direct Manager is on the request at all).
@@ -241,7 +251,7 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
 
   return (
     <div className="space-y-5 max-w-6xl mx-auto">
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <form onSubmit={handleSubmit(onSubmit, () => { validateRequiredFiles(Boolean(paidByPersonalCreditCard)) })} className="space-y-5">
         {/* Request Title */}
         <Card>
           <CardContent className="pt-6">
@@ -327,7 +337,7 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
           <SectionHeader icon={Wallet} title="Expense Details" subtitle="Complete every field and add a row for each expense" />
           <CardContent className="space-y-4">
             <div className="overflow-visible rounded-lg border">
-              <table className="w-full table-fixed border-collapse text-sm">
+              <table className="finance-mobile-table w-full table-fixed border-collapse text-sm">
                 <thead className="bg-slate-50 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-600">
                   <tr>
                     {poOption === "has_po" && <th className="w-[12%] border-b px-2 py-3">PO <span className="text-red-500">*</span></th>}
@@ -344,18 +354,18 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
                   {expenseFields.map((expenseField, index) => {
                     const rowErrors = errors.expenseRows?.[index]
                     return (
-                      <tr key={expenseField.id} className="align-top">
+                      <tr key={expenseField.id} className="finance-row align-top">
                         {poOption === "has_po" && (
-                          <td className="border-b px-2 py-3">
+                          <td data-label="PO" className="border-b px-2 py-3">
                             <Input placeholder="PO number" {...register(`expenseRows.${index}.po`)} className={cn(rowErrors?.po && "border-red-400")} />
                             <FieldError message={rowErrors?.po?.message} />
                           </td>
                         )}
-                        <td className="border-b px-2 py-3">
+                        <td data-label="Description" className="border-b px-2 py-3">
                           <Input placeholder="Expense description" {...register(`expenseRows.${index}.description`)} className={cn(rowErrors?.description && "border-red-400")} />
                           <FieldError message={rowErrors?.description?.message} />
                         </td>
-                        <td className="border-b px-2 py-3">
+                        <td data-label="Cost Center" className="border-b px-2 py-3">
                           <Controller
                             name={`expenseRows.${index}.costCenter`}
                             control={control}
@@ -372,11 +382,11 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
                           />
                           <FieldError message={rowErrors?.costCenter?.message} />
                         </td>
-                        <td className="border-b px-2 py-3">
+                        <td data-label="Invoice Amount" className="border-b px-2 py-3">
                           <Input type="number" min="0.01" step="0.01" placeholder="0.00" {...register(`expenseRows.${index}.invoiceAmount`, { valueAsNumber: true })} className={cn(rowErrors?.invoiceAmount && "border-red-400")} />
                           <FieldError message={rowErrors?.invoiceAmount?.message} />
                         </td>
-                        <td className="border-b px-2 py-3">
+                        <td data-label="Invoice Currency" className="border-b px-2 py-3">
                           <Controller
                             name={`expenseRows.${index}.invoiceCurrency`}
                             control={control}
@@ -392,11 +402,11 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
                           />
                           <FieldError message={rowErrors?.invoiceCurrency?.message} />
                         </td>
-                        <td className="border-b px-2 py-3">
+                        <td data-label="Refund Amount" className="border-b px-2 py-3">
                           <Input type="number" min="0.01" step="0.01" placeholder="0.00" {...register(`expenseRows.${index}.refundAmount`, { valueAsNumber: true })} className={cn(rowErrors?.refundAmount && "border-red-400")} />
                           <FieldError message={rowErrors?.refundAmount?.message} />
                         </td>
-                        <td className="border-b px-2 py-3">
+                        <td data-label="Refund Currency" className="border-b px-2 py-3">
                           <Controller
                             name={`expenseRows.${index}.refundCurrency`}
                             control={control}
@@ -413,7 +423,7 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
                           />
                           <FieldError message={rowErrors?.refundCurrency?.message} />
                         </td>
-                        <td className="border-b px-1 py-3 text-center">
+                        <td data-label="Actions" className="border-b px-1 py-3 text-center">
                           <Button type="button" variant="ghost" size="icon" disabled={expenseFields.length === 1} onClick={() => removeExpense(index)} aria-label={`Remove expense row ${index + 1}`}>
                             <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
@@ -421,7 +431,7 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
                       </tr>
                     )
                   })}
-                  <tr className="bg-amber-50/70 font-bold text-slate-950">
+                  <tr className="finance-totals-row bg-amber-50/70 font-bold text-slate-950">
                     <td colSpan={poOption === "has_po" ? 3 : 2} className="px-2 py-3 text-right text-xs">Refund totals</td>
                     <td colSpan={4} className="px-2 py-3">
                       <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
@@ -488,7 +498,7 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
                     onClick={() => document.getElementById("creditCardStatement")?.click()}
                     className={cn(
                       "w-full px-6 py-8 border-2 border-dashed rounded-lg transition-all duration-200 flex flex-col items-center justify-center gap-2",
-                      creditCardStatementFile ? "border-amber-400 bg-amber-50/60 hover:bg-amber-50" : "border-amber-300 hover:border-amber-500 hover:bg-amber-50"
+                      creditCardStatementError ? "border-red-400 bg-red-50 hover:border-red-500 hover:bg-red-50" : creditCardStatementFile ? "border-amber-400 bg-amber-50/60 hover:bg-amber-50" : "border-amber-300 hover:border-amber-500 hover:bg-amber-50"
                     )}
                   >
                     {creditCardStatementFile ? (
@@ -536,7 +546,7 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
                 onClick={() => document.getElementById("supportingDocument")?.click()}
                 className={cn(
                   "w-full px-6 py-8 border-2 border-dashed rounded-lg transition-all duration-200 flex flex-col items-center justify-center gap-2",
-                  supportingDocFile ? "border-amber-400 bg-amber-50/60 hover:bg-amber-50" : "border-amber-300 hover:border-amber-500 hover:bg-amber-50"
+                  supportingDocError ? "border-red-400 bg-red-50 hover:border-red-500 hover:bg-red-50" : supportingDocFile ? "border-amber-400 bg-amber-50/60 hover:bg-amber-50" : "border-amber-300 hover:border-amber-500 hover:bg-amber-50"
                 )}
               >
                 {supportingDocFile ? (
