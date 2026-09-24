@@ -2027,3 +2027,9 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] **Platform-managed applications and logos:** Platform Settings supports up to nine Main Apps with names, URLs, built-in icons, custom PNG/JPG icon assets, and enablement controls. Support Function cards also support configurable PNG/JPG logos for Administration, People, Finance, and IT. Uploaded assets are stored server-side and served to all portal users.
 - [x] **Brand and accessibility polish:** Landing-card accent lines use Si-Ware navy (`#263d8b`). Typography, card alignment, status treatment, hover states, and focused layout were refined while retaining the approved background. The landing dark-mode switch uses the resolved theme and has an explicit top-layer stacking order so it remains clickable.
 - [x] **Verification and local deployment:** Production builds passed for the final changes. The compiled application was copied to `company-portal-app`, restarted, and confirmed healthy at `http://localhost:3003`.
+
+### Dark-Mode Contrast Refinement (24 Sep 2026)
+
+- [x] **Clear Si-Ware dark theme:** Strengthened landing-page dark-mode contrast with navy panel surfaces, distinct card layers, readable secondary text, cyan action states, and visible icon containers. The Si-Ware logo uses a high-contrast dark treatment while the landing background remains consistent with the approved design.
+- [x] **Interactive feedback:** Support and Main App cards retain their motion but now provide clearer dark-mode borders and cyan hover feedback. The top bar stays above page content so the theme switch remains clickable.
+- [x] **Verification and local deployment:** Production build passed; `company-portal-app` was restarted and passed its health check.
