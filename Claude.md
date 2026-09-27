@@ -2050,3 +2050,9 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] **Ubuntu host automation prepared:** `scripts/install-synology-backup-ubuntu.sh` installs a systemd mount service and five-minute backup timer; `scripts/synology-company-portal-backup.sh` is the host worker. The one-time deployment must be performed on Ubuntu after confirming the host data-volume path and Docker database container name.
 - [x] **Secret handling:** NAS credentials must remain outside the Portal database, browser storage, audit data, and backups. On Ubuntu they belong in the root-owned `/etc/company-portal/synology-credentials` file (mode `0600`); a future GUI credential-update feature requires a separate secured host-side service.
 - [x] **Recovery history:** Synology Snapshot Replication is configured at the shared-folder level, so it can retain historical file states efficiently alongside the daily recovery backup. It is separate from the PostgreSQL-dump retention policy.
+
+### Dark-Mode Landing Experience Refinement (27 Sep 2026)
+
+- [x] **Premium dark visual system:** The landing page now uses layered deep-navy surfaces, subtle blue/cyan ambient lighting, softer section depth, and high-contrast typography while retaining Si-Ware branding.
+- [x] **Interactive polish:** Support Function and Main App cards have clearer borders, richer dark surfaces, restrained glow treatment, and more visible hover/focus feedback. The Platform Administration shortcut, top-bar actions, account control, and feedback call-to-action use matching dark-mode states.
+- [x] **Verification and local deployment:** Production build completed successfully. The compiled build was copied to `company-portal-app`, the container was restarted, and it passed its health check; `/landing` responds with its expected authentication redirect.
