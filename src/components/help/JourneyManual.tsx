@@ -35,13 +35,14 @@ function pageGuidance(page: PageDefinition) {
   return ROUTE_GUIDANCE[page.id] ?? `Use ${page.label} to complete the ${page.group?.toLowerCase() ?? "assigned"} work available to your role.`
 }
 
-export function JourneyManual() {
+export function JourneyManual({ className = "" }: { className?: string }) {
   const pathname = usePathname()
   const router = useRouter()
   const { data: session, status } = useSession()
   const [open, setOpen] = useState(false)
   const [firstVisit, setFirstVisit] = useState(false)
   const [checking, setChecking] = useState(true)
+  const [isPlatformAdministrationPage, setIsPlatformAdministrationPage] = useState(false)
   const permissions = session?.user?.permissions ?? []
   const role = session?.user?.role
 
@@ -75,6 +76,10 @@ export function JourneyManual() {
     return () => { active = false }
   }, [status])
 
+  useEffect(() => {
+    setIsPlatformAdministrationPage(window.location.pathname.startsWith("/admin"))
+  }, [pathname])
+
   async function closeManual() {
     setOpen(false)
     if (firstVisit) {
@@ -96,7 +101,7 @@ export function JourneyManual() {
         title="Help and user guide"
         aria-label="Open help and user guide"
         onClick={() => setOpen(true)}
-        className="text-muted-foreground hover:text-foreground"
+        className={`text-muted-foreground hover:text-foreground ${className}`}
       >
         <CircleHelp className="h-5 w-5" />
       </Button>
@@ -111,62 +116,70 @@ export function JourneyManual() {
           </DialogHeader>
 
           {currentPage && (
-            <section className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">You are here</p>
-              <h3 className="mt-1 font-semibold text-slate-900">{currentPage.label}</h3>
-              <p className="mt-1 text-sm text-slate-700">{pageGuidance(currentPage)}</p>
+            <section className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/40">
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">You are here</p>
+              <h3 className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{currentPage.label}</h3>
+              <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">{pageGuidance(currentPage)}</p>
+            </section>
+          )}
+
+          {pathname === "/landing" && (
+            <section className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/40">
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">Company Portal home page</p>
+              <h3 className="mt-1 font-semibold text-slate-900 dark:text-slate-100">Your starting point for company services</h3>
+              <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">Choose a Support Function to submit or manage requests, use Main Apps for everyday tools, open What’s New for releases, and use Portal Feedback to share an idea or report an issue.</p>
             </section>
           )}
 
           {currentModule && (
-            <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Current request module · {currentModule.function}</p>
-              <h3 className="mt-1 font-semibold text-slate-900">{currentModule.label}</h3>
-              <p className="mt-1 text-sm text-slate-700">{currentModule.summary}</p>
-              <ul className="mt-3 space-y-1.5 text-sm text-slate-700">
+            <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-950/40">
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Current request module · {currentModule.function}</p>
+              <h3 className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{currentModule.label}</h3>
+              <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">{currentModule.summary}</p>
+              <ul className="mt-3 space-y-1.5 text-sm text-slate-700 dark:text-slate-200">
                 {currentModule.notes.map((note) => <li key={note} className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />{note}</li>)}
               </ul>
-              <p className="mt-3 text-sm text-slate-700"><span className="font-medium">After you submit: </span>{currentModule.afterSubmit}</p>
+              <p className="mt-3 text-sm text-slate-700 dark:text-slate-200"><span className="font-medium">After you submit: </span>{currentModule.afterSubmit}</p>
             </section>
           )}
 
           <section className="space-y-3">
             <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-600" /><h3 className="font-semibold">How to work in the portal</h3></div>
-            <ol className="grid gap-2 text-sm text-slate-700 sm:grid-cols-3">
-              <li className="rounded-md bg-slate-50 p-3"><strong>1. Choose a service</strong><br />Open the function or service you need from the navigation.</li>
-              <li className="rounded-md bg-slate-50 p-3"><strong>2. Complete the request</strong><br />Provide accurate details and submit. Use My Requests to follow it.</li>
-              <li className="rounded-md bg-slate-50 p-3"><strong>3. Take role actions</strong><br />Approvals, updates, and administration appear only when permitted.</li>
+            <ol className="grid gap-2 text-sm text-slate-700 dark:text-slate-200 sm:grid-cols-3">
+              <li className="rounded-md bg-slate-50 p-3 dark:bg-slate-900"><strong>1. Choose a service</strong><br />Open the function or service you need from the navigation.</li>
+              <li className="rounded-md bg-slate-50 p-3 dark:bg-slate-900"><strong>2. Complete the request</strong><br />Provide accurate details and submit. Use My Requests to follow it.</li>
+              <li className="rounded-md bg-slate-50 p-3 dark:bg-slate-900"><strong>3. Take role actions</strong><br />Approvals, updates, and administration appear only when permitted.</li>
             </ol>
           </section>
 
-          {availablePages.some((page) => page.group === "Admin") && (
-            <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          {isPlatformAdministrationPage && availablePages.some((page) => page.group === "Admin") && (
+            <section className="journey-admin-guidance rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40">
               <div className="flex items-center gap-2 font-semibold"><ShieldCheck className="h-4 w-4" /> Platform Administration</div>
               <p className="mt-1">Administrative guidance below includes only the platform pages you are authorized to open. Role and settings changes affect other users immediately.</p>
             </section>
           )}
 
           <section>
-            <div className="mb-2 flex items-center gap-2"><ClipboardList className="h-4 w-4 text-slate-600" /><h3 className="font-semibold">Request module reference</h3></div>
-            <p className="mb-3 text-sm text-slate-600">Each module includes its own submission notes. Open a module to start a request.</p>
+            <div className="mb-2 flex items-center gap-2"><ClipboardList className="h-4 w-4 text-slate-600 dark:text-slate-400" /><h3 className="font-semibold">Request module reference</h3></div>
+            <p className="mb-3 text-sm text-slate-600 dark:text-slate-400">Each module includes its own submission notes. Open a module to start a request.</p>
             <div className="grid gap-2 sm:grid-cols-2">
               {availableModules.map((guide) => (
-                <button key={guide.id} onClick={() => { void closeManual(); router.push(guide.startPath) }} className="group rounded-lg border p-3 text-left transition-colors hover:border-blue-300 hover:bg-blue-50">
-                  <span className="flex items-start justify-between gap-3 font-medium text-slate-900">{guide.label}<ExternalLink className="h-4 w-4 shrink-0 text-slate-400 group-hover:text-blue-600" /></span>
-                  <span className="mt-1 block text-xs font-medium text-blue-700">{guide.function} function</span>
-                  <span className="mt-1 block text-xs leading-relaxed text-slate-600">{guide.summary}</span>
+                <button key={guide.id} onClick={() => { void closeManual(); router.push(guide.startPath) }} className="group rounded-lg border p-3 text-left transition-colors hover:border-blue-300 hover:bg-blue-50 dark:hover:border-blue-700 dark:hover:bg-blue-950/40">
+                  <span className="flex items-start justify-between gap-3 font-medium text-slate-900 dark:text-slate-100">{guide.label}<ExternalLink className="h-4 w-4 shrink-0 text-slate-400 group-hover:text-blue-600" /></span>
+                  <span className="mt-1 block text-xs font-medium text-blue-700 dark:text-blue-300">{guide.function} function</span>
+                  <span className="mt-1 block text-xs leading-relaxed text-slate-600 dark:text-slate-400">{guide.summary}</span>
                 </button>
               ))}
             </div>
           </section>
 
           <section>
-            <div className="mb-2 flex items-center gap-2"><FileText className="h-4 w-4 text-slate-600" /><h3 className="font-semibold">Your available pages</h3></div>
+            <div className="mb-2 flex items-center gap-2"><FileText className="h-4 w-4 text-slate-600 dark:text-slate-400" /><h3 className="font-semibold">Your available pages</h3></div>
             <div className="grid gap-2 sm:grid-cols-2">
               {availablePages.map((page) => (
-                <button key={page.id} onClick={() => openPage(page)} className="group rounded-lg border p-3 text-left transition-colors hover:border-blue-300 hover:bg-blue-50">
-                  <span className="flex items-start justify-between gap-3 font-medium text-slate-900">{page.label}<ExternalLink className="h-4 w-4 shrink-0 text-slate-400 group-hover:text-blue-600" /></span>
-                  <span className="mt-1 block text-xs leading-relaxed text-slate-600">{pageGuidance(page)}</span>
+                <button key={page.id} onClick={() => openPage(page)} className="group rounded-lg border p-3 text-left transition-colors hover:border-blue-300 hover:bg-blue-50 dark:hover:border-blue-700 dark:hover:bg-blue-950/40">
+                  <span className="flex items-start justify-between gap-3 font-medium text-slate-900 dark:text-slate-100">{page.label}<ExternalLink className="h-4 w-4 shrink-0 text-slate-400 group-hover:text-blue-600" /></span>
+                  <span className="mt-1 block text-xs leading-relaxed text-slate-600 dark:text-slate-400">{pageGuidance(page)}</span>
                 </button>
               ))}
             </div>

@@ -45,7 +45,7 @@ export function autoCreateHrLetterFromTravel(request: EngineRequest): void {
   }
 
   const hrLetter: EngineRequest = {
-    // requestStore.create() issues the shared HRLTR-YYYY-#### sequence.
+    // requestStore.create() issues the shared HR-LTR-YYYY-MM-#### sequence.
     // This placeholder is never persisted.
     id: "PENDING-HRLTR",
     module: "hr_travel_letter",

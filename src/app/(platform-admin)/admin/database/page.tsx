@@ -1,15 +1,18 @@
 "use client"
 
-import { useState, useRef, useEffect, useCallback } from "react"
+import { Fragment, useState, useRef, useEffect, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import {
   Download, Upload, CheckCircle2, AlertTriangle, Clock, Shield, Trash2,
   Package, Wrench, ShoppingCart, CalendarDays, Plane, UserCog, ChevronRight, Inbox,
   Power, LogOut, RefreshCw, Save, CalendarClock, FolderOpen,
-  MessageSquare, Building2, Settings, Mail, RotateCcw,
+  MessageSquare, Building2, Settings, Mail, RotateCcw, FileText,
+  HardDrive,
 } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   NON_REQUEST_STORES,
   ALL_REGISTERED_KEYS,
@@ -22,43 +25,90 @@ import type { DeletedRequest } from "@/lib/deletedRequestStore"
 import { logAuditEvent } from "@/lib/auditLog"
 import type { EngineRequest } from "@/services/engineService"
 import { getRequestCompany } from "@/lib/userCompany"
+import { FUNCTION_TEAM_ROLE, functionForModule, functionsForLegacyRequestId } from "@/lib/functionRegistry"
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface BackupManifest {
   /** "1.0" backups only contain `data` (browser localStorage).
-   *  "1.1" backups also contain `serverData` (the server's /app/data files). */
-  version: "1.0" | "1.1"
+   *  "1.1" adds server JSON; "1.2" also includes uploaded attachment files. */
+  version: "1.0" | "1.1" | "1.2"
   createdAt: string
   createdBy: string
   /** Browser localStorage keys -> their parsed values. */
   data: Record<string, unknown>
   /** Server-side /app/data files (filename -> JSON content). Only present on 1.1+. */
   serverData?: Record<string, unknown>
+  /** Actual uploaded files, encoded in the portable JSON archive (1.2+). */
+  attachmentFiles?: unknown[]
 }
 
 type Status = { type: "success" | "error" | "idle"; message: string }
 
+type BackupHealth = {
+  status: "healthy" | "warning" | "critical" | "disabled"
+  label: string
+  message: string
+  lastSuccessAt: string | null
+  lastFailureAt: string | null
+  lastFailureMessage: string | null
+  consecutiveFailures: number
+  expectedWithinHours: number | null
+  backupAgeHours: number | null
+  fileCount: number
+  retentionCount: number
+  retentionIssue: boolean
+}
+
+type SynologyBackupConfig = {
+  enabled: boolean
+  nasRoot: string
+  scheduleTime: string
+  retentionDays: number
+  pruneOldBackups: boolean
+  runRequestedAt: string | null
+  lastRequestHandledAt: string | null
+  lastStartedAt: string | null
+  lastSuccessAt: string | null
+  lastFailureAt: string | null
+  lastFailureMessage: string | null
+  lastPostgresDump: string | null
+}
+
 // ── Constants ────────────────────────────────────────────────────────────────
 
-// Module definitions — each maps to a filter on arp_requests[].module
-const REQUEST_MODULES = [
-  { id: "shipping",    label: "Shipping",    icon: Package,       color: "text-blue-600",   bg: "bg-blue-50",   border: "border-blue-200" },
-  { id: "maintenance", label: "Maintenance", icon: Wrench,        color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-200" },
-  { id: "purchase",    label: "Purchase",    icon: ShoppingCart,  color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-200" },
-  { id: "event",       label: "Event",       icon: CalendarDays,  color: "text-pink-600",   bg: "bg-pink-50",   border: "border-pink-200" },
-  { id: "travel",      label: "Travel",      icon: Plane,         color: "text-cyan-600",   bg: "bg-cyan-50",   border: "border-cyan-200" },
-  { id: "hr",          label: "HR",          icon: UserCog,       color: "text-teal-600",   bg: "bg-teal-50",   border: "border-teal-200" },
-  { id: "general",     label: "General",     icon: Inbox,         color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-200" },
+type ClearModuleDefinition = {
+  id: string
+  storageModule: string
+  subtype?: "shipping_import" | "shipping_export" | "hr_onboarding" | "hr_offboarding"
+  label: string
+  icon: LucideIcon
+  color: string
+  bg: string
+  border: string
+}
+
+// Clear modules are user-facing request types. Shipping and HR retain their
+// shared stored module but are intentionally separated by their request subtype.
+const REQUEST_MODULES: ClearModuleDefinition[] = [
+  { id: "shipping_import", storageModule: "shipping", subtype: "shipping_import", label: "Shipping · Import", icon: Package, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200" },
+  { id: "shipping_export", storageModule: "shipping", subtype: "shipping_export", label: "Shipping · Export", icon: Package, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200" },
+  { id: "maintenance", storageModule: "maintenance", label: "Maintenance", icon: Wrench, color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-200" },
+  { id: "purchase", storageModule: "purchase", label: "Purchase", icon: ShoppingCart, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-200" },
+  { id: "event", storageModule: "event", label: "Event", icon: CalendarDays, color: "text-pink-600", bg: "bg-pink-50", border: "border-pink-200" },
+  { id: "travel", storageModule: "travel", label: "Travel", icon: Plane, color: "text-cyan-600", bg: "bg-cyan-50", border: "border-cyan-200" },
+  { id: "hr_onboarding", storageModule: "hr", subtype: "hr_onboarding", label: "Onboarding", icon: UserCog, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-200" },
+  { id: "hr_offboarding", storageModule: "hr", subtype: "hr_offboarding", label: "Offboarding", icon: UserCog, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-200" },
+  { id: "general", storageModule: "general", label: "General", icon: Inbox, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-200" },
   // HR function requests
-  { id: "hr_general", label: "HR · General Request", icon: UserCog, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-200" },
-  { id: "hr_letter", label: "HR · Letter Request", icon: UserCog, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-200" },
-  { id: "hr_travel_letter", label: "HR · Travel Letter", icon: Plane, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-200" },
+  { id: "hr_general", storageModule: "hr_general", label: "HR · General Request", icon: UserCog, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-200" },
+  { id: "hr_letter", storageModule: "hr_letter", label: "HR · Letter Request", icon: UserCog, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-200" },
+  { id: "hr_travel_letter", storageModule: "hr_travel_letter", label: "HR · Travel Letter", icon: Plane, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-200" },
   // Finance function requests
-  { id: "finance_reimbursement", label: "Finance · Reimbursement", icon: Package, color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200" },
-  { id: "finance_travel_reimbursement", label: "Finance · Travel Reimbursement", icon: Plane, color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200" },
-  { id: "finance_invoice_payment", label: "Finance · Invoice Payment", icon: ShoppingCart, color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200" },
-] as const
+  { id: "finance_reimbursement", storageModule: "finance_reimbursement", label: "Finance · Reimbursement", icon: Package, color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200" },
+  { id: "finance_travel_reimbursement", storageModule: "finance_travel_reimbursement", label: "Finance · Travel Reimbursement", icon: Plane, color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200" },
+  { id: "finance_invoice_payment", storageModule: "finance_invoice_payment", label: "Finance · Invoice Payment", icon: ShoppingCart, color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200" },
+]
 
 // Note: Team Requests is a view (filtered by direct manager), not a module —
 // requests are stored under their original module id. No separate clear needed.
@@ -66,6 +116,22 @@ const REQUEST_MODULES = [
 // Other clearable stores (non-request) — sourced from central registry so new stores
 // added anywhere in the app automatically appear here.
 const OTHER_STORES = NON_REQUEST_STORES
+
+const FUNCTION_FEEDBACK_STORES = [
+  { key: "feedback:admin", functionId: "admin", label: "Administration Feedback", description: "Administration Team surveys and completed responses only", icon: MessageSquare, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200" },
+  { key: "feedback:hr", functionId: "hr", label: "People Feedback", description: "People Team surveys and completed responses only", icon: MessageSquare, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-200" },
+  { key: "feedback:finance", functionId: "finance", label: "Finance Feedback", description: "Finance Team surveys and completed responses only", icon: MessageSquare, color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200" },
+] as const
+
+const FUNCTION_NOTIFICATION_STORES = [
+  { key: "notifications:admin", functionId: "admin", label: "Administration Notifications", description: "Administration Team notification history only", icon: Mail, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200" },
+  { key: "notifications:hr", functionId: "hr", label: "People Notifications", description: "People Team notification history only", icon: Mail, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-200" },
+  { key: "notifications:finance", functionId: "finance", label: "Finance Notifications", description: "Finance Team notification history only", icon: Mail, color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200" },
+] as const
+
+const SHARED_STORES = OTHER_STORES.filter(
+  (store) => store.key !== "feedback_surveys" && store.key !== "feedback_responses" && store.key !== "arp_notifications"
+)
 
 // Server-side file stores shown in Clear by Data Type.
 // These are data/*.json files on the server — not localStorage keys.
@@ -136,11 +202,52 @@ const SERVER_FILE_STORES = [
     description: "data/user-feedback.json — user feedback on system notices and updates",
     icon: MessageSquare, color: "text-green-600", bg: "bg-green-50", border: "border-green-200",
   },
+  {
+    key: "server:notifications",
+    label: "Server Notifications",
+    description: "data/notifications.json — notification delivery records for all functions",
+    icon: Mail, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200",
+  },
+  {
+    key: "server:attachments",
+    label: "Request Attachments & Files",
+    description: "Attachment metadata and uploaded supporting files from every request",
+    icon: FileText, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200",
+  },
+  {
+    key: "server:deleted-requests",
+    label: "Deleted Requests (Recycle Bin)",
+    description: "Recoverable deleted requests; clearing this permanently empties the recycle bin",
+    icon: RotateCcw, color: "text-green-600", bg: "bg-green-50", border: "border-green-200",
+  },
+  {
+    key: "server:finance-sla-reminders",
+    label: "Finance SLA Reminder History",
+    description: "Sent Finance SLA reminder records; request data is not removed",
+    icon: Clock, color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200",
+  },
+  {
+    key: "server:admin-surveys",
+    label: "Platform Improvement Feedback",
+    description: "Product feedback, bug reports, and feature requests submitted about the portal itself",
+    icon: MessageSquare, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-200",
+  },
 ] as const
+
+const SERVER_CLEAR_FILE_BY_KEY: Record<string, string> = {
+  "server:comments": "comments.json",
+  "server:announcements": "announcements.json",
+  "server:notices": "notices.json",
+  "server:notifications": "notifications.json",
+  "server:attachments": "attachments.json",
+  "server:deleted-requests": "deleted-requests.json",
+  "server:finance-sla-reminders": "finance-sla-reminders.json",
+  "server:admin-surveys": "admin-survey.json",
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function getRequests(): Array<{ module: string }> {
+function getRequests(): Array<Pick<EngineRequest, "module" | "payload">> {
   if (typeof window === "undefined") return []
   try {
     const raw = localStorage.getItem("arp_requests")
@@ -148,11 +255,51 @@ function getRequests(): Array<{ module: string }> {
   } catch { return [] }
 }
 
-function clearModuleRequests(moduleId: string): number {
+function matchesRequestModule(request: Pick<EngineRequest, "module" | "payload">, definition: ClearModuleDefinition): boolean {
+  if (request.module !== definition.storageModule) return false
+  const payload = (request.payload ?? {}) as Record<string, unknown>
+  if (definition.subtype === "shipping_import") return payload.direction !== "sending"
+  if (definition.subtype === "shipping_export") return payload.direction === "sending"
+  if (definition.subtype === "hr_onboarding") return payload.hrType === "onboarding"
+  if (definition.subtype === "hr_offboarding") return payload.hrType === "offboarding"
+  return true
+}
+
+function getRequestModuleDefinition(request: Pick<EngineRequest, "module" | "payload">): ClearModuleDefinition | undefined {
+  return REQUEST_MODULES.find((definition) => matchesRequestModule(request, definition))
+}
+
+function clearModuleRequests(definition: ClearModuleDefinition): number {
   const all = getRequests()
-  const filtered = all.filter((r) => r.module !== moduleId)
+  const filtered = all.filter((request) => !matchesRequestModule(request, definition))
   localStorage.setItem("arp_requests", JSON.stringify(filtered))
   return all.length - filtered.length
+}
+
+function clearFeedbackCacheForFunction(functionId: "admin" | "hr" | "finance") {
+  for (const key of ["feedback_surveys", "feedback_responses"]) {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(key) ?? "[]")
+      if (!Array.isArray(parsed)) continue
+      localStorage.setItem(key, JSON.stringify(parsed.filter((item) => functionForModule(item?.module ?? "") !== functionId)))
+    } catch { /* a malformed legacy browser cache is left untouched */ }
+  }
+}
+
+function clearNotificationCacheForFunction(functionId: "admin" | "hr" | "finance") {
+  try {
+    const parsed = JSON.parse(localStorage.getItem("arp_notifications") ?? "[]")
+    if (!Array.isArray(parsed)) return
+    const retained = parsed.flatMap((item: any) => {
+      const scopes = Array.isArray(item?.functionIds) && item.functionIds.length
+        ? item.functionIds
+        : functionsForLegacyRequestId(item?.requestId)
+      if (!scopes.includes(functionId)) return [item]
+      const remainingScopes = scopes.filter((scope: string) => scope !== functionId)
+      return remainingScopes.length ? [{ ...item, functionIds: remainingScopes }] : []
+    })
+    localStorage.setItem("arp_notifications", JSON.stringify(retained))
+  } catch { /* a malformed legacy browser cache is left untouched */ }
 }
 
 async function collectBackup(): Promise<BackupManifest> {
@@ -174,23 +321,26 @@ async function collectBackup(): Promise<BackupManifest> {
     })
   } catch { /* best-effort */ }
 
-  // Pull the server-side data bundle (comments, feedback, users, roles, + the
-  // browser-data.json we just pushed) so the download is a complete snapshot.
+  // Pull server JSON plus uploaded files so the download is a complete,
+  // portable snapshot of every function and its supporting documents.
   let serverData: Record<string, unknown> = {}
+  let attachmentFiles: unknown[] = []
   try {
     const res = await fetch("/api/admin/server-data")
     if (res.ok) {
       const json = await res.json()
       serverData = (json.data ?? {}) as Record<string, unknown>
+      attachmentFiles = Array.isArray(json.attachmentFiles) ? json.attachmentFiles : []
     }
   } catch { /* best-effort: backup still saves localStorage even if server unreachable */ }
 
   return {
-    version: "1.1",
+    version: "1.2",
     createdAt: new Date().toISOString(),
     createdBy: "admin",
     data,
     serverData,
+    attachmentFiles,
   }
 }
 
@@ -198,28 +348,41 @@ async function restoreBackup(manifest: BackupManifest) {
   const restored: string[] = []
   const skipped: string[] = []
 
-  // localStorage portion
-  Object.entries(manifest.data ?? {}).forEach(([key, value]) => {
-    try { localStorage.setItem(key, JSON.stringify(value)); restored.push(key) }
-    catch { skipped.push(key) }
-  })
-
   // Server-side portion (v1.1 backups). Older v1.0 backups simply lack this
   // key — fine, we just skip it and the user keeps whatever the server has.
+  // Restore the server first: if its integrity validation or safety restore
+  // fails, browser data is left untouched instead of creating a split state.
   if (manifest.serverData && Object.keys(manifest.serverData).length > 0) {
     try {
       const res = await fetch("/api/admin/server-data", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data: manifest.serverData }),
+        body: JSON.stringify({
+          data: manifest.serverData,
+          attachmentFiles: manifest.attachmentFiles,
+          manifest,
+        }),
       })
-      if (res.ok) {
-        const json = await res.json()
-        for (const f of json.restored ?? []) restored.push(`server:${f}`)
-        for (const f of json.skipped ?? []) skipped.push(`server:${f}`)
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(json.error ?? "The server data restore was rejected")
       }
-    } catch { skipped.push("server-data (network)") }
+      for (const f of json.restored ?? []) restored.push(`server:${f}`)
+      for (const f of json.skipped ?? []) skipped.push(`server:${f}`)
+      if (typeof json.restoredAttachmentFiles === "number") {
+        restored.push(`attachment files (${json.restoredAttachmentFiles})`)
+      }
+    } catch (error) {
+      throw error instanceof Error ? error : new Error("The server data restore failed")
+    }
   }
+
+  // Apply browser data only after the server has accepted and completed its
+  // portion of the restore.
+  Object.entries(manifest.data ?? {}).forEach(([key, value]) => {
+    try { localStorage.setItem(key, JSON.stringify(value)); restored.push(key) }
+    catch { skipped.push(key) }
+  })
 
   return { restored, skipped }
 }
@@ -278,6 +441,59 @@ function StatusAlert({ status }: { status: Status }) {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
+function BackupHealthPanel({ health }: { health: BackupHealth }) {
+  const appearance = {
+    healthy: {
+      wrapper: "border-emerald-200 bg-emerald-50 text-emerald-950",
+      icon: "bg-emerald-100 text-emerald-700",
+      Icon: CheckCircle2,
+    },
+    warning: {
+      wrapper: "border-amber-200 bg-amber-50 text-amber-950",
+      icon: "bg-amber-100 text-amber-700",
+      Icon: AlertTriangle,
+    },
+    critical: {
+      wrapper: "border-red-200 bg-red-50 text-red-950",
+      icon: "bg-red-100 text-red-700",
+      Icon: AlertTriangle,
+    },
+    disabled: {
+      wrapper: "border-slate-200 bg-slate-50 text-slate-800",
+      icon: "bg-slate-200 text-slate-700",
+      Icon: Shield,
+    },
+  }[health.status]
+  const Icon = appearance.Icon
+
+  return (
+    <div className={"rounded-xl border p-4 " + appearance.wrapper} role="status" aria-live="polite">
+      <div className="flex items-start gap-3">
+        <div className={"mt-0.5 rounded-lg p-2 " + appearance.icon}><Icon className="h-4 w-4" /></div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <p className="text-sm font-semibold">Backup health: {health.label}</p>
+            {health.expectedWithinHours !== null && (
+              <span className="text-xs font-medium">Protection window: {health.expectedWithinHours} hours</span>
+            )}
+          </div>
+          <p className="mt-1 text-xs leading-5 opacity-90">{health.message}</p>
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs opacity-80">
+            <span>Last success: {health.lastSuccessAt ? fmt(health.lastSuccessAt) : "Not recorded"}</span>
+            <span>Local files: {health.fileCount}</span>
+            <span>Retention: {health.retentionCount === 0 ? "Unlimited" : health.retentionCount + " backups"}</span>
+            {health.lastFailureAt && <span>Last failure: {fmt(health.lastFailureAt)}</span>}
+          </div>
+          {health.consecutiveFailures > 0 && (
+            <p className="mt-2 text-xs font-medium">Consecutive failed attempts: {health.consecutiveFailures}</p>
+          )}
+          <p className="mt-2 text-[11px] opacity-75">Critical failures and overdue backups alert Full Access users in the portal. Email uses the Administration SMTP account; Teams delivery is enabled when <code>TEAMS_WEBHOOK_URL</code> is configured. Configure Synology replication separately for offsite recovery.</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function DatabasePage() {
   const { data: session } = useSession()
   const actorName  = session?.user?.name  ?? session?.user?.email ?? "Admin"
@@ -291,10 +507,11 @@ export default function DatabasePage() {
   const [importStatus, setImportStatus]     = useState<Status>({ type: "idle", message: "" })
   const [moduleCounts, setModuleCounts]     = useState<Record<string, number>>({})
   const [moduleCountsLoading, setModuleCountsLoading] = useState(true)
-  const [importModule, setImportModule]     = useState<string>("shipping")
+  const [importModule, setImportModule]     = useState<string>("shipping_import")
   const [importingRequests, setImportingRequests] = useState(false)
 
   const [restoring, setRestoring]               = useState(false)
+  const [restorePreview, setRestorePreview]     = useState<BackupManifest | null>(null)
   const [lastBackupTime, setLastBackupTime]     = useState<string | null>(null)
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false)
   const [clearAllConfirmText, setClearAllConfirmText] = useState("")
@@ -324,9 +541,18 @@ export default function DatabasePage() {
   const [scheduleLastAt, setScheduleLastAt]       = useState<string | null>(null)
   const [scheduleLastFile, setScheduleLastFile]   = useState<string | null>(null)
   const [backupFiles, setBackupFiles]             = useState<{ filename: string; size: number; createdAt: string }[]>([])
+  const [backupHealth, setBackupHealth]           = useState<BackupHealth | null>(null)
   const [scheduleSaveStatus, setScheduleSaveStatus] = useState<Status>({ type: "idle", message: "" })
   const [runNowStatus, setRunNowStatus]           = useState<Status>({ type: "idle", message: "" })
   const [runningNow, setRunningNow]               = useState(false)
+  const [synologyBackup, setSynologyBackup]       = useState<SynologyBackupConfig | null>(null)
+  const [synologyStatus, setSynologyStatus]       = useState<Status>({ type: "idle", message: "" })
+  const [synologySaving, setSynologySaving]       = useState(false)
+  const [reauthAction, setReauthAction] = useState<"restore" | "purge" | null>(null)
+  const [reauthPassword, setReauthPassword] = useState("")
+  const [reauthStatus, setReauthStatus] = useState<Status>({ type: "idle", message: "" })
+  const [reauthSubmitting, setReauthSubmitting] = useState(false)
+  const pendingProtectedAction = useRef<null | (() => Promise<void>)>(null)
 
   const refreshModuleCounts = useCallback(async () => {
     setModuleCountsLoading(true)
@@ -343,8 +569,8 @@ export default function DatabasePage() {
     }
 
     const counts: Record<string, number> = {}
-    REQUEST_MODULES.forEach(({ id }) => {
-      counts[id] = requests.filter((request) => request.module === id).length
+    REQUEST_MODULES.forEach((definition) => {
+      counts[definition.id] = requests.filter((request) => matchesRequestModule(request, definition)).length
     })
     setModuleCounts(counts)
     setModuleCountsLoading(false)
@@ -388,24 +614,90 @@ export default function DatabasePage() {
       }
     }).catch(() => {})
 
-    void fetch("/api/admin/backup-schedule").then(async (res) => {
+    const refreshBackupSchedule = () => {
+      void fetch("/api/admin/backup-schedule", { cache: "no-store" }).then(async (res) => {
+        if (!res.ok) return
+        const json = await res.json()
+        const s = json.schedule
+        if (s) {
+          setScheduleEnabled(Boolean(s.enabled))
+          if (Array.isArray(s.frequencies) && s.frequencies.length > 0) setScheduleFreqs(s.frequencies)
+          else if (s.frequency) setScheduleFreqs([s.frequency])
+          if (s.time) setScheduleTime(s.time)
+          if (typeof s.dayOfWeek === "number") setScheduleDayOfWeek(s.dayOfWeek)
+          if (typeof s.dayOfMonth === "number") setScheduleDayOfMonth(s.dayOfMonth)
+          if (typeof s.retentionCount === "number") setScheduleRetention(s.retentionCount)
+          setScheduleLastAt(s.lastBackupAt ?? null)
+          setScheduleLastFile(s.lastBackupFile ?? null)
+        }
+        if (Array.isArray(json.files)) setBackupFiles(json.files)
+        if (json.health) setBackupHealth(json.health as BackupHealth)
+      }).catch(() => {})
+    }
+    refreshBackupSchedule()
+    const healthRefresh = window.setInterval(refreshBackupSchedule, 5 * 60 * 1000)
+    window.addEventListener("focus", refreshBackupSchedule)
+    return () => {
+      window.clearInterval(healthRefresh)
+      window.removeEventListener("focus", refreshBackupSchedule)
+    }
+  }, [])
+
+  const refreshSynologyBackup = useCallback(() => {
+    void fetch("/api/admin/synology-backup", { cache: "no-store" }).then(async (res) => {
       if (!res.ok) return
       const json = await res.json()
-      const s = json.schedule
-      if (s) {
-        setScheduleEnabled(Boolean(s.enabled))
-        if (Array.isArray(s.frequencies) && s.frequencies.length > 0) setScheduleFreqs(s.frequencies)
-        else if (s.frequency) setScheduleFreqs([s.frequency])
-        if (s.time) setScheduleTime(s.time)
-        if (typeof s.dayOfWeek === "number") setScheduleDayOfWeek(s.dayOfWeek)
-        if (typeof s.dayOfMonth === "number") setScheduleDayOfMonth(s.dayOfMonth)
-        if (typeof s.retentionCount === "number") setScheduleRetention(s.retentionCount)
-        setScheduleLastAt(s.lastBackupAt ?? null)
-        setScheduleLastFile(s.lastBackupFile ?? null)
-      }
-      if (Array.isArray(json.files)) setBackupFiles(json.files)
+      if (json.config) setSynologyBackup(json.config as SynologyBackupConfig)
     }).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    refreshSynologyBackup()
+    window.addEventListener("focus", refreshSynologyBackup)
+    const refresh = window.setInterval(refreshSynologyBackup, 60_000)
+    return () => {
+      window.removeEventListener("focus", refreshSynologyBackup)
+      window.clearInterval(refresh)
+    }
+  }, [refreshSynologyBackup])
+
+  async function beginProtectedDatabaseAction(action: "restore" | "purge", next: () => Promise<void>) {
+    try {
+      const response = await fetch("/api/admin/database-reauth", { cache: "no-store" })
+      const json = await response.json().catch(() => ({}))
+      if (response.ok && json.verified?.valid) {
+        await next()
+        return
+      }
+    } catch { /* Open the confirmation dialog below. */ }
+    pendingProtectedAction.current = next
+    setReauthAction(action)
+    setReauthPassword("")
+    setReauthStatus({ type: "idle", message: "" })
+  }
+
+  async function completeDatabaseReauth(mode: "password" | "sso") {
+    setReauthSubmitting(true)
+    setReauthStatus({ type: "idle", message: "" })
+    try {
+      const response = await fetch("/api/admin/database-reauth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(mode === "password" ? { password: reauthPassword } : { sso: true }),
+      })
+      const json = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(json.error ?? "Reauthentication failed")
+      const next = pendingProtectedAction.current
+      pendingProtectedAction.current = null
+      setReauthAction(null)
+      setReauthPassword("")
+      if (next) await next()
+    } catch (error) {
+      setReauthStatus({ type: "error", message: error instanceof Error ? error.message : "Reauthentication failed" })
+    } finally {
+      setReauthSubmitting(false)
+    }
+  }
 
   async function toggleMaintenance(next: boolean) {
     setMaintenanceStatus({ type: "idle", message: "" })
@@ -545,11 +837,72 @@ export default function DatabasePage() {
           retentionCount: scheduleRetention,
         }),
       })
-      if (!res.ok) throw new Error(await res.text())
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? "Unable to save the backup schedule")
+      if (Array.isArray(json.files)) setBackupFiles(json.files)
+      if (json.health) setBackupHealth(json.health as BackupHealth)
+      if (json.schedule) {
+        setScheduleLastAt(json.schedule.lastBackupAt ?? null)
+        setScheduleLastFile(json.schedule.lastBackupFile ?? null)
+      }
       setScheduleSaveStatus({ type: "success", message: "Schedule saved. The backup runner will pick it up within 5 minutes." })
       setTimeout(() => setScheduleSaveStatus({ type: "idle", message: "" }), 5000)
     } catch (e: any) {
       setScheduleSaveStatus({ type: "error", message: `Failed to save: ${e?.message}` })
+    }
+  }
+
+  function updateSynologyBackup(patch: Partial<SynologyBackupConfig>) {
+    setSynologyBackup((current) => current ? { ...current, ...patch } : current)
+  }
+
+  async function saveSynologyBackup() {
+    if (!synologyBackup) return
+    setSynologySaving(true)
+    setSynologyStatus({ type: "idle", message: "" })
+    try {
+      const response = await fetch("/api/admin/synology-backup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save",
+          settings: {
+            enabled: synologyBackup.enabled,
+            nasRoot: synologyBackup.nasRoot,
+            scheduleTime: synologyBackup.scheduleTime,
+            retentionDays: synologyBackup.retentionDays,
+            pruneOldBackups: synologyBackup.pruneOldBackups,
+          },
+        }),
+      })
+      const json = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(json.error ?? "Could not save Synology backup settings")
+      if (json.config) setSynologyBackup(json.config as SynologyBackupConfig)
+      setSynologyStatus({ type: "success", message: "Synology backup settings saved. The host task will use them within five minutes." })
+    } catch (error) {
+      setSynologyStatus({ type: "error", message: error instanceof Error ? error.message : "Could not save Synology backup settings" })
+    } finally {
+      setSynologySaving(false)
+    }
+  }
+
+  async function requestSynologyBackup() {
+    setSynologySaving(true)
+    setSynologyStatus({ type: "idle", message: "" })
+    try {
+      const response = await fetch("/api/admin/synology-backup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "run" }),
+      })
+      const json = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(json.error ?? "Could not request a Synology backup")
+      if (json.config) setSynologyBackup(json.config as SynologyBackupConfig)
+      setSynologyStatus({ type: "success", message: "Synology backup queued. The Windows host task will start it within five minutes." })
+    } catch (error) {
+      setSynologyStatus({ type: "error", message: error instanceof Error ? error.message : "Could not request a Synology backup" })
+    } finally {
+      setSynologySaving(false)
     }
   }
 
@@ -572,12 +925,17 @@ export default function DatabasePage() {
 
       const res = await fetch("/api/admin/backup-now", { method: "POST" })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? "Unknown error")
-      setScheduleLastAt(new Date().toISOString())
-      setScheduleLastFile(json.filename)
       if (Array.isArray(json.files)) setBackupFiles(json.files)
-      logAuditEvent({ actor: actorName, actorEmail, action: "database_backup", targetId: "", targetTitle: "Scheduled Backup (Run Now)", module: "database", details: `Server backup saved as ${json.filename} (${(json.sizeBytes / 1024).toFixed(1)} KB)` })
-      setRunNowStatus({ type: "success", message: `Backup saved: ${json.filename} (${(json.sizeBytes / 1024).toFixed(1)} KB, ${json.serverFiles} server files)` })
+      if (json.health) setBackupHealth(json.health as BackupHealth)
+      if (json.schedule) {
+        setScheduleLastAt(json.schedule.lastBackupAt ?? null)
+        setScheduleLastFile(json.schedule.lastBackupFile ?? null)
+      }
+      if (!res.ok) throw new Error(json.error ?? "Unknown error")
+      setScheduleLastAt(json.schedule?.lastBackupAt ?? new Date().toISOString())
+      setScheduleLastFile(json.schedule?.lastBackupFile ?? json.filename)
+      logAuditEvent({ actor: actorName, actorEmail, action: "database_backup", targetId: "", targetTitle: "Scheduled Backup (Run Now)", module: "database", details: `Server backup saved as ${json.filename} (${(json.sizeBytes / 1024).toFixed(1)} KB, ${json.attachmentFiles ?? 0} uploaded files)` })
+      setRunNowStatus({ type: "success", message: `Backup saved: ${json.filename} (${(json.sizeBytes / 1024).toFixed(1)} KB, ${json.serverFiles} server files, ${json.attachmentFiles ?? 0} uploaded files)` })
     } catch (e: any) {
       setRunNowStatus({ type: "error", message: `Backup failed: ${e?.message}` })
     } finally {
@@ -673,11 +1031,13 @@ export default function DatabasePage() {
       setLastBackupTime(new Date().toISOString())
       const localCount  = Object.keys(manifest.data ?? {}).length
       const serverCount = Object.keys(manifest.serverData ?? {}).length
+      const attachmentCount = manifest.attachmentFiles?.length ?? 0
       logAuditEvent({ actor: actorName, actorEmail, action: "database_backup", targetId: "", targetTitle: "Database Backup", module: "database", details: `Downloaded ${filename} (${localCount} browser + ${serverCount} server stores)` })
       setBackupStatus({
         type: "success",
         message: `Backup downloaded — ${localCount} browser store${localCount !== 1 ? "s" : ""}` +
                  (serverCount > 0 ? ` + ${serverCount} server file${serverCount !== 1 ? "s" : ""}` : "") +
+                 (attachmentCount > 0 ? ` + ${attachmentCount} uploaded file${attachmentCount !== 1 ? "s" : ""}` : "") +
                  ` exported as ${filename}`,
       })
     } catch (e: any) {
@@ -689,25 +1049,19 @@ export default function DatabasePage() {
   function handleRestoreFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    setRestoring(true)
     setRestoreStatus({ type: "idle", message: "" })
     const reader = new FileReader()
     reader.onload = async (ev) => {
       try {
         const manifest: BackupManifest = JSON.parse(ev.target?.result as string)
-        // Accept both 1.0 (localStorage only) and 1.1 (localStorage + server data) backups
-        if ((manifest.version !== "1.0" && manifest.version !== "1.1") || !manifest.data) {
+        // Accept legacy backups as well as 1.2 backups with attachment files.
+        if ((manifest.version !== "1.0" && manifest.version !== "1.1" && manifest.version !== "1.2") || !manifest.data) {
           throw new Error("Invalid backup file format")
         }
-        const { restored, skipped } = await restoreBackup(manifest)
-        logAuditEvent({ actor: actorName, actorEmail, action: "database_restore", targetId: "", targetTitle: "Database Restore", module: "database", details: `Restored from backup dated ${fmt(manifest.createdAt)} — ${restored.length} stores restored${skipped.length ? `, ${skipped.length} skipped` : ""}` })
-        setRestoreStatus({
-          type: "success",
-          message: `Restore complete — ${restored.length} item${restored.length !== 1 ? "s" : ""} restored from ${fmt(manifest.createdAt)}` +
-                   (skipped.length ? `. ${skipped.length} skipped.` : "") +
-                   ". Module counts have been refreshed.",
-        })
-        await refreshModuleCounts()
+        setRestorePreview(manifest)
+        setRestoring(false)
+        if (fileInputRef.current) fileInputRef.current.value = ""
+        return
       } catch (err: any) {
         setRestoreStatus({ type: "error", message: `Restore failed: ${err?.message ?? "Invalid file"}` })
       } finally {
@@ -716,6 +1070,27 @@ export default function DatabasePage() {
       }
     }
     reader.readAsText(file)
+  }
+
+  async function confirmRestore() {
+    await beginProtectedDatabaseAction("restore", performRestore)
+  }
+
+  async function performRestore() {
+    if (!restorePreview) return
+    setRestoring(true)
+    setRestoreStatus({ type: "idle", message: "" })
+    try {
+      const { restored, skipped } = await restoreBackup(restorePreview)
+      logAuditEvent({ actor: actorName, actorEmail, action: "database_restore", targetId: "", targetTitle: "Database Restore", module: "database", details: `Restored from backup dated ${fmt(restorePreview.createdAt)} — ${restored.length} stores restored${skipped.length ? `, ${skipped.length} skipped` : ""}` })
+      setRestoreStatus({ type: "success", message: `Restore complete — ${restored.length} item${restored.length !== 1 ? "s" : ""} restored from ${fmt(restorePreview.createdAt)}${skipped.length ? `. ${skipped.length} skipped.` : ""}. A pre-restore safety snapshot was created on the server.` })
+      setRestorePreview(null)
+      await refreshModuleCounts()
+    } catch (err: any) {
+      setRestoreStatus({ type: "error", message: `Restore failed: ${err?.message ?? "Invalid file"}` })
+    } finally {
+      setRestoring(false)
+    }
   }
 
   async function handleImportRequests(e: React.ChangeEvent<HTMLInputElement>) {
@@ -732,17 +1107,21 @@ export default function DatabasePage() {
         throw new Error("The JSON file does not contain any requests.")
       }
 
-      const mismatched = requests.find((request) => request?.module !== importModule)
+      const importDefinition = REQUEST_MODULES.find((definition) => definition.id === importModule)
+      if (!importDefinition) throw new Error("Select a valid module before importing.")
+      const mismatched = requests.find((request) =>
+        request?.module !== importDefinition.storageModule || !matchesRequestModule(request as EngineRequest, importDefinition)
+      )
       if (mismatched) {
         throw new Error(
-          `Request ${mismatched.id || "(missing ID)"} belongs to module "${mismatched.module || "unknown"}", not "${importModule}".`
+          `Request ${mismatched.id || "(missing ID)"} does not belong to ${importDefinition.label}.`
         )
       }
 
       const res = await fetch("/api/requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ operation: "import", module: importModule, requests }),
+        body: JSON.stringify({ operation: "import", module: importDefinition.storageModule, requests }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? "Import failed")
@@ -756,7 +1135,7 @@ export default function DatabasePage() {
         }
       }
 
-      const moduleLabel = REQUEST_MODULES.find(({ id }) => id === importModule)?.label ?? importModule
+      const moduleLabel = importDefinition.label
       const importedCount = Number(json.imported) || requests.length
       logAuditEvent({
         actor: actorName,
@@ -785,6 +1164,10 @@ export default function DatabasePage() {
 
   // ── Clear All ─────────────────────────────────────────────────────────────
   async function handleClearAll() {
+    await beginProtectedDatabaseAction("purge", performClearAll)
+  }
+
+  async function performClearAll() {
     const cleared = clearAllOwnedKeys()
     // Wipe every clearable server-side file: requests.json, comments.json,
     // feedback.json, company-data.json. users.json / roles.json are
@@ -819,12 +1202,20 @@ export default function DatabasePage() {
 
   // ── Clear Module ──────────────────────────────────────────────────────────
   async function handleClearModule(moduleId: string) {
+    await beginProtectedDatabaseAction("purge", () => performClearModule(moduleId))
+  }
+
+  async function performClearModule(moduleId: string) {
     // Wipe both browser cache AND the server-side store so the next
     // sync doesn't immediately repopulate the cleared rows.
-    const removedLocal = clearModuleRequests(moduleId)
+    const definition = REQUEST_MODULES.find((module) => module.id === moduleId)
+    if (!definition) return
+    const removedLocal = clearModuleRequests(definition)
     let serverRemoved = 0
     try {
-      const res = await fetch(`/api/requests?module=${encodeURIComponent(moduleId)}`, { method: "DELETE" })
+      const params = new URLSearchParams({ module: definition.storageModule })
+      if (definition.subtype) params.set("requestType", definition.subtype)
+      const res = await fetch(`/api/requests?${params}`, { method: "DELETE" })
       if (res.ok) {
         const json = await res.json()
         serverRemoved = typeof json.removed === "number" ? json.removed : 0
@@ -835,7 +1226,7 @@ export default function DatabasePage() {
       window.dispatchEvent(new Event("arp:storage"))
       localStorage.setItem("arp_global_clear_broadcast", String(Date.now()))
     } catch {}
-    const label = REQUEST_MODULES.find((m) => m.id === moduleId)?.label ?? moduleId
+    const label = definition.label
     const removed = Math.max(removedLocal, serverRemoved)
     setModuleCounts((previous) => ({ ...previous, [moduleId]: 0 }))
     logAuditEvent({ actor: actorName, actorEmail, action: "database_clear", targetId: moduleId, targetTitle: `Clear Module: ${label}`, module: "database", details: `${removed} ${label} request${removed !== 1 ? "s" : ""} permanently deleted` })
@@ -845,11 +1236,25 @@ export default function DatabasePage() {
 
   // ── Clear Store ───────────────────────────────────────────────────────────
   async function handleClearStore(key: string) {
+    await beginProtectedDatabaseAction("purge", () => performClearStore(key))
+  }
+
+  async function performClearStore(key: string) {
     // Each shared store (requests, comments, feedback, company-data) needs
     // its corresponding server file wiped — otherwise the sync hooks just
     // repopulate the local cache from the still-full server on next tick.
     try {
-      if (key === "arp_requests") {
+      const feedbackFunction = FUNCTION_FEEDBACK_STORES.find((store) => store.key === key)?.functionId
+      const notificationFunction = FUNCTION_NOTIFICATION_STORES.find((store) => store.key === key)?.functionId
+      if (feedbackFunction) {
+        const response = await fetch(`/api/feedback/responses?function=${feedbackFunction}`, { method: "DELETE" })
+        if (!response.ok) throw new Error(await response.text())
+        clearFeedbackCacheForFunction(feedbackFunction)
+      } else if (notificationFunction) {
+        const response = await fetch(`/api/notifications/inapp?function=${notificationFunction}`, { method: "DELETE" })
+        if (!response.ok) throw new Error(await response.text())
+        clearNotificationCacheForFunction(notificationFunction)
+      } else if (key === "arp_requests") {
         await fetch("/api/requests", { method: "DELETE" })
       } else if (key === "feedback_surveys" || key === "feedback_responses") {
         await fetch("/api/feedback/responses", { method: "DELETE" })
@@ -870,13 +1275,18 @@ export default function DatabasePage() {
       setConfirmStore(null)
       return
     }
-    // Always wipe the local cache too, then broadcast so other tabs follow.
-    try { localStorage.removeItem(key) } catch {}
+    // Function feedback is filtered above; regular stores are removed in full.
+    if (!key.startsWith("feedback:") && !key.startsWith("notifications:")) {
+      try { localStorage.removeItem(key) } catch {}
+    }
     try {
       window.dispatchEvent(new Event("arp:storage"))
       localStorage.setItem("arp_global_clear_broadcast", String(Date.now()))
     } catch {}
-    const label = STORE_BY_KEY[key]?.label ?? key
+    const label = FUNCTION_FEEDBACK_STORES.find((store) => store.key === key)?.label
+      ?? FUNCTION_NOTIFICATION_STORES.find((store) => store.key === key)?.label
+      ?? STORE_BY_KEY[key]?.label
+      ?? key
     if (key === "arp_requests") {
       setModuleCounts(Object.fromEntries(REQUEST_MODULES.map(({ id }) => [id, 0])))
     }
@@ -887,6 +1297,10 @@ export default function DatabasePage() {
 
   // ── Clear Server File ─────────────────────────────────────────────────────
   async function handleClearServerStore(key: string) {
+    await beginProtectedDatabaseAction("purge", () => performClearServerStore(key))
+  }
+
+  async function performClearServerStore(key: string) {
     setServerStoreStatus({ type: "idle", message: "" })
     const store = SERVER_FILE_STORES.find((s) => s.key === key)
     const label = store?.label ?? key
@@ -947,6 +1361,11 @@ export default function DatabasePage() {
         })
       } else if (key === "server:user-feedback") {
         await fetch("/api/feedback/user-feedback", { method: "DELETE" })
+      } else if (SERVER_CLEAR_FILE_BY_KEY[key]) {
+        const response = await fetch(`/api/admin/server-data?file=${encodeURIComponent(SERVER_CLEAR_FILE_BY_KEY[key])}`, {
+          method: "DELETE",
+        })
+        if (!response.ok) throw new Error(await response.text())
       }
       try {
         window.dispatchEvent(new Event("arp:storage"))
@@ -974,7 +1393,7 @@ export default function DatabasePage() {
         <Shield className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
         <div className="text-sm text-blue-800">
           <p className="font-semibold">What is included in a backup?</p>
-          <p className="mt-0.5 text-blue-700">Every store the app owns is captured automatically — browser data (requests, tasks, viewed comments, company data, platform settings, logos, theme) <strong>and</strong> server-side data (comments, feedback responses, announcements history/drafts/templates, users, roles, backup settings). Browser data is synced to the server on every backup so <strong>Run Backup Now</strong> and scheduled backups capture the full picture too. Backups download as one JSON file (version 1.1) and Restore writes back whatever the file contains. Old v1.0 backups (browser data only) are still accepted. <strong>Team Requests</strong> is a filtered view of the request store (no separate data) — it is covered by the All Requests backup.</p>
+          <p className="mt-0.5 text-blue-700">Every store the app owns is captured automatically — browser data (requests, tasks, viewed comments, company data, platform settings, logos, theme) <strong>and</strong> server-side data for all Administration, HR, and Finance functions. That includes request and approval history, Finance SLA reminders, deleted requests, notifications, surveys, audit records, email settings, schedules, and uploaded supporting files. Browser data is synced to the server on every backup so <strong>Run Backup Now</strong> and scheduled backups capture the full picture too. Version 1.2 backups restore JSON data and attachment files together; old v1.0 and v1.1 files remain accepted. <strong>Team Requests</strong> is a filtered view of the request store (no separate data) — it is covered by the All Requests backup.</p>
         </div>
       </div>
 
@@ -995,7 +1414,7 @@ export default function DatabasePage() {
           <CardContent className="p-6 space-y-4">
             <div className="grid grid-cols-2 gap-2">
               {[
-                { label: "All Requests", sub: "All modules" },
+                { label: "All Requests", sub: "Administration, HR, Finance, approval history, and all modules" },
                 ...NON_REQUEST_STORES.map((s) => ({ label: s.label, sub: s.description })),
                 { label: "Any new stores", sub: "Auto-discovered at runtime" },
                 { label: "Browser Data Snapshot", sub: "data/browser-data.json — tasks, notifications, audit log, logos, theme, viewed comments (synced on every backup)" },
@@ -1003,6 +1422,10 @@ export default function DatabasePage() {
                 { label: "Server Comments", sub: "data/comments.json on the server" },
                 { label: "Server Feedback Responses", sub: "data/feedback.json on the server" },
                 { label: "Server Announcements", sub: "data/announcements.json — sent history, drafts, templates, and scheduled content" },
+                { label: "Approval & Security Audit", sub: "Approval/rejection link use, decisions, IP/device metadata, and audit history" },
+                { label: "Finance SLA & Recycle Bin", sub: "SLA reminders and recoverable deleted requests" },
+                { label: "Uploaded Request Files", sub: "Supporting documents and attachment metadata are restored together" },
+                { label: "Platform Operations", sub: "Email accounts, maintenance, notifications, schedules, notices, and surveys" },
                 { label: "Server Company Data - Si-Ware", sub: "data/company-data.json — suppliers, cost centers, managers, departments, sectors, carriers" },
                 { label: "Server Company Data - BUCHI", sub: "data/company-data-buchi.json — BUCHI suppliers, cost centers, managers, departments, sectors, carriers" },
                 { label: "Users & Roles", sub: "data/users.json + data/roles.json (restored only if present in backup)" },
@@ -1053,6 +1476,13 @@ export default function DatabasePage() {
               <p className="text-xs text-gray-400 mt-1">JSON files only (.json)</p>
             </div>
             <input ref={fileInputRef} type="file" accept=".json,application/json" className="hidden" onChange={handleRestoreFile} />
+            {restorePreview && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+                <p className="font-semibold">Review backup before restore</p>
+                <p className="mt-1 text-xs">Created: {fmt(restorePreview.createdAt)} · Version {restorePreview.version} · {Object.keys(restorePreview.data ?? {}).length} browser stores · {Object.keys(restorePreview.serverData ?? {}).length} server stores · {restorePreview.attachmentFiles?.length ?? 0} attachment files.</p>
+                <div className="mt-3 flex gap-2"><Button type="button" size="sm" variant="outline" onClick={() => setRestorePreview(null)}>Cancel</Button><Button type="button" size="sm" className="bg-amber-700 hover:bg-amber-800" disabled={restoring} onClick={confirmRestore}>Create safety snapshot & restore</Button></div>
+              </div>
+            )}
             <Button onClick={() => fileInputRef.current?.click()} disabled={restoring} className="w-full bg-amber-600 hover:bg-amber-700 text-white">
               <Upload className="h-4 w-4 mr-2" />{restoring ? "Restoring..." : "Choose Backup File"}
             </Button>
@@ -1182,6 +1612,7 @@ export default function DatabasePage() {
                   <tr>
                     <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider">Request ID</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider">Title</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider">Function</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider">Module</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider">Company</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider">Status at Deletion</th>
@@ -1192,7 +1623,9 @@ export default function DatabasePage() {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {deletedRequests.map((entry, idx) => {
-                    const mod = REQUEST_MODULES.find((m) => m.id === entry.request.module)
+                    const mod = getRequestModuleDefinition(entry.request)
+                    const functionId = functionForModule(entry.request.module)
+                    const functionLabel = FUNCTION_TEAM_ROLE[functionId]
                     const companyName = entry.request.companyName
                       ?? getRequestCompany(entry.request.module, entry.request.requesterEmail)?.name
                       ?? "—"
@@ -1202,6 +1635,17 @@ export default function DatabasePage() {
                         <td className="px-4 py-3 font-mono text-xs text-gray-600 whitespace-nowrap">{entry.request.id}</td>
                         <td className="px-4 py-3 text-sm font-medium text-gray-800 max-w-[200px] truncate" title={entry.request.title}>
                           {entry.request.title}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${
+                            functionId === "finance"
+                              ? "border-amber-200 bg-amber-50 text-amber-800"
+                              : functionId === "hr"
+                                ? "border-teal-200 bg-teal-50 text-teal-700"
+                                : "border-blue-200 bg-blue-50 text-blue-700"
+                          }`}>
+                            {functionLabel}
+                          </span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           {mod ? (
@@ -1357,13 +1801,16 @@ export default function DatabasePage() {
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest px-2">Clear by Data Type</span>
               <div className="h-px flex-1 bg-gray-100" />
             </div>
-            <p className="text-xs text-gray-500">Remove a specific data store such as notifications, feedback, or task records.</p>
+            <p className="text-xs text-gray-500">Function-scoped content is kept separate from shared portal data, so clearing one team never removes another team’s feedback.</p>
 
             <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 overflow-hidden">
-              {OTHER_STORES.map(({ key, label, description, icon: Icon, color, bg, border }) => {
+              {[...FUNCTION_FEEDBACK_STORES, ...FUNCTION_NOTIFICATION_STORES, ...SHARED_STORES].map(({ key, label, description, icon: Icon, color, bg, border }, index) => {
                 const isConfirming = confirmStore === key
                 return (
-                  <div key={key} className={`flex items-center gap-4 px-4 py-3.5 transition-colors ${isConfirming ? "bg-red-50" : "bg-white hover:bg-gray-50"}`}>
+                  <Fragment key={key}>
+                  {index === 0 && <div className="bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Function-specific content</div>}
+                  {index === FUNCTION_FEEDBACK_STORES.length + FUNCTION_NOTIFICATION_STORES.length && <div className="bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Shared portal content</div>}
+                  <div className={`flex items-center gap-4 px-4 py-3.5 transition-colors ${isConfirming ? "bg-red-50" : "bg-white hover:bg-gray-50"}`}>
                     <div className={`rounded-lg p-2 ${bg} border ${border} shrink-0`}>
                       <Icon className={`h-4 w-4 ${color}`} />
                     </div>
@@ -1393,6 +1840,7 @@ export default function DatabasePage() {
                       )}
                     </div>
                   </div>
+                  </Fragment>
                 )
               })}
             </div>
@@ -1719,6 +2167,7 @@ export default function DatabasePage() {
           </div>
         </CardHeader>
         <CardContent className="p-6 space-y-5">
+          {backupHealth && <BackupHealthPanel health={backupHealth} />}
 
           {/* Enable toggle */}
           <div className="flex items-center justify-between py-3 border-b border-gray-100">
@@ -1859,9 +2308,16 @@ export default function DatabasePage() {
                       <p className="text-xs font-mono text-gray-700 truncate">{f.filename}</p>
                       <p className="text-xs text-gray-400">{(f.size / 1024).toFixed(1)} KB &bull; {fmt(f.createdAt)}</p>
                     </div>
+                    <a
+                      href={`/api/admin/backup-file?name=${encodeURIComponent(f.filename)}`}
+                      className="shrink-0 text-xs font-medium text-blue-700 hover:text-blue-900 hover:underline"
+                    >
+                      Download
+                    </a>
                   </div>
                 ))}
               </div>
+              <p className="text-xs text-gray-500">Download any saved scheduled backup, then use <strong>Restore from Backup</strong> above to restore it.</p>
             </div>
           )}
 
@@ -1871,6 +2327,169 @@ export default function DatabasePage() {
 
         </CardContent>
       </Card>
+
+      <Card className="border border-cyan-200 shadow-sm">
+        <CardHeader className="border-b border-cyan-100 bg-cyan-50/60 rounded-t-lg">
+          <div className="flex items-center gap-3">
+            <div className="bg-cyan-100 rounded-lg p-2"><HardDrive className="h-5 w-5 text-cyan-800" /></div>
+            <div>
+              <CardTitle className="text-base font-semibold text-gray-900">Synology Recovery Backup</CardTitle>
+              <p className="text-xs text-gray-600 mt-0.5">A complete off-device copy of portal data plus a PostgreSQL recovery dump.</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-6 space-y-5">
+          {!synologyBackup ? (
+            <p className="text-sm text-gray-500">Loading Synology backup settings…</p>
+          ) : (
+            <>
+              <div className="flex items-center justify-between gap-4 border-b border-gray-100 pb-4">
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">Enable Synology Recovery Backup</p>
+                  <p className="mt-0.5 text-xs text-gray-500">The Windows host checks this setting every five minutes while your account is signed in.</p>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Enable Synology recovery backup"
+                  onClick={() => updateSynologyBackup({ enabled: !synologyBackup.enabled })}
+                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none ${synologyBackup.enabled ? "bg-cyan-700" : "bg-gray-300"}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${synologyBackup.enabled ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className="text-xs font-medium text-gray-700">Synology destination (Windows UNC or Ubuntu mounted path)</label>
+                  <input
+                    value={synologyBackup.nasRoot}
+                    onChange={(event) => updateSynologyBackup({ nasRoot: event.target.value })}
+                    placeholder="\\\\server\\shared-folder\\Company Portal or /mnt/company-portal-synology/Company Portal"
+                    className="h-10 w-full rounded-md border border-input bg-white px-3 font-mono text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-cyan-700"
+                  />
+                  <p className="text-xs text-gray-500">Credentials remain on the host (Windows Credential Manager or protected Ubuntu credential file) and are never stored in the portal.</p>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-gray-700">Daily backup time</label>
+                  <input
+                    type="time"
+                    step={300}
+                    value={synologyBackup.scheduleTime}
+                    onChange={(event) => updateSynologyBackup({ scheduleTime: event.target.value })}
+                    className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-cyan-700"
+                  />
+                  <p className="text-xs text-gray-500">Use a 5-minute interval; portal time zone: Africa/Cairo.</p>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-gray-700">Retention (days)</label>
+                  <input
+                    type="number"
+                    min={30}
+                    max={3650}
+                    value={synologyBackup.retentionDays}
+                    onChange={(event) => updateSynologyBackup({ retentionDays: Number(event.target.value) })}
+                    className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-cyan-700"
+                  />
+                  <p className="text-xs text-gray-500">Keeps recovery dumps and backup manifests for the selected period.</p>
+                </div>
+              </div>
+
+              <label className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+                <input type="checkbox" checked={synologyBackup.pruneOldBackups} onChange={(event) => updateSynologyBackup({ pruneOldBackups: event.target.checked })} className="mt-0.5 h-4 w-4 accent-cyan-700" />
+                <span><strong>Apply the retention policy on Synology</strong><br /><span className="text-xs text-gray-500">When enabled, only old PostgreSQL dumps and manifests are removed. Portal data is never deletion-mirrored to the NAS.</span></span>
+              </label>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <Button type="button" onClick={saveSynologyBackup} disabled={synologySaving} className="bg-cyan-700 text-white hover:bg-cyan-800">
+                  {synologySaving ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Save Synology settings
+                </Button>
+                <Button type="button" variant="outline" onClick={requestSynologyBackup} disabled={synologySaving || !synologyBackup.enabled} className="border-cyan-300 text-cyan-800 hover:bg-cyan-50">
+                  <HardDrive className="mr-2 h-4 w-4" />Queue backup now
+                </Button>
+              </div>
+              <StatusAlert status={synologyStatus} />
+
+              <div className={`rounded-lg border p-3 text-xs ${synologyBackup.lastFailureAt ? "border-red-200 bg-red-50 text-red-900" : synologyBackup.lastSuccessAt ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+                {synologyBackup.lastFailureAt ? (
+                  <><p className="font-semibold">Latest Synology backup failed</p><p className="mt-1">{synologyBackup.lastFailureMessage ?? "Review the Windows host task and NAS connection."}</p><p className="mt-1">Failed: {fmt(synologyBackup.lastFailureAt)}</p></>
+                ) : synologyBackup.lastSuccessAt ? (
+                  <><p className="font-semibold">Synology recovery copy is current</p><p className="mt-1">Last successful sync: {fmt(synologyBackup.lastSuccessAt)}</p>{synologyBackup.lastPostgresDump && <p className="mt-1 break-all font-mono text-[11px]">Database: {synologyBackup.lastPostgresDump}</p>}</>
+                ) : (
+                  <><p className="font-semibold">Awaiting first tracked Synology backup</p><p className="mt-1">Save the settings, then choose “Queue backup now.” The host task records its result here.</p></>
+                )}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Restore-drill tracking was removed at the administrator's request.
+      <Card className="border-indigo-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold text-gray-900">Recovery Restore Drill</CardTitle>
+          <p className="text-xs text-gray-500">Test a backup in a non-production environment, then record the result. A successful drill is due every 90 days.</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {restoreDrillHealth && (
+            <div className={`rounded-lg border p-3 text-sm ${restoreDrillHealth.status === "current" ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+              <p className="font-semibold">{restoreDrillHealth.label}</p>
+              <p className="mt-1 text-xs">{restoreDrillHealth.message}</p>
+              {restoreDrillHealth.latest && <p className="mt-2 text-xs">Latest: {fmt(restoreDrillHealth.latest.performedAt)} · {restoreDrillHealth.latest.environment} · {restoreDrillHealth.latest.backupReference}</p>}
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="button" variant="outline" onClick={() => { setRestoreDrillStatus({ type: "idle", message: "" }); setShowRestoreDrill(true) }}>
+              <CheckCircle2 className="mr-2 h-4 w-4" />Record completed drill
+            </Button>
+            {restoreDrills[0] && <span className="text-xs text-gray-500">Latest result: <strong className={restoreDrills[0].outcome === "passed" ? "text-emerald-700" : "text-red-700"}>{restoreDrills[0].outcome}</strong></span>}
+          </div>
+          <StatusAlert status={restoreDrillStatus} />
+        </CardContent>
+      </Card>
+
+      <Dialog open={showRestoreDrill} onOpenChange={(open) => setShowRestoreDrill(open)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Record restore drill</DialogTitle>
+            <DialogDescription>Record this only after restoring the selected backup in a safe, non-production environment.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <input value={restoreDrillEnvironment} onChange={(event) => setRestoreDrillEnvironment(event.target.value)} placeholder="Test environment name, e.g. Synology recovery VM" className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm" />
+            <input value={restoreDrillBackup} onChange={(event) => setRestoreDrillBackup(event.target.value)} placeholder="Backup filename or reference tested" className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm" />
+            <select value={restoreDrillOutcome} onChange={(event) => setRestoreDrillOutcome(event.target.value as "passed" | "failed")} className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm">
+              <option value="passed">Passed — data and attachments were verified</option>
+              <option value="failed">Failed — recovery issue found</option>
+            </select>
+            <textarea value={restoreDrillNotes} onChange={(event) => setRestoreDrillNotes(event.target.value)} placeholder="Notes: time taken, checks performed, issues found" className="min-h-24 w-full rounded-md border border-gray-300 p-3 text-sm" />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setShowRestoreDrill(false)}>Cancel</Button>
+            <Button type="button" onClick={submitRestoreDrill}>Save drill result</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      */}
+      <Dialog open={reauthAction !== null} onOpenChange={(open) => { if (!open) { pendingProtectedAction.current = null; setReauthAction(null); setReauthPassword(""); setReauthStatus({ type: "idle", message: "" }) } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm your identity</DialogTitle>
+            <DialogDescription>
+              {reauthAction === "restore" ? "Restoring overwrites current portal data." : "Purging permanently removes portal data."} Reauthentication is valid for ten minutes.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-gray-800">Current portal password</label>
+            <input type="password" autoComplete="current-password" value={reauthPassword} onChange={(event) => setReauthPassword(event.target.value)} className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm" />
+            <p className="text-xs text-gray-500">For Google/corporate SSO accounts, sign out and sign in again, then choose “Verify recent SSO sign-in” within five minutes.</p>
+            <StatusAlert status={reauthStatus} />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={reauthSubmitting} onClick={() => void completeDatabaseReauth("sso")}>Verify recent SSO sign-in</Button>
+            <Button type="button" disabled={reauthSubmitting || !reauthPassword} onClick={() => void completeDatabaseReauth("password")}>{reauthSubmitting ? "Verifying..." : "Verify & continue"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

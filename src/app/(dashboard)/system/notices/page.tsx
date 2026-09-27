@@ -16,6 +16,7 @@ interface SystemNotice {
   id: string
   title: string
   type: "feature" | "bug_fix" | "update"
+  scope?: "whole_app" | "administration" | "finance" | "people" | "it"
   summary: string
   description?: string
   postedAt: string
@@ -69,6 +70,7 @@ export default function SystemNoticesPage() {
   const [noticeForm, setNoticeForm] = useState({
     title: "",
     type: "feature" as "feature" | "bug_fix" | "update",
+    scope: "whole_app" as "whole_app" | "administration" | "finance" | "people" | "it",
     summary: "",
     description: "",
   })
@@ -296,6 +298,7 @@ export default function SystemNoticesPage() {
     setNoticeForm({
       title: notice.title,
       type: notice.type,
+      scope: notice.scope || "administration",
       summary: notice.summary,
       description: notice.description || "",
     })
@@ -461,6 +464,24 @@ export default function SystemNoticesPage() {
                           <option value="bug_fix">Bug Fix</option>
                           <option value="update">Update</option>
                         </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Update label
+                        </label>
+                        <select
+                          value={noticeForm.scope}
+                          onChange={(e) => setNoticeForm({ ...noticeForm, scope: e.target.value as any })}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                        >
+                          <option value="whole_app">Whole App Update</option>
+                          <option value="administration">Administration Team</option>
+                          <option value="finance">Finance Team</option>
+                          <option value="people">People Team</option>
+                          <option value="it">IT Team</option>
+                        </select>
+                        <p className="mt-1 text-xs text-gray-500">This label is shown to users in What’s New.</p>
                       </div>
 
                       <div>

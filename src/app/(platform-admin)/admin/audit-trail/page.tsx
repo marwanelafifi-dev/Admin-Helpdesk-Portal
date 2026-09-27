@@ -538,8 +538,8 @@ export default function AuditTrailPage() {
                     </div>
                     <div className="text-right shrink-0">
                       <div className="flex items-center justify-end gap-1 flex-wrap mb-1">
-                        <Badge className="text-[10px] bg-slate-100 text-slate-700">{entry.functionName}</Badge>
-                        <Badge className="text-[10px] bg-blue-50 text-blue-700">{entry.company}</Badge>
+                        <Badge className="text-[10px] bg-slate-100 text-slate-700 dark:!bg-slate-800 dark:!text-slate-100">{entry.functionName}</Badge>
+                        <Badge className="text-[10px] bg-blue-50 text-blue-700 dark:!bg-blue-950/60 dark:!text-blue-200">{entry.company}</Badge>
                         {entry.module && <Badge className={`text-[10px] capitalize ${CATEGORY_COLORS[entry.category]}`}>{entry.module}</Badge>}
                       </div>
                       <p className="text-[11px] text-gray-400 whitespace-nowrap">{fmt(entry.timestamp)}</p>

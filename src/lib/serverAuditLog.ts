@@ -36,6 +36,15 @@ export type ServerAuditAction =
   | "email_sent"
   | "email_failed"
   | "approval_email_resent"
+  | "approval_link_opened"
+  | "approval_approved"
+  | "approval_rejected"
+  | "database_backup"
+  | "database_restore"
+  | "database_clear"
+  | "database_purge"
+  | "database_restore_denied"
+  | "database_reauthenticated"
 
 export interface ServerAuditEntry {
   id: string
@@ -46,7 +55,7 @@ export interface ServerAuditEntry {
   targetId: string    // userId / roleId / requestId
   targetTitle: string // user name / role name / request title
   details: string
-  category: "user" | "role" | "request" | "authentication" | "access" | "system" | "email" | "company_data"
+  category: "user" | "role" | "request" | "authentication" | "access" | "system" | "email" | "company_data" | "database"
   outcome?: "success" | "failure" | "denied"
   path?: string
   ipAddress?: string

@@ -4,7 +4,7 @@ import { requestStore } from "@/lib/requestStore"
 import { signApprovalToken } from "@/lib/approvalToken"
 import { sendPurchaseApprovalEmail, sendShippingApprovalEmail, sendTravelApprovalEmail, sendReimbursementApprovalEmail, sendTravelReimbursementApprovalEmail, sendInvoicePaymentApprovalEmail } from "@/lib/emailService"
 import { resolveRequestManagerEmail, resolveRequestManagerName } from "@/lib/approvalNotify"
-import { functionForModule, MANAGER_APPROVAL_MODULES } from "@/lib/functionRegistry"
+import { functionForModule, requiresManagerApproval } from "@/lib/functionRegistry"
 import { logServerAudit } from "@/lib/serverAuditLog"
 
 export const runtime = "nodejs"
@@ -48,8 +48,8 @@ export async function POST(
   if (!request) {
     return NextResponse.json({ error: "Request not found" }, { status: 404 })
   }
-  if (!(MANAGER_APPROVAL_MODULES as readonly string[]).includes(request.module)) {
-    return NextResponse.json({ error: "Only Purchase, Shipping, Travel, and Reimbursement requests use this flow" }, { status: 400 })
+  if (!requiresManagerApproval(request)) {
+    return NextResponse.json({ error: "This request does not require manager approval." }, { status: 400 })
   }
 
   const payload = (request.payload ?? {}) as Record<string, any>
@@ -188,6 +188,7 @@ export async function POST(
         amount: typeof payload.amount === "number" ? payload.amount : undefined,
         currency: payload.currency,
         totalsByCurrency: payload.totalsByCurrency,
+        expenseRows: Array.isArray(payload.expenseRows) ? payload.expenseRows : [],
         costCenter: payload.costCenter,
         requesterName: request.requesterName,
         requesterEmail: request.requesterEmail,
@@ -204,6 +205,7 @@ export async function POST(
         amount: typeof payload.amount === "number" ? payload.amount : undefined,
         currency: payload.currency,
         totalsByCurrency: payload.totalsByCurrency,
+        expenseRows: Array.isArray(payload.expenseRows) ? payload.expenseRows : [],
         costCenter: payload.costCenter,
         requesterName: request.requesterName,
         requesterEmail: request.requesterEmail,
@@ -223,6 +225,12 @@ export async function POST(
         currency: payload.currency,
         paymentTerms: payload.paymentTerms,
         paymentMethod: payload.paymentMethod,
+        invoiceRows: Array.isArray(payload.invoiceRows) ? payload.invoiceRows : [],
+        totalsByCurrency: Object.fromEntries((Array.isArray(payload.invoiceRows) ? payload.invoiceRows : []).reduce((totals: Record<string, number>, row: Record<string, any>) => {
+          const currency = row.currency || "USD"
+          totals[currency] = (totals[currency] ?? 0) + Number(row.amount || 0)
+          return totals
+        }, {})),
         requesterName: request.requesterName,
         requesterEmail: request.requesterEmail,
         approveUrl,

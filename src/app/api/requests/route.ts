@@ -8,6 +8,7 @@ import { getCompanyFromEmail, getRequestCompany } from "@/lib/userCompany"
 import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
 import { functionForModule, isRequestVisibleToViewer, MODULE_REGISTRY } from "@/lib/functionRegistry"
 import { logServerAudit } from "@/lib/serverAuditLog"
+import { hasRecordedApproval } from "@/lib/approvalRules"
 
 export const runtime = "nodejs"
 
@@ -229,6 +230,19 @@ export async function POST(req: Request) {
     assignedToEmail: incoming.assignedToEmail ?? null,
   }
   const existing = requestStore.getAll().find((r) => r.id === incoming.id)
+  // The server record is authoritative. A stale browser cache must never
+  // overwrite an approved request by putting it back into Awaiting Approval.
+  if (
+    body.operation !== "create" &&
+    existing &&
+    incoming.status === "awaiting_approval" &&
+    hasRecordedApproval(existing)
+  ) {
+    return NextResponse.json(
+      { error: "This request has already been approved and cannot return to Awaiting Approval." },
+      { status: 409 },
+    )
+  }
   const isNew = body.operation === "create" || !existing
   if (isNew && !assignee.assignedToId) {
     const defaultAssignee = getDefaultAssignee(functionForModule(incoming.module))
@@ -266,9 +280,9 @@ export async function POST(req: Request) {
   }
 
   // Convert old browser-only Travel letters (HRLTR-<timestamp>-<random>) the
-  // first time they reach the shared store. This keeps historical records in
-  // the same HRLTR-YYYY-#### series as new letters and repairs the linked
-  // Travel request at the same time. clientRequestId makes repeated syncs
+  // first time they reach the shared store. This gives them the current
+  // HR-LTR-YYYY-MM-#### format and repairs the linked Travel request at the
+  // same time. clientRequestId makes repeated syncs
   // idempotent.
   const isLegacyTravelLetter = incoming.module === "hr_travel_letter"
     && /^HRLTR-\d{10,}-[a-z0-9]+$/i.test(incoming.id)
@@ -277,7 +291,6 @@ export async function POST(req: Request) {
     const alreadyMigrated = requestStore.getAll().find((item) =>
       item.module === "hr_travel_letter"
       && (item.payload as any)?.linkedTravelRequestId === linkedTravelRequestId
-      && /^HRLTR-\d{4}-\d+$/.test(item.id)
     )
     const saved = alreadyMigrated ?? requestStore.create({
       ...requestToSave,
@@ -344,14 +357,28 @@ export async function DELETE(req: Request) {
   const url = new URL(req.url)
   const id = url.searchParams.get("id")
   const moduleId = url.searchParams.get("module")
+  const requestType = url.searchParams.get("requestType")
 
   // ?module=foo — wipe every request in that module (used by the per-module
   // Clear buttons on Admin → Database).
   if (moduleId) {
     const all = requestStore.getAll()
-    const remaining = all.filter((r) => r.module !== moduleId)
+    const matchesRequestedType = (request: typeof all[number]) => {
+      if (request.module !== moduleId) return false
+      const payload = (request.payload ?? {}) as Record<string, unknown>
+      if (requestType === "shipping_import") return payload.direction !== "sending"
+      if (requestType === "shipping_export") return payload.direction === "sending"
+      if (requestType === "hr_onboarding") return payload.hrType === "onboarding"
+      if (requestType === "hr_offboarding") return payload.hrType === "offboarding"
+      return requestType === null
+    }
+    if (requestType && !["shipping_import", "shipping_export", "hr_onboarding", "hr_offboarding"].includes(requestType)) {
+      return NextResponse.json({ error: "Invalid request type" }, { status: 400 })
+    }
+    const remaining = all.filter((request) => !matchesRequestedType(request))
     requestStore.bulkReplace(remaining)
-    logServerAudit({ actor: session.user.name ?? session.user.email ?? "System", actorEmail: session.user.email ?? "", action: "request_deleted", targetId: moduleId, targetTitle: "Module requests deleted", details: `${all.length - remaining.length} ${moduleId} request(s) deleted`, category: "request", outcome: "success" })
+    const label = requestType ?? moduleId
+    logServerAudit({ actor: session.user.name ?? session.user.email ?? "System", actorEmail: session.user.email ?? "", action: "request_deleted", targetId: moduleId, targetTitle: "Module requests deleted", details: `${all.length - remaining.length} ${label} request(s) deleted`, category: "request", outcome: "success" })
     return NextResponse.json({ success: true, removed: all.length - remaining.length })
   }
 

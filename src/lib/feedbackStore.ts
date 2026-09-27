@@ -1,6 +1,7 @@
 import fs from "fs"
 import path from "path"
 import crypto from "crypto"
+import { functionForModule, type FunctionId } from "@/lib/functionRegistry"
 
 export interface StoredFeedbackSurvey {
   id: string
@@ -134,6 +135,20 @@ class FeedbackStoreManager {
   clearAll(): void {
     this.data = { surveys: [], responses: [] }
     writeToDisk(this.data)
+  }
+
+  /** Clear only the feedback belonging to one support function. */
+  clearByFunction(functionId: FunctionId): { surveys: number; responses: number } {
+    const before = { surveys: this.data.surveys.length, responses: this.data.responses.length }
+    this.data = {
+      surveys: this.data.surveys.filter((survey) => functionForModule(survey.module) !== functionId),
+      responses: this.data.responses.filter((response) => functionForModule(response.module) !== functionId),
+    }
+    writeToDisk(this.data)
+    return {
+      surveys: before.surveys - this.data.surveys.length,
+      responses: before.responses - this.data.responses.length,
+    }
   }
 }
 

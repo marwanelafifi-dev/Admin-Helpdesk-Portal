@@ -4,6 +4,8 @@ import { redirect } from "next/navigation"
 import { ArrowUpRight, BriefcaseBusiness, Building2, ChevronRight, Globe2, Headset, Landmark, LayoutGrid, Monitor, ShieldCheck, UsersRound } from "lucide-react"
 import { auth } from "@/auth"
 import { LandingTopBar } from "@/components/layout/LandingTopBar"
+import { PortalFeedbackLandingCard } from "@/components/feedback/PortalFeedbackLauncher"
+import { PortalUpdatesLauncher } from "@/components/notices/PortalUpdatesLauncher"
 import { canAccessPath, getFirstAllowedPlatformAdminPath, hasPermission } from "@/lib/access"
 import { loadSettingsServer } from "@/lib/settingsServer"
 import type { MainAppIcon, SupportFunctionId } from "@/lib/platformSettings"
@@ -145,10 +147,11 @@ export default async function DepartmentSelectorPage() {
             : "xl:grid-cols-4"
 
   return (
-    <main className="landing-page app-page-enter relative min-h-screen bg-[#f4f8fd] px-4 py-4 text-slate-900 dark:bg-[#0b1220] dark:text-slate-100 lg:h-screen lg:overflow-hidden sm:px-6 sm:py-6">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[25rem] bg-[radial-gradient(ellipse_at_top,_rgba(191,219,254,0.9),_transparent_64%)] dark:bg-[radial-gradient(ellipse_at_top,_rgba(18,72,112,0.34),_transparent_64%)]" />
-      <div className="pointer-events-none absolute -left-24 top-72 h-80 w-80 rounded-full bg-blue-100/30 blur-3xl dark:bg-blue-900/10" />
-      {platformAdminPath && <Link href={platformAdminPath} aria-label="Open Platform Administration" title="Platform Administration" className="absolute left-3 top-3 z-10 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white/90 px-2.5 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:border-blue-300 hover:text-blue-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 sm:left-6 sm:top-6 sm:px-3"><ShieldCheck className="h-4 w-4 text-blue-600" /><span className="hidden sm:inline">Platform Administration</span></Link>}
+    <main className="landing-page app-page-enter relative min-h-screen bg-[#f4f8fd] px-4 py-4 text-slate-900 dark:bg-[#07111f] dark:text-slate-100 lg:h-screen lg:overflow-hidden sm:px-6 sm:py-6">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[28rem] bg-[radial-gradient(ellipse_at_top,_rgba(191,219,254,0.9),_transparent_64%)] dark:bg-[radial-gradient(ellipse_at_top,_rgba(36,116,166,0.28),_transparent_58%)]" />
+      <div className="pointer-events-none absolute -left-24 top-72 h-80 w-80 rounded-full bg-blue-100/30 blur-3xl dark:bg-cyan-500/10" />
+      <div className="pointer-events-none absolute -right-20 top-28 h-96 w-96 rounded-full bg-blue-100/20 blur-3xl dark:bg-indigo-500/10" />
+      {platformAdminPath && <Link href={platformAdminPath} aria-label="Open Platform Administration" title="Platform Administration" className="absolute left-3 top-3 z-10 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white/90 px-2.5 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:border-blue-300 hover:text-blue-700 dark:border-sky-300/20 dark:bg-[#10203a]/80 dark:text-slate-100 dark:shadow-[0_10px_28px_-18px_rgba(0,0,0,0.9)] dark:hover:border-cyan-300/60 dark:hover:bg-[#152a49] dark:hover:text-cyan-100 sm:left-6 sm:top-6 sm:px-3"><ShieldCheck className="h-4 w-4 text-blue-600 dark:text-cyan-300" /><span className="hidden sm:inline">Platform Administration</span></Link>}
       <div className="absolute right-3 top-3 z-20 sm:right-6 sm:top-6">
         <LandingTopBar />
       </div>
@@ -157,14 +160,16 @@ export default async function DepartmentSelectorPage() {
           <div className="landing-logo relative mb-1 h-14 w-40">
             <Image src="/siware-logo.png" alt="Si-Ware Systems" fill className="object-contain dark:brightness-0 dark:invert" priority />
           </div>
-          <h1 className="mt-3 text-[32px] font-semibold tracking-[-0.035em] text-slate-950 dark:text-white sm:text-[38px]">How can we help today?</h1>
-          <p className="mt-2 max-w-2xl text-[15px] leading-6 text-slate-600 sm:max-w-none sm:whitespace-nowrap dark:text-slate-300">
+          <h1 className="mt-3 text-[32px] font-semibold tracking-[-0.035em] text-slate-950 dark:bg-gradient-to-r dark:from-white dark:via-sky-100 dark:to-cyan-200 dark:bg-clip-text dark:text-transparent sm:text-[38px]">How can we help today?</h1>
+          <p className="mt-2 max-w-2xl text-[15px] leading-6 text-slate-600 sm:max-w-none sm:whitespace-nowrap dark:text-slate-300/95">
             Welcome {session.user.name || session.user.email}, Choose the team whose services you need.
           </p>
         </header>
 
-        <section className="landing-support-section rounded-[28px] border border-blue-100 bg-gradient-to-br from-white/95 via-white/80 to-blue-50/75 p-4 shadow-[0_18px_60px_-38px_rgba(30,64,175,0.5)] backdrop-blur-sm dark:border-[#29436b] dark:from-[#13233d] dark:via-[#101d33] dark:to-[#0d1930] sm:p-6" aria-labelledby="support-functions-heading">
-          <div className="landing-section-heading mb-5 text-center">
+        <section className="landing-support-section relative isolate overflow-hidden rounded-[28px] border border-blue-100 bg-gradient-to-br from-white/95 via-white/80 to-blue-50/75 p-4 shadow-[0_18px_60px_-38px_rgba(30,64,175,0.5)] backdrop-blur-sm dark:border-sky-300/20 dark:from-[#142945]/95 dark:via-[#0f2038]/95 dark:to-[#0b182d]/95 dark:shadow-[0_28px_80px_-42px_rgba(0,0,0,0.95)] sm:p-6" aria-labelledby="support-functions-heading">
+          <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-32 bg-[radial-gradient(ellipse_at_center,_rgba(219,234,254,0.7),_transparent_70%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(56,189,248,0.12),_transparent_72%)]" />
+          <div className="landing-section-heading relative mb-5 text-center">
+            <div className="absolute right-0 top-0"><PortalUpdatesLauncher /></div>
             <div>
               <h2 id="support-functions-heading" className="text-[22px] font-semibold tracking-[-0.025em] text-slate-950 dark:text-white">Support Functions</h2>
             </div>
@@ -174,7 +179,7 @@ export default async function DepartmentSelectorPage() {
           {functions.map((item) => {
             const unavailableExternal = item.external && item.href.startsWith("#")
             const unavailable = item.unavailable || unavailableExternal
-            const statusClasses = "bg-[#eef3ff] text-[#263d8b] dark:bg-blue-950/60 dark:text-blue-200"
+            const statusClasses = "bg-[#eef3ff] text-[#263d8b] dark:border dark:border-sky-300/10 dark:bg-sky-950/50 dark:text-sky-100"
             const content = (
               <>
                 <div className="flex items-start justify-between gap-4">
@@ -190,7 +195,7 @@ export default async function DepartmentSelectorPage() {
                 </div>
               </>
             )
-            const classes = "landing-support-card group relative flex min-h-[194px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:bg-[#263d8b] hover:-translate-y-1 hover:border-cyan-300 hover:shadow-lg hover:shadow-blue-950/5 dark:border-[#405372] dark:!bg-[#18263b] dark:hover:border-cyan-400 dark:hover:shadow-cyan-950/30"
+            const classes = "landing-support-card group relative flex min-h-[194px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-300 before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:bg-[#263d8b] after:pointer-events-none after:absolute after:-right-12 after:-top-16 after:h-32 after:w-32 after:rounded-full after:bg-cyan-200/0 after:blur-2xl after:transition after:duration-300 hover:-translate-y-1 hover:border-cyan-300 hover:shadow-lg hover:shadow-blue-950/5 hover:after:bg-cyan-200/40 dark:border-sky-200/20 dark:!bg-[linear-gradient(145deg,_#172a45,_#11223a)] dark:shadow-[0_14px_30px_-24px_rgba(0,0,0,0.95)] dark:before:bg-gradient-to-r dark:before:from-blue-500 dark:before:via-cyan-300 dark:before:to-blue-500 dark:hover:border-cyan-300/80 dark:hover:!bg-[linear-gradient(145deg,_#1b3151,_#132943)] dark:hover:shadow-[0_18px_38px_-20px_rgba(8,145,178,0.38)] dark:hover:after:bg-cyan-400/20"
             if (unavailable) return <div key={item.name} id={item.unavailable ? "function-unavailable" : "it-service-desk"} className={`${classes} opacity-70`}>{content}</div>
             return item.external ? <a key={item.name} href={item.href} target="_blank" rel="noreferrer" className={classes}>{content}</a> : <Link key={item.name} href={item.href} className={classes}>{content}</Link>
           })}
@@ -198,7 +203,7 @@ export default async function DepartmentSelectorPage() {
         </section>
 
         {visibleMainApps.length > 0 && (
-          <section className="landing-apps-section mt-5 rounded-[24px] border border-slate-200/80 bg-white/35 p-4 shadow-[0_12px_45px_-35px_rgba(15,23,42,0.4)] dark:border-[#29436b] dark:bg-[#101d33]/90" aria-labelledby="main-apps-heading">
+          <section className="landing-apps-section relative overflow-hidden mt-5 rounded-[24px] border border-slate-200/80 bg-white/35 p-4 shadow-[0_12px_45px_-35px_rgba(15,23,42,0.4)] dark:border-sky-300/20 dark:bg-[#0d1d34]/88 dark:shadow-[0_22px_55px_-38px_rgba(0,0,0,0.95)]" aria-labelledby="main-apps-heading">
             <div className="landing-section-heading landing-apps-heading mb-3 text-center">
               <div>
                 <h2 id="main-apps-heading" className="text-[22px] font-semibold tracking-[-0.025em] text-slate-950 dark:text-white">Main Apps</h2>
@@ -209,10 +214,11 @@ export default async function DepartmentSelectorPage() {
               {visibleMainApps.map((item, index) => {
                 const unavailable = item.href.startsWith("#")
                 const content = <><span className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border shadow-sm ${MAIN_APP_ACCENTS[index % MAIN_APP_ACCENTS.length]}`}>{item.iconImage ? <img src={item.iconImage} alt="" className="h-full w-full object-contain p-1" /> : <item.icon className="h-[18px] w-[18px]" />}</span><div className="min-w-0 flex-1"><h3 title={item.name} className="break-words text-[15px] font-semibold leading-5 tracking-[-0.01em] text-slate-950 dark:text-white">{item.name}</h3><span className="mt-1.5 inline-flex items-center gap-1 text-xs font-bold text-[#263d8b] transition-transform group-hover:translate-x-0.5 dark:text-cyan-300">{unavailable ? "URL not configured" : "Open app"}{!unavailable && <ArrowUpRight className="h-3.5 w-3.5" />}</span></div></>
-                const classes = "landing-app-card group flex min-h-[100px] min-w-0 items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-white hover:shadow-[0_0_0_5px_rgba(191,219,254,0.34),0_16px_34px_-12px_rgba(59,130,246,0.24)] dark:border-[#405372] dark:!bg-[#16243a] dark:hover:border-cyan-400 dark:hover:!bg-[#1b2e48] dark:hover:shadow-[0_0_0_5px_rgba(34,211,238,0.12),0_16px_34px_-12px_rgba(8,47,73,0.72)]"
+                const classes = "landing-app-card group flex min-h-[100px] min-w-0 items-center gap-3 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-white hover:shadow-[0_0_0_5px_rgba(191,219,254,0.34),0_16px_34px_-12px_rgba(59,130,246,0.24)] dark:border-sky-200/20 dark:!bg-[#142640] dark:shadow-[0_12px_24px_-20px_rgba(0,0,0,0.9)] dark:hover:border-cyan-300/80 dark:hover:!bg-[#1a3150] dark:hover:shadow-[0_0_0_4px_rgba(34,211,238,0.09),0_18px_32px_-16px_rgba(8,145,178,0.45)]"
                 return unavailable ? <div key={item.id} id="main-apps" className={`${classes} opacity-70`}>{content}</div> : <a key={item.id} href={item.href} target="_blank" rel="noreferrer" className={classes}>{content}</a>
               })}
             </div>
+            <div className="mt-4"><PortalFeedbackLandingCard /></div>
           </section>
         )}
       </div>

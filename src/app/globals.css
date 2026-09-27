@@ -208,10 +208,15 @@
 .dark .bg-amber-100       { background-color: hsl(38 65% 22%) !important; }
 .dark .border-amber-200   { border-color: hsl(38 70% 38%) !important; }
 .dark .border-amber-300   { border-color: hsl(38 70% 44%) !important; }
+.dark .text-amber-950     { color: hsl(38 95% 92%) !important; }
 .dark .text-amber-900     { color: hsl(38 95% 88%) !important; }
 .dark .text-amber-800     { color: hsl(38 95% 80%) !important; }
 .dark .text-amber-700     { color: hsl(38 95% 72%) !important; }
 .dark .text-amber-600     { color: hsl(38 95% 68%) !important; }
+
+/* Journey manual: its administrative warning needs a guaranteed readable
+   foreground because global hardcoded-palette remapping uses !important. */
+.dark .journey-admin-guidance { color: hsl(38 95% 92%) !important; }
 
 /* Blue / info */
 .dark .bg-blue-50,

@@ -23,7 +23,8 @@ export const FUNCTION_EMAIL_SENDER_NAMES: Record<EmailFunctionId, string> = {
 }
 
 export function getFunctionEmailSenderName(functionId: EmailFunctionId): string {
-  return FUNCTION_EMAIL_SENDER_NAMES[functionId]
+  const configuredName = readEmailConfig(functionId)?.values?.smtp_from_name?.trim()
+  return configuredName || FUNCTION_EMAIL_SENDER_NAMES[functionId]
 }
 
 const APP_PASSWORD_METHODS = new Set(["gmail_app_password", "smtp_relay"])

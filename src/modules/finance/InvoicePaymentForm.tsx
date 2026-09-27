@@ -215,6 +215,9 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
   return (
     <div className="space-y-5 max-w-7xl mx-auto">
       <form onSubmit={handleSubmit(onSubmit, validateInvoiceFile)} className="space-y-5">
+        {/* Processing time */}
+        <FinanceProcessingNotice hasApproval={requiresManagerApproval} />
+
         {/* Request Title */}
         <Card>
           <CardContent className="pt-6">
@@ -225,9 +228,6 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
             </div>
           </CardContent>
         </Card>
-
-        {/* Processing time */}
-        <FinanceProcessingNotice hasApproval={requiresManagerApproval} />
 
         {/* Invoice Details */}
         <Card>

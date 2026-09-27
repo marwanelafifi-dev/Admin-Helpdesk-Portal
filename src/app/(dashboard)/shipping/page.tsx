@@ -494,6 +494,7 @@ export default function ShippingPage() {
                   </td>
                   <td className="py-3 px-3">
                     <InlineStatusSelect
+                      requestId={shipment.id}
                       currentStatus={shipment.status}
                       statuses={STATUSES}
                       statusColors={STATUS_COLORS}

@@ -1,0 +1,11 @@
+{
+  "maintenance": false,
+  "maintenanceMessage": "We're doing maintenance — we'll be right back.",
+  "sessionMinVersion": 0,
+  "scheduledMaintenance": {
+    "enabled": false,
+    "startTime": "2026-09-11T11:59:31.346Z",
+    "endTime": "2026-09-11T13:59:31.346Z",
+    "announcementMessage": "We have scheduled maintenance. System will be temporarily unavailable."
+  }
+}

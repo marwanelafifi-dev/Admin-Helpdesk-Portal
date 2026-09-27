@@ -564,6 +564,7 @@ export default function RequestsPage({ moduleScope }: { moduleScope?: string[] }
                       const { statusColors, statusDot } = buildLabelDrivenMaps(statuses, moduleLabels)
                       return (
                         <InlineStatusSelect
+                          requestId={req.id}
                           currentStatus={req.status}
                           statuses={statuses}
                           statusColors={statusColors}

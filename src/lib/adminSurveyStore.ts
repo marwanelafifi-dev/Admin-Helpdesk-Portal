@@ -25,6 +25,13 @@ export interface AdminSurvey {
   createdAt: string
   rating?: number // 1-5 stars
   attachments?: Attachment[]
+  context?: {
+    pageUrl?: string
+    path?: string
+    functionName?: string
+    moduleName?: string
+    userAgent?: string
+  }
 }
 
 const SURVEY_FILE = path.join(process.cwd(), "data", "admin-survey.json")

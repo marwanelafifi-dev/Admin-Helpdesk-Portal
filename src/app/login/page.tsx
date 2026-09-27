@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect } from "react"
 import Image from "next/image"
-import { signIn } from "next-auth/react"
+import { signIn, signOut } from "next-auth/react"
 import { useSearchParams } from "next/navigation"
 
 export const dynamic = "force-dynamic"
@@ -29,9 +29,10 @@ const LOGIN_DEFAULTS = {
 interface LoginFormProps {
   callbackUrl: string
   oauthError?: string | null
+  forceFreshSession?: boolean
 }
 
-function LoginFormContent({ callbackUrl, oauthError }: LoginFormProps) {
+function LoginFormContent({ callbackUrl, oauthError, forceFreshSession = false }: LoginFormProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -39,6 +40,7 @@ function LoginFormContent({ callbackUrl, oauthError }: LoginFormProps) {
   const [loadingProvider, setLoadingProvider] = useState<"google" | "credentials" | null>(null)
   const [cfg, setCfg] = useState(LOGIN_DEFAULTS)
   const [logoSrc, setLogoSrc] = useState("/siware-logo.png")
+  const [resettingSession, setResettingSession] = useState(forceFreshSession)
 
   useEffect(() => {
     try {
@@ -48,6 +50,15 @@ function LoginFormContent({ callbackUrl, oauthError }: LoginFormProps) {
       if (customLogo) setLogoSrc(customLogo)
     } catch {}
   }, [])
+
+  useEffect(() => {
+    if (!forceFreshSession) return
+    void signOut({ redirect: false }).finally(() => setResettingSession(false))
+  }, [forceFreshSession])
+
+  if (resettingSession) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-300">Preparing secure sign-in…</div>
+  }
 
   const handleGoogleSignIn = async () => {
     setError("")
@@ -74,7 +85,12 @@ function LoginFormContent({ callbackUrl, oauthError }: LoginFormProps) {
       return
     }
 
-    window.location.href = result?.url ?? callbackUrl
+    // NextAuth may normalize an API callback to the portal landing page.
+    // For the tightly-scoped signed approval callback, preserve the original
+    // internal route so the manager returns to the decision immediately.
+    window.location.href = callbackUrl.startsWith("/api/requests/")
+      ? callbackUrl
+      : result?.url ?? callbackUrl
   }
 
   return (
@@ -204,9 +220,23 @@ function LoginFormWrapper() {
   // Every login always lands on the Company Portal selector first — even if
   // the user was bounced here from a deep link (e.g. an expired session
   // while viewing a specific request). They can navigate from there.
-  const callbackUrl = "/landing"
+  // Only a signed approval/rejection callback may bypass the portal landing
+  // page. This lets a manager complete a fresh sign-in for an email action
+  // without allowing arbitrary callback URLs.
+  const requestedCallback = searchParams.get("callbackUrl")
+  const forceFreshSession = searchParams.get("approval") === "1"
+  const parsedCallback = requestedCallback ? new URL(requestedCallback, "http://portal.local") : null
+  const approvalCallback = requestedCallback
+    && requestedCallback.startsWith("/")
+    && !requestedCallback.startsWith("//")
+    && /^\/api\/requests\/[^/?]+\/(approve|reject)$/.test(parsedCallback?.pathname ?? "")
+    && parsedCallback?.searchParams.has("token")
+    && parsedCallback?.searchParams.get("fresh") === "1"
+    ? requestedCallback
+    : null
+  const callbackUrl = approvalCallback ?? "/landing"
   const errorParam = searchParams.get("error")
-  return <LoginFormContent callbackUrl={callbackUrl} oauthError={errorParam} />
+  return <LoginFormContent callbackUrl={callbackUrl} oauthError={errorParam} forceFreshSession={forceFreshSession} />
 }
 
 export default function LoginPage() {

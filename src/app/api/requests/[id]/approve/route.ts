@@ -5,11 +5,14 @@ import { resolveRequestManagerEmail, resolveRequestManagerName, notifyDecision }
 import { commentsStore } from "@/lib/commentsStore"
 import { AUTO_CC_EMAIL } from "@/services/engineService"
 import { autoCreateHrLetterFromTravel } from "@/lib/hrLetterAutoCreate"
+import { auth } from "@/auth"
+import { requiresManagerApproval } from "@/lib/functionRegistry"
+import { logApprovalAttempt } from "@/lib/approvalSecurity"
+import { hasRecordedApproval } from "@/lib/approvalRules"
 
 export const runtime = "nodejs"
 
-// Both Purchase and Shipping can be awaiting_approval; Purchase also accepts legacy "in_customs"
-const AWAITING_STATUSES = new Set(["awaiting_approval", "in_customs"])
+const AWAITING_STATUSES = ["awaiting_approval"] as const
 
 export async function GET(
   req: Request,
@@ -21,25 +24,38 @@ export async function GET(
 
   const verified = verifyApprovalToken(token, "approve")
   if (!verified.ok) {
+    logApprovalAttempt({ req, requestId: id, action: "approve", outcome: "denied", details: `Invalid approval token (${verified.reason})` })
     return htmlResponse({
       title: "Link expired or invalid",
       body: `<p>This approval link can't be used. (${verified.reason})</p><p>Open the request directly in the portal to take action.</p>`,
     }, 400)
   }
   if (verified.rid !== id) {
+    logApprovalAttempt({ req, requestId: id, action: "approve", actorEmail: verified.managerEmail, outcome: "denied", details: "Token request ID mismatch" })
     return htmlResponse({ title: "Link mismatch", body: `<p>This token doesn't match this request.</p>` }, 400)
   }
 
   const all = requestStore.getAll()
   const request = all.find((r) => r.id === id)
   if (!request) {
+    logApprovalAttempt({ req, requestId: id, action: "approve", actorEmail: verified.managerEmail, outcome: "denied", details: "Request not found" })
     return htmlResponse({ title: "Request not found", body: `<p>The request could not be found.</p>` }, 404)
+  }
+
+  if (!requiresManagerApproval(request)) {
+    logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "approve", actorEmail: verified.managerEmail, outcome: "denied", details: "Request is not eligible for manager approval" })
+    return htmlResponse({ title: "Approval not required", body: `<p>This request does not require manager approval. No change made.</p>`, accent: "red" }, 403)
+  }
+  if (hasRecordedApproval(request)) {
+    logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "approve", actorEmail: verified.managerEmail, outcome: "denied", details: "A prior manager approval is already recorded" })
+    return htmlResponse({ title: "Already processed", body: `<p>A manager approval is already recorded for this request. No change made.</p>` }, 200)
   }
 
   // Strict manager check — token must carry managerEmail and it must match
   // the request's current Direct Manager. No legacy fallback bypass.
   const currentManager = resolveRequestManagerEmail(request)
   if (!verified.managerEmail || !currentManager || currentManager !== verified.managerEmail) {
+    logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "approve", actorEmail: verified.managerEmail, outcome: "denied", details: "Token manager does not match the request manager" })
     return htmlResponse({
       title: "Not authorized",
       body: `<p>Only the request's Direct Manager can use this link.</p>`,
@@ -47,7 +63,26 @@ export async function GET(
     }, 403)
   }
 
-  if (!AWAITING_STATUSES.has(request.status)) {
+  // Clear any open session before an email action so the assigned manager
+  // explicitly signs in from scratch.
+  if (url.searchParams.get("fresh") !== "1") {
+    const returnTo = `${url.pathname}?token=${encodeURIComponent(token)}&fresh=1`
+    return NextResponse.redirect(new URL(`/login?approval=1&callbackUrl=${encodeURIComponent(returnTo)}`, req.url), 303)
+  }
+
+  const session = await auth()
+  const signedInEmail = session?.user?.email?.trim().toLowerCase()
+  if (!signedInEmail) {
+    logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "approve", actorEmail: verified.managerEmail, outcome: "denied", details: "Manager sign-in required" })
+    return NextResponse.redirect(new URL("/login", req.url), 303)
+  }
+  if (signedInEmail !== verified.managerEmail) {
+    logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "approve", actorEmail: signedInEmail, outcome: "denied", details: `Signed-in user does not match assigned manager ${verified.managerEmail}` })
+    return htmlResponse({ title: "Not authorized", body: `<p>Sign in as the assigned Direct Manager to approve this request.</p>`, accent: "red" }, 403)
+  }
+
+  if (!AWAITING_STATUSES.includes(request.status)) {
+    logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "approve", actorEmail: signedInEmail, outcome: "denied", details: `Request already processed (current status: ${request.status})` })
     return htmlResponse({
       title: "Already processed",
       body: `<p>This request is no longer Awaiting Approval (current status: <strong>${escapeHtml(request.status)}</strong>). No change made.</p>`,
@@ -58,22 +93,24 @@ export async function GET(
   const managerName = resolveRequestManagerName(request) ?? verified.managerEmail
 
   // When a Travel request is approved (→ in_progress), ensure ap@si-ware.com is on CC.
-  const existingAdminCc: string[] = Array.isArray(request.adminCc) ? request.adminCc : []
-  const adminCc = request.module === "travel" && !existingAdminCc.map(e => e.toLowerCase()).includes(AUTO_CC_EMAIL.toLowerCase())
-    ? [...existingAdminCc, AUTO_CC_EMAIL]
-    : existingAdminCc
-
-  const updated = {
-    ...request,
-    status: "in_progress" as const,
-    updatedAt: now,
-    adminCc,
-    statusHistory: [
-      ...(request.statusHistory ?? []),
-      { status: "in_progress" as const, changedBy: verified.managerEmail, changedAt: now, comment: "Approved by Direct Manager" },
-    ],
+  const updated = requestStore.transitionIfStatus(id, AWAITING_STATUSES, (current) => {
+    const existingAdminCc: string[] = Array.isArray(current.adminCc) ? current.adminCc : []
+    const adminCc = current.module === "travel" && !existingAdminCc.map(e => e.toLowerCase()).includes(AUTO_CC_EMAIL.toLowerCase())
+      ? [...existingAdminCc, AUTO_CC_EMAIL]
+      : existingAdminCc
+    return {
+      ...current,
+      status: "in_progress" as const,
+      updatedAt: now,
+      adminCc,
+      statusHistory: [...(current.statusHistory ?? []), { status: "in_progress" as const, changedBy: verified.managerEmail, changedAt: now, comment: "Approved by Direct Manager" }],
+    }
+  })
+  if (!updated) {
+    logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "approve", actorEmail: signedInEmail, outcome: "denied", details: "Concurrent decision already recorded" })
+    return htmlResponse({ title: "Already processed", body: `<p>This request was already decided. No change made.</p>` }, 200)
   }
-  requestStore.upsert(updated)
+  logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "approve", actorEmail: signedInEmail, outcome: "success", details: "Approved by assigned manager" })
 
   try {
     autoCreateHrLetterFromTravel(updated)

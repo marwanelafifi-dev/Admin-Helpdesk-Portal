@@ -498,6 +498,7 @@ export default function TravelPage() {
                   </td>
                   <td className="py-3 px-3">
                     <InlineStatusSelect
+                      requestId={req.id}
                       currentStatus={req.status}
                       statuses={STATUSES}
                       statusColors={STATUS_COLORS}

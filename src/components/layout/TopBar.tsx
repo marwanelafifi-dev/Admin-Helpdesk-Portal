@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Image from "next/image"
 import { signOut, useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { Bell, LogOut, Menu, Settings, Shield, Sun, Moon, User } from "lucide-react"
+import { Bell, LogOut, Menu, Settings, Shield, Sun, Moon, User, MessageSquarePlus } from "lucide-react"
 import { useMobileNav } from "./MobileNavContext"
 import { useTheme } from "next-themes"
 import { getFirstAllowedPlatformAdminPath } from "@/lib/access"
@@ -25,6 +25,7 @@ import { markNotificationAsRead, notificationActionUrl, type StoredNotification 
 import { fmtDateTime } from "@/lib/utils"
 import type { FunctionId } from "@/lib/functionRegistry"
 import { JourneyManual } from "@/components/help/JourneyManual"
+import { openPortalFeedback } from "@/components/feedback/PortalFeedbackLauncher"
 
 function getInitials(name?: string | null, email?: string | null) {
   const label = name || email || "User"
@@ -155,9 +156,6 @@ export function TopBar({ portal = "admin" }: { portal?: Portal }) {
 
       {/* Right: actions */}
       <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-        {/* Platform Admin — global superadmin tools, independent of any
-            business function's portal. Only shown to users who can reach
-            at least one of those pages. */}
         {platformAdminPath && (
           <Button
             variant="ghost"
@@ -170,19 +168,9 @@ export function TopBar({ portal = "admin" }: { portal?: Portal }) {
             <Shield className="h-5 w-5" />
           </Button>
         )}
-
-        {/* Theme toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
-          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="text-muted-foreground hover:text-foreground"
-        >
-          {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-        </Button>
-
+        {/* Platform Admin — global superadmin tools, independent of any
+            business function's portal. Only shown to users who can reach
+            at least one of those pages. */}
         {/* Notification Bell */}
         <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
           <DropdownMenuTrigger asChild>
@@ -245,10 +233,26 @@ export function TopBar({ portal = "admin" }: { portal?: Portal }) {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* User Avatar + Name */}
-        {/* Kept immediately beside the account control so help is visible in every function. */}
+        {/* Theme toggle */}
+        <Button
+          variant="ghost"
+          size="icon"
+          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+        </Button>
+
+        <Button variant="ghost" size="icon" title="Portal feedback" aria-label="Share portal feedback" onClick={openPortalFeedback} className="text-muted-foreground hover:text-blue-600">
+          <MessageSquarePlus className="h-5 w-5" />
+        </Button>
+
         <JourneyManual />
 
+        {/* User Avatar + Name */}
+        {/* Kept immediately beside the account control so help is visible in every function. */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-2 rounded-md px-1.5 sm:px-2 py-1.5 hover:bg-gray-100 transition-colors">

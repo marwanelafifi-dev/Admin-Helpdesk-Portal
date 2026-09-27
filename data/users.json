@@ -30,7 +30,9 @@
     "active": true,
     "provider": "credentials",
     "passwordHash": "$2b$12$bOYONJS9KCtX3noQz8earerXWvomv9GqpV0fAlcP0LNCuCSaIEQgO",
-    "createdAt": "2026-05-14T14:00:00.000Z"
+    "createdAt": "2026-05-14T14:00:00.000Z",
+    "companyId": "si_ware",
+    "companyName": "Si-Ware Systems"
   },
   {
     "id": "USR-1778681205922",
@@ -40,7 +42,9 @@
     "image": "https://lh3.googleusercontent.com/a/ACg8ocKQ4ZC7g6LHk-G3BXqN-G4ntSVXWnTeZ6K3YMdbcCofQ-MgCg8=s96-c",
     "active": true,
     "createdAt": "2026-05-13T14:06:45.922Z",
-    "provider": "google"
+    "provider": "google",
+    "companyId": "si_ware",
+    "companyName": "Si-Ware Systems"
   },
   {
     "id": "USR-1779000000001",
@@ -52,7 +56,27 @@
     "provider": "credentials",
     "passwordHash": "$2b$12$bOYONJS9KCtX3noQz8earerXWvomv9GqpV0fAlcP0LNCuCSaIEQgO",
     "createdAt": "2026-07-20T00:00:00.000Z",
-    "readModules": ["travel", "maintenance"],
-    "readAllModules": ["travel"]
+    "readModules": [
+      "travel",
+      "maintenance"
+    ],
+    "readAllModules": [
+      "travel"
+    ],
+    "companyId": "si_ware",
+    "companyName": "Si-Ware Systems"
+  },
+  {
+    "id": "USR-1780000000001",
+    "email": "local.admin@si-ware.com",
+    "name": "Local Administrator",
+    "role": "Full Access",
+    "image": null,
+    "active": true,
+    "createdAt": "2026-09-07T07:42:24.234Z",
+    "provider": "credentials",
+    "passwordHash": "$2b$12$i1L2Va2h1QfN7mSZluj5E.Zw8qIpWa7oRG8p2M3LbC0u1Q2cwD4hi",
+    "companyId": "si_ware",
+    "companyName": "Si-Ware Systems"
   }
 ]

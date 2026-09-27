@@ -69,6 +69,11 @@ export async function middleware(request: NextRequest) {
   }
 
   if (token && pathname === "/login") {
+    // Approval links intentionally force a fresh manager login, even when a
+    // different employee currently has an active portal session.
+    if (request.nextUrl.searchParams.get("approval") === "1") {
+      return NextResponse.next()
+    }
     // If the token is stale, allow them through to login so they can sign in fresh.
     if ((token as any).stale === true) {
       return NextResponse.next()

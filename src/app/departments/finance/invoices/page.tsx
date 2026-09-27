@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button"
 import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, isUserInCc, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import { cn, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
-import { canViewAllInOwnFunctionModules, canViewOwnRequests } from "@/lib/functionRegistry"
+import { canViewAllInOwnFunctionModules, canViewOwnRequests, requiresManagerApproval } from "@/lib/functionRegistry"
+import { hasRecordedApproval } from "@/lib/approvalRules"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
 import { useCommentSearch } from "@/hooks/useCommentSearch"
@@ -124,18 +125,28 @@ export default function InvoicePaymentRequestsPage() {
     }
   }, [loadRequests])
 
-  function handleStatusChange(id: string, newStatus: string) {
+  async function handleStatusChange(id: string, newStatus: string) {
     const request = requests.find(r => r.id === id)
+    if (!request) return
+    // Approved requests are final. Do not optimistically change the row or
+    // send a generic status email for a transition the server will reject.
+    if (newStatus === "awaiting_approval" && hasRecordedApproval(request)) return
     const currentUserId = session?.user?.id || "USR-001"
-    const oldStatus = request?.status
-    setRequests(prev => prev.map(r => r.id === id ? { ...r, status: newStatus as RequestStatus, updatedAt: new Date().toISOString() } : r))
-    void updateStatus(id, newStatus as RequestStatus, currentUserId).catch((error) => {
+    const oldStatus = request.status
+    try {
+      const updated = await updateStatus(id, newStatus as RequestStatus, currentUserId)
+      if (!updated) return
+      setRequests(prev => prev.map(r => r.id === id ? updated : r))
+    } catch (error) {
       const message = error instanceof Error ? error.message : "Status update failed"
+      if (/already been approved|cannot return to Awaiting Approval/i.test(message)) {
+        throw new Error(message)
+      }
       alert(message)
-    })
+      return
+    }
 
-    if (request) {
-      createRequestUpdateNotifications({
+    createRequestUpdateNotifications({
         requestId: id,
         requestTitle: request.title,
         module: MODULE_ID,
@@ -149,8 +160,7 @@ export default function InvoicePaymentRequestsPage() {
         newStatus,
         updateType: "status",
         ccEmails: getAllCcEmails(getRequestById(id) ?? { adminCc: [], payload: {} } as any),
-      })
-    }
+    })
   }
 
   function handleCancelRequest(id: string) {
@@ -413,8 +423,10 @@ export default function InvoicePaymentRequestsPage() {
                   </td>
                   <td className="py-3 px-3">
                     <InlineStatusSelect
+                      requestId={req.id}
                       currentStatus={req.status}
-                      statuses={payload.directManagerEmail ? STATUSES : STATUSES_NO_APPROVAL}
+                      statuses={requiresManagerApproval(req) ? STATUSES : STATUSES_NO_APPROVAL}
+                      disabledStatuses={hasRecordedApproval(req) ? ["awaiting_approval"] : []}
                       statusColors={STATUS_COLORS}
                       statusDot={STATUS_DOT}
                       statusLabels={STATUS_LABELS}

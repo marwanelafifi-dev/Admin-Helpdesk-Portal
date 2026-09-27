@@ -16,6 +16,7 @@ import { useViewedComments } from "@/hooks/useViewedComments"
 import { useCommentSearch } from "@/hooks/useCommentSearch"
 import { useExpandedRows } from "@/hooks/useExpandedRows"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
+import { hasRecordedApproval } from "@/lib/approvalRules"
 import { RequestActionsMenu } from "@/components/ui/RequestActionsMenu"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
@@ -142,18 +143,26 @@ export default function ReimbursementRequestsPage() {
     }
   }, [loadRequests])
 
-  function handleStatusChange(id: string, newStatus: string) {
+  async function handleStatusChange(id: string, newStatus: string) {
     const request = requests.find(r => r.id === id)
+    if (!request) return
+    if (newStatus === "awaiting_approval" && hasRecordedApproval(request)) return
     const currentUserId = session?.user?.id || "USR-001"
-    const oldStatus = request?.status
-    setRequests(prev => prev.map(r => r.id === id ? { ...r, status: newStatus as RequestStatus, updatedAt: new Date().toISOString() } : r))
-    void updateStatus(id, newStatus as RequestStatus, currentUserId).catch((error) => {
+    const oldStatus = request.status
+    try {
+      const updated = await updateStatus(id, newStatus as RequestStatus, currentUserId)
+      if (!updated) return
+      setRequests(prev => prev.map(r => r.id === id ? updated : r))
+    } catch (error) {
       const message = error instanceof Error ? error.message : "Approval email failed"
+      if (/already been approved|cannot return to Awaiting Approval/i.test(message)) {
+        throw new Error(message)
+      }
       alert(message)
-    })
+      return
+    }
 
-    if (request) {
-      createRequestUpdateNotifications({
+    createRequestUpdateNotifications({
         requestId: id,
         requestTitle: request.title,
         module: "finance_reimbursement",
@@ -167,8 +176,7 @@ export default function ReimbursementRequestsPage() {
         newStatus,
         updateType: "status",
         ccEmails: getAllCcEmails(getRequestById(id) ?? { adminCc: [], payload: {} } as any),
-      })
-    }
+    })
   }
 
   function handleCancelRequest(id: string) {
@@ -431,8 +439,10 @@ export default function ReimbursementRequestsPage() {
                   </td>
                   <td className="py-3 px-3">
                     <InlineStatusSelect
+                      requestId={req.id}
                       currentStatus={req.status}
                       statuses={payload.poOption === "has_po" ? STATUSES_NO_APPROVAL : STATUSES}
+                      disabledStatuses={hasRecordedApproval(req) ? ["awaiting_approval"] : []}
                       statusColors={STATUS_COLORS}
                       statusDot={STATUS_DOT}
                       statusLabels={STATUS_LABELS}

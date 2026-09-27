@@ -252,6 +252,9 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
   return (
     <div className="space-y-5 max-w-6xl mx-auto">
       <form onSubmit={handleSubmit(onSubmit, () => { validateRequiredFiles(Boolean(paidByPersonalCreditCard)) })} className="space-y-5">
+        {/* Processing time */}
+        <FinanceProcessingNotice hasApproval={poOption === "no_po"} />
+
         {/* Request Title */}
         <Card>
           <CardContent className="pt-6">
@@ -262,9 +265,6 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
             </div>
           </CardContent>
         </Card>
-
-        {/* Processing time */}
-        <FinanceProcessingNotice hasApproval={poOption === "no_po"} />
 
         {/* PO or No PO */}
         <Card>

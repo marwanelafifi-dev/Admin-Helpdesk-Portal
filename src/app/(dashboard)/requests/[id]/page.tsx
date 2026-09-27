@@ -24,7 +24,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { MarkdownDisplay } from "@/components/ui/MarkdownDisplay"
-import { functionForModule, MANAGER_APPROVAL_MODULES } from "@/lib/functionRegistry"
+import { functionForModule, requiresManagerApproval } from "@/lib/functionRegistry"
+import { hasRecordedApproval } from "@/lib/approvalRules"
 
 const STATUS_COLORS: Record<string, string> = {
   draft:             "bg-zinc-100 text-zinc-600",
@@ -68,6 +69,10 @@ interface RequestDetail {
   description?: string
   module: string
   status: string
+  // Kept separately from display history: the UI activity timeline does not
+  // retain status-history comments, while this flag must survive conversion
+  // from the authoritative server request.
+  approvalLocked?: boolean
   payload: Record<string, any>
   requesterId: string
   requesterEmail?: string
@@ -422,6 +427,7 @@ export default function RequestDetailPage() {
     type: "idle" | "sending" | "success" | "error"
     message: string
   }>({ type: "idle", message: "" })
+  const [statusActionMessage, setStatusActionMessage] = useState("")
 
   const fetchComments = async (requestId: string) => {
     try {
@@ -494,13 +500,18 @@ export default function RequestDetailPage() {
 
   const handleStatusChange = async (newStatus: string) => {
     if (!request || !canChangeStatus) return
+    // An approval is final. Do not optimistically update the page or send a
+    // request to the API when a user attempts to return it for approval.
+    // This avoids the brief Awaiting Approval flicker before the server guard
+    // restores In Progress.
+    if (newStatus === "awaiting_approval" && request.approvalLocked) return
     try {
       const now = new Date().toISOString()
       const oldStatus = request.status
 
       // Update in engineService
       await updateStatus(request.id, newStatus as any, currentUserId)
-      if ((MANAGER_APPROVAL_MODULES as readonly string[]).includes(request.module) && newStatus === "awaiting_approval" && oldStatus !== newStatus) {
+      if (requiresManagerApproval(request) && newStatus === "awaiting_approval" && oldStatus !== newStatus) {
         setApprovalEmailStatus({
           type: "success",
           message: "Approval email sent to the Direct Manager.",
@@ -809,7 +820,8 @@ export default function RequestDetailPage() {
     }, 250)
   }
 
-  const getStatusesByModule = (module: string): string[] => {
+  const getStatusesByModule = (currentRequest: typeof request): string[] => {
+    const module = currentRequest?.module ?? ""
     const moduleStatuses: Record<string, string[]> = {
       shipping:    ['new', 'awaiting_approval', 'in_progress', 'in_customs', 'delivered', 'cancelled'],
       hr:          ['new', 'in_progress', 'completed'],
@@ -819,11 +831,17 @@ export default function RequestDetailPage() {
       travel:      ['new', 'awaiting_approval', 'in_progress', 'completed', 'cancelled'],
       general:     ['new', 'in_progress', 'completed', 'cancelled'],
       hr_general:  ['new', 'in_progress', 'completed', 'cancelled'],
+      finance_travel_reimbursement: ['new', 'awaiting_approval', 'in_progress', 'completed', 'cancelled'],
+    }
+    if (module === "finance_reimbursement" || module === "finance_invoice_payment") {
+      return currentRequest && requiresManagerApproval(currentRequest)
+        ? ['new', 'awaiting_approval', 'in_progress', 'completed', 'cancelled']
+        : ['new', 'in_progress', 'completed', 'cancelled']
     }
     return moduleStatuses[module] || ['new', 'in_progress', 'completed', 'cancelled']
   }
 
-  const STATUSES = request ? getStatusesByModule(request.module) : ['new', 'in_progress', 'completed', 'cancelled']
+  const STATUSES = getStatusesByModule(request)
 
   useEffect(() => {
     const fetchRequest = async () => {
@@ -967,6 +985,7 @@ export default function RequestDetailPage() {
           description: (engineRequest.payload?.description as string | undefined) || undefined,
           module: engineRequest.module,
           status: engineRequest.status,
+          approvalLocked: hasRecordedApproval(engineRequest),
           payload: engineRequest.payload || {},
           requesterId: engineRequest.requesterId,
           requesterEmail: engineRequest.requesterEmail,
@@ -1167,19 +1186,45 @@ export default function RequestDetailPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-48">
-                      {STATUSES.map((status) => (
-                        <DropdownMenuItem
+                      {STATUSES.map((status) => {
+                        const awaitingApprovalLocked = status === "awaiting_approval" && request.approvalLocked === true
+                        return (
+                        <div
                           key={status}
-                          onClick={() => handleStatusChange(status)}
+                          title={awaitingApprovalLocked ? "This request has already been approved and cannot return to Awaiting Approval." : undefined}
+                          className={awaitingApprovalLocked ? "cursor-not-allowed" : undefined}
+                        >
+                        <DropdownMenuItem
+                          aria-disabled={awaitingApprovalLocked}
+                          onSelect={(event) => {
+                            // Keep a second guard here as well as the server-side
+                            // rule. This prevents pointer and keyboard selection
+                            // even if a menu implementation changes its disabled
+                            // event handling.
+                            if (awaitingApprovalLocked) {
+                              event.preventDefault()
+                              setStatusActionMessage("This request has already been approved and cannot return to Awaiting Approval.")
+                              return
+                            }
+                            handleStatusChange(status)
+                          }}
                           className={cn(
                             "capitalize cursor-pointer",
+                            awaitingApprovalLocked && "cursor-not-allowed !bg-gray-100 !text-gray-400 opacity-70",
                             request.status === status && "bg-blue-50 font-medium"
                           )}
                         >
-                          <span className={`inline-block h-2 w-2 rounded-full mr-2 ${STATUS_DOT[status] || "bg-gray-400"}`} />
+                          <span className={`inline-block h-2 w-2 rounded-full mr-2 ${awaitingApprovalLocked ? "bg-gray-400" : STATUS_DOT[status] || "bg-gray-400"}`} />
                           {getStatusLabel(status, request.module)}
+                          {awaitingApprovalLocked && (
+                            <span className="ml-auto max-w-28 text-right text-[10px] normal-case leading-tight text-gray-400">
+                              This request has already been approved
+                            </span>
+                          )}
                         </DropdownMenuItem>
-                      ))}
+                        </div>
+                        )
+                      })}
                     </DropdownMenuContent>
                   </DropdownMenu>
 
@@ -1217,6 +1262,9 @@ export default function RequestDetailPage() {
                 </div>
                 <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{request.title}</h1>
                 <p className="text-sm text-muted-foreground mt-1">Request ID: {request.id}</p>
+                {statusActionMessage && (
+                  <p role="alert" className="mt-2 text-sm font-medium text-amber-700">{statusActionMessage}</p>
+                )}
               </div>
             </div>
 
@@ -1226,7 +1274,7 @@ export default function RequestDetailPage() {
               </div>
             )}
 
-            {(MANAGER_APPROVAL_MODULES as readonly string[]).includes(request.module) && request.status === "awaiting_approval" && (
+            {requiresManagerApproval(request) && request.status === "awaiting_approval" && (
               <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm font-medium text-amber-800">{["travel", "finance_travel_reimbursement"].includes(request.module) ? "Authorized Manager" : "Direct Manager"} approval is required</p>

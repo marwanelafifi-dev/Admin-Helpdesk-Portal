@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { feedbackStore } from "@/lib/feedbackStore"
 import { auth } from "@/auth"
-import { modulesVisibleToFunction, roleToFunctionId } from "@/lib/functionRegistry"
+import { modulesVisibleToFunction, roleToFunctionId, type FunctionId } from "@/lib/functionRegistry"
 
 export const runtime = "nodejs"
 
@@ -18,11 +18,24 @@ export async function GET(_req: NextRequest) {
 }
 
 // Auth-protected — Admin Database clear action.
-export async function DELETE(_req: NextRequest) {
+export async function DELETE(req: NextRequest) {
   const session = await auth()
   if (!session?.user) {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 })
   }
+  const permissions = (session.user.permissions as string[] | undefined) ?? []
+  const isAdmin = session.user.role === "Full Access" || permissions.includes("*") || permissions.includes("manage_users")
+  if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+  const requestedFunction = req.nextUrl.searchParams.get("function")
+  if (requestedFunction) {
+    if (!(["admin", "hr", "finance"] as const).includes(requestedFunction as FunctionId)) {
+      return NextResponse.json({ error: "Invalid function" }, { status: 400 })
+    }
+    const cleared = feedbackStore.clearByFunction(requestedFunction as FunctionId)
+    return NextResponse.json({ cleared: true, function: requestedFunction, ...cleared })
+  }
+
   feedbackStore.clearAll()
   return NextResponse.json({ cleared: true })
 }

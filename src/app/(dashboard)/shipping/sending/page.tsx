@@ -479,6 +479,7 @@ export default function SendingPage() {
                         <td className="py-3 px-3 overflow-hidden"><span className="text-sm text-gray-700 font-medium truncate block">{shipment.requester}</span></td>
                         <td className="py-3 px-3">
                           <InlineStatusSelect
+                            requestId={shipment.id}
                             currentStatus={shipment.status}
                             statuses={STATUSES}
                             statusColors={STATUS_COLORS}

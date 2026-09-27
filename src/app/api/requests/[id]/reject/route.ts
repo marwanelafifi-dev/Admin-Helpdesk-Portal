@@ -3,10 +3,13 @@ import { verifyApprovalToken } from "@/lib/approvalToken"
 import { requestStore } from "@/lib/requestStore"
 import { resolveRequestManagerEmail, resolveRequestManagerName, notifyDecision } from "@/lib/approvalNotify"
 import { commentsStore } from "@/lib/commentsStore"
+import { auth } from "@/auth"
+import { requiresManagerApproval } from "@/lib/functionRegistry"
+import { logApprovalAttempt } from "@/lib/approvalSecurity"
 
 export const runtime = "nodejs"
 
-const AWAITING_STATUSES = new Set(["awaiting_approval", "in_customs"])
+const AWAITING_STATUSES = ["awaiting_approval"] as const
 
 /**
  * GET  — validates token + manager, then shows an HTML form for the rejection reason.
@@ -22,21 +25,30 @@ export async function GET(
 
   const verified = verifyApprovalToken(token, "reject")
   if (!verified.ok) {
+    logApprovalAttempt({ req, requestId: id, action: "reject", outcome: "denied", details: `Invalid rejection token (${verified.reason})` })
     return htmlResponse({ title: "Link expired or invalid", body: `<p>This rejection link can't be used. (${verified.reason})</p>` }, 400)
   }
   if (verified.rid !== id) {
+    logApprovalAttempt({ req, requestId: id, action: "reject", actorEmail: verified.managerEmail, outcome: "denied", details: "Token request ID mismatch" })
     return htmlResponse({ title: "Link mismatch", body: `<p>This token doesn't match this request.</p>` }, 400)
   }
 
   const all = requestStore.getAll()
   const request = all.find((r) => r.id === id)
   if (!request) {
+    logApprovalAttempt({ req, requestId: id, action: "reject", actorEmail: verified.managerEmail, outcome: "denied", details: "Request not found" })
     return htmlResponse({ title: "Request not found", body: `<p>The request could not be found.</p>` }, 404)
+  }
+
+  if (!requiresManagerApproval(request)) {
+    logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "reject", actorEmail: verified.managerEmail, outcome: "denied", details: "Request is not eligible for manager approval" })
+    return htmlResponse({ title: "Approval not required", body: `<p>This request does not require manager approval. No change made.</p>`, accent: "red" }, 403)
   }
 
   // Strict manager check — no legacy bypass
   const currentManager = resolveRequestManagerEmail(request)
   if (!verified.managerEmail || !currentManager || currentManager !== verified.managerEmail) {
+    logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "reject", actorEmail: verified.managerEmail, outcome: "denied", details: "Token manager does not match the request manager" })
     return htmlResponse({
       title: "Not authorized",
       body: `<p>Only the request's Direct Manager can use this link.</p>`,
@@ -44,12 +56,33 @@ export async function GET(
     }, 403)
   }
 
-  if (!AWAITING_STATUSES.has(request.status)) {
+  // Clear any open session before an email action so the assigned manager
+  // explicitly signs in from scratch.
+  if (url.searchParams.get("fresh") !== "1") {
+    const returnTo = `${url.pathname}?token=${encodeURIComponent(token)}&fresh=1`
+    return NextResponse.redirect(new URL(`/login?approval=1&callbackUrl=${encodeURIComponent(returnTo)}`, req.url), 303)
+  }
+
+  const session = await auth()
+  const signedInEmail = session?.user?.email?.trim().toLowerCase()
+  if (!signedInEmail) {
+    logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "reject", actorEmail: verified.managerEmail, outcome: "denied", details: "Manager sign-in required" })
+    return NextResponse.redirect(new URL("/login", req.url), 303)
+  }
+  if (signedInEmail !== verified.managerEmail) {
+    logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "reject", actorEmail: signedInEmail, outcome: "denied", details: `Signed-in user does not match assigned manager ${verified.managerEmail}` })
+    return htmlResponse({ title: "Not authorized", body: `<p>Sign in as the assigned Direct Manager to reject this request.</p>`, accent: "red" }, 403)
+  }
+
+  if (!AWAITING_STATUSES.includes(request.status)) {
+    logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "reject", actorEmail: signedInEmail, outcome: "denied", details: `Request already processed (current status: ${request.status})` })
     return htmlResponse({
       title: "Already processed",
       body: `<p>This request is no longer Awaiting Approval (current status: <strong>${escapeHtml(request.status)}</strong>). No change made.</p>`,
     }, 200)
   }
+
+  logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "reject", actorEmail: signedInEmail, outcome: "success", details: "Rejection link opened by assigned manager", opened: true })
 
   // Show the reason form — POST back to the same route
   const postUrl = `/api/requests/${encodeURIComponent(id)}/reject`
@@ -105,23 +138,33 @@ export async function POST(
 
   const verified = verifyApprovalToken(token, "reject")
   if (!verified.ok) {
+    logApprovalAttempt({ req, requestId: id, action: "reject", outcome: "denied", details: `Invalid rejection token (${verified.reason})` })
     return htmlResponse({ title: "Link expired or invalid", body: `<p>This rejection link can't be used. (${verified.reason})</p>` }, 400)
   }
   if (verified.rid !== id) {
+    logApprovalAttempt({ req, requestId: id, action: "reject", actorEmail: verified.managerEmail, outcome: "denied", details: "Token request ID mismatch" })
     return htmlResponse({ title: "Link mismatch", body: `<p>This token doesn't match this request.</p>` }, 400)
   }
   if (!reason) {
+    logApprovalAttempt({ req, requestId: id, action: "reject", actorEmail: verified.managerEmail, outcome: "denied", details: "Rejection reason missing" })
     return htmlResponse({ title: "Reason required", body: `<p>Please go back and provide a rejection reason.</p>`, accent: "red" }, 400)
   }
 
   const all = requestStore.getAll()
   const request = all.find((r) => r.id === id)
   if (!request) {
+    logApprovalAttempt({ req, requestId: id, action: "reject", actorEmail: verified.managerEmail, outcome: "denied", details: "Request not found" })
     return htmlResponse({ title: "Request not found", body: `<p>The request could not be found.</p>` }, 404)
+  }
+
+  if (!requiresManagerApproval(request)) {
+    logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "reject", actorEmail: verified.managerEmail, outcome: "denied", details: "Request is not eligible for manager approval" })
+    return htmlResponse({ title: "Approval not required", body: `<p>This request does not require manager approval. No change made.</p>`, accent: "red" }, 403)
   }
 
   const currentManager = resolveRequestManagerEmail(request)
   if (!verified.managerEmail || !currentManager || currentManager !== verified.managerEmail) {
+    logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "reject", actorEmail: verified.managerEmail, outcome: "denied", details: "Token manager does not match the request manager" })
     return htmlResponse({
       title: "Not authorized",
       body: `<p>Only the request's Direct Manager can use this link.</p>`,
@@ -129,7 +172,19 @@ export async function POST(
     }, 403)
   }
 
-  if (!AWAITING_STATUSES.has(request.status)) {
+  const session = await auth()
+  const signedInEmail = session?.user?.email?.trim().toLowerCase()
+  if (!signedInEmail) {
+    logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "reject", actorEmail: verified.managerEmail, outcome: "denied", details: "Manager sign-in required" })
+    return NextResponse.redirect(new URL("/login", req.url), 303)
+  }
+  if (signedInEmail !== verified.managerEmail) {
+    logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "reject", actorEmail: signedInEmail, outcome: "denied", details: `Signed-in user does not match assigned manager ${verified.managerEmail}` })
+    return htmlResponse({ title: "Not authorized", body: `<p>Sign in as the assigned Direct Manager to reject this request.</p>`, accent: "red" }, 403)
+  }
+
+  if (!AWAITING_STATUSES.includes(request.status)) {
+    logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "reject", actorEmail: signedInEmail, outcome: "denied", details: `Request already processed (current status: ${request.status})` })
     return htmlResponse({
       title: "Already processed",
       body: `<p>This request is no longer Awaiting Approval (current status: <strong>${escapeHtml(request.status)}</strong>). No change made.</p>`,
@@ -140,16 +195,17 @@ export async function POST(
   const managerName = resolveRequestManagerName(request) ?? verified.managerEmail
   const commentContent = `Rejected\nReason: ${reason}`
 
-  const updated = {
-    ...request,
+  const updated = requestStore.transitionIfStatus(id, AWAITING_STATUSES, (current) => ({
+    ...current,
     status: "cancelled" as const,
     updatedAt: now,
-    statusHistory: [
-      ...(request.statusHistory ?? []),
-      { status: "cancelled" as const, changedBy: verified.managerEmail, changedAt: now, comment: `Rejected by Direct Manager: ${reason}` },
-    ],
+    statusHistory: [...(current.statusHistory ?? []), { status: "cancelled" as const, changedBy: verified.managerEmail, changedAt: now, comment: `Rejected by Direct Manager: ${reason}` }],
+  }))
+  if (!updated) {
+    logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "reject", actorEmail: signedInEmail, outcome: "denied", details: "Concurrent decision already recorded" })
+    return htmlResponse({ title: "Already processed", body: `<p>This request was already decided. No change made.</p>` }, 200)
   }
-  requestStore.upsert(updated)
+  logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "reject", actorEmail: signedInEmail, outcome: "success", details: "Rejected by assigned manager" })
 
   commentsStore.addComment(request.id, {
     id: `CMT-REJECT-${Date.now()}`,

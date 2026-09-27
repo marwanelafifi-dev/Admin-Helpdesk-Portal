@@ -5,29 +5,24 @@
  * GET  -> returns the last saved browser-data snapshot
  * POST -> accepts { data: Record<string, unknown> } and writes to disk
  *
- * Auth-gated: page:admin-database or manage_users / wildcard.
+ * Auth-gated: dedicated backup permission, because it contains browser-side
+ * portal data used in portable and scheduled backups.
  */
 
 import { NextRequest, NextResponse } from "next/server"
 import fs from "fs"
 import path from "path"
 import { auth } from "@/auth"
+import { canManageDatabase } from "@/lib/databaseAccess"
 
 export const runtime = "nodejs"
 
 const DATA_DIR  = path.join(process.cwd(), "data")
 const FILE_PATH = path.join(DATA_DIR, "browser-data.json")
 
-function isAuthorized(perms: string[] | undefined): boolean {
-  if (!perms) return false
-  return perms.includes("*")
-      || perms.includes("page:admin-database")
-      || perms.includes("manage_users")
-}
-
 export async function GET() {
   const session = await auth()
-  if (!isAuthorized(session?.user?.permissions as string[] | undefined)) {
+  if (!canManageDatabase(session?.user, "backup")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
   try {
@@ -41,7 +36,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await auth()
-  if (!isAuthorized(session?.user?.permissions as string[] | undefined)) {
+  if (!canManageDatabase(session?.user, "backup")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
   let body: { data?: Record<string, unknown> }

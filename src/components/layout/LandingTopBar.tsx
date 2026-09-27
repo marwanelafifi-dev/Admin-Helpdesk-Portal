@@ -3,7 +3,7 @@
 import { signOut, useSession } from "next-auth/react"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { LogOut, Settings, Sun, Moon, User } from "lucide-react"
+import { LogOut, Settings, Sun, Moon, User, MessageSquarePlus } from "lucide-react"
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -15,6 +15,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { openPortalFeedback } from "@/components/feedback/PortalFeedbackLauncher"
+import { JourneyManual } from "@/components/help/JourneyManual"
 
 function getInitials(name?: string | null, email?: string | null) {
   const label = name || email || "User"
@@ -66,16 +68,20 @@ export function LandingTopBar() {
         size="icon"
         title={isDark ? "Switch to light mode" : "Switch to dark mode"}
         onClick={toggleTheme}
-        className="text-muted-foreground hover:text-foreground"
+        className="order-1 text-muted-foreground hover:text-foreground dark:text-slate-300 dark:hover:bg-sky-400/10 dark:hover:text-cyan-200"
       >
         {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
       </Button>
+      <Button variant="ghost" size="icon" title="Portal feedback" aria-label="Share portal feedback" onClick={openPortalFeedback} className="order-2 text-muted-foreground hover:text-blue-600 dark:text-slate-300 dark:hover:bg-sky-400/10 dark:hover:text-cyan-200">
+        <MessageSquarePlus className="h-5 w-5" />
+      </Button>
+      <JourneyManual className="order-3" />
 
       {/* User Avatar + Name */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="flex items-center gap-2 rounded-md px-1.5 sm:px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
-            <Avatar className="h-8 w-8">
+          <button className="order-4 flex items-center gap-2 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-sky-400/10 sm:px-2">
+            <Avatar className="h-8 w-8 dark:ring-2 dark:ring-sky-300/20">
               {user?.image && <AvatarImage src={user.image} alt={user.name ?? "User"} />}
               <AvatarFallback className="bg-blue-600 text-white text-xs font-semibold">
                 {getInitials(user?.name, user?.email)}
@@ -108,16 +114,17 @@ export function LandingTopBar() {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Standalone logout icon */}
       <Button
         variant="ghost"
         size="icon"
         title="Log out"
-        className="hidden text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950 sm:inline-flex"
+        aria-label="Log out"
+        className="order-5 text-muted-foreground hover:text-destructive hover:bg-red-50 dark:text-slate-300 dark:hover:bg-red-400/10"
         onClick={handleSignOut}
       >
         <LogOut className="h-5 w-5" />
       </Button>
+
     </div>
   )
 }

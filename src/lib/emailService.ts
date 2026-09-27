@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer"
 import fs from "fs"
 import path from "path"
-import { getFunctionEmailSenderName, readEmailConfig, type EmailFunctionId } from "./emailConfig"
+import { FUNCTION_EMAILS, getFunctionEmailSenderName, readEmailConfig, type EmailFunctionId } from "./emailConfig"
 import { DEFAULT_ANNOUNCEMENT_SIGNATURE } from "./announcementStore"
 import { functionForModule } from "./functionRegistry"
 import { logServerAudit } from "./serverAuditLog"
@@ -33,6 +33,34 @@ function getLogoBuffer(): Buffer | null {
 // account), keyed by functionId — rebuilt only when that function's saved
 // config actually changes.
 const transporterCache = new Map<EmailFunctionId, { transporter: any; key: string }>()
+
+function functionEmailIdentity(functionId: EmailFunctionId) {
+  return {
+    label: getFunctionEmailSenderName(functionId),
+    email: FUNCTION_EMAILS[functionId],
+  }
+}
+
+function money(amount: unknown, currency?: unknown) {
+  const value = Number(amount)
+  return Number.isFinite(value) ? `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${typeof currency === "string" ? currency : ""}`.trim() : "—"
+}
+
+function legacyTravelRowAmount(item: Record<string, any>): { amount: number; currency: string } | null {
+  // Match the request-detail legacy migration: one row has one effective
+  // amount, chosen in USD → EUR → EGP priority order.
+  const currency = (["USD", "EUR", "EGP"] as const).find((code) => Number(item[`${code.toLowerCase()}Amount`] ?? 0) > 0)
+  if (!currency) return null
+  return { amount: Number(item[`${currency.toLowerCase()}Amount`]), currency }
+}
+
+function financeLineItemsTable(headers: string[], rows: string[][], totals?: Record<string, number>) {
+  if (!rows.length) return ""
+  const head = headers.map((header) => `<th style="padding:8px;text-align:left;font-size:11px;color:#475569;border-bottom:1px solid #cbd5e1;">${escapeHtml(header)}</th>`).join("")
+  const body = rows.map((row) => `<tr>${row.map((value) => `<td style="padding:8px;font-size:12px;color:#0f172a;border-bottom:1px solid #e2e8f0;vertical-align:top;">${escapeHtml(value)}</td>`).join("")}</tr>`).join("")
+  const totalsLine = Object.entries(totals ?? {}).filter(([, value]) => Number(value) > 0).map(([currency, value]) => money(value, currency)).join(" · ")
+  return `<div style="padding:20px 28px 0;"><p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#334155;">Submitted line items</p><table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;">${`<thead><tr style="background:#f8fafc;">${head}</tr></thead>`}<tbody>${body}</tbody></table>${totalsLine ? `<p style="margin:10px 0 0;font-size:12px;font-weight:600;color:#334155;">Totals: ${escapeHtml(totalsLine)}</p>` : ""}</div>`
+}
 
 function configKey(saved: ReturnType<typeof readEmailConfig>) {
   if (saved?.method && saved?.values) {
@@ -361,6 +389,7 @@ export async function sendRequestUpdateEmail(params: {
   if (recipients.length === 0) return
 
   const emailFn = functionForModule(params.module)
+  const functionIdentity = functionEmailIdentity(emailFn)
   const transporter = createTransporter(emailFn)
   const actionUrl = `${getBaseUrl()}/requests/${encodeURIComponent(params.requestId)}`
   const actor = params.actorName || "A team member"
@@ -381,8 +410,8 @@ export async function sendRequestUpdateEmail(params: {
 
   const bodyLine =
     isNewRequest
-      ? `<strong>${escapeHtml(actor)}</strong> submitted a new request in the Admin Helpdesk Portal.`
-      : `<strong>${escapeHtml(actor)}</strong> updated a request in the Admin Helpdesk Portal.`
+      ? `<strong>${escapeHtml(actor)}</strong> submitted a new request to the ${escapeHtml(functionIdentity.label)}.`
+      : `<strong>${escapeHtml(actor)}</strong> updated a request managed by the ${escapeHtml(functionIdentity.label)}.`
 
   const detail =
     params.updateType === "status"
@@ -428,14 +457,14 @@ export async function sendRequestUpdateEmail(params: {
       </div>
       <a href="${actionUrl}" class="btn">Open request</a>
     </div>
-    <div class="footer">This is an automated notification from Si-Ware Systems Admin Helpdesk Portal.</div>
+    <div class="footer">This is an automated notification from Si-Ware Systems ${escapeHtml(functionIdentity.label)} &nbsp;·&nbsp; ${escapeHtml(functionIdentity.email)}</div>
   </div>
 </body>
 </html>
 `
 
   await sendMailWithRetry(transporter, {
-    from: resolveFromAddress("Si-Ware IT Helpdesk", emailFn),
+    from: resolveFromAddress(`Si-Ware ${functionIdentity.label}`, emailFn),
     to: recipients,
     cc: params.cc?.filter(Boolean),
     replyTo,
@@ -477,7 +506,9 @@ export async function sendAnnouncementEmail(params: {
   const recipients = Array.from(new Set(params.to.filter(Boolean)))
   if (recipients.length === 0) return
 
-  const transporter = createTransporter(params.functionId ?? "admin")
+  const announcementFunction = params.functionId ?? "admin"
+  const functionIdentity = functionEmailIdentity(announcementFunction)
+  const transporter = createTransporter(announcementFunction)
   const logoBuffer = getLogoBuffer()
   const bodyHtml = params.body
     .split(/\r?\n/)
@@ -550,7 +581,7 @@ export async function sendAnnouncementEmail(params: {
         <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;margin-top:24px;">
           <tr>
             <td style="text-align:center;padding:0 20px;">
-              <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.6;">© 2026 Si-Ware Systems. All rights reserved. | This is an automated notification from the Admin Helpdesk Portal.</p>
+              <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.6;">© 2026 Si-Ware Systems. All rights reserved. | This is an automated notification from the ${escapeHtml(functionIdentity.label)}.</p>
             </td>
           </tr>
         </table>
@@ -588,7 +619,7 @@ export async function sendAnnouncementEmail(params: {
     }
 
     await sendMailWithRetry(transporter, {
-      from: resolveFromAddress("Si-Ware Admin Helpdesk", params.functionId ?? "admin"),
+      from: resolveFromAddress(`Si-Ware ${functionIdentity.label}`, announcementFunction),
       to: recipient,
       cc: params.cc?.filter(Boolean),
       subject: params.subject,
@@ -601,7 +632,7 @@ export async function sendAnnouncementEmail(params: {
         "References": uniqueMessageId,
         "In-Reply-To": uniqueMessageId,
         // Custom header to mark as bulk/announcement (not a reply)
-        "X-Mailer": "Si-Ware Admin Helpdesk Portal",
+        "X-Mailer": `Si-Ware ${functionIdentity.label} Portal`,
         "X-Originating-IP": "[127.0.0.1]",
         // Prevent automatic conversation grouping
         "Precedence": "bulk",
@@ -1264,6 +1295,7 @@ export async function sendReimbursementApprovalEmail(params: {
   amount?: number
   currency?: string
   totalsByCurrency?: Record<string, number>
+  expenseRows?: Array<Record<string, any>>
   costCenter?: string
   requesterName?: string
   requesterEmail?: string
@@ -1302,6 +1334,11 @@ export async function sendReimbursementApprovalEmail(params: {
         ${row("Amount", amountDisplay)}
         ${row("Cost center", params.costCenter)}
       </table>`
+  const lineItemsTable = financeLineItemsTable(
+    ["Description", "Cost center", "Invoice", "Refund"],
+    (params.expenseRows ?? []).map((item) => [item.description || item.otherDescription || "—", item.costCenter || "—", money(item.invoiceAmount, item.invoiceCurrency), money(item.refundAmount, item.refundCurrency)]),
+    params.totalsByCurrency,
+  )
 
   const wrapper = (body: string) => `<!doctype html>
 <html><body style="margin:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;">
@@ -1315,7 +1352,7 @@ export async function sendReimbursementApprovalEmail(params: {
       </div>
       ${body}
     </div>
-    <p style="text-align:center;margin:18px 0 0;font-size:12px;color:#94a3b8;">Si-Ware Systems Admin Helpdesk Portal &nbsp;·&nbsp; adminhelpdesk@si-ware.com</p>
+    <p style="text-align:center;margin:18px 0 0;font-size:12px;color:#94a3b8;">Si-Ware Systems Finance Team &nbsp;·&nbsp; ap@si-ware.com</p>
   </div>
 </body></html>`
 
@@ -1325,6 +1362,7 @@ export async function sendReimbursementApprovalEmail(params: {
         <p style="margin:0 0 8px;font-size:14px;color:#334155;">${params.managerName ? `Hi ${escapeHtml(params.managerName)}, a` : "A"} reimbursement request requires your approval. Please review the details below and click <strong>Approve</strong> or <strong>Reject</strong>.</p>
       </div>
       ${detailsTable}
+      ${lineItemsTable}
       <div style="padding:28px;text-align:center;background:#fff;">
         <a href="${params.approveUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Approve</a>
         <a href="${params.rejectUrl}"  style="display:inline-block;background:#ef4444;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Reject</a>
@@ -1338,6 +1376,7 @@ export async function sendReimbursementApprovalEmail(params: {
         <p style="margin:0 0 8px;font-size:14px;color:#334155;">A reimbursement request is <strong>awaiting approval</strong> from the Direct Manager. This is an informational copy — no action is required from you.</p>
       </div>
       ${detailsTable}
+      ${lineItemsTable}
       <div style="padding:20px 28px;text-align:center;background:#fff;">
         <a href="${requestUrl}" style="display:inline-block;background:#2563eb;color:#fff;font-weight:600;padding:10px 28px;border-radius:8px;text-decoration:none;font-size:14px;">View Request in Portal</a>
       </div>`)
@@ -1384,6 +1423,7 @@ export async function sendTravelReimbursementApprovalEmail(params: {
   amount?: number
   currency?: string
   totalsByCurrency?: Record<string, number>
+  expenseRows?: Array<Record<string, any>>
   costCenter?: string
   requesterName?: string
   requesterEmail?: string
@@ -1422,6 +1462,31 @@ export async function sendTravelReimbursementApprovalEmail(params: {
         ${row("Amount", amountDisplay)}
         ${row("Cost center", params.costCenter)}
       </table>`
+  const travelLineItems = (params.expenseRows ?? []).map((item) => {
+    const legacy = legacyTravelRowAmount(item)
+    const invoice = item.invoiceAmount !== undefined && item.invoiceAmount !== null
+      ? { amount: Number(item.invoiceAmount), currency: item.invoiceCurrency }
+      : legacy
+    const refund = item.refundAmount !== undefined && item.refundAmount !== null
+      ? { amount: Number(item.refundAmount), currency: item.refundCurrency }
+      : legacy
+    return { item, invoice, refund }
+  })
+  const normalizedRefundTotals = travelLineItems.reduce<Record<string, number>>((totals, { refund }) => {
+    if (refund && Number.isFinite(refund.amount)) totals[refund.currency] = (totals[refund.currency] ?? 0) + refund.amount
+    return totals
+  }, {})
+  const lineItemsTable = financeLineItemsTable(
+    ["Description", "Invoice", "Refund"],
+    travelLineItems.map(({ item, invoice, refund }) => {
+      return [
+        item.description === "Others" ? item.otherDescription || "Others" : item.description || "—",
+        invoice ? money(invoice.amount, invoice.currency) : "—",
+        refund ? money(refund.amount, refund.currency) : "—",
+      ]
+    }),
+    normalizedRefundTotals,
+  )
 
   const wrapper = (body: string) => `<!doctype html>
 <html><body style="margin:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;">
@@ -1435,7 +1500,7 @@ export async function sendTravelReimbursementApprovalEmail(params: {
       </div>
       ${body}
     </div>
-    <p style="text-align:center;margin:18px 0 0;font-size:12px;color:#94a3b8;">Si-Ware Systems Admin Helpdesk Portal &nbsp;·&nbsp; adminhelpdesk@si-ware.com</p>
+    <p style="text-align:center;margin:18px 0 0;font-size:12px;color:#94a3b8;">Si-Ware Systems Finance Team &nbsp;·&nbsp; ap@si-ware.com</p>
   </div>
 </body></html>`
 
@@ -1445,6 +1510,7 @@ export async function sendTravelReimbursementApprovalEmail(params: {
         <p style="margin:0 0 8px;font-size:14px;color:#334155;">${params.managerName ? `Hi ${escapeHtml(params.managerName)}, a` : "A"} travel reimbursement request requires your approval. Please review the details below and click <strong>Approve</strong> or <strong>Reject</strong>.</p>
       </div>
       ${detailsTable}
+      ${lineItemsTable}
       <div style="padding:28px;text-align:center;background:#fff;">
         <a href="${params.approveUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Approve</a>
         <a href="${params.rejectUrl}"  style="display:inline-block;background:#ef4444;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Reject</a>
@@ -1458,6 +1524,7 @@ export async function sendTravelReimbursementApprovalEmail(params: {
         <p style="margin:0 0 8px;font-size:14px;color:#334155;">A travel reimbursement request is <strong>awaiting approval</strong> from the Authorized Manager. This is an informational copy — no action is required from you.</p>
       </div>
       ${detailsTable}
+      ${lineItemsTable}
       <div style="padding:20px 28px;text-align:center;background:#fff;">
         <a href="${requestUrl}" style="display:inline-block;background:#2563eb;color:#fff;font-weight:600;padding:10px 28px;border-radius:8px;text-decoration:none;font-size:14px;">View Request in Portal</a>
       </div>`)
@@ -1507,6 +1574,8 @@ export async function sendInvoicePaymentApprovalEmail(params: {
   currency?: string
   paymentTerms?: string
   paymentMethod?: string
+  invoiceRows?: Array<Record<string, any>>
+  totalsByCurrency?: Record<string, number>
   requesterName?: string
   requesterEmail?: string
   approveUrl: string
@@ -1543,6 +1612,11 @@ export async function sendInvoicePaymentApprovalEmail(params: {
         ${row("Payment terms", params.paymentTerms)}
         ${row("Method", params.paymentMethod)}
       </table>`
+  const lineItemsTable = financeLineItemsTable(
+    ["Supplier", "PO / contract", "Amount", "Payment terms", "Method"],
+    (params.invoiceRows ?? []).map((item) => [item.supplier || item.supplierName || "—", item.poNumber || item.otherDescription || "—", money(item.amount, item.currency), item.paymentTerms || "—", item.paymentMethod || "—"]),
+    params.totalsByCurrency,
+  )
 
   const wrapper = (body: string) => `<!doctype html>
 <html><body style="margin:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;">
@@ -1556,7 +1630,7 @@ export async function sendInvoicePaymentApprovalEmail(params: {
       </div>
       ${body}
     </div>
-    <p style="text-align:center;margin:18px 0 0;font-size:12px;color:#94a3b8;">Si-Ware Systems Admin Helpdesk Portal &nbsp;·&nbsp; adminhelpdesk@si-ware.com</p>
+    <p style="text-align:center;margin:18px 0 0;font-size:12px;color:#94a3b8;">Si-Ware Systems Finance Team &nbsp;·&nbsp; ap@si-ware.com</p>
   </div>
 </body></html>`
 
@@ -1566,6 +1640,7 @@ export async function sendInvoicePaymentApprovalEmail(params: {
         <p style="margin:0 0 8px;font-size:14px;color:#334155;">${params.managerName ? `Hi ${escapeHtml(params.managerName)}, a` : "A"} vendor invoice payment requires your approval. Please review the details below and click <strong>Approve</strong> or <strong>Reject</strong>.</p>
       </div>
       ${detailsTable}
+      ${lineItemsTable}
       <div style="padding:28px;text-align:center;background:#fff;">
         <a href="${params.approveUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Approve</a>
         <a href="${params.rejectUrl}"  style="display:inline-block;background:#ef4444;color:#fff;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:14px;margin:6px 8px;">Reject</a>
@@ -1579,6 +1654,7 @@ export async function sendInvoicePaymentApprovalEmail(params: {
         <p style="margin:0 0 8px;font-size:14px;color:#334155;">A vendor invoice payment request is <strong>awaiting approval</strong>. This is an informational copy — no action is required from you.</p>
       </div>
       ${detailsTable}
+      ${lineItemsTable}
       <div style="padding:20px 28px;text-align:center;background:#fff;">
         <a href="${requestUrl}" style="display:inline-block;background:#2563eb;color:#fff;font-weight:600;padding:10px 28px;border-radius:8px;text-decoration:none;font-size:14px;">View Request in Portal</a>
       </div>`)

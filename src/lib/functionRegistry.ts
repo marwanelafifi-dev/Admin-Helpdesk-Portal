@@ -81,6 +81,21 @@ export const MANAGER_APPROVAL_MODULES = [
   "finance_invoice_payment",
 ] as const
 
+/**
+ * Whether this specific request needs manager approval. Most approval
+ * modules always do; PO-backed Finance paths are already approved through
+ * Purchasing and must bypass the manager-approval workflow.
+ */
+export function requiresManagerApproval(request: { module: string; payload?: unknown }): boolean {
+  if (!(MANAGER_APPROVAL_MODULES as readonly string[]).includes(request.module)) return false
+
+  const payload = (request.payload ?? {}) as Record<string, unknown>
+  if (request.module === "finance_invoice_payment") return payload.poOrContract !== "po"
+  if (request.module === "finance_reimbursement") return payload.poOption === "no_po"
+
+  return true
+}
+
 /** True if `fn` is allowed to see requests from `moduleId`. Unregistered module ids are hidden from everyone by default. */
 export function isModuleVisibleToFunction(moduleId: string, fn: FunctionId): boolean {
   const entry = MODULE_REGISTRY[moduleId]

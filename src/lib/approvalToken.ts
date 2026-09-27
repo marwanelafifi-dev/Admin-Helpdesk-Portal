@@ -7,7 +7,7 @@ import crypto from "crypto"
  *   payload = JSON({ rid, act, exp })
  *     rid  request id
  *     act  "approve" | "reject"
- *     exp  unix epoch seconds (expiry, default 14 days from issue)
+ *     exp  unix epoch seconds (expiry, default 72 hours from issue)
  *
  * Signed with AUTH_SECRET — the same secret used by NextAuth — so anyone
  * with read access to the env can verify but not anyone outside the app
@@ -49,7 +49,7 @@ export function signApprovalToken(
   rid: string,
   act: "approve" | "reject",
   managerEmail?: string,
-  expSecondsFromNow = 14 * 24 * 60 * 60,
+  expSecondsFromNow = 72 * 60 * 60,
 ): string {
   const payload: TokenPayload = {
     rid,

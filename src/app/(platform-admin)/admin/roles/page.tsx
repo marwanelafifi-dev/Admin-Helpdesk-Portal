@@ -43,6 +43,9 @@ const PERMISSION_LABELS: Record<string, string> = {
   manage_feedback: "Manage Feedback",
   manage_users: "Manage Users",
   manage_roles: "Manage Roles",
+  manage_backups: "Create & Schedule Backups",
+  restore_backups: "Restore Backups",
+  purge_data: "Purge Database Data",
   settings: "Settings",
 }
 
@@ -64,6 +67,15 @@ const AVAILABLE_PERMISSIONS = [
   "manage_users",
   "manage_roles",
   "settings",
+]
+
+// These permissions are deliberately kept out of the general "Select All"
+// action below. A role must be granted each destructive database capability
+// intentionally, in addition to access to the Database page itself.
+const DATABASE_PERMISSIONS = [
+  "manage_backups",
+  "restore_backups",
+  "purge_data",
 ]
 
 // Legacy routes can remain protected in the registry without being offered as
@@ -222,10 +234,12 @@ export default function AdminRolesPage() {
   }
 
   const toggleAllPermissions = () => {
-    const allSelected = formData.permissions.length === AVAILABLE_PERMISSIONS.length
+    const allSelected = AVAILABLE_PERMISSIONS.every((permission) => formData.permissions.includes(permission))
     setFormData((current) => ({
       ...current,
-      permissions: allSelected ? [] : AVAILABLE_PERMISSIONS,
+      permissions: allSelected
+        ? current.permissions.filter((permission) => !AVAILABLE_PERMISSIONS.includes(permission))
+        : [...new Set([...current.permissions, ...AVAILABLE_PERMISSIONS])],
     }))
   }
 
@@ -429,7 +443,7 @@ export default function AdminRolesPage() {
                     className="h-7 text-xs"
                     onClick={toggleAllPermissions}
                   >
-                    {formData.permissions.length === AVAILABLE_PERMISSIONS.length ? "Deselect All" : "Select All"}
+                    {AVAILABLE_PERMISSIONS.every((permission) => formData.permissions.includes(permission)) ? "Deselect All" : "Select All"}
                   </Button>
                 </div>
                 <div className="grid grid-cols-4 gap-2 p-3 border rounded-lg bg-gray-50">
@@ -437,6 +451,30 @@ export default function AdminRolesPage() {
                     <label
                       key={perm}
                       className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded"
+                    >
+                      <Checkbox
+                        checked={formData.permissions.includes(perm)}
+                        onCheckedChange={() => togglePermission(perm)}
+                      />
+                      <span className="text-sm font-medium">{PERMISSION_LABELS[perm]}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sensitive database operations */}
+              <div className="space-y-3 border border-amber-200 rounded-lg bg-amber-50/60 p-3">
+                <div>
+                  <Label className="text-sm font-semibold">Database Operations (Sensitive)</Label>
+                  <p className="text-xs text-amber-900/80 mt-1">
+                    Grant these individually and only with Database page access. Restore and purge can change or remove portal data.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  {DATABASE_PERMISSIONS.map((perm) => (
+                    <label
+                      key={perm}
+                      className="flex items-center gap-2 cursor-pointer hover:bg-white/70 p-2 rounded"
                     >
                       <Checkbox
                         checked={formData.permissions.includes(perm)}

@@ -65,3 +65,21 @@ export async function PATCH(req: NextRequest) {
   }
   return NextResponse.json({ ok: true })
 }
+
+/** DELETE /api/notifications/inapp?function=admin|hr|finance — Database admin control. */
+export async function DELETE(req: NextRequest) {
+  const session = await auth()
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const permissions = (session.user.permissions as string[] | undefined) ?? []
+  const isAdmin = session.user.role === "Full Access" || permissions.includes("*") || permissions.includes("manage_users")
+  if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+  const requestedFunction = req.nextUrl.searchParams.get("function")
+  if (requestedFunction && !FUNCTION_IDS.includes(requestedFunction as FunctionId)) {
+    return NextResponse.json({ error: "Invalid function" }, { status: 400 })
+  }
+  const removed = requestedFunction
+    ? serverNotificationStore.clearForFunction(requestedFunction as FunctionId)
+    : (serverNotificationStore.clear(), 0)
+  return NextResponse.json({ cleared: true, removed, function: requestedFunction ?? null })
+}

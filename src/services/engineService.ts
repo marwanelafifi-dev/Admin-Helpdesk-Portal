@@ -9,7 +9,8 @@
 import { logAuditEvent } from "@/lib/auditLog"
 import { getRequestCompany, type CompanyId } from "@/lib/userCompany"
 import { companyFromEmail } from "@/lib/company"
-import { MANAGER_APPROVAL_MODULES } from "@/lib/functionRegistry"
+import { requiresManagerApproval } from "@/lib/functionRegistry"
+import { hasRecordedApproval } from "@/lib/approvalRules"
 
 // â"€â"€â"€ Types â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
@@ -257,8 +258,8 @@ export async function retryPendingPushes(): Promise<void> {
   savePending()
 }
 
-export async function pushToServer(request: EngineRequest): Promise<void> {
-  if (typeof window === "undefined") return
+export async function pushToServer(request: EngineRequest): Promise<boolean> {
+  if (typeof window === "undefined") return false
   // Callers mark pending before writing locally. Keep this as a fallback for
   // retries and older call paths.
   if (!_pendingPush.has(request.id)) markPending(request)
@@ -272,7 +273,7 @@ export async function pushToServer(request: EngineRequest): Promise<void> {
       })
       if (!res.ok) {
         if (attempt < ATTEMPTS - 1) { await new Promise(r => setTimeout(r, (attempt + 1) * 2000)); continue }
-        return
+        return false
       }
       const json = await res.json()
       const saved = json?.request as EngineRequest | undefined
@@ -284,7 +285,7 @@ export async function pushToServer(request: EngineRequest): Promise<void> {
       if (!saved) {
         // Push succeeded but no body — notify listeners now that pending is clear
         if (_pendingPush.size === 0) try { window.dispatchEvent(new Event("arp:storage")) } catch {}
-        return
+        return true
       }
 
       // Only mirror this response if no newer update for the same request was
@@ -302,12 +303,13 @@ export async function pushToServer(request: EngineRequest): Promise<void> {
       if (_pendingPush.size === 0) {
         try { window.dispatchEvent(new Event("arp:storage")) } catch {}
       }
-      return
+      return true
     } catch {
       if (attempt < ATTEMPTS - 1) await new Promise(r => setTimeout(r, (attempt + 1) * 2000))
     }
   }
   // Push failed after all retries — leave in _pendingPush so syncFromServer preserves it.
+  return false
 }
 
 async function createOnServer<T extends Record<string, unknown>>(
@@ -543,12 +545,34 @@ export async function updateStatus(
   changedBy: string,
   comment?: string
 ): Promise<EngineRequest | null> {
+  // Browser state can be stale when another user approves a request. Check
+  // the authoritative record before changing local state or sending any email.
+  if (typeof window !== "undefined" && status === "awaiting_approval") {
+    try {
+      const response = await fetch(`/api/requests?id=${encodeURIComponent(id)}`, { cache: "no-store" })
+      if (response.ok) {
+        const json = await response.json()
+        if (json?.request && hasRecordedApproval(json.request as EngineRequest)) {
+          throw new Error("This request has already been approved and cannot return to Awaiting Approval.")
+        }
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("already been approved")) throw error
+      // A network problem does not bypass the local/server guards below.
+    }
+  }
   const requests = readAll()
   const index    = requests.findIndex((r) => r.id === id)
   if (index === -1) return null
 
   const now     = new Date().toISOString()
   const previousStatus = requests[index].status
+  if (status === "awaiting_approval" && !requiresManagerApproval(requests[index])) {
+    throw new Error("This request does not require manager approval. Move it to In Progress instead.")
+  }
+  if (status === "awaiting_approval" && hasRecordedApproval(requests[index])) {
+    throw new Error("This request was already approved and cannot return to Awaiting Approval.")
+  }
   const updated = {
     ...requests[index],
     status,
@@ -562,7 +586,10 @@ export async function updateStatus(
   requests[index] = updated
   markPending(updated)
   writeAll(requests)
-  await pushToServer(updated)
+  const synced = await pushToServer(updated)
+  if (!synced) {
+    throw new Error("Status update was not accepted by the server. No notification was sent.")
+  }
 
   void import("./emailService").then(({ simulateStatusChangeEmail }) => {
     simulateStatusChangeEmail(updated, previousStatus, status)
@@ -619,7 +646,7 @@ export async function updateStatus(
   // the selected Direct Manager with one-click Approve / Reject buttons.
   if (
     typeof window !== "undefined" &&
-    (MANAGER_APPROVAL_MODULES as readonly string[]).includes(updated.module) &&
+    requiresManagerApproval(updated) &&
     status === "awaiting_approval" &&
     previousStatus !== "awaiting_approval"
   ) {

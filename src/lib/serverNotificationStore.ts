@@ -102,6 +102,27 @@ class ServerNotificationStore {
       writeToDisk([])
     }
   }
+
+  /** Remove one function's notification scope without removing notifications shared with another function. */
+  clearForFunction(functionId: FunctionId): number {
+    const all = readFromDisk()
+    let removed = 0
+    const updated: ServerNotification[] = []
+    for (const notification of all) {
+      const scopes = notification.functionIds?.length
+        ? notification.functionIds
+        : functionsForLegacyRequestId(notification.requestId)
+      if (!scopes.includes(functionId)) {
+        updated.push(notification)
+        continue
+      }
+      removed++
+      const remainingScopes = scopes.filter((scope) => scope !== functionId)
+      if (remainingScopes.length > 0) updated.push({ ...notification, functionIds: remainingScopes })
+    }
+    writeToDisk(updated)
+    return removed
+  }
 }
 
 export const serverNotificationStore = new ServerNotificationStore()

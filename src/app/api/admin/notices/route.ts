@@ -16,7 +16,7 @@ export const runtime = "nodejs"
  * Requires Full Access or manage_users permission.
  *
  * POST /api/admin/notices — creates a new notice.
- *   body: { title, type, summary, description?, postedBy? }
+ *   body: { title, type, scope, summary, description?, postedBy? }
  *
  * PUT /api/admin/notices/:id — updates a notice.
  *   body: partial SystemNotice object
@@ -72,6 +72,9 @@ export async function POST(req: Request) {
     if (!body.type || !["feature", "bug_fix", "update"].includes(body.type)) {
       return NextResponse.json({ error: "Invalid notice type" }, { status: 400 })
     }
+    const scope = ["whole_app", "administration", "finance", "people", "it"].includes(body.scope)
+      ? body.scope
+      : "whole_app"
 
     // Trim lengths
     const title = body.title.slice(0, 100)
@@ -81,6 +84,7 @@ export async function POST(req: Request) {
     const notice = createNotice({
       title,
       type: body.type,
+      scope,
       summary,
       description,
       postedAt: body.postedAt ?? new Date().toISOString(),
@@ -114,6 +118,9 @@ export async function PUT(req: Request) {
     if (updates.title) updates.title = updates.title.slice(0, 100)
     if (updates.summary) updates.summary = updates.summary.slice(0, 200)
     if (updates.description) updates.description = updates.description.slice(0, 5000)
+    if (updates.scope && !["whole_app", "administration", "finance", "people", "it"].includes(updates.scope)) {
+      return NextResponse.json({ error: "Invalid update label" }, { status: 400 })
+    }
 
     const updated = updateNotice(id, updates)
     if (!updated) {
