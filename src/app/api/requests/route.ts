@@ -9,6 +9,7 @@ import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/ac
 import { functionForModule, isRequestVisibleToViewer, MODULE_REGISTRY } from "@/lib/functionRegistry"
 import { logServerAudit } from "@/lib/serverAuditLog"
 import { hasRecordedApproval } from "@/lib/approvalRules"
+import { deliverFeedbackSurveyForRequest } from "@/lib/feedbackSurveyDelivery"
 
 export const runtime = "nodejs"
 
@@ -320,6 +321,18 @@ export async function POST(req: Request) {
     ? requestStore.create(requestToSave)
     : requestStore.upsert(requestToSave)
 
+  // This server route is the authoritative state transition for every
+  // Administration, People and Finance request. Delivering here means a
+  // browser refresh or navigation cannot lose the feedback email.
+  const enteredCompletedState = Boolean(
+    existing
+    && ["completed", "delivered"].includes(saved.status)
+    && !["completed", "delivered"].includes(existing.status),
+  )
+  const feedbackSurvey = enteredCompletedState
+    ? await deliverFeedbackSurveyForRequest(saved)
+    : undefined
+
   logServerAudit({
     actor: session.user.name ?? session.user.email ?? "System",
     actorEmail: session.user.email ?? "",
@@ -331,7 +344,7 @@ export async function POST(req: Request) {
     outcome: "success",
   })
 
-  return NextResponse.json({ request: saved })
+  return NextResponse.json({ request: saved, feedbackSurvey })
 }
 
 /**

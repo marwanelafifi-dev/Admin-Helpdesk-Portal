@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { BookOpen, CheckCircle2, CircleHelp, ClipboardList, ExternalLink, FileText, ShieldCheck } from "lucide-react"
+import { BookOpen, CheckCircle2, CircleHelp, ClipboardList, ExternalLink, FileText, MessageSquareText, ShieldCheck } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { canAccessPath } from "@/lib/access"
@@ -136,9 +136,14 @@ export function JourneyManual({ className = "" }: { className?: string }) {
               <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Current request module · {currentModule.function}</p>
               <h3 className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{currentModule.label}</h3>
               <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">{currentModule.summary}</p>
+              <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">Before you submit</p>
               <ul className="mt-3 space-y-1.5 text-sm text-slate-700 dark:text-slate-200">
                 {currentModule.notes.map((note) => <li key={note} className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />{note}</li>)}
               </ul>
+              <div className="mt-4 flex gap-2 rounded-md border border-emerald-200/80 bg-white/60 p-3 text-sm text-slate-700 dark:border-emerald-700/60 dark:bg-emerald-950/30 dark:text-slate-200">
+                <MessageSquareText className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-300" />
+                <div><p className="font-medium text-slate-900 dark:text-slate-100">Use request comments after submitting</p><p className="mt-1 leading-5">{currentModule.comments}</p></div>
+              </div>
               <p className="mt-3 text-sm text-slate-700 dark:text-slate-200"><span className="font-medium">After you submit: </span>{currentModule.afterSubmit}</p>
             </section>
           )}
@@ -161,13 +166,15 @@ export function JourneyManual({ className = "" }: { className?: string }) {
 
           <section>
             <div className="mb-2 flex items-center gap-2"><ClipboardList className="h-4 w-4 text-slate-600 dark:text-slate-400" /><h3 className="font-semibold">Request module reference</h3></div>
-            <p className="mb-3 text-sm text-slate-600 dark:text-slate-400">Each module includes its own submission notes. Open a module to start a request.</p>
+            <p className="mb-3 text-sm text-slate-600 dark:text-slate-400">Review the key request note and follow-up guidance before opening a module to start a request.</p>
             <div className="grid gap-2 sm:grid-cols-2">
               {availableModules.map((guide) => (
                 <button key={guide.id} onClick={() => { void closeManual(); router.push(guide.startPath) }} className="group rounded-lg border p-3 text-left transition-colors hover:border-blue-300 hover:bg-blue-50 dark:hover:border-blue-700 dark:hover:bg-blue-950/40">
                   <span className="flex items-start justify-between gap-3 font-medium text-slate-900 dark:text-slate-100">{guide.label}<ExternalLink className="h-4 w-4 shrink-0 text-slate-400 group-hover:text-blue-600" /></span>
                   <span className="mt-1 block text-xs font-medium text-blue-700 dark:text-blue-300">{guide.function} function</span>
                   <span className="mt-1 block text-xs leading-relaxed text-slate-600 dark:text-slate-400">{guide.summary}</span>
+                  <span className="mt-2 block text-xs leading-relaxed text-slate-700 dark:text-slate-300"><strong>Key request note:</strong> {guide.notes[0]}</span>
+                  <span className="mt-1 block text-xs leading-relaxed text-slate-600 dark:text-slate-400"><strong>Comments:</strong> {guide.comments}</span>
                 </button>
               ))}
             </div>

@@ -4,6 +4,7 @@ import { feedbackStore } from "@/lib/feedbackStore"
 import { loadSettingsServer } from "@/lib/settingsServer"
 import { requestStore } from "@/lib/requestStore"
 import { functionForModule } from "@/lib/functionRegistry"
+import { deliverFeedbackSurveyForRequest } from "@/lib/feedbackSurveyDelivery"
 import { auth } from "@/auth"
 
 export const runtime = "nodejs"
@@ -24,6 +25,12 @@ export async function POST(req: NextRequest) {
     if (!request) return NextResponse.json({ error: "Request not found" }, { status: 404 })
     if (!["completed", "delivered"].includes(request.status)) return NextResponse.json({ error: "Feedback is available only after completion" }, { status: 409 })
     if (!request.requesterEmail) return NextResponse.json({ error: "Request has no requester email" }, { status: 400 })
+    const delivery = await deliverFeedbackSurveyForRequest(request)
+    return NextResponse.json(
+      { success: delivery.outcome !== "failed", delivery },
+      { status: delivery.outcome === "failed" ? 502 : 200 },
+    )
+
     const requesterEmail = request.requesterEmail
 
     const platformSettings = loadSettingsServer()

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { signOut, useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Bell, LogOut, Menu, Settings, Shield, Sun, Moon, User, MessageSquarePlus } from "lucide-react"
@@ -116,7 +117,7 @@ export function TopBar({ portal = "admin" }: { portal?: Portal }) {
   }
 
   return (
-    <header className="h-16 border-b bg-background flex items-center justify-between px-3 sm:px-4 lg:px-6 flex-shrink-0 gap-2">
+    <header className="relative flex h-16 shrink-0 items-center justify-between gap-2 border-b border-blue-200 bg-[radial-gradient(ellipse_70%_180%_at_50%_0%,_#cfe8ff_0%,_#dff0ff_30%,_#edf6ff_62%,_#f7fbff_100%)] px-3 shadow-[0_10px_30px_-24px_rgba(30,64,175,0.35)] dark:border-sky-300/20 dark:!bg-[radial-gradient(ellipse_70%_220%_at_50%_0%,_#1b4a76_0%,_#102d4c_44%,_#0a1b30_100%)] dark:shadow-[0_12px_32px_-22px_rgba(0,0,0,0.95)] sm:px-4 lg:px-6">
       {/* Left: hamburger — opens the drawer on mobile, collapses/expands
           the sidebar on desktop (via the arp:toggle-sidebar event). */}
       <div className="flex items-center flex-shrink-0">
@@ -133,7 +134,7 @@ export function TopBar({ portal = "admin" }: { portal?: Portal }) {
               toggleMobileNav()
             }
           }}
-          className="text-muted-foreground hover:text-foreground"
+          className="text-slate-500 transition-colors hover:bg-white/80 hover:text-[#173f91] hover:shadow-sm dark:text-slate-300 dark:hover:bg-sky-400/10 dark:hover:text-cyan-200"
         >
           <Menu className="h-5 w-5" />
         </Button>
@@ -141,7 +142,7 @@ export function TopBar({ portal = "admin" }: { portal?: Portal }) {
 
       {/* Center: Logo (hidden on very small screens to save room) */}
       {headerShowLogo ? (
-        <div className="flex-1 flex items-center justify-center min-w-0">
+        <Link href="/landing" title="Return to Company Portal home" aria-label="Return to Company Portal home" className="absolute left-1/2 flex min-w-0 -translate-x-1/2 items-center justify-center rounded-lg transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-cyan-300 dark:focus-visible:ring-offset-[#0a1b30]">
           <div className="relative h-10 w-40 sm:h-12 sm:w-56 lg:w-64">
             {logoSrc.startsWith("data:") ? (
               <img src={logoSrc} alt={headerLogoAlt} className="h-full w-full object-contain dark:brightness-0 dark:invert" />
@@ -149,7 +150,7 @@ export function TopBar({ portal = "admin" }: { portal?: Portal }) {
               <Image src={logoSrc} alt={headerLogoAlt} fill className="object-contain dark:brightness-0 dark:invert" priority />
             )}
           </div>
-        </div>
+        </Link>
       ) : (
         <div className="flex-1" />
       )}
@@ -163,7 +164,7 @@ export function TopBar({ portal = "admin" }: { portal?: Portal }) {
             title="Platform Administration"
             aria-label="Open platform administration"
             onClick={() => router.push(platformAdminPath)}
-            className="text-muted-foreground hover:text-foreground"
+            className="text-slate-500 transition-colors hover:bg-white/80 hover:text-[#173f91] hover:shadow-sm dark:text-slate-300 dark:hover:bg-sky-400/10 dark:hover:text-cyan-200"
           >
             <Shield className="h-5 w-5" />
           </Button>
@@ -174,8 +175,8 @@ export function TopBar({ portal = "admin" }: { portal?: Portal }) {
         {/* Notification Bell */}
         <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative" aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}>
-              <Bell className="h-5 w-5 text-slate-600" />
+            <Button variant="ghost" size="icon" className="relative text-slate-500 transition-colors hover:bg-white/80 hover:text-[#173f91] hover:shadow-sm dark:text-slate-300 dark:hover:bg-sky-400/10 dark:hover:text-cyan-200" aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}>
+              <Bell className="h-5 w-5" />
               {unreadCount > 0 ? (
                 <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1">
                   {unreadCount > 9 ? "9+" : unreadCount}
@@ -240,12 +241,12 @@ export function TopBar({ portal = "admin" }: { portal?: Portal }) {
           title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
           aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="text-muted-foreground hover:text-foreground"
+          className="text-slate-500 transition-colors hover:bg-white/80 hover:text-[#173f91] hover:shadow-sm dark:text-slate-300 dark:hover:bg-sky-400/10 dark:hover:text-cyan-200"
         >
           {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
         </Button>
 
-        <Button variant="ghost" size="icon" title="Portal feedback" aria-label="Share portal feedback" onClick={openPortalFeedback} className="text-muted-foreground hover:text-blue-600">
+        <Button variant="ghost" size="icon" title="Portal feedback" aria-label="Share portal feedback" onClick={openPortalFeedback} className="text-slate-500 transition-colors hover:bg-white/80 hover:text-blue-600 hover:shadow-sm dark:text-slate-300 dark:hover:bg-sky-400/10 dark:hover:text-cyan-200">
           <MessageSquarePlus className="h-5 w-5" />
         </Button>
 
@@ -255,8 +256,8 @@ export function TopBar({ portal = "admin" }: { portal?: Portal }) {
         {/* Kept immediately beside the account control so help is visible in every function. */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-2 rounded-md px-1.5 sm:px-2 py-1.5 hover:bg-gray-100 transition-colors">
-              <Avatar className="h-8 w-8">
+            <button className="flex items-center gap-2 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-white/80 hover:shadow-sm dark:hover:bg-sky-400/10 sm:px-2">
+              <Avatar className="h-8 w-8 dark:ring-2 dark:ring-sky-300/20">
                 {user?.image && <AvatarImage src={user.image} alt={user.name ?? "User"} />}
                 <AvatarFallback className="bg-blue-600 text-white text-xs font-semibold">
                   {getInitials(user?.name, user?.email)}
@@ -303,7 +304,7 @@ export function TopBar({ portal = "admin" }: { portal?: Portal }) {
           variant="ghost"
           size="icon"
           title="Log out"
-          className="text-muted-foreground hover:text-destructive hover:bg-red-50"
+          className="text-slate-500 transition-colors hover:bg-white/80 hover:text-destructive hover:shadow-sm dark:text-slate-300 dark:hover:bg-red-400/10"
           onClick={handleSignOut}
         >
           <LogOut className="h-5 w-5" />

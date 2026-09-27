@@ -3,6 +3,7 @@ import { sendRequestUpdateEmail } from "@/lib/emailService"
 import { auth } from "@/auth"
 import { requestStore } from "@/lib/requestStore"
 import { hasRecordedApproval } from "@/lib/approvalRules"
+import { commentsStore } from "@/lib/commentsStore"
 
 type RequestUpdatePayload = {
   to?: string[]
@@ -15,6 +16,51 @@ type RequestUpdatePayload = {
   preview?: string
   previousStatus?: string
   newStatus?: string
+  commentAttachments?: Array<{
+    id?: string
+    name?: string
+    sizeBytes?: number
+  }>
+}
+
+const MAX_COMMENT_EMAIL_ATTACHMENT_BYTES = 10 * 1024 * 1024
+const MAX_COMMENT_EMAIL_TOTAL_BYTES = 20 * 1024 * 1024
+
+function decodeCommentEmailAttachments(
+  requestId: string,
+  baseUrl: string,
+  value: RequestUpdatePayload["commentAttachments"],
+) {
+  if (!Array.isArray(value)) return []
+
+  let totalBytes = 0
+  const attachments: Array<{ filename: string; content: Buffer; contentType: string; portalUrl?: string }> = []
+  const storedAttachments = commentsStore
+    .getComments(requestId)
+    .flatMap((comment) => comment.attachments ?? [])
+
+  for (const item of value) {
+    if (!item?.id) continue
+    const stored = storedAttachments.find((attachment) => attachment.id === item.id)
+    if (!stored) continue
+    const match = stored.url.match(/^data:([^;,]+)?;base64,([A-Za-z0-9+/=\s]+)$/)
+    if (!match) continue
+
+    const content = Buffer.from(match[2].replace(/\s/g, ""), "base64")
+    if (!content.length || content.length > MAX_COMMENT_EMAIL_ATTACHMENT_BYTES) continue
+    totalBytes += content.length
+    if (totalBytes > MAX_COMMENT_EMAIL_TOTAL_BYTES) break
+
+    attachments.push({
+      filename: stored.name.replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_").slice(0, 160) || "comment-attachment",
+      content,
+      contentType: match[1] || "application/octet-stream",
+      portalUrl: item.id
+        ? `${baseUrl}/api/requests/${encodeURIComponent(requestId)}/comments/attachments/${encodeURIComponent(item.id)}/open`
+        : undefined,
+    })
+  }
+  return attachments
 }
 
 export async function POST(req: NextRequest) {
@@ -69,6 +115,10 @@ export async function POST(req: NextRequest) {
       recipientCount: recipients.length,
     })
 
+    const commentAttachments = body.updateType === "comment"
+      ? decodeCommentEmailAttachments(body.requestId, new URL(req.url).origin, body.commentAttachments)
+      : []
+
     await sendRequestUpdateEmail({
       to: recipients,
       cc: Array.isArray(body.cc) ? body.cc.filter(Boolean) : undefined,
@@ -80,6 +130,7 @@ export async function POST(req: NextRequest) {
       preview: body.preview,
       previousStatus: body.previousStatus,
       newStatus: body.newStatus,
+      commentAttachments,
     })
 
     console.info("[email] Successfully sent request update notification", {

@@ -2065,3 +2065,38 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] **Supported approval modules:** Administration approvals apply to Shipping, Purchase, and Travel. Finance approvals apply to No-PO Reimbursement, Travel Reimbursement, and non-PO Invoice Payment. PO-backed Finance paths bypass this manager-approval workflow because Purchasing provides the approval path. People requests currently have no defined approval workflow; IT requests remain in SolarWinds.
 - [x] **Approval-link authorization:** Approve/reject actions use an HMAC-signed, 72-hour token bound to the request, action, and assigned Direct/Authorized Manager. The assigned manager must sign in afresh using the same email address; the server also checks the request is Awaiting Approval, has not already been decided, and records successful and denied attempts. Rejection requires a reason.
 - [ ] **Required hardening:** The normal Portal status-update path must enforce manager approval server-side so a team user cannot manually transition an approval-required request from Awaiting Approval to In Progress without a recorded manager decision. This is required before describing approval authorization as complete. People approval policy must also be defined if People requests require approval.
+
+## Phase 12: Portal Experience, Feedback Delivery, and Formal Email System (Completed - 28 Sep 2026)
+
+- [x] **Unified portal chrome and landing visual language:**
+  - The landing page and all portal shells use a coordinated Si-Ware light/dark visual system: deep navy and restrained blue/cyan ambient gradients in dark mode, with readable card layers, controls, borders, and focus states.
+  - The top-bar logo is fixed at the true visual center, remains clickable to `/landing`, and keeps the existing icon set unchanged. The landing-page gradient is independent from the sidebar so portal branding does not visually bleed into navigation.
+  - Collapsed sidebars use a frameless Home icon that returns to `/landing`; the full Si-Ware mark remains available in the centered top bar.
+  - Breadcrumbs route to the active function's service hub (Administration, People, or Finance) rather than a generic dashboard.
+- [x] **Per-function sidebar branding:**
+  - Platform Administration -> Settings lets an administrator edit Brand Name and Brand Subtitle independently for Administration, People, and Finance.
+  - Settings retain the legacy Administration name migration (`Admin Portal` becomes `Administration Team`) and are applied by `Sidebar.tsx` according to the active portal. Defaults are Administration Team, People Portal, and Finance Portal with the Si-Ware Systems subtitle.
+- [x] **Request guidance and submission experience:**
+  - `helpGuidance.ts`, `JourneyManual.tsx`, and `FirstRequestGuide.tsx` provide module-specific instructions, field notes, required-document reminders, and post-submission expectations for every supported function/module.
+  - Guidance no longer tells users to update an existing request; it directs them to submit a new request and use comments only for follow-up information where appropriate.
+  - Invoice Payment guidance was corrected to refer only to fields that exist in the form. Guidance panels retain readable emerald/blue contrast in dark mode.
+  - A reusable `RequestSubmissionSuccess` toast appears after every successful request submission with the generated request ID and a My Requests follow-up route.
+- [x] **Reliable feedback-survey delivery for every function:**
+  - Completion/delivery transitions are handled by the authoritative server request-upsert route, not a best-effort browser fetch. This covers Administration, People, and Finance request modules even if the user navigates away or closes the tab.
+  - `feedbackSurveyDelivery.ts` creates one server-persisted survey per request, honours per-function enablement/templates, sends through the owning function's SMTP account, and prevents duplicate sends. A pending survey is retained after a delivery error so the authenticated survey endpoint can retry it without creating a second survey.
+  - The server response exposes a delivery outcome (`sent`, `skipped`, or `failed`); every survey mail carries `X-ARP-Request-ID` so the central email audit can tie delivery evidence to the request.
+  - The browser-local feedback-survey simulation and duplicate request-detail fetch trigger were removed. The feedback card remains available after completion for in-portal feedback.
+- [x] **Feedback survey page and email redesign:**
+  - `/feedback-survey` uses the same Si-Ware navy/blue landing style, a high-contrast logo tile, request summary, accessible rating controls, explicit dark-mode form surfaces, and unified steel-blue outer border in both themes.
+  - Feedback survey mail uses a formal Si-Ware header with a larger logo, structured completed-request summary, introductory panel, color-coded rating choices, clear comment call-to-action, and audit-linked delivery headers.
+- [x] **Formal transactional email system:**
+  - Request status, new-request, and comment notifications share the formal Si-Ware structure: larger branded logo, navy/blue header, structured request summary, clear primary action, professional spacing, and formal footer.
+  - The same delivery-layer styling normalizes legacy approval templates for Administration, People, and Finance. Welcome, announcement, feedback-survey, and feedback-status emails use the same visual language and function-appropriate sender account.
+  - New request, comment, and status notifications continue to use the existing `sendRequestUpdateEmail` routing, so their module determines the correct Administration, People, or Finance mailbox.
+- [x] **Comment-only email attachments and secure portal links:**
+  - Files attached to a comment are included as real attachments only on that comment's notification email; regular request attachments and unrelated notification emails are intentionally unchanged.
+  - The browser sends only comment attachment IDs to the notification endpoint. The server resolves the files from `commentsStore`, validates base64 payloads, applies per-file (10 MB) and total (20 MB) email limits, and attaches only those stored files.
+  - Comment emails list each attachment with an `Open <filename> in the portal` link. The new authenticated route `/api/requests/[id]/comments/attachments/[attachmentId]/open` verifies normal request access before serving the file inline, so an emailed link never bypasses function, requester, or CC visibility rules.
+- [x] **Verification and local deployment:**
+  - Production builds completed successfully after the portal, feedback, email, and comment-attachment changes (the project build intentionally skips type and lint validation).
+  - Compiled `.next-dev` output was copied to `company-portal-app`, the container was restarted, and `http://localhost:3003/feedback-survey` returned HTTP 200 after the health check passed.

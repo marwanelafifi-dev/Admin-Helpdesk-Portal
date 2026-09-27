@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { CheckCircle2, ClipboardList, Info } from "lucide-react"
+import { CheckCircle2, ClipboardList, Info, MessageSquareText } from "lucide-react"
 import { getModuleGuide } from "@/lib/helpGuidance"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -48,6 +48,13 @@ export function FirstRequestGuide({ moduleId, isEditing = false }: { moduleId: s
           <ul className="mt-3 space-y-2 text-sm text-slate-700">
             {guide.notes.map((note) => <li key={note} className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" /><span>{note}</span></li>)}
           </ul>
+        </section>
+        <section className="flex gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950 dark:border-emerald-700/60 dark:bg-emerald-950/30 dark:text-slate-200">
+          <MessageSquareText className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-300" />
+          <div>
+            <p className="font-semibold">Use request comments after submitting</p>
+            <p className="mt-1 leading-5">{guide.comments}</p>
+          </div>
         </section>
         <p className="text-sm text-slate-600"><span className="font-medium text-slate-800">After you submit: </span>{guide.afterSubmit}</p>
         <p className="text-xs text-muted-foreground">You can reopen these notes from the Help icon beside your account name.</p>

@@ -327,6 +327,7 @@ async function notifyByEmail(params: {
   preview?: string
   previousStatus?: string
   newStatus?: string
+  commentAttachments?: Array<{ id: string; name: string; url: string; sizeBytes: number }>
 }) {
   if (typeof window === "undefined") return
 
@@ -392,6 +393,9 @@ async function notifyByEmail(params: {
       preview: params.preview,
       previousStatus: params.previousStatus,
       newStatus: params.newStatus,
+      commentAttachments: params.updateType === "comment"
+        ? params.commentAttachments?.map(({ id, name, sizeBytes }) => ({ id, name, sizeBytes }))
+        : undefined,
     }),
   }).catch((error) => {
     console.error("Failed to send request update email", error)
@@ -412,6 +416,7 @@ export function createRequestUpdateNotifications(params: {
   newStatus?: string
   updateType: RequestUpdateType
   ccEmails?: string[]
+  commentAttachments?: Array<{ id: string; name: string; url: string; sizeBytes: number }>
 }) {
   const {
     requestId,
@@ -424,6 +429,7 @@ export function createRequestUpdateNotifications(params: {
     newStatus,
     updateType,
     ccEmails,
+    commentAttachments,
   } = params
 
   const recipients = new Set<string>()
@@ -519,6 +525,7 @@ export function createRequestUpdateNotifications(params: {
     preview: description,
     previousStatus,
     newStatus,
+    commentAttachments,
   })
 
   return recipientIds

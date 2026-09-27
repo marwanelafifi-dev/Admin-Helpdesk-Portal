@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { DEFAULT_PLATFORM_SETTINGS, type FeedbackFunctionId, type MainAppIcon, type MainAppSettings, type PlatformSettings, type SupportFunctionId } from "@/lib/platformSettings"
+import { DEFAULT_PLATFORM_SETTINGS, type FeedbackFunctionId, type MainAppIcon, type MainAppSettings, type PlatformSettings, type SidebarFunctionId, type SupportFunctionId } from "@/lib/platformSettings"
 
 export const HEADER_LOGO_KEY = "arp_logo_header"
 export const LOGIN_LOGO_KEY = "arp_logo_login"
@@ -51,6 +51,11 @@ const FEEDBACK_FUNCTION_OPTIONS: Array<{ id: FeedbackFunctionId; name: string }>
   { id: "hr", name: "People Team" },
   { id: "finance", name: "Finance Team" },
 ]
+const SIDEBAR_FUNCTION_OPTIONS: Array<{ id: SidebarFunctionId; name: string }> = [
+  { id: "admin", name: "Administration Team" },
+  { id: "hr", name: "People Team" },
+  { id: "finance", name: "Finance Team" },
+]
 
 type SaveState = "idle" | "saving" | "saved" | "error"
 
@@ -83,7 +88,14 @@ function SaveButton({ state, onClick, label = "Save Changes" }: { state: SaveSta
 export function loadSettings(): PlatformSettings {
   try {
     const raw = typeof window !== "undefined" ? localStorage.getItem(SETTINGS_KEY) : null
-    if (raw) return { ...DEFAULTS, ...JSON.parse(raw) }
+    if (raw) {
+      const saved = JSON.parse(raw)
+      return {
+        ...DEFAULTS,
+        ...saved,
+        sidebarBrandingByFunction: { ...DEFAULTS.sidebarBrandingByFunction, ...(saved.sidebarBrandingByFunction || {}) },
+      }
+    }
   } catch {}
   return DEFAULTS
 }
@@ -91,6 +103,7 @@ export function loadSettings(): PlatformSettings {
 export default function AdminSettingsPage() {
   const router = useRouter()
   const [settings, setSettings] = useState<PlatformSettings>(DEFAULTS)
+  const [sidebarFunction, setSidebarFunction] = useState<SidebarFunctionId>("admin")
   const [generalSave, setGeneralSave] = useState<SaveState>("idle")
   const [securitySave, setSecuritySave] = useState<SaveState>("idle")
   const [loginSave, setLoginSave] = useState<SaveState>("idle")
@@ -259,6 +272,16 @@ export default function AdminSettingsPage() {
     }
   }
 
+  function updateSidebarBranding(field: "name" | "subtitle", value: string) {
+    setSettings((current) => ({
+      ...current,
+      sidebarBrandingByFunction: {
+        ...current.sidebarBrandingByFunction,
+        [sidebarFunction]: { ...current.sidebarBrandingByFunction[sidebarFunction], [field]: value },
+      },
+    }))
+  }
+
   async function persistFinanceSla() {
     const slaDays = Number.parseInt(settings.financeSlaWorkingDays, 10)
     const reminderDay = Number.parseInt(settings.financeSlaReminderDay, 10)
@@ -371,6 +394,8 @@ export default function AdminSettingsPage() {
     setSettings(DEFAULTS)
     localStorage.removeItem(SETTINGS_KEY)
   }
+
+  const activeSidebarBranding = settings.sidebarBrandingByFunction[sidebarFunction]
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -638,31 +663,49 @@ export default function AdminSettingsPage() {
             <div className="bg-slate-100 rounded-lg p-2"><Layout className="h-4 w-4 text-slate-700" /></div>
             <div>
               <CardTitle className="text-base font-semibold text-gray-900">Sidebar</CardTitle>
-              <p className="text-xs text-gray-500 mt-0.5">Brand name and label displayed in the navigation sidebar</p>
+              <p className="text-xs text-gray-500 mt-0.5">Manage the name and subtitle shown for each function&apos;s navigation sidebar</p>
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-6 space-y-5">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-gray-700">Function</Label>
+            <div className="flex flex-wrap gap-2" role="tablist" aria-label="Sidebar function branding">
+              {SIDEBAR_FUNCTION_OPTIONS.map((functionOption) => (
+                <button
+                  key={functionOption.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={sidebarFunction === functionOption.id}
+                  onClick={() => setSidebarFunction(functionOption.id)}
+                  className={`rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${sidebarFunction === functionOption.id ? "border-blue-600 bg-blue-600 text-white" : "border-gray-200 bg-white text-gray-600 hover:border-blue-300 hover:text-blue-700"}`}
+                >
+                  {functionOption.name}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-400">Choose a function, then set the label users see in that function&apos;s sidebar.</p>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-sm font-medium text-gray-700">Brand Name</Label>
-              <Input value={settings.sidebarBrandName} onChange={(e) => set("sidebarBrandName", e.target.value)} className="text-sm" placeholder="Admin Portal" />
+              <Input value={activeSidebarBranding.name} onChange={(e) => updateSidebarBranding("name", e.target.value)} className="text-sm" placeholder="Administration Team" />
               <p className="text-xs text-gray-400">Bold title at the top of the sidebar</p>
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm font-medium text-gray-700">Brand Subtitle</Label>
-              <Input value={settings.sidebarBrandSubtitle} onChange={(e) => set("sidebarBrandSubtitle", e.target.value)} className="text-sm" placeholder="Si-Ware Systems" />
+              <Input value={activeSidebarBranding.subtitle} onChange={(e) => updateSidebarBranding("subtitle", e.target.value)} className="text-sm" placeholder="Si-Ware Systems" />
               <p className="text-xs text-gray-400">Smaller text below the brand name</p>
             </div>
           </div>
           {/* Live preview */}
           <div className="rounded-lg bg-slate-900 px-4 py-3 flex items-center gap-3 w-fit">
             <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
-              <span className="text-white text-xs font-bold">{(settings.sidebarBrandName || "A")[0]}</span>
+              <span className="text-white text-xs font-bold">{(activeSidebarBranding.name || "A")[0]}</span>
             </div>
             <div>
-              <p className="text-white text-sm font-semibold leading-tight">{settings.sidebarBrandName || "Admin Portal"}</p>
-              <p className="text-slate-400 text-xs leading-tight">{settings.sidebarBrandSubtitle || "Si-Ware Systems"}</p>
+              <p className="text-white text-sm font-semibold leading-tight">{activeSidebarBranding.name || "Administration Team"}</p>
+              <p className="text-slate-400 text-xs leading-tight">{activeSidebarBranding.subtitle || "Si-Ware Systems"}</p>
             </div>
           </div>
           <p className="text-xs text-gray-400 -mt-2">Live preview</p>

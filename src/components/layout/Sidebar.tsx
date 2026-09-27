@@ -37,11 +37,12 @@ import {
   Headphones,
   AlarmClock,
   MessageSquare,
+  Home,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { canAccessPath, canAccessModule, getFirstAllowedPlatformAdminPath, hasPermission, type UserWithModuleAccess } from "@/lib/access"
 import { modulesVisibleToFunction, roleToFunctionId } from "@/lib/functionRegistry"
-import type { SupportFunctionId } from "@/lib/platformSettings"
+import { DEFAULT_PLATFORM_SETTINGS, type SidebarFunctionId, type SupportFunctionId } from "@/lib/platformSettings"
 
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { useUnreadNotices } from "@/hooks/useUnreadNotices"
@@ -187,6 +188,10 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
   const router = useRouter()
   const { data: session, status } = useSession()
   const [collapsed, setCollapsed] = useState(false)
+  const sidebarFunction: SidebarFunctionId | null = portal === "hr" ? "hr" : portal === "finance" ? "finance" : portal === "admin" ? "admin" : null
+  const defaultBranding = sidebarFunction
+    ? DEFAULT_PLATFORM_SETTINGS.sidebarBrandingByFunction[sidebarFunction]
+    : { name: "Platform Administration", subtitle: "Si-Ware Systems" }
 
   // Listen for the topbar hamburger toggle. On desktop the hamburger
   // collapses/expands the sidebar; on mobile the same button opens the
@@ -196,10 +201,8 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
     window.addEventListener("arp:toggle-sidebar", onToggle)
     return () => window.removeEventListener("arp:toggle-sidebar", onToggle)
   }, [])
-  const [brandName, setBrandName] = useState(
-    portal === "hr" ? "People Portal" : portal === "finance" ? "Finance Portal" : portal === "platform-admin" ? "Platform Administration" : "Admin Portal"
-  )
-  const [brandSubtitle, setBrandSubtitle] = useState("Si-Ware Systems")
+  const [brandName, setBrandName] = useState(defaultBranding.name)
+  const [brandSubtitle, setBrandSubtitle] = useState(defaultBranding.subtitle)
   const [administrationExpanded, setAdministrationExpanded] = useState(
     pathname.startsWith("/admin/all-requests") || pathname.startsWith("/admin/announcements") || pathname.startsWith("/tasks") || pathname.startsWith("/feedback-reports")
   )
@@ -236,12 +239,12 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
   const { open: mobileOpen } = useMobileNav()
   const platformAdminPath = getFirstAllowedPlatformAdminPath(permissions, role)
   const portalHomeHref = portal === "hr"
-    ? "/departments/hr"
+    ? "/departments/hr/services"
     : portal === "finance"
-      ? "/departments/finance"
+      ? "/departments/finance/services"
       : portal === "platform-admin"
         ? platformAdminPath || "/admin/users"
-        : "/dashboard"
+        : "/departments/admin"
   const [itServiceDeskUrl, setItServiceDeskUrl] = useState("")
   const [itServiceDeskEnabled, setItServiceDeskEnabled] = useState(true)
   const [supportFunctionLogos, setSupportFunctionLogos] = useState<Record<SupportFunctionId, string>>({
@@ -261,16 +264,26 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
   const source = searchParams.get("source")
 
   useEffect(() => {
-    if (portal === "hr" || portal === "finance" || portal === "platform-admin") return
+    setBrandName(defaultBranding.name)
+    setBrandSubtitle(defaultBranding.subtitle)
+    if (!sidebarFunction) return
     try {
       const raw = localStorage.getItem(SETTINGS_KEY)
       if (raw) {
         const s = JSON.parse(raw)
-        if (s.sidebarBrandName) setBrandName(s.sidebarBrandName)
-        if (s.sidebarBrandSubtitle) setBrandSubtitle(s.sidebarBrandSubtitle)
+        const branding = s.sidebarBrandingByFunction?.[sidebarFunction]
+        if (branding) {
+          if (typeof branding.name === "string") setBrandName(branding.name)
+          if (typeof branding.subtitle === "string") setBrandSubtitle(branding.subtitle)
+        } else if (sidebarFunction === "admin") {
+          if (s.sidebarBrandName) {
+            setBrandName(s.sidebarBrandName === "Admin Portal" ? "Administration Team" : s.sidebarBrandName)
+          }
+          if (s.sidebarBrandSubtitle) setBrandSubtitle(s.sidebarBrandSubtitle)
+        }
       }
     } catch {}
-  }, [portal])
+  }, [defaultBranding.name, defaultBranding.subtitle, sidebarFunction])
 
   useEffect(() => {
     fetch("/api/admin/settings")
@@ -431,21 +444,27 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
     >
       {/* Branding */}
       <div className={cn(
-        "flex items-center gap-3 border-b border-slate-700 py-4 px-5",
+        "flex h-16 items-center gap-3 border-b border-r border-blue-100 bg-white px-5 shadow-[0_10px_30px_-24px_rgba(30,64,175,0.2)] dark:border-sky-300/15 dark:!bg-[#0d223b] dark:shadow-[0_10px_30px_-22px_rgba(0,0,0,0.9)]",
         collapsed && "justify-center px-0"
       )} suppressHydrationWarning>
-        <div className={cn("overflow-hidden", collapsed && "hidden")} suppressHydrationWarning>
-          <div className="flex items-center gap-1 text-sm font-bold tracking-tight whitespace-nowrap">
-            <Link href="/landing" className="rounded text-white transition-colors hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">
-              Home
-            </Link>
-            <span className="text-slate-500" aria-hidden="true">/</span>
-            <Link href={portalHomeHref} className="rounded text-white transition-colors hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">
-              {brandName}
-            </Link>
+        {collapsed ? (
+          <Link href="/landing" title="Si-Ware Portal home" aria-label="Si-Ware Portal home" className="group flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg border-0 !bg-transparent !shadow-none transition-transform duration-200 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:!bg-transparent dark:focus-visible:ring-cyan-300">
+            <Home className="h-5 w-5 text-[#173f91] dark:text-white" strokeWidth={2} aria-hidden="true" />
+          </Link>
+        ) : (
+          <div className="overflow-hidden" suppressHydrationWarning>
+            <div className="flex items-center gap-1 text-sm font-bold tracking-tight whitespace-nowrap">
+              <Link href="/landing" className="rounded text-[#173f91] transition-colors hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-white dark:hover:text-cyan-200 dark:focus-visible:ring-cyan-300">
+                Home
+              </Link>
+              <span className="text-slate-400 dark:text-slate-500" aria-hidden="true">/</span>
+              <Link href={portalHomeHref} className="rounded text-[#173f91] transition-colors hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-white dark:hover:text-cyan-200 dark:focus-visible:ring-cyan-300">
+                {brandName}
+              </Link>
+            </div>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-300">{brandSubtitle}</p>
           </div>
-          <p className="text-xs text-slate-400 mt-0.5">{brandSubtitle}</p>
-        </div>
+        )}
       </div>
 
       {/* Navigation */}

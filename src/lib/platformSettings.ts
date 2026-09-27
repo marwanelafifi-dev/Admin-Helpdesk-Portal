@@ -8,6 +8,13 @@ export interface SupportFunctionAvailability {
 
 export type FeedbackFunctionId = "admin" | "hr" | "finance"
 
+export type SidebarFunctionId = "admin" | "hr" | "finance"
+
+export interface SidebarBranding {
+  name: string
+  subtitle: string
+}
+
 export interface FeedbackSurveySettings {
   enabled: boolean
   subject: string
@@ -56,6 +63,7 @@ export interface PlatformSettings {
   showGoogleLogin: boolean
   sidebarBrandName: string
   sidebarBrandSubtitle: string
+  sidebarBrandingByFunction: Record<SidebarFunctionId, SidebarBranding>
   headerShowLogo: boolean
   headerLogoAlt: string
   feedbackSurveyEnabled: boolean
@@ -90,8 +98,13 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   loginFooterLine2: "For portal assistance, please contact the Administration Team.",
   loginFooterEmail: "adminhelpdesk@si-ware.com",
   showGoogleLogin: true,
-  sidebarBrandName: "Admin Portal",
+  sidebarBrandName: "Administration Team",
   sidebarBrandSubtitle: "Si-Ware Systems",
+  sidebarBrandingByFunction: {
+    admin: { name: "Administration Team", subtitle: "Si-Ware Systems" },
+    hr: { name: "People Portal", subtitle: "Si-Ware Systems" },
+    finance: { name: "Finance Portal", subtitle: "Si-Ware Systems" },
+  },
   headerShowLogo: true,
   headerLogoAlt: "Si-Ware Systems",
   feedbackSurveyEnabled: true,

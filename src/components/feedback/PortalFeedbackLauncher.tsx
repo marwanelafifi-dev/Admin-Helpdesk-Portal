@@ -144,11 +144,11 @@ export function PortalFeedbackLauncher() {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto border-slate-200 bg-background p-0 dark:border-slate-700">
-        <div className="border-b border-blue-100 bg-gradient-to-r from-[#173f91] to-[#2563d8] px-6 py-5 text-white dark:border-blue-900">
-          <DialogHeader className="space-y-1 text-left">
-            <div className="flex items-center gap-2 text-blue-100"><MessageSquarePlus className="h-5 w-5" /><span className="text-xs font-bold uppercase tracking-[0.14em]">Si-Ware Portal Feedback</span></div>
-            <DialogTitle className="text-xl text-white">Help us improve your daily experience</DialogTitle>
-            <DialogDescription className="text-blue-100">Your feedback goes directly to the platform team. We automatically include the page you are using to speed up follow-up.</DialogDescription>
+        <div className="relative overflow-hidden border-b border-blue-200 bg-gradient-to-br from-[#f5f9ff] via-[#eef6ff] to-[#dcecff] px-6 py-5 text-[#173f91] before:pointer-events-none before:absolute before:-left-16 before:-top-20 before:h-48 before:w-72 before:rounded-full before:bg-blue-300/35 before:blur-3xl dark:border-sky-300/25 dark:!bg-[radial-gradient(ellipse_90%_170%_at_22%_0%,_#1d5487_0%,_#13395f_38%,_#0a1d34_100%)] dark:before:bg-cyan-300/15 dark:text-white">
+          <DialogHeader className="relative z-10 space-y-1 pr-10 text-left">
+            <div className="flex items-center gap-2 text-[#173f91] dark:text-cyan-100"><span className="flex h-8 w-8 items-center justify-center rounded-lg border border-blue-200 bg-white/70 shadow-sm dark:border-sky-300/25 dark:bg-sky-300/10"><MessageSquarePlus className="h-4 w-4" /></span><span className="text-xs font-bold uppercase tracking-[0.14em]">Si-Ware Portal Feedback</span></div>
+            <DialogTitle className="text-xl text-[#173f91] dark:text-white">Help us improve your daily experience</DialogTitle>
+            <DialogDescription className="text-slate-600 dark:text-slate-300">Your feedback goes directly to the platform team. We automatically include the page you are using to speed up follow-up.</DialogDescription>
           </DialogHeader>
         </div>
         {successId ? (

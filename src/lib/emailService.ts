@@ -41,6 +41,62 @@ function functionEmailIdentity(functionId: EmailFunctionId) {
   }
 }
 
+/** Shared formal shell for all request-action emails. */
+function formalEmailShell(params: {
+  eyebrow: string
+  title: string
+  reference?: string
+  body: string
+  footer: string
+  hasLogo: boolean
+}) {
+  const logo = params.hasLogo
+    ? `<div style="display:inline-block;background:#ffffff;border-radius:14px;padding:12px 22px;margin-bottom:18px;line-height:0;box-shadow:0 8px 18px rgba(3,20,42,0.24);"><img src="cid:siware-logo" alt="Si-Ware Systems" style="height:58px;width:auto;display:block;" /></div>`
+    : `<p style="margin:0 0 16px;color:#dbeafe;font-size:13px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;">Si-Ware Systems</p>`
+
+  return `<!doctype html>
+<html><body style="margin:0;background:#eaf1fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#102a4c;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#edf5ff 0%,#e7eef8 55%,#f3f7fb 100%);padding:40px 16px;">
+    <tr><td align="center">
+      <table width="640" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #cfe0f2;border-radius:18px;overflow:hidden;box-shadow:0 18px 48px rgba(15,48,91,0.16);">
+        <tr><td style="background:radial-gradient(circle at 88% 8%,rgba(104,216,255,0.34),transparent 32%),linear-gradient(135deg,#091f3b 0%,#123b71 62%,#185ca2 100%);padding:30px 40px 32px;text-align:center;">
+          ${logo}
+          <p style="margin:0 0 8px;color:#c8eaff;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;">${escapeHtml(params.eyebrow)}</p>
+          <h1 style="margin:0;color:#ffffff;font-size:25px;font-weight:700;line-height:1.3;">${escapeHtml(params.title)}</h1>
+          ${params.reference ? `<p style="margin:8px 0 0;color:#dbeafe;font-size:13px;">${escapeHtml(params.reference)}</p>` : ""}
+        </td></tr>
+        <tr><td>${params.body}</td></tr>
+        <tr><td style="padding:23px 40px 28px;border-top:1px solid #edf3f9;background:#fbfdff;text-align:center;"><p style="margin:0;color:#7187a3;font-size:12px;line-height:1.6;">${escapeHtml(params.footer)}</p></td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`
+}
+
+/**
+ * Normalizes the legacy transactional templates that still use the original
+ * compact approval header. Applied immediately before delivery so every
+ * function inherits the current formal Si-Ware email treatment.
+ */
+function applyFormalPortalEmailStyle(html: string) {
+  const formalApprovalHeader = `<div style="background:radial-gradient(circle at 88% 8%,rgba(104,216,255,0.34),transparent 32%),linear-gradient(135deg,#091f3b 0%,#123b71 62%,#185ca2 100%);color:#fff;padding:30px 28px 32px;text-align:center;"><div style="display:inline-block;background:#ffffff;border-radius:14px;padding:12px 22px;margin-bottom:18px;line-height:0;box-shadow:0 8px 18px rgba(3,20,42,0.24);"><img src="cid:siware-logo" alt="Si-Ware Systems" style="height:58px;width:auto;display:block;" /></div>`
+
+  return html
+    .replace(/<div style="text-align:center;margin-bottom:24px;"><img src="cid:siware-logo" alt="Si-Ware" style="height:36px;"><\/div>/g, "")
+    .replaceAll(
+      `<div style="background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;padding:24px 28px;">`,
+      formalApprovalHeader,
+    )
+    .replaceAll(
+      `background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif`,
+      `background:#eaf1fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif`,
+    )
+    .replaceAll(
+      `style="height:44px;width:auto;display:block;margin:0 auto 14px;"`,
+      `style="height:58px;width:auto;display:block;margin:0 auto 18px;padding:10px 18px;background:#ffffff;border-radius:12px;"`,
+    )
+}
+
 function money(amount: unknown, currency?: unknown) {
   const value = Number(amount)
   return Number.isFinite(value) ? `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${typeof currency === "string" ? currency : ""}`.trim() : "—"
@@ -234,6 +290,9 @@ export function getRequestEmailSubject(requestTitle: string, requestId: string) 
 }
 
 async function sendMailWithRetry(transporter: any, mailOptions: any, maxRetries = 3) {
+  if (typeof mailOptions?.html === "string") {
+    mailOptions = { ...mailOptions, html: applyFormalPortalEmailStyle(mailOptions.html) }
+  }
   const from = String(mailOptions.from ?? "")
   const senderFunction = getEmailFunctionForAudit(from)
   const requestId = String(mailOptions.headers?.["X-ARP-Request-ID"] ?? "")
@@ -296,6 +355,7 @@ export async function sendWelcomeEmail(params: {
   mustChangePassword?: boolean
 }) {
   const transporter = createTransporter()
+  const logoBuffer = getLogoBuffer()
 
   const html = `
 <!DOCTYPE html>
@@ -304,8 +364,8 @@ export async function sendWelcomeEmail(params: {
   <meta charset="utf-8" />
   <style>
     body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 0; }
-    .container { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    .header { background: #0f172a; padding: 32px 40px; text-align: center; }
+    .container { max-width: 640px; margin: 40px auto; background: #ffffff; border: 1px solid #cfe0f2; border-radius: 18px; overflow: hidden; box-shadow: 0 18px 48px rgba(15,48,91,0.16); }
+    .header { background: radial-gradient(circle at 88% 8%,rgba(104,216,255,0.34),transparent 32%), linear-gradient(135deg,#091f3b 0%,#123b71 62%,#185ca2 100%); padding: 32px 40px; text-align: center; }
     .header h1 { color: #ffffff; margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
     .header p { color: #94a3b8; margin: 6px 0 0; font-size: 13px; }
     .body { padding: 36px 40px; }
@@ -324,8 +384,9 @@ export async function sendWelcomeEmail(params: {
 <body>
   <div class="container">
     <div class="header">
-      <h1>Si-Ware Systems</h1>
-      <p>Admin Helpdesk Portal</p>
+      ${logoBuffer ? `<div style="display:inline-block;background:#ffffff;border-radius:14px;padding:12px 22px;margin:0 auto 18px;line-height:0;"><img src="cid:siware-logo" alt="Si-Ware Systems" style="height:58px;width:auto;display:block;" /></div>` : ""}
+      <h1>Welcome to the Si-Ware Portal</h1>
+      <p>Account access details</p>
     </div>
     <div class="body">
       <p>Hello <strong>${params.name}</strong>,</p>
@@ -370,6 +431,9 @@ export async function sendWelcomeEmail(params: {
     to: params.to,
     subject: "Si-Ware Systems Admin Portal — Your Account Credentials",
     html,
+    ...(logoBuffer ? {
+      attachments: [{ filename: "siware-logo.png", content: logoBuffer, cid: "siware-logo", contentType: "image/png" }],
+    } : {}),
   })
 }
 
@@ -384,6 +448,12 @@ export async function sendRequestUpdateEmail(params: {
   preview?: string
   previousStatus?: string
   newStatus?: string
+  commentAttachments?: Array<{
+    filename: string
+    content: Buffer
+    contentType?: string
+    portalUrl?: string
+  }>
 }) {
   const recipients = Array.from(new Set(params.to.filter(Boolean)))
   if (recipients.length === 0) return
@@ -418,6 +488,10 @@ export async function sendRequestUpdateEmail(params: {
       ? `Status changed${params.previousStatus ? ` from ${params.previousStatus}` : ""}${params.newStatus ? ` to ${params.newStatus}` : ""}.`
       : params.preview || "A new update was added to the request."
 
+  const commentAttachmentNote = params.updateType === "comment" && params.commentAttachments?.length
+    ? `<div style="margin-top:14px;padding:13px 15px;background:#eef6ff;border:1px solid #cfe2f7;border-radius:8px;color:#185ea9;font-size:13px;"><strong>${params.commentAttachments.length} file${params.commentAttachments.length === 1 ? "" : "s"} attached</strong> to this comment.<div style="margin-top:8px;line-height:1.7;">${params.commentAttachments.map((item) => item.portalUrl ? `<a href="${escapeHtml(item.portalUrl)}" style="color:#185ea9;font-weight:700;text-decoration:none;">Open ${escapeHtml(item.filename)} in the portal &rarr;</a>` : escapeHtml(item.filename)).join("<br>")}</div></div>`
+    : ""
+
   const logoBuffer = getLogoBuffer()
   const logoHtml = logoBuffer
     ? `<img src="cid:siware-logo" alt="Si-Ware Systems" style="height:44px;width:auto;display:block;margin:0 auto 14px;" />`
@@ -429,16 +503,16 @@ export async function sendRequestUpdateEmail(params: {
 <head>
   <meta charset="utf-8" />
   <style>
-    body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 0; }
-    .container { max-width: 640px; margin: 32px auto; background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; }
-    .header { background: #0f172a; padding: 24px 32px; text-align: center; }
-    .header h1 { color: #ffffff; margin: 0; font-size: 20px; font-weight: 700; }
-    .body { padding: 28px 32px; color: #374151; font-size: 14px; line-height: 1.6; }
-    .meta { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0; }
+    body { font-family: Arial, sans-serif; background: #eaf1fa; margin: 0; padding: 0; }
+    .container { max-width: 640px; margin: 40px auto; background: #ffffff; border-radius: 18px; overflow: hidden; border: 1px solid #cfe0f2; box-shadow: 0 18px 48px rgba(15,48,91,0.16); }
+    .header { background: radial-gradient(circle at 88% 8%,rgba(104,216,255,0.34),transparent 32%), linear-gradient(135deg,#091f3b 0%,#123b71 62%,#185ca2 100%); padding: 30px 40px 32px; text-align: center; }
+    .header h1 { color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; }
+    .body { padding: 30px 40px; color: #334155; font-size: 14px; line-height: 1.7; }
+    .meta { background: #f7fbff; border: 1px solid #d7e8fa; border-left: 4px solid #2563eb; border-radius: 10px; padding: 16px 18px; margin: 22px 0; }
     .meta div { margin: 6px 0; }
     .label { color: #64748b; font-weight: 600; display: inline-block; min-width: 96px; }
-    .btn { display: inline-block; background: #2563eb; color: #ffffff !important; text-decoration: none; padding: 11px 18px; border-radius: 6px; font-weight: 600; }
-    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 32px; color: #94a3b8; font-size: 12px; text-align: center; }
+    .btn { display: inline-block; background: #2563eb; color: #ffffff !important; text-decoration: none; padding: 12px 22px; border-radius: 8px; font-weight: 700; }
+    .footer { background: #fbfdff; border-top: 1px solid #edf3f9; padding: 20px 40px; color: #7187a3; font-size: 12px; text-align: center; }
   </style>
 </head>
 <body>
@@ -455,6 +529,7 @@ export async function sendRequestUpdateEmail(params: {
         <div><span class="label">Module</span>${escapeHtml(moduleLabel)}</div>
         <div><span class="label">Update</span>${escapeHtml(detail)}</div>
       </div>
+      ${commentAttachmentNote}
       <a href="${actionUrl}" class="btn">Open request</a>
     </div>
     <div class="footer">This is an automated notification from Si-Ware Systems ${escapeHtml(functionIdentity.label)} &nbsp;·&nbsp; ${escapeHtml(functionIdentity.email)}</div>
@@ -477,14 +552,15 @@ export async function sendRequestUpdateEmail(params: {
       "X-ARP-Update-Type": params.updateType,
     },
     html,
-    ...(logoBuffer ? {
-      attachments: [{
+    attachments: [
+      ...(logoBuffer ? [{
         filename: "siware-logo.png",
         content: logoBuffer,
         cid: "siware-logo",
         contentType: "image/png",
-      }],
-    } : {}),
+      }] : []),
+      ...(params.updateType === "comment" ? (params.commentAttachments ?? []) : []),
+    ],
   })
 }
 
@@ -537,7 +613,7 @@ export async function sendAnnouncementEmail(params: {
         <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;box-shadow:0 4px 12px rgba(0,0,0,0.1);border-radius:8px;overflow:hidden;border:1px solid #e5e7eb;">
           <tr>
             <td style="background:linear-gradient(135deg,#1a2332 0%,#0f1622 100%);padding:48px 40px;text-align:center;">
-              ${logoBuffer ? `<img src="cid:siware-logo" alt="Si-Ware Systems" style="height:60px;width:auto;display:block;margin:0 auto 20px;" />` : `<div style="margin:0 auto 20px;text-align:center;"><h2 style="margin:0;color:#ffffff;font-size:14px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">SI-WARE SYSTEMS</h2></div>`}
+              ${logoBuffer ? `<div style="display:inline-block;background:#ffffff;border-radius:14px;padding:12px 22px;margin:0 auto 20px;line-height:0;box-shadow:0 8px 18px rgba(3,20,42,0.24);"><img src="cid:siware-logo" alt="Si-Ware Systems" style="height:58px;width:auto;display:block;" /></div>` : `<div style="margin:0 auto 20px;text-align:center;"><h2 style="margin:0;color:#ffffff;font-size:14px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">SI-WARE SYSTEMS</h2></div>`}
               <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:700;line-height:1.35;word-break:break-word;max-width:520px;margin-left:auto;margin-right:auto;letter-spacing:-0.5px;">${escapeHtml(params.subject)}</h1>
             </td>
           </tr>
@@ -712,28 +788,28 @@ export async function sendFeedbackSurveyEmail(params: {
   const html = `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:32px 16px;">
+<body style="margin:0;padding:0;background:#eaf1fa;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#edf5ff 0%,#e7eef8 55%,#f3f7fb 100%);padding:40px 16px;">
   <tr><td align="center">
-    <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+    <table width="640" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #dbe7f4;border-radius:18px;overflow:hidden;box-shadow:0 18px 48px rgba(15,48,91,0.16);">
 
       <!-- Header -->
       <tr>
-        <td style="background:linear-gradient(135deg,#1e293b 0%,#334155 100%);padding:30px 40px 28px;text-align:center;">
-          <img src="cid:siware-logo" alt="Si-Ware Systems" style="height:48px;width:auto;margin-bottom:16px;display:block;margin-left:auto;margin-right:auto;" />
-          <div style="width:100%;height:1px;background:rgba(255,255,255,0.1);margin-bottom:18px;"></div>
-          <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;">Your Request is Completed ✓</h1>
-          <p style="margin:8px 0 0;color:#cbd5e1;font-size:14px;">We'd love to hear how we did</p>
+        <td style="background:radial-gradient(circle at 88% 8%,rgba(104,216,255,0.34),transparent 32%),linear-gradient(135deg,#091f3b 0%,#123b71 62%,#185ca2 100%);padding:34px 40px 34px;text-align:center;">
+          <div style="display:inline-block;background:#ffffff;border-radius:14px;padding:12px 22px;margin-bottom:20px;line-height:0;box-shadow:0 8px 18px rgba(3,20,42,0.24);"><img src="cid:siware-logo" alt="Si-Ware Systems" style="height:58px;width:auto;display:block;" /></div>
+          <p style="margin:0 0 9px;color:#c8eaff;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;">Si-Ware Portal &bull; ${escapeHtml(functionLabel)}</p>
+          <h1 style="margin:0;color:#ffffff;font-size:26px;font-weight:700;letter-spacing:-0.2px;">Your request is complete</h1>
+          <p style="margin:9px 0 0;color:#dbeafe;font-size:14px;line-height:1.5;">Help us improve the way we serve you.</p>
         </td>
       </tr>
 
       <!-- Request Info -->
       <tr>
-        <td style="padding:28px 40px 0;">
-          <p style="margin:0 0 6px;color:#6b7280;font-size:13px;text-transform:uppercase;letter-spacing:1px;">Request</p>
-          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px 20px;">
-            <p style="margin:0;font-size:15px;font-weight:600;color:#1e293b;">${escapeHtml(params.requestTitle)}</p>
-            <p style="margin:4px 0 0;font-size:13px;color:#64748b;">${params.requestId} &bull; ${moduleLabel}</p>
+        <td style="padding:30px 40px 0;">
+          <p style="margin:0 0 8px;color:#52739b;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;">Completed request</p>
+          <div style="background:linear-gradient(135deg,#f6faff,#eef6ff);border:1px solid #cfe2f7;border-left:4px solid #2563eb;border-radius:10px;padding:16px 18px;">
+            <p style="margin:0;font-size:16px;font-weight:700;color:#102a4c;">${escapeHtml(params.requestTitle)}</p>
+            <p style="margin:5px 0 0;font-size:13px;color:#52739b;">${params.requestId} &bull; ${moduleLabel}</p>
           </div>
         </td>
       </tr>
@@ -741,29 +817,33 @@ export async function sendFeedbackSurveyEmail(params: {
       <!-- Greeting -->
       <tr>
         <td style="padding:24px 40px 0;">
-          ${greetingParagraph}
+          <div style="background:#f7fbff;border:1px solid #d7e8fa;border-radius:12px;padding:18px 20px;">
+            <p style="margin:0 0 10px;color:#1d5fba;font-size:11px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;">A quick note from Si-Ware</p>
+            ${greetingParagraph}
+          </div>
         </td>
       </tr>
 
       <!-- Star Rating Visual -->
       <tr>
         <td style="padding:28px 40px 0;">
-          <p style="margin:0 0 16px;font-size:15px;font-weight:600;color:#1e293b;text-align:center;">How would you rate this service?</p>
+          <p style="margin:0 0 8px;font-size:18px;font-weight:700;color:#102a4c;text-align:center;">How was your experience?</p>
+          <p style="margin:0 0 15px;font-size:13px;color:#607d9f;text-align:center;">Select a rating to send it instantly — no sign-in required.</p>
           <table width="100%" cellpadding="0" cellspacing="0">
             ${ratingRows.map((r) => `
             <tr>
               <td style="padding:6px 0;">
                 <a href="${surveyUrl}&rating=${r.stars}" style="display:block;text-decoration:none;">
-                  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;transition:all 0.2s;">
+                  <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #d8e5f3;border-left:4px solid ${r.color};border-radius:10px;overflow:hidden;box-shadow:0 2px 5px rgba(18,60,110,0.04);">
                     <tr>
                       <td style="padding:12px 16px;width:40px;text-align:center;">
-                        <span style="font-size:20px;font-weight:700;color:${r.color};">${r.stars}</span>
+                        <span style="display:inline-block;min-width:24px;padding:3px 0;border-radius:12px;background:#f4f8fd;font-size:14px;font-weight:700;color:${r.color};">${r.stars}</span>
                       </td>
                       <td style="padding:12px 8px;">
                         ${stars(r.stars)}
                       </td>
                       <td style="padding:12px 16px;text-align:right;">
-                        <span style="font-size:14px;font-weight:600;color:${r.color};">${r.label}</span>
+                        <span style="font-size:13px;font-weight:700;color:${r.color};">${r.label}</span>
                       </td>
                     </tr>
                   </table>
@@ -777,24 +857,24 @@ export async function sendFeedbackSurveyEmail(params: {
       <!-- CTA Button -->
       <tr>
         <td style="padding:28px 40px 0;text-align:center;">
-          <a href="${surveyUrl}" style="display:inline-block;background:#059669;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:8px;letter-spacing:0.3px;">
-            &#9733; Submit My Feedback
+          <a href="${surveyUrl}" style="display:inline-block;background:linear-gradient(135deg,#2563eb,#1854a5);color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 34px;border-radius:9px;letter-spacing:0.2px;box-shadow:0 6px 14px rgba(37,99,235,0.25);">
+            Share detailed feedback
           </a>
-          <p style="margin:12px 0 0;font-size:12px;color:#9ca3af;">Or click a star rating above to submit directly</p>
+          <p style="margin:12px 0 0;font-size:12px;color:#7185a0;">Or select one of the ratings above to submit it directly.</p>
         </td>
       </tr>
 
       <!-- Comment Section -->
       <tr>
         <td style="padding:20px 40px 0;">
-          <div style="border:1px solid #e2e8f0;border-radius:8px;padding:20px;background:#f8fafc;">
-            <p style="margin:0 0 10px;font-size:14px;font-weight:600;color:#1e293b;">💬 Add your comments (optional)</p>
-            <div style="background:#ffffff;border:1px solid #d1d5db;border-radius:6px;padding:12px;min-height:72px;">
-              <p style="margin:0;font-size:13px;color:#9ca3af;font-style:italic;">Click "Submit My Feedback" above to open the full survey and add detailed comments.</p>
+          <div style="border:1px solid #d8e5f3;border-radius:10px;padding:18px 20px;background:#f7fbff;">
+            <p style="margin:0 0 10px;font-size:14px;font-weight:700;color:#163d70;">Add an optional comment</p>
+            <div style="background:#ffffff;border:1px solid #d8e5f3;border-radius:7px;padding:12px;min-height:72px;">
+              <p style="margin:0;font-size:13px;color:#607d9f;font-style:italic;">Open the full survey to add detailed comments, suggestions, or recognition for the team.</p>
             </div>
             <div style="margin-top:12px;text-align:right;">
-              <a href="${surveyUrl}" style="display:inline-block;background:#1e293b;color:#ffffff;font-size:13px;font-weight:600;text-decoration:none;padding:9px 22px;border-radius:6px;">
-                Open Full Survey →
+              <a href="${surveyUrl}" style="display:inline-block;background:#163d70;color:#ffffff;font-size:13px;font-weight:700;text-decoration:none;padding:9px 22px;border-radius:7px;">
+                Open full survey &rarr;
               </a>
             </div>
           </div>
@@ -803,8 +883,8 @@ export async function sendFeedbackSurveyEmail(params: {
 
       <!-- Footer -->
       <tr>
-        <td style="padding:28px 40px 32px;border-top:1px solid #f1f5f9;margin-top:28px;">
-          <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;line-height:1.6;">
+        <td style="padding:25px 40px 30px;border-top:1px solid #edf3f9;margin-top:26px;">
+          <p style="margin:0;font-size:12px;color:#7a91ac;text-align:center;line-height:1.6;">
             This survey was sent because your request <strong>${params.requestId}</strong> was completed.<br>
             Si-Ware Systems &bull; ${functionLabel}
           </p>
@@ -823,6 +903,7 @@ export async function sendFeedbackSurveyEmail(params: {
     to: params.requesterEmail,
     subject,
     html,
+    headers: { "X-ARP-Request-ID": params.requestId },
     ...(surveyLogoBuffer ? {
       attachments: [{
         filename: "siware-logo.png",
@@ -1695,13 +1776,14 @@ export async function sendFeedbackStatusChangeEmail(
   updatedBy: string
 ) {
   const transporter = createTransporter()
+  const logoBuffer = getLogoBuffer()
 
   const statusDisplay = newStatus
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ")
 
-  const html = `
+  const legacyHtml = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <div style="background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%); color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
         <h1 style="margin: 0; font-size: 24px;">Feedback Status Updated</h1>
@@ -1740,10 +1822,31 @@ export async function sendFeedbackStatusChangeEmail(
     </div>
   `
 
+  const html = formalEmailShell({
+    eyebrow: "Si-Ware Portal · Administration Team",
+    title: "Feedback status updated",
+    reference: `New status: ${statusDisplay}`,
+    footer: "Si-Ware Systems · Administration Team",
+    hasLogo: Boolean(logoBuffer),
+    body: `<div style="padding:28px 40px 32px;color:#334155;font-size:14px;line-height:1.65;">
+      <p style="margin:0 0 14px;">Hello ${escapeHtml(feedback.userName)},</p>
+      <p style="margin:0 0 20px;">Your feedback has been reviewed and updated by <strong>${escapeHtml(updatedBy)}</strong>.</p>
+      <div style="background:#f7fbff;border:1px solid #d7e8fa;border-left:4px solid #2563eb;border-radius:10px;padding:16px 18px;">
+        <p style="margin:0 0 7px;color:#52739b;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">Feedback</p>
+        <p style="margin:0 0 7px;color:#102a4c;font-size:16px;font-weight:700;">${escapeHtml(feedback.title)}</p>
+        <p style="margin:0;color:#526b88;font-size:13px;line-height:1.55;">${escapeHtml(feedback.comment.substring(0, 200))}${feedback.comment.length > 200 ? "..." : ""}</p>
+      </div>
+      <div style="margin-top:22px;text-align:center;"><a href="${getBaseUrl()}/system/notices" style="display:inline-block;background:#2563eb;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 24px;border-radius:8px;">View feedback in the portal</a></div>
+    </div>`,
+  })
+
   await sendMailWithRetry(transporter, {
     from: resolveFromAddress("Si-Ware Admin Helpdesk"),
     to: feedback.userEmail,
     subject: `Feedback Status Updated: ${statusDisplay}`,
     html,
+    ...(logoBuffer ? {
+      attachments: [{ filename: "siware-logo.png", content: logoBuffer, cid: "siware-logo", contentType: "image/png" }],
+    } : {}),
   })
 }

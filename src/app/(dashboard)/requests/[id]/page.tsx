@@ -562,25 +562,6 @@ export default function RequestDetailPage() {
         history: updatedHistory,
       })
 
-      // Send feedback survey email when request reaches completed or delivered
-      if (
-        (newStatus === "completed" || newStatus === "delivered") &&
-        oldStatus !== "completed" && oldStatus !== "delivered"
-      ) {
-        const surveyId = `FB-${Date.now()}`
-        fetch("/api/feedback/send-survey", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            surveyId,
-            requesterName: request.requester?.name || request.title,
-            requesterEmail: request.requester?.email,
-            requestId: request.id,
-            requestTitle: request.title,
-            module: request.module,
-          }),
-        }).catch(() => {})
-      }
     } catch (error) {
       console.error("Failed to update status:", error)
       const message = error instanceof Error ? error.message : "Failed to update status"
@@ -1553,6 +1534,7 @@ export default function RequestDetailPage() {
                     preview: content,
                     updateType: "comment",
                     ccEmails: [...(request.ccEmails || []), ...(request.adminCc || [])],
+                    commentAttachments: result?.attachments || [],
                   })
 
                   // Add optimistic update - add comment immediately to state

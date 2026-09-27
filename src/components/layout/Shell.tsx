@@ -8,6 +8,7 @@ import { MobileNavProvider, useMobileNav } from "./MobileNavContext"
 import { useEngineSync } from "@/hooks/useEngineSync"
 import { useHeartbeat } from "@/hooks/useHeartbeat"
 import { SecurityActivityTracker } from "./SecurityActivityTracker"
+import { RequestSubmissionSuccess } from "@/components/request/RequestSubmissionSuccess"
 
 /**
  * Dashboard shell: sidebar (drawer on mobile) + topbar + main content area.
@@ -59,8 +60,9 @@ function ShellInner({ children, portal }: { children: React.ReactNode; portal: "
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background relative" suppressHydrationWarning>
+    <div className="relative flex h-screen overflow-hidden bg-background dark:!bg-[radial-gradient(ellipse_78%_58%_at_50%_0%,_#102b49_0%,_#0b1d33_44%,_#07111f_100%)]" suppressHydrationWarning>
       <SecurityActivityTracker />
+      <RequestSubmissionSuccess />
       {/* Sidebar — fixed drawer below lg, static beside content at lg+ */}
       <Sidebar portal={portal} />
 

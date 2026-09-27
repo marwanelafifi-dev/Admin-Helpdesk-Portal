@@ -444,6 +444,13 @@ export async function submitRequest<T extends Record<string, unknown>>(
   const local = readAll().filter((existing) => existing.id !== saved.id)
   writeAll([...local, saved])
   clearCommentsForId(saved.id)
+  if (typeof window !== "undefined") {
+    const notice = { requestId: saved.id, title: saved.title }
+    try {
+      window.sessionStorage.setItem("company-portal:request-submission-success", JSON.stringify(notice))
+    } catch {}
+    window.dispatchEvent(new CustomEvent("company-portal:request-submitted", { detail: notice }))
+  }
   return saved
 }
 
@@ -596,15 +603,6 @@ export async function updateStatus(
   }).catch(() => {
     // Email simulation is best-effort in local dev.
   })
-
-  // Trigger feedback survey creation when request reaches completed or delivered
-  if ((status === "completed" || status === "delivered") && (previousStatus !== "completed" && previousStatus !== "delivered")) {
-    void import("./feedbackService").then(({ createFeedbackSurvey }) => {
-      createFeedbackSurvey(updated)
-    }).catch(() => {
-      // Feedback service is best-effort in local dev.
-    })
-  }
 
   // When a Travel request enters "in_progress", ensure ap@si-ware.com is on the CC list.
   if (
