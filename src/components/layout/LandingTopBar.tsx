@@ -68,11 +68,11 @@ export function LandingTopBar() {
         size="icon"
         title={isDark ? "Switch to light mode" : "Switch to dark mode"}
         onClick={toggleTheme}
-        className="order-1 text-muted-foreground hover:text-foreground dark:text-slate-300 dark:hover:bg-sky-400/10 dark:hover:text-cyan-200"
+        className="order-1 text-muted-foreground transition-colors hover:bg-white/80 hover:text-[#173f91] hover:shadow-sm dark:text-slate-300 dark:hover:bg-sky-400/10 dark:hover:text-cyan-200"
       >
         {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
       </Button>
-      <Button variant="ghost" size="icon" title="Portal feedback" aria-label="Share portal feedback" onClick={openPortalFeedback} className="order-2 text-muted-foreground hover:text-blue-600 dark:text-slate-300 dark:hover:bg-sky-400/10 dark:hover:text-cyan-200">
+      <Button variant="ghost" size="icon" title="Portal feedback" aria-label="Share portal feedback" onClick={openPortalFeedback} className="order-2 text-muted-foreground transition-colors hover:bg-white/80 hover:text-blue-600 hover:shadow-sm dark:text-slate-300 dark:hover:bg-sky-400/10 dark:hover:text-cyan-200">
         <MessageSquarePlus className="h-5 w-5" />
       </Button>
       <JourneyManual className="order-3" />
@@ -80,7 +80,7 @@ export function LandingTopBar() {
       {/* User Avatar + Name */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="order-4 flex items-center gap-2 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-sky-400/10 sm:px-2">
+          <button className="order-4 flex items-center gap-2 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-white/80 hover:shadow-sm dark:hover:bg-sky-400/10 sm:px-2">
             <Avatar className="h-8 w-8 dark:ring-2 dark:ring-sky-300/20">
               {user?.image && <AvatarImage src={user.image} alt={user.name ?? "User"} />}
               <AvatarFallback className="bg-blue-600 text-white text-xs font-semibold">

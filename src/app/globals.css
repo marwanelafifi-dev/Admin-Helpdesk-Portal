@@ -655,6 +655,46 @@
   }
 }
 
+/* Landing-page What’s New launcher: a clear but restrained interactive
+   response makes the release panel discoverable without turning it into a
+   promotional control. */
+.landing-section-heading > div > button {
+  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.landing-section-heading > div > button:hover {
+  transform: translateY(-2px);
+  border-color: #60a5fa;
+  box-shadow: 0 8px 18px -10px rgba(37, 99, 235, 0.5);
+}
+
+.landing-section-heading > div > button:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.landing-section-heading > div > button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 3px;
+}
+
+.landing-section-heading > div > button:hover svg {
+  transform: rotate(10deg) scale(1.08);
+}
+
+.landing-section-heading > div > button svg {
+  transition: transform 180ms ease;
+}
+
+.dark .landing-section-heading > div > button:hover {
+  border-color: #93c5fd;
+  background-color: rgba(37, 99, 235, 0.2);
+  box-shadow: 0 8px 18px -10px rgba(96, 165, 250, 0.5);
+}
+
+.dark .landing-section-heading > div > button:focus-visible {
+  outline-color: #93c5fd;
+}
+
 /* Specific page-header pattern: title block + action button on the right.
    On <md we want the action button to drop below the title and span full
    width so it's reachable with a thumb. */

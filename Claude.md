@@ -2055,6 +2055,9 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 
 - [x] **Premium dark visual system:** The landing page now uses layered deep-navy surfaces, subtle blue/cyan ambient lighting, softer section depth, and high-contrast typography while retaining Si-Ware branding.
 - [x] **Interactive polish:** Support Function and Main App cards have clearer borders, richer dark surfaces, restrained glow treatment, and more visible hover/focus feedback. The Platform Administration shortcut, top-bar actions, account control, and feedback call-to-action use matching dark-mode states.
+- [x] **Unified, formal landing hierarchy:** The landing title and the Support Functions/Main Apps headings use one solid Si-Ware blue (`#173f91`) in light mode and white in dark mode. This removes decorative heading gradients and keeps the hierarchy easy to scan.
+- [x] **Shared icon and action pattern:** Support Function and Main App icon tiles use the same filled blue treatment with a restrained shadow. Action labels remain formal text links with clear arrows and hover contrast instead of decorative button pills; app logos retain padding so the tile colour remains visible.
+- [x] **Discoverable release control:** The What’s New launcher has standard hover lift, press feedback, keyboard-focus outline, and a subtle sparkle motion. Its existing click action opens the releases dialog, while the landing top-bar and feedback launcher use matching light/dark hover states.
 - [x] **Verification and local deployment:** Production build completed successfully. The compiled build was copied to `company-portal-app`, the container was restarted, and it passed its health check; `/landing` responds with its expected authentication redirect.
 
 ### Approval Authorization Coverage (27 Sep 2026)
