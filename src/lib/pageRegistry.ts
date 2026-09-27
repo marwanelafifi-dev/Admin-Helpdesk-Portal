@@ -107,6 +107,7 @@ export const PAGES: PageDefinition[] = [
   { id: "admin-roles-buchi",   label: "Roles - BUCHI (Admin)", path: "/admin/roles/buchi", group: "Admin" },
   { id: "admin-settings",      label: "Settings (Admin)",      path: "/admin/settings",       group: "Admin" },
   { id: "admin-notifications", label: "Notifications (Admin)", path: "/admin/notifications",  group: "Admin" },
+  { id: "admin-portal-updates", label: "What's New & Releases (Admin)", path: "/admin/portal-updates", group: "Admin" },
   { id: "admin-portal-feedback", label: "Portal Feedback (Admin)", path: "/admin/portal-feedback", group: "Admin" },
   { id: "admin-announcements", label: "Send Announcements",    path: "/admin/announcements", group: "Core" },
   { id: "admin-company-data",  label: "Company Data - Si-Ware (Admin)", path: "/admin/company-data", group: "Admin" },

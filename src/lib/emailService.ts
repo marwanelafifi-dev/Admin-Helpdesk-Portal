@@ -177,7 +177,7 @@ function resolveFromAddress(_defaultDisplayName = "", functionId: EmailFunctionI
   }
   // Last-resort fallback so we never produce `From: <undefined>`.
   const fallbackEmail = functionId === "hr"
-    ? "hr@si-ware.com"
+    ? "human.resources@si-ware.com"
     : functionId === "finance"
       ? "ap@si-ware.com"
       : "adminhelpdesk@si-ware.com"
@@ -283,7 +283,7 @@ function getEmailFunctionForAudit(from: string): "Administration" | "People" | "
   const normalized = from.toLowerCase()
   const hrEmail = readEmailConfig("hr")?.values?.smtp_user?.toLowerCase()
   const financeEmail = readEmailConfig("finance")?.values?.smtp_user?.toLowerCase()
-  if ((hrEmail && normalized.includes(hrEmail)) || /people team|\bhr@/.test(normalized)) return "People"
+  if ((hrEmail && normalized.includes(hrEmail)) || /people team|\bhr@|human\.resources@/.test(normalized)) return "People"
   if ((financeEmail && normalized.includes(financeEmail)) || /finance team|\bap@/.test(normalized)) return "Finance"
   return "Administration"
 }

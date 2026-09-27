@@ -198,7 +198,7 @@ function HrTravelLetterDetail({ id }: { id: string }) {
           'HR Letter is ready. Please contact the People Team to collect your business trip letter.',
           actionUserId,
           actionUserName,
-          actionUserEmail || 'hr@si-ware.com',
+          actionUserEmail || 'human.resources@si-ware.com',
         );
       } catch {
         // Best-effort — the request is already marked completed either way.

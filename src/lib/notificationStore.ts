@@ -25,7 +25,7 @@ type RequestUpdateType = "status" | "comment" | "request_updated"
 const STORAGE_KEY = "arp_notifications"
 const ADMIN_HELPDESK_EMAIL = "adminhelpdesk@si-ware.com"
 const FINANCE_AP_EMAIL = "ap@si-ware.com"
-const HR_EMAIL = "hr@si-ware.com"
+const HR_EMAIL = "human.resources@si-ware.com"
 const subscribers = new Set<(notifications: StoredNotification[]) => void>()
 
 function functionMailbox(module: string) {
@@ -350,14 +350,15 @@ async function notifyByEmail(params: {
 
     ccEmails = []  // No separate CC since all are in TO
   } else {
-    // For status changes: TO = Owner + function mailbox + request CC recipients.
+    // For status changes: TO = requester + request-specific recipients only.
+    // The owning function mailbox is intentionally excluded to avoid sending
+    // routine status traffic to Administration, Finance, or People teams.
     // Function team members only receive new-request and approval-decision emails.
-    // Always include the requester, even if they made the status change
+    // Always include the requester, even if they made the status change.
     const ownerEmail = params.requestOwnerEmail ? params.requestOwnerEmail : undefined
 
     const allEmails = Array.from(new Set([
       ownerEmail,
-      supportEmail,
       ...(params.ccEmails ?? []).filter((e): e is string => Boolean(e)),
     ].filter((e): e is string => Boolean(e))))
 
@@ -643,22 +644,16 @@ export function createNewRequestNotifications(params: {
   })
 
   // Email recipients:
-  //   Finance To: requester + ap@si-ware.com.
-  //   HR To: requester + hr@si-ware.com.
-  //   Administration To: every member of the module's owning/shared team(s)
-  //   + the requester + adminhelpdesk.
+  //   Each function: requester + its shared operational mailbox only.
+  //   Team members receive the in-app notification, not a duplicate email.
   //   Cc: form-provided CC emails + the selected Direct Manager (if any).
   //   Anyone already on the To: line is dropped from Cc.
-  void fetchUsersForModule(moduleId).then((admins) => {
-    const isAdministration = functionForModule(moduleId) === "admin"
-    const adminEmails = isAdministration ? admins.map((u) => u.email).filter(Boolean) : []
-
+  void Promise.resolve().then(() => {
     const toSet = new Set<string>()
     const addTo = (e?: string) => {
       const trimmed = (e ?? "").trim().toLowerCase()
       if (trimmed) toSet.add(trimmed)
     }
-    adminEmails.forEach(addTo)
     addTo(params.requesterEmail)
     addTo(functionMailbox(moduleId))
     const recipients = Array.from(toSet)

@@ -263,6 +263,10 @@ export function canAccessPath(pathname: string, permissions: string[] = [], role
     return isSuperAdmin(role) || hasPermission(permissions, "settings")
   }
 
+  if (permission === "page:admin-portal-updates") {
+    return isSuperAdmin(role) || hasPermission(permissions, "settings") || hasPermission(permissions, "manage_users")
+  }
+
   if (permission === "page:admin-announcements") {
     return isSuperAdmin(role) || hasPermission(permissions, "settings")
   }

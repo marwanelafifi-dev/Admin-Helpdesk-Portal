@@ -1,13 +1,12 @@
 import type { EngineRequest } from "@/services/engineService"
 import { readCompanyData } from "@/lib/companyDataServerStore"
-import { readUsers } from "@/lib/userStore"
 import { sendRequestUpdateEmail } from "@/lib/emailService"
 import { companyFromEmail } from "@/lib/company"
-import { functionForModule, teamRolesForModule } from "@/lib/functionRegistry"
+import { functionForModule } from "@/lib/functionRegistry"
 
 const ADMIN_HELPDESK_EMAIL = "adminhelpdesk@si-ware.com"
 const FINANCE_AP_EMAIL = "ap@si-ware.com"
-const HR_EMAIL = "hr@si-ware.com"
+const HR_EMAIL = "human.resources@si-ware.com"
 
 function functionMailbox(module: string) {
   const owner = functionForModule(module)
@@ -86,23 +85,13 @@ export async function notifyDecision(params: {
   managerName?: string
   reason?: string
 }): Promise<void> {
-  // Non-Finance functions notify the module's owning/shared team(s).
-  // Finance decisions use the dedicated AP mailbox instead of team-wide email.
-  const isAdministration = functionForModule(params.request.module) === "admin"
-  const teamRoles = new Set(teamRolesForModule(params.request.module))
-  const adminEmails = isAdministration
-    ? readUsers()
-      .filter((u) => u.active && teamRoles.has(u.role))
-      .map((u) => u.email)
-      .filter(Boolean)
-    : []
-
+  // Approval decisions use the function's shared operational mailbox. Team
+  // members receive in-app notifications, preventing duplicate email fan-out.
   const recipients = new Set<string>()
   const add = (e?: string) => {
     const t = (e ?? "").trim().toLowerCase()
     if (t) recipients.add(t)
   }
-  adminEmails.forEach(add)
   add(params.request.requesterEmail)
   add(functionMailbox(params.request.module))
   if (params.managerEmail) add(params.managerEmail)

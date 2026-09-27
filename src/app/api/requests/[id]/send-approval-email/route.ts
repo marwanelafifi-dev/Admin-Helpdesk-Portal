@@ -11,7 +11,7 @@ export const runtime = "nodejs"
 
 const ADMIN_HELPDESK_EMAIL = "adminhelpdesk@si-ware.com"
 const FINANCE_AP_EMAIL = "ap@si-ware.com"
-const HR_EMAIL = "hr@si-ware.com"
+const HR_EMAIL = "human.resources@si-ware.com"
 
 function functionMailbox(module: string) {
   const owner = functionForModule(module)

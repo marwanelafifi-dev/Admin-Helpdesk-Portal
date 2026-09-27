@@ -12,7 +12,7 @@ export interface EmailConfig {
 
 export const FUNCTION_EMAILS: Record<EmailFunctionId, string> = {
   admin: "adminhelpdesk@si-ware.com",
-  hr: "hr@si-ware.com",
+  hr: "human.resources@si-ware.com",
   finance: "ap@si-ware.com",
 }
 
