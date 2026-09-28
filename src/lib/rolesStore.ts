@@ -24,6 +24,8 @@ const SHIPPING_PERMISSIONS = new Set([
   "page:shipping", "page:shipping-new", "page:shipping-sending", "page:shipping-receiving",
 ])
 const RETIRED_PAGE_PERMISSIONS = new Set(["page:system-notices"])
+const FINANCE_TRAVEL_BOOTSTRAP_PAGES = ["page:travel"]
+const FINANCE_TRAVEL_BOOTSTRAP_MODULES = ["travel"]
 const SI_WARE_MODULES = ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"]
 const BUCHI_MODULES = SI_WARE_MODULES.filter((module) => module !== "shipping")
 const FINANCE_MODULES = ["finance_reimbursement", "finance_travel_reimbursement", "finance_invoice_payment"]
@@ -147,6 +149,20 @@ export function readRoles(): StoredRole[] {
         role.companyId = expectedCompany
         changed = true
       }
+    }
+
+    // Finance Team processes Administration Travel requests. Legacy Finance
+    // roles predate module access, so the page could open while its table was
+    // filtered to zero. Bootstrap those legacy roles exactly once; an explicit
+    // array (including an administrator-saved empty choice) remains untouched.
+    for (const role of roles) {
+      if (!role.name.trim().toLowerCase().startsWith("finance team")) continue
+      if (Array.isArray(role.readModules)) continue
+      role.readModules = [...FINANCE_TRAVEL_BOOTSTRAP_MODULES]
+      role.readAllModules = [...FINANCE_TRAVEL_BOOTSTRAP_MODULES]
+      role.permissions = addMissing(role.permissions, FINANCE_TRAVEL_BOOTSTRAP_PAGES)
+      role.updatedAt = new Date().toISOString()
+      changed = true
     }
 
     let siWare = roles.find((role) => role.id === "role-requester" || role.name.toLowerCase() === "requester")

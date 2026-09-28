@@ -370,14 +370,13 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
                             name={`expenseRows.${index}.costCenter`}
                             control={control}
                             render={({ field }) => (
-                              <Select value={field.value} onValueChange={field.onChange}>
-                                <SelectTrigger className={cn(rowErrors?.costCenter && "border-red-400")}>
-                                  <SelectValue placeholder="Select cost center" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {costCenters.map((costCenter) => <SelectItem key={costCenter} value={costCenter}>{costCenter}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
+                              <SearchableSelect
+                                value={field.value ?? ""}
+                                onChange={field.onChange}
+                                options={costCenters}
+                                placeholder="Select cost center"
+                                hasError={!!rowErrors?.costCenter}
+                              />
                             )}
                           />
                           <FieldError message={rowErrors?.costCenter?.message} />

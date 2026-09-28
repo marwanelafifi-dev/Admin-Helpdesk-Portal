@@ -42,7 +42,9 @@ After=network-online.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStartPre=/usr/bin/mkdir -p $NAS_MOUNT
-ExecStart=/usr/sbin/mount -t cifs "$NAS_SHARE" "$NAS_MOUNT" -o credentials=/etc/company-portal/synology-credentials,vers=3.0,iocharset=utf8,nosuid,nodev
+# On Ubuntu's merged-/usr layout, mount is provided at /usr/bin/mount.
+# systemd requires an absolute executable path and does not search PATH here.
+ExecStart=/usr/bin/mount -t cifs "$NAS_SHARE" "$NAS_MOUNT" -o credentials=/etc/company-portal/synology-credentials,vers=3.0,iocharset=utf8,nosuid,nodev
 ExecStop=/usr/bin/umount $NAS_MOUNT
 
 [Install]

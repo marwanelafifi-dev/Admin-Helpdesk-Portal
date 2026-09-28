@@ -5,7 +5,7 @@ export const DEFAULT_USER_ROLES = ["Full Access", "Administration Team", "Financ
 const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   "Full Access": ["*"],
   "finance team": [
-    "page:finance-dashboard", "page:finance-services", "page:finance-reimbursement", "page:finance-travel", "page:finance-invoices", "page:finance-my-requests", "page:finance-team-requests", "page:finance-all-requests", "page:finance-tasks", "page:finance-sla-reminders", "page:finance-feedback", "page:finance-request-detail", "page:my-requests", "page:team-requests", "page:request-detail",
+    "page:finance-dashboard", "page:finance-services", "page:finance-reimbursement", "page:finance-travel", "page:finance-invoices", "page:finance-my-requests", "page:finance-team-requests", "page:finance-all-requests", "page:finance-tasks", "page:finance-sla-reminders", "page:finance-feedback", "page:finance-request-detail", "page:my-requests", "page:team-requests", "page:request-detail", "page:travel",
   ],
   "people team": [
     "page:hr-dashboard", "page:hr-services", "page:hr-general", "page:hr-letter-request", "page:hr-my-requests", "page:hr-team-requests", "page:hr-all-requests", "page:hr-tasks", "page:hr-feedback", "page:hr-request-detail", "page:my-requests", "page:team-requests", "page:request-detail",

@@ -98,6 +98,8 @@ export default function TravelPage() {
     (session?.user?.permissions as string[])?.includes("*")
     || (session?.user?.permissions as string[])?.includes("delete")
   ) ?? false
+  const readModules = (session?.user as UserWithModuleAccess | undefined)?.readModules
+  const readAllModules = (session?.user as UserWithModuleAccess | undefined)?.readAllModules
 
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
@@ -120,8 +122,8 @@ export default function TravelPage() {
         id: session?.user?.id,
         email: session?.user?.email,
         role: session?.user?.role as string,
-        readModules: (session?.user as any)?.readModules,
-        readAllModules: (session?.user as any)?.readAllModules,
+        readModules,
+        readAllModules,
       }
       setRequests(scopeRequestsByModuleAccess(all, userWithModules, session?.user))
     }
@@ -130,7 +132,7 @@ export default function TravelPage() {
     window.addEventListener("storage", sync)
     window.addEventListener("arp:storage", sync)
     return () => { window.removeEventListener("focus", sync); window.removeEventListener("storage", sync); window.removeEventListener("arp:storage", sync) }
-  }, [session?.user?.id, session?.user?.email, session?.user?.role])
+  }, [session?.user?.id, session?.user?.email, session?.user?.role, readModules, readAllModules])
 
   function handleStatusChange(id: string, newStatus: string) {
     const request = requests.find(r => r.id === id)

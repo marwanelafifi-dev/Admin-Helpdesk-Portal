@@ -2202,3 +2202,22 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] **Verification:**
   - Repeated `npm run build` production compilation completed successfully after the queue and permission work (the project intentionally skips separate type/lint validation).
   - The changes are source-controlled locally and require the normal commit, push, and Ubuntu Docker deployment before the remote portal reflects them.
+
+## Phase 17: Finance Access to Administration Travel (Implemented - 29 Sep 2026)
+
+- [x] **Persistent cross-function Travel access:**
+  - Finance Team is the designated processing audience for Administration Travel requests. Legacy Finance Team roles without module-access configuration are bootstrapped once with the **Travel** page, `travel` module visibility, and View All access, preventing the Travel page from opening with an empty request table.
+  - The bootstrap never overwrites an explicit `readModules` selection. An administrator can still remove Travel in Roles and that saved decision remains authoritative.
+  - The Travel queue now re-applies its request scope when the authenticated session's module grants change, preventing an initial session render from leaving a correctly authorized user with an empty table.
+
+## Phase 18: Searchable Finance Cost Centers (Implemented - 29 Sep 2026)
+
+- [x] **Reimbursement expense rows:**
+  - Each Cost Center selector now uses the shared keyboard-accessible searchable selector. Users can type to filter cost-center names, select with mouse or keyboard, and retain the existing validation and compact table layout.
+
+## Phase 19: Ubuntu Synology Backup Installer Compatibility (Implemented - 29 Sep 2026)
+
+- [x] **Systemd mount path:**
+  - The Ubuntu Synology installer now generates its CIFS mount unit with `/usr/bin/mount`, the location supplied by Ubuntu's merged `/usr` layout. This prevents systemd `status=203/EXEC` failures before any NAS authentication or network connection is attempted.
+  - Production validation confirmed the NAS share is reachable through SMB. The protected Ubuntu credential file must use the exact Synology account name (`company portal`, with a space, for this deployment) and `domain=WORKGROUP`; no NAS credentials are committed to the repository.
+  - Once the CIFS mount reports `active`, rerunning the installer creates the five-minute systemd timer. The Portal Database page then controls whether a daily recovery copy runs, its time, destination below the protected mount, and retention.
