@@ -250,6 +250,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
   const [supportFunctionLogos, setSupportFunctionLogos] = useState<Record<SupportFunctionId, string>>({
     administration: "", people: "", finance: "", it: "",
   })
+  const [financeSlaReminderCount, setFinanceSlaReminderCount] = useState(0)
 
   // Per-module "new" request counts and todo task count.
   // Drives small badges next to sidebar items so admins can see at a glance
@@ -259,6 +260,24 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
   // Regular requesters submit their own requests — they don't need to be
   // notified that they themselves have items in "New" status.
   const isAdminAudience = role === "Full Access" || role === "Administration Team"
+
+  useEffect(() => {
+    const canSeeFinanceSlaHistory = role === "Full Access" || roleToFunctionId(role) === "finance"
+    if (portal !== "finance" || !canSeeFinanceSlaHistory) {
+      setFinanceSlaReminderCount(0)
+      return
+    }
+    let active = true
+    const refresh = () => {
+      fetch("/api/finance/sla-reminders", { credentials: "include", cache: "no-store" })
+        .then((response) => response.ok ? response.json() : null)
+        .then((data) => { if (active) setFinanceSlaReminderCount(Number(data?.count) || 0) })
+        .catch(() => { if (active) setFinanceSlaReminderCount(0) })
+    }
+    refresh()
+    const interval = window.setInterval(refresh, 60_000)
+    return () => { active = false; window.clearInterval(interval) }
+  }, [portal, role])
 
   const searchParams = useSearchParams()
   const source = searchParams.get("source")
@@ -374,13 +393,14 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
 
   const badgeCountForHref = useCallback((href: string): number => {
     if (href === "/system/notices") return unreadNotices
+    if (href === "/departments/finance/sla-reminders") return financeSlaReminderCount
     if (!isAdminAudience) return 0
     if (href === "/tasks") return newTasksCount
     if (href === "/admin/all-requests") return allRequestsTotal
     const mod = moduleForHref(href)
     if (mod) return newRequestsByModule[mod] ?? 0
     return 0
-  }, [unreadNotices, isAdminAudience, newTasksCount, allRequestsTotal, newRequestsByModule, moduleForHref])
+  }, [unreadNotices, financeSlaReminderCount, isAdminAudience, newTasksCount, allRequestsTotal, newRequestsByModule, moduleForHref])
 
   const navItemsForPortal = portal === "hr" ? hrNavItems : portal === "finance" ? financeNavItems : portal === "platform-admin" ? platformAdminNavItems : adminNavItems
 
@@ -590,7 +610,9 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
                             <span
                               className={cn(
                                 "inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full text-[10px] font-bold animate-in zoom-in-50 duration-300",
-                                childActive ? "bg-white text-blue-700" : "bg-red-500 text-white"
+                                child.href === "/departments/finance/sla-reminders"
+                                  ? childActive ? "bg-white text-amber-700" : "bg-amber-400 text-amber-950 animate-pulse"
+                                  : childActive ? "bg-white text-blue-700" : "bg-red-500 text-white"
                               )}
                               title={`${childBadge} new`}
                             >

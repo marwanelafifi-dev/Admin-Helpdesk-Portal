@@ -296,14 +296,16 @@ async function sendMailWithRetry(transporter: any, mailOptions: any, maxRetries 
   const from = String(mailOptions.from ?? "")
   const senderFunction = getEmailFunctionForAudit(from)
   const requestId = String(mailOptions.headers?.["X-ARP-Request-ID"] ?? "")
+  const auditTitle = String(mailOptions.headers?.["X-ARP-Audit-Title"] ?? requestId) || "System email"
+  const auditContext = String(mailOptions.headers?.["X-ARP-Audit-Context"] ?? "")
   const recipientList = (value: unknown) => Array.isArray(value) ? value.filter(Boolean).join(", ") : String(value ?? "")
-  const deliveryDetails = `Function: ${senderFunction}; From: ${from}; To: ${recipientList(mailOptions.to)}; CC: ${recipientList(mailOptions.cc) || "None"}; Subject: ${String(mailOptions.subject ?? "")}`
+  const deliveryDetails = `Function: ${senderFunction}; From: ${from}; To: ${recipientList(mailOptions.to)}; CC: ${recipientList(mailOptions.cc) || "None"}; Subject: ${String(mailOptions.subject ?? "")}${auditContext ? `; ${auditContext}` : ""}`
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const result = await transporter.sendMail(mailOptions)
       logServerAudit({
         actor: "System", actorEmail: "", action: "email_sent", targetId: requestId,
-        targetTitle: requestId || "System email", details: deliveryDetails,
+        targetTitle: auditTitle, details: deliveryDetails,
         category: "email", outcome: "success", functionName: senderFunction,
       })
       return result
@@ -330,7 +332,7 @@ async function sendMailWithRetry(transporter: any, mailOptions: any, maxRetries 
       })
       logServerAudit({
         actor: "System", actorEmail: "", action: "email_failed", targetId: requestId,
-        targetTitle: requestId || "System email", details: `${deliveryDetails}; Error: ${msg.slice(0, 300)}`,
+        targetTitle: auditTitle, details: `${deliveryDetails}; Error: ${msg.slice(0, 300)}`,
         category: "email", outcome: "failure", functionName: senderFunction,
       })
       throw error
@@ -561,6 +563,83 @@ export async function sendRequestUpdateEmail(params: {
       }] : []),
       ...(params.updateType === "comment" ? (params.commentAttachments ?? []) : []),
     ],
+  })
+}
+
+/**
+ * A focused operational alert for Finance SLA events. This intentionally has
+ * one recipient (ap@si-ware.com) so an SLA reminder does not fan out to CCs,
+ * requesters, or unrelated portal users.
+ */
+export async function sendFinanceSlaReminderEmail(params: {
+  requestId: string
+  requestTitle: string
+  module: string
+  requesterName: string
+  requesterEmail?: string
+  status: string
+  slaBasis: "submission" | "approval"
+  reminderWorkingDay: number
+  slaWorkingDays: number
+  deadline: string
+}) {
+  const financeConfig = readEmailConfig("finance")
+  // Finance has its own sender when configured. Until then, use the existing
+  // secure Administration SMTP configuration so the Finance mailbox still
+  // receives critical SLA notifications rather than silently missing them.
+  const senderFunction: EmailFunctionId = financeConfig ? "finance" : "admin"
+  const transporter = createTransporter(senderFunction)
+  const logoBuffer = getLogoBuffer()
+  const actionUrl = `${getBaseUrl()}/departments/finance/requests/${encodeURIComponent(params.requestId)}`
+  const moduleLabel = params.module
+    .replace(/^finance_/, "")
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+  const basisLabel = params.slaBasis === "approval" ? "after approval" : "after submission"
+  const statusLabel = params.status.replace(/_/g, " ")
+  const value = (input: string) => escapeHtml(input || "—")
+  const body = `
+    <div style="padding:30px 40px;color:#334155;font-size:14px;line-height:1.65;">
+      <p style="margin:0 0 16px;">Dear Finance Team,</p>
+      <p style="margin:0;">This request has reached its Finance SLA reminder point and requires review before its deadline.</p>
+      <div style="margin:22px 0;background:#fff8e7;border:1px solid #f5c451;border-left:4px solid #f59e0b;border-radius:10px;padding:16px 18px;">
+        <table role="presentation" style="width:100%;border-collapse:collapse;">
+          <tr><td style="padding:5px 0;width:120px;color:#64748b;font-weight:700;">Request</td><td style="padding:5px 0;color:#102a4c;font-weight:700;">${value(params.requestTitle)}</td></tr>
+          <tr><td style="padding:5px 0;color:#64748b;font-weight:700;">Request ID</td><td style="padding:5px 0;color:#102a4c;">${value(params.requestId)}</td></tr>
+          <tr><td style="padding:5px 0;color:#64748b;font-weight:700;">Module</td><td style="padding:5px 0;color:#102a4c;">${value(moduleLabel)}</td></tr>
+          <tr><td style="padding:5px 0;color:#64748b;font-weight:700;">Requester</td><td style="padding:5px 0;color:#102a4c;">${value(params.requesterName)}${params.requesterEmail ? ` (${value(params.requesterEmail)})` : ""}</td></tr>
+          <tr><td style="padding:5px 0;color:#64748b;font-weight:700;">Current status</td><td style="padding:5px 0;color:#102a4c;">${value(statusLabel)}</td></tr>
+          <tr><td style="padding:5px 0;color:#64748b;font-weight:700;">SLA timing</td><td style="padding:5px 0;color:#102a4c;">Working day ${params.reminderWorkingDay} ${value(basisLabel)} of ${params.slaWorkingDays}</td></tr>
+          <tr><td style="padding:5px 0;color:#9a3412;font-weight:700;">SLA deadline</td><td style="padding:5px 0;color:#9a3412;font-weight:800;">${value(params.deadline)}</td></tr>
+        </table>
+      </div>
+      <a href="${escapeHtml(actionUrl)}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:700;">Open request in portal &rarr;</a>
+    </div>`
+
+  const html = formalEmailShell({
+    eyebrow: "Si-Ware Finance Team",
+    title: "SLA reminder requires attention",
+    reference: `${params.requestId} · deadline ${params.deadline}`,
+    body,
+    footer: "This is an automated Finance SLA reminder from the Si-Ware Company Portal.",
+    hasLogo: Boolean(logoBuffer),
+  })
+
+  await sendMailWithRetry(transporter, {
+    from: resolveFromAddress("Si-Ware Finance Team", senderFunction),
+    to: "ap@si-ware.com",
+    subject: `[Action required] Finance SLA reminder — ${params.requestId}`,
+    html,
+    headers: {
+      "X-ARP-Request-ID": params.requestId,
+      "X-ARP-Notification-Type": "finance_sla_reminder",
+      "X-ARP-Audit-Title": "Finance SLA reminder email",
+      "X-ARP-Audit-Context": `Finance SLA reminder; deadline ${params.deadline}`,
+    },
+    attachments: logoBuffer ? [{
+      filename: "siware-logo.png", content: logoBuffer, cid: "siware-logo", contentType: "image/png",
+    }] : [],
   })
 }
 

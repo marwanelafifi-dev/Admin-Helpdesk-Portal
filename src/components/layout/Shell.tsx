@@ -9,6 +9,7 @@ import { useEngineSync } from "@/hooks/useEngineSync"
 import { useHeartbeat } from "@/hooks/useHeartbeat"
 import { SecurityActivityTracker } from "./SecurityActivityTracker"
 import { RequestSubmissionSuccess } from "@/components/request/RequestSubmissionSuccess"
+import { RequestExportMenu } from "@/components/request/RequestExportMenu"
 
 /**
  * Dashboard shell: sidebar (drawer on mobile) + topbar + main content area.
@@ -82,6 +83,7 @@ function ShellInner({ children, portal }: { children: React.ReactNode; portal: "
             {children}
           </div>
         </main>
+        <RequestExportMenu portal={portal} />
       </div>
     </div>
   )

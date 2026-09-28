@@ -117,10 +117,10 @@ export function TopBar({ portal = "admin" }: { portal?: Portal }) {
   }
 
   return (
-    <header className="relative flex h-16 shrink-0 items-center justify-between gap-2 border-b border-blue-200 bg-[radial-gradient(ellipse_70%_180%_at_50%_0%,_#cfe8ff_0%,_#dff0ff_30%,_#edf6ff_62%,_#f7fbff_100%)] px-3 shadow-[0_10px_30px_-24px_rgba(30,64,175,0.35)] dark:border-sky-300/20 dark:!bg-[radial-gradient(ellipse_70%_220%_at_50%_0%,_#1b4a76_0%,_#102d4c_44%,_#0a1b30_100%)] dark:shadow-[0_12px_32px_-22px_rgba(0,0,0,0.95)] sm:px-4 lg:px-6">
+    <header className="relative flex h-32 shrink-0 items-start justify-between gap-2 border-b border-blue-200 bg-[radial-gradient(ellipse_70%_180%_at_50%_0%,_#cfe8ff_0%,_#dff0ff_30%,_#edf6ff_62%,_#f7fbff_100%)] px-3 shadow-[0_10px_30px_-24px_rgba(30,64,175,0.35)] dark:border-sky-300/20 dark:!bg-[radial-gradient(ellipse_70%_220%_at_50%_0%,_#1b4a76_0%,_#102d4c_44%,_#0a1b30_100%)] dark:shadow-[0_12px_32px_-22px_rgba(0,0,0,0.95)] sm:h-16 sm:items-center sm:px-4 lg:px-6">
       {/* Left: hamburger — opens the drawer on mobile, collapses/expands
           the sidebar on desktop (via the arp:toggle-sidebar event). */}
-      <div className="flex items-center flex-shrink-0">
+      <div className="absolute left-3 top-2 flex items-center flex-shrink-0 sm:static">
         <Button
           variant="ghost"
           size="icon"
@@ -142,8 +142,8 @@ export function TopBar({ portal = "admin" }: { portal?: Portal }) {
 
       {/* Center: Logo (hidden on very small screens to save room) */}
       {headerShowLogo ? (
-        <Link href="/landing" title="Return to Company Portal home" aria-label="Return to Company Portal home" className="absolute left-1/2 flex min-w-0 -translate-x-1/2 items-center justify-center rounded-lg transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-cyan-300 dark:focus-visible:ring-offset-[#0a1b30]">
-          <div className="relative h-10 w-40 sm:h-12 sm:w-56 lg:w-64">
+        <Link href="/landing" title="Return to Company Portal home" aria-label="Return to Company Portal home" className="absolute bottom-2 left-1/2 flex min-w-0 -translate-x-1/2 items-center justify-center rounded-lg transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-cyan-300 dark:focus-visible:ring-offset-[#0a1b30] sm:bottom-auto">
+          <div className="relative h-12 w-48 sm:w-56 lg:w-64">
             {logoSrc.startsWith("data:") ? (
               <img src={logoSrc} alt={headerLogoAlt} className="h-full w-full object-contain dark:brightness-0 dark:invert" />
             ) : (
@@ -156,7 +156,7 @@ export function TopBar({ portal = "admin" }: { portal?: Portal }) {
       )}
 
       {/* Right: actions */}
-      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+      <div className="absolute right-2 top-2 flex items-center gap-0.5 sm:static sm:gap-2 flex-shrink-0">
         {platformAdminPath && (
           <Button
             variant="ghost"

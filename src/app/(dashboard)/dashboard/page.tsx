@@ -8,7 +8,7 @@ import {
 } from "recharts"
 import {
   FileText, Clock, CheckCircle2, AlertCircle, TrendingUp, TrendingDown, Minus,
-  Activity, Star, Layers, ArrowRight, X,
+  Activity, Star, Layers, ArrowRight, X, AlarmClock,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
@@ -296,6 +296,18 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
     return { from: from.toISOString().split("T")[0], to: now.toISOString().split("T")[0] }
   })
   const [feedback, setFeedback] = useState<any[]>([])
+  const [financeSlaReminderCount, setFinanceSlaReminderCount] = useState(0)
+  const financeDashboard = Boolean(moduleScope?.some((module) => ["finance_reimbursement", "finance_travel_reimbursement", "finance_invoice_payment"].includes(module)))
+
+  useEffect(() => {
+    if (!financeDashboard) return
+    let active = true
+    fetch("/api/finance/sla-reminders", { credentials: "include", cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => { if (active) setFinanceSlaReminderCount(Number(data?.count) || 0) })
+      .catch(() => { if (active) setFinanceSlaReminderCount(0) })
+    return () => { active = false }
+  }, [financeDashboard])
   const [slaDetail, setSlaDetail] = useState<"compliance" | "exceptions" | null>(null)
   const [showSlaPolicy, setShowSlaPolicy] = useState(false)
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
@@ -645,6 +657,22 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
           <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" />
         )}
       </div>
+
+      {financeDashboard && financeSlaReminderCount > 0 && (
+        <Link
+          href="/departments/finance/sla-reminders"
+          className="group flex flex-wrap items-center justify-between gap-4 rounded-xl border border-amber-300 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-100/70 px-5 py-4 shadow-sm transition hover:border-amber-400 hover:shadow-md dark:border-amber-500/40 dark:from-amber-950/50 dark:via-orange-950/35 dark:to-slate-900"
+        >
+          <div className="flex items-center gap-3">
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500 text-white shadow-sm"><AlarmClock className="h-5 w-5" /></span>
+            <div>
+              <p className="font-semibold text-amber-950 dark:text-amber-100">{financeSlaReminderCount} Finance SLA reminder{financeSlaReminderCount === 1 ? "" : "s"} need attention</p>
+              <p className="mt-0.5 text-sm text-amber-800 dark:text-amber-200">Open the reminder queue to review deadlines and affected requests.</p>
+            </div>
+          </div>
+          <span className="inline-flex items-center gap-1 text-sm font-semibold text-amber-900 group-hover:underline dark:text-amber-100">View SLA Reminders <ArrowRight className="h-4 w-4" /></span>
+        </Link>
+      )}
 
       {/* Time Range Filter */}
       <div className="flex flex-wrap gap-2 items-center">

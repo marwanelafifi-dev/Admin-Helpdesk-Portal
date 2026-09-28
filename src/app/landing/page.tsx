@@ -160,9 +160,9 @@ export default async function DepartmentSelectorPage() {
         <section className="landing-support-section relative isolate overflow-hidden rounded-[28px] border border-blue-200 bg-gradient-to-br from-white via-[#f8fbff] to-[#e8f2ff] p-4 shadow-[0_26px_72px_-38px_rgba(30,64,175,0.38)] backdrop-blur-sm dark:border-sky-300/20 dark:from-[#142945]/95 dark:via-[#0f2038]/95 dark:to-[#0b182d]/95 dark:shadow-[0_28px_80px_-42px_rgba(0,0,0,0.95)] sm:p-6" aria-labelledby="support-functions-heading">
           <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-36 bg-[radial-gradient(ellipse_at_center,_rgba(147,197,253,0.42),_transparent_72%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(56,189,248,0.12),_transparent_72%)]" />
           <div className="landing-section-heading relative mb-5 text-center">
-            <div className="absolute right-0 top-0"><PortalUpdatesLauncher /></div>
-            <div>
-                <h2 id="support-functions-heading" className="text-[22px] font-semibold tracking-[-0.025em] text-[#173f91] dark:text-white">Support Functions</h2>
+            <div className="flex flex-col items-center gap-2 sm:block">
+              <h2 id="support-functions-heading" className="text-[22px] font-semibold tracking-[-0.025em] text-[#173f91] dark:text-white">Support Functions</h2>
+              <div className="sm:absolute sm:right-0 sm:top-0"><PortalUpdatesLauncher /></div>
             </div>
             <p className="mt-1.5 text-sm leading-5 text-slate-500 dark:text-slate-300">Choose a team to submit or manage requests.</p>
           </div>

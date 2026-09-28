@@ -1,9 +1,12 @@
 import { roleToFunctionId } from "@/lib/functionRegistry"
-import { addFinanceSlaReminder } from "@/lib/financeSlaReminderStore"
+import { addFinanceSlaReminder, markFinanceSlaReminderAuditLogged, markFinanceSlaReminderEmailSent, readFinanceSlaReminders } from "@/lib/financeSlaReminderStore"
+import { commentsStore } from "@/lib/commentsStore"
+import { sendFinanceSlaReminderEmail } from "@/lib/emailService"
 import { requestStore } from "@/lib/requestStore"
 import { serverNotificationStore, type ServerNotification } from "@/lib/serverNotificationStore"
 import { loadSettingsServer } from "@/lib/settingsServer"
 import { readUsers } from "@/lib/userStore"
+import { logServerAudit } from "@/lib/serverAuditLog"
 import { normalizeFinanceReminderDay, normalizeFinanceSlaDays } from "@/modules/finance/financeSla"
 import type { EngineRequest } from "@/services/engineService"
 
@@ -16,6 +19,7 @@ type LocalDate = { year: number; month: number; day: number }
 type SlaStart = { at: string; basis: "submission" | "approval" }
 
 let started = false
+const sendingReminderEmails = new Set<string>()
 
 function cairoDate(value: Date): LocalDate {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -82,14 +86,93 @@ function formatDeadline(date: LocalDate): string {
     .format(new Date(Date.UTC(date.year, date.month - 1, date.day)))
 }
 
+function queueFinanceSlaReminderEmail(params: {
+  reminderId: string
+  request: EngineRequest
+  slaStart: SlaStart
+  reminderDay: number
+  slaDays: number
+  deadlineDate: LocalDate
+}) {
+  if (sendingReminderEmails.has(params.reminderId)) return
+  const stored = readFinanceSlaReminders().find((item) => item.id === params.reminderId)
+  if (stored?.emailSentAt) return
+
+  sendingReminderEmails.add(params.reminderId)
+  void sendFinanceSlaReminderEmail({
+    requestId: params.request.id,
+    requestTitle: params.request.title,
+    module: params.request.module,
+    requesterName: params.request.requesterName,
+    requesterEmail: params.request.requesterEmail,
+    status: String(params.request.status),
+    slaBasis: params.slaStart.basis,
+    reminderWorkingDay: params.reminderDay,
+    slaWorkingDays: params.slaDays,
+    deadline: formatDeadline(params.deadlineDate),
+  })
+    .then(() => {
+      markFinanceSlaReminderEmailSent(params.reminderId, new Date().toISOString())
+      console.log(`[finance-sla-reminder] Email sent to ap@si-ware.com for ${params.request.id}`)
+    })
+    .catch((error) => {
+      // Leave emailSentAt unset so the next hourly check can retry a failed
+      // delivery. The in-memory set only prevents concurrent sends this run.
+      console.error(`[finance-sla-reminder] Email failed for ${params.request.id}:`, error)
+    })
+    .finally(() => sendingReminderEmails.delete(params.reminderId))
+}
+
+function recordFinanceSlaAudit(params: {
+  reminderId: string
+  request: EngineRequest
+  slaStart: SlaStart
+  reminderDay: number
+  slaDays: number
+  deadlineDate: LocalDate
+}) {
+  const stored = readFinanceSlaReminders().find((item) => item.id === params.reminderId)
+  if (!stored) return
+  const deadline = formatDeadline(params.deadlineDate)
+  const basis = params.slaStart.basis === "approval" ? "after approval" : "after submission"
+
+  if (!stored.auditLoggedAt) {
+    logServerAudit({
+      actor: "Finance SLA Monitor", actorEmail: "system@si-ware.com",
+      action: "finance_sla_reminder_raised", targetId: params.request.id,
+      targetTitle: "Finance SLA reminder raised",
+      details: `${params.request.title} (${params.request.module}) reached working day ${params.reminderDay} ${basis}; SLA deadline ${deadline}.`,
+      category: "system", outcome: "success", functionName: "Finance",
+    })
+    markFinanceSlaReminderAuditLogged(params.reminderId, "reminder", new Date().toISOString())
+  }
+
+  // Existing reminders created before email auditing was introduced are
+  // backfilled once, so the Audit Trail tells the complete current story.
+  if (stored.emailSentAt && !stored.emailAuditLoggedAt) {
+    logServerAudit({
+      actor: "Finance SLA Monitor", actorEmail: "system@si-ware.com",
+      action: "finance_sla_email_delivered", targetId: params.request.id,
+      targetTitle: "Finance SLA reminder email delivered",
+      details: `Delivered to ap@si-ware.com for ${params.request.title}; SLA deadline ${deadline}.`,
+      category: "email", outcome: "success", functionName: "Finance",
+    })
+    markFinanceSlaReminderAuditLogged(params.reminderId, "email", new Date().toISOString())
+  }
+}
+
 export function runFinanceSlaReminderCheck(now = new Date()): number {
   const todayKey = dateKey(cairoDate(now))
   const settings = loadSettingsServer()
   const slaDays = normalizeFinanceSlaDays(settings.financeSlaWorkingDays)
   const reminderDay = normalizeFinanceReminderDay(settings.financeSlaReminderDay, slaDays)
   const daysRemaining = slaDays - reminderDay
-  const financeUsers = readUsers().filter((user) => user.active && roleToFunctionId(user.role) === "finance")
-  if (financeUsers.length === 0) return 0
+  // Record the SLA event even while a Finance Team roster is being set up.
+  // Full Access users are the operational fallback, so they can see and act
+  // on Finance deadlines instead of the scheduler silently doing nothing.
+  const financeUsers = readUsers().filter((user) => user.active && (
+    roleToFunctionId(user.role) === "finance" || user.role === "Full Access"
+  ))
 
   let created = 0
   for (const request of requestStore.getAll()) {
@@ -109,6 +192,34 @@ export function runFinanceSlaReminderCheck(now = new Date()): number {
       requesterName: request.requesterName, slaStartedAt: slaStart.at, slaBasis: slaStart.basis,
       deadlineDate: dateKey(deadlineDate), sentAt, slaWorkingDays: slaDays, reminderWorkingDay: reminderDay,
     })
+
+    recordFinanceSlaAudit({ reminderId: recordId, request, slaStart, reminderDay, slaDays, deadlineDate })
+
+    // The comment lives with the request as a durable, visible alert. It is
+    // independently idempotent, so reminders that already existed before this
+    // feature was introduced also gain their request-thread alert on the next run.
+    const commentId = `CMT-${recordId}`
+    if (!commentsStore.getComments(request.id).some((comment) => comment.id === commentId)) {
+      commentsStore.addComment(request.id, {
+        id: commentId,
+        content: `Finance SLA reminder: this request has reached working day ${reminderDay} ${slaStart.basis === "approval" ? "after approval" : "after submission"}. Please review it before the SLA deadline on ${formatDeadline(deadlineDate)}.`,
+        authorId: "system-finance-sla",
+        author: { id: "system-finance-sla", name: "Finance SLA Monitor", email: "system@si-ware.com" },
+        createdAt: sentAt,
+      })
+    }
+
+    queueFinanceSlaReminderEmail({
+      reminderId: recordId,
+      request,
+      slaStart,
+      reminderDay,
+      slaDays,
+      deadlineDate,
+    })
+
+    // A record has already notified the Finance team; never duplicate the
+    // notification just because the scheduler runs again.
     if (!wasAdded) continue
 
     const basisText = slaStart.basis === "approval" ? "after approval" : "after submission"

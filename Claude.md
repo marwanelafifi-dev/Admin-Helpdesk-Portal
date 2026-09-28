@@ -2123,3 +2123,38 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] **Verification and local deployment:**
   - Production builds completed successfully after the shared request detail, print, CC, attachment, and audit updates (the configured build intentionally skips type and lint validation).
   - The compiled `.next-dev` output was deployed to `company-portal-app`; after restart the container was healthy and the portal feedback route returned HTTP 200.
+
+## Phase 14: Finance SLA Visibility, Export Traceability, Native Google Sheets, and Mobile Refinement (Implemented - 28 Sep 2026)
+
+- [x] **Finance SLA reminders are visible where Finance works:**
+  - The Finance sidebar displays an amber/pulsing count badge beside **SLA Reminders**. The Finance dashboard displays a prominent, clickable SLA alert when open reminders exist.
+  - Each Finance request-list table receives a full-width SLA notice immediately above the table without altering table columns or table width. The notice is scoped to the active queue: Finance All Requests sees all Finance reminders, while Reimbursement, Travel Reimbursement, and Invoices Payment see only their own module's reminders. It links directly to `/departments/finance/sla-reminders`.
+  - The scheduler includes active **Full Access** users as the operational fallback when no dedicated Finance Team user exists, so reminders are not silently suppressed during roster setup.
+- [x] **Request-thread reminder evidence:**
+  - Each SLA event creates one idempotent system comment from **Finance SLA Monitor** in the affected request's Comments tab. The comment includes the working-day basis and calculated deadline.
+  - SLA comments use a distinct amber card, monitor avatar, and **SLA reminder** badge so they cannot be mistaken for routine comments.
+  - Existing persisted reminder records are backfilled with the request-thread comment exactly once; scheduler reruns do not duplicate comments, notifications, or reminder records.
+- [x] **Finance SLA email delivery:**
+  - Each qualifying reminder sends one formal, actionable email exclusively to `ap@si-ware.com`. The email contains the request title/ID, module, requester, current status, SLA basis/day, deadline, and an authenticated direct link to `/departments/finance/requests/[id]`.
+  - `data/finance-sla-reminders.json` persists `emailSentAt`; delivery is marked only after SMTP accepts the message. Failed delivery remains eligible for a later scheduler retry, while accepted deliveries are never resent.
+  - Finance SMTP is used when configured. During Finance-mailbox setup, the existing secure Administration SMTP transport is used as a delivery fallback while the recipient remains only `ap@si-ware.com`.
+- [x] **Explicit SLA and export audit trail:**
+  - Reminder records persist audit markers so Audit Trail receives one **Finance SLA reminder raised** System event and one **Finance SLA email delivered** Email event per reminder, including request context, deadline, recipient, Finance function, actor, and timestamp. Existing active reminders are backfilled once.
+  - The common mail delivery layer accepts audit-title/context headers, allowing Finance SLA mail to appear as **Finance SLA reminder email** rather than an ambiguous generic message.
+  - Every future request export is captured as **Request export** in the System Audit category with the authenticated actor, timestamp, export scope, modules, output type, and number of request rows. Historical downloads that predate this feature cannot be reconstructed.
+  - Audit action names include `request_exported`, `finance_sla_reminder_raised`, and `finance_sla_email_delivered`. `serverAuditLog` continues to protect all records with the existing chained SHA-256 integrity evidence.
+- [x] **Request export placement and formats:**
+  - `RequestExportMenu` is injected immediately above request-list tables rather than the global top bar, keeping the control contextual and preserving all existing table dimensions.
+  - Supported Administration, People, and Finance request-list routes export a normalized common column set plus module-prefixed payload columns. This makes combined All Requests exports unambiguous while preserving each module's fields.
+  - CSV export remains available for Excel/Sheets compatibility. Browser-only clipboard/paste export was removed.
+- [x] **Native Google Sheets export:**
+  - **Create Google Sheet** posts the filtered table to a short-lived, single-use server job, starts the user-owned Google OAuth Sheets authorization flow, creates a spreadsheet through the Google Sheets API, writes the complete table, then redirects the browser directly to the created Sheet in the user's Google Drive. It never downloads an `.xlsx` file.
+  - OAuth export jobs are stored temporarily in `data/google-sheets-exports.json`, bound to the initiating portal user, expire after 15 minutes, and are consumed when the callback is used. The job contains the export data only while Google authorization is in progress.
+  - Required Google configuration: enable **Google Sheets API** in the Portal OAuth project and register `${NEXTAUTH_URL}/api/google-sheets/callback` (for local development, `http://localhost:3003/api/google-sheets/callback`). `GOOGLE_SHEETS_REDIRECT_URI` may override the derived callback address for production deployments.
+  - The callback validates portal session and single-use state, exchanges the authorization code server-side, creates/writes the Google Sheet under the user's Google account, records the completed export in Audit Trail, and redirects to Google. Export data is bounded to 5,000 request rows, 300 columns, and 45,000 characters per cell.
+- [x] **Responsive portal refinements:**
+  - The global mobile top bar keeps every existing header action visible in a dedicated top row while placing the centered Si-Ware logo below it; no action icons are hidden on supported mobile widths.
+  - Landing-page **Support Functions** and **What’s New** no longer overlap on mobile: the update control stacks beneath the heading on small screens and returns to its right-aligned desktop position from the `sm` breakpoint.
+- [x] **Verification and local deployment:**
+  - Production builds completed successfully after the SLA, audit, export, mobile, and Google Sheets changes (`npm run build`; the project configuration intentionally skips separate type/lint validation).
+  - Compiled `.next-dev` output was copied to `company-portal-app`, the container was restarted, and it passed its health check. The secured Google Sheets export endpoint correctly rejects unauthenticated calls; the full Google creation flow requires the signed-in browser user to complete Google authorization.
