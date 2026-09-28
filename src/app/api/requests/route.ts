@@ -333,16 +333,21 @@ export async function POST(req: Request) {
     ? await deliverFeedbackSurveyForRequest(saved)
     : undefined
 
-  logServerAudit({
-    actor: session.user.name ?? session.user.email ?? "System",
-    actorEmail: session.user.email ?? "",
-    action: isNew ? "request_created" : "request_edited",
-    targetId: saved.id,
-    targetTitle: saved.title,
-    details: isNew ? `${saved.module} request created` : `${saved.module} request updated`,
-    category: "request",
-    outcome: "success",
-  })
+  // Normal background synchronisation also uses this endpoint. Only audit a
+  // creation or an explicitly identified user action; otherwise sync retries
+  // would falsely appear as edits to unrelated requests.
+  if (isNew || body.audit?.action === "cc_recipients_updated") {
+    logServerAudit({
+      actor: session.user.name ?? session.user.email ?? "System",
+      actorEmail: session.user.email ?? "",
+      action: isNew ? "request_created" : "cc_recipients_updated",
+      targetId: saved.id,
+      targetTitle: saved.title,
+      details: isNew ? `${saved.module} request created` : String(body.audit.details),
+      category: "request",
+      outcome: "success",
+    })
+  }
 
   return NextResponse.json({ request: saved, feedbackSurvey })
 }

@@ -288,8 +288,12 @@ function HrTravelLetterDetail({ id }: { id: string }) {
         adminCc={request.adminCc ?? []}
         canEditCc={Boolean(canManageCc)}
         onAdminCcChange={(emails) => {
-          updateAdminCc(request.id, emails);
-          setRequest((current) => current ? { ...current, adminCc: emails } : current);
+          const updated = updateAdminCc(request.id, emails, { name: session?.user?.name, email: session?.user?.email });
+          setRequest((current) => current ? {
+            ...current,
+            adminCc: emails,
+            commentCcRecipients: updated?.commentCcRecipients ?? current.commentCcRecipients,
+          } : current);
         }}
       />}
 

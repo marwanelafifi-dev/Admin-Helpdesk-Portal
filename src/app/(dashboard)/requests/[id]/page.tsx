@@ -83,6 +83,12 @@ interface RequestDetail {
   updatedAt: string
   ccEmails: string[]
   adminCc: string[]
+  commentCcRecipients?: Array<{
+    email: string
+    addedByName: string
+    addedByEmail: string
+    addedAt: string
+  }>
   assignedToId?: string | null
   assignedToName?: string | null
   assignedToEmail?: string | null
@@ -217,6 +223,21 @@ function buildFinanceExpensePrintTable(module: string, payload: Record<string, a
 
   if (module === "finance_reimbursement") {
     const hasPo = payload.poOption === "has_po"
+    const savedInvoiceTotals = payload.invoiceTotalsByCurrency && typeof payload.invoiceTotalsByCurrency === "object"
+      ? payload.invoiceTotalsByCurrency as Record<string, unknown>
+      : {}
+    const invoiceTotals = Object.fromEntries(FINANCE_TABLE_CURRENCIES.map((currency) => {
+      const calculated = rows.reduce((sum, row) => {
+        const invoiceCurrency = row.invoiceCurrency ?? row.currency
+        const invoiceAmount = row.invoiceAmount ?? row.amount
+        return sum + (invoiceCurrency === currency && Number.isFinite(Number(invoiceAmount)) ? Number(invoiceAmount) : 0)
+      }, 0)
+      if (calculated !== 0) return [currency, calculated]
+      const hasCurrencyColumn = rows.some((row) => row.invoiceCurrency === currency || row.currency === currency)
+      if (hasCurrencyColumn) return [currency, 0]
+      const savedValue = Number(savedInvoiceTotals[currency])
+      return [currency, Number.isFinite(savedValue) ? savedValue : 0]
+    })) as Record<(typeof FINANCE_TABLE_CURRENCIES)[number], number>
     const body = rows.map((row) => `
       <tr>
         ${hasPo ? `<td>${escapePrintHtml(row.po || "—")}</td>` : ""}
@@ -228,7 +249,10 @@ function buildFinanceExpensePrintTable(module: string, payload: Record<string, a
         <td>${escapePrintHtml(row.refundCurrency ?? row.currency ?? "—")}</td>
       </tr>
     `).join("")
-    const totalsText = FINANCE_TABLE_CURRENCIES
+    const invoiceTotalsText = FINANCE_TABLE_CURRENCIES
+      .map((currency) => `<span><strong>Invoice ${currency}:</strong> ${printAmount(invoiceTotals[currency])}</span>`)
+      .join("")
+    const refundTotalsText = FINANCE_TABLE_CURRENCIES
       .map((currency) => `<span><strong>Refund ${currency}:</strong> ${printAmount(totals[currency])}</span>`)
       .join("")
 
@@ -238,7 +262,10 @@ function buildFinanceExpensePrintTable(module: string, payload: Record<string, a
         <table class="expense-table">
           <thead><tr>${hasPo ? "<th>PO</th>" : ""}<th>Description</th><th>Cost Center</th><th class="amount-cell">Invoice Amount</th><th>Invoice Currency</th><th class="amount-cell">Refund Amount</th><th>Refund Currency</th></tr></thead>
           <tbody>${body}</tbody>
-          <tfoot><tr><td colspan="${hasPo ? 3 : 2}" class="total-label">Refund total by currency</td><td colspan="4"><div class="currency-totals">${totalsText}</div></td></tr></tfoot>
+          <tfoot>
+            <tr><td colspan="${hasPo ? 3 : 2}" class="total-label">Invoice totals by currency</td><td colspan="4"><div class="currency-totals">${invoiceTotalsText}</div></td></tr>
+            <tr><td colspan="${hasPo ? 3 : 2}" class="total-label">Refund totals by currency</td><td colspan="4"><div class="currency-totals">${refundTotalsText}</div></td></tr>
+          </tfoot>
         </table>
       </div>
     `
@@ -275,10 +302,17 @@ function buildFinanceExpensePrintTable(module: string, payload: Record<string, a
   return ""
 }
 
-function isPrintAttachmentField(key: string): boolean {
+function isPrintAttachmentField(key: string, value?: unknown): boolean {
+  const values = Array.isArray(value) ? value : [value]
+  const hasAttachmentMetadata = values.some((item) => {
+    if (!item || typeof item !== "object") return false
+    const file = item as Record<string, unknown>
+    return typeof (file.name ?? file.fileName) === "string" && typeof file.url === "string"
+  })
   if (key === "attachments" || key === "additionalAttachments") return true
   if (key.toLowerCase().includes("attachment")) return true
-  return ["supportingDocument", "creditCardStatement", "reimbursementForm", "invoiceFile", "travelRequestForm", "passport", "amanSticker", "visaDocument", "flightPhoto", "hotelPhoto"].includes(key)
+  return ["supportingDocument", "creditCardStatement", "reimbursementForm", "invoiceFile", "travelRequestForm", "passport", "amanSticker", "visaDocument", "flightPhoto", "hotelPhoto", "invitationLetter"].includes(key)
+    || hasAttachmentMetadata
 }
 
 function buildPrintAttachments(
@@ -297,14 +331,15 @@ function buildPrintAttachments(
   })
   if (unique.length === 0) return ""
 
-  const rows = unique.map((attachment) => {
+  const attachmentRow = (attachment: Record<string, any>) => {
     const name = attachment.name || attachment.fileName || "Attachment"
     const category = attachment.category || attachment._fieldLabel
     const size = Number(attachment.sizeBytes)
     const sizeLabel = Number.isFinite(size) && size > 0 ? `${(size / 1024).toFixed(1)} KB` : ""
+    const commentTimestamp = attachment.commentCreatedAt ? fmtDateTime(String(attachment.commentCreatedAt)) : ""
     const sourceLabel = attachment.source === "comment"
-      ? `Comment by ${attachment.commentAuthor || "Unknown"}`
-      : category ? humanizeKey(String(category)) : "Request attachment"
+      ? `Comment by ${attachment.commentAuthor || "Unknown"}${commentTimestamp ? ` · ${commentTimestamp}` : ""}`
+      : category ? humanizeKey(String(category)) : "Attachment"
     const isBlobUrl = String(attachment.url || "").startsWith("blob:")
 
     let href = ""
@@ -328,12 +363,16 @@ function buildPrintAttachments(
         <div class="attachment-meta">${escapePrintHtml(sourceLabel)}${sizeLabel ? ` · ${escapePrintHtml(sizeLabel)}` : ""}${isBlobUrl ? " · Legacy file link unavailable" : ""}</div>
       </li>
     `
-  }).join("")
+  }
+
+  const formRows = unique.filter((attachment) => attachment.source !== "comment").map(attachmentRow).join("")
+  const commentRows = unique.filter((attachment) => attachment.source === "comment").map(attachmentRow).join("")
 
   return `
     <div class="section attachment-section">
       <div class="section-title">Attachments</div>
-      <ul class="attachment-list">${rows}</ul>
+      ${formRows ? `<div class="attachment-group-title">Attachments from Form</div><ul class="attachment-list">${formRows}</ul>` : ""}
+      ${commentRows ? `<div class="attachment-group-title">Comment Attachments</div><ul class="attachment-list">${commentRows}</ul>` : ""}
     </div>
   `
 }
@@ -440,6 +479,7 @@ export default function RequestDetailPage() {
           ...att,
           source: 'comment',
           commentAuthor: comment.author?.name || 'Unknown',
+          commentCreatedAt: comment.createdAt,
         }))
       )
 
@@ -611,13 +651,18 @@ export default function RequestDetailPage() {
       ? `${request.assignedToName}${request.assignedToEmail ? ` (${request.assignedToEmail})` : ""}`
       : "Unassigned"
 
-    const ccList = request.ccEmails && request.ccEmails.length > 0
-      ? request.ccEmails.join(", ")
+    const ccRecipients = [...(request.ccEmails || []), ...(request.adminCc || [])]
+      .map((email) => email.trim())
+      .filter((email, index, emails) => email && emails.findIndex((item) => item.toLowerCase() === email.toLowerCase()) === index)
+    const ccList = ccRecipients.length > 0
+      ? ccRecipients.join(", ")
       : "None"
-
-    const adminCcList = request.adminCc && request.adminCc.length > 0
-      ? request.adminCc.join(", ")
-      : "None"
+    const requestDescription = [
+      { label: "Description", value: request.description },
+      { label: "Description", value: (request.payload as any)?.requestDescription },
+      { label: "Purpose of Trip", value: (request.payload as any)?.purposeOfTrip },
+      { label: "Purpose", value: (request.payload as any)?.purpose },
+    ].find((item) => typeof item.value === "string" && item.value.trim()) as { label: string; value: string } | undefined
 
     const expenseTableHtml = buildFinanceExpensePrintTable(request.module, request.payload || {})
     // Standard Print keeps a compact attachment-name list. In Print with
@@ -670,6 +715,7 @@ export default function RequestDetailPage() {
           .expense-table .total-label { text-align: right; }
           .currency-totals { display: flex; flex-wrap: wrap; gap: 4px 16px; color: #111827; font-weight: 700; }
           .attachment-list { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+          .attachment-group-title { margin: 12px 0 7px; color: #374151; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
           .attachment-item { border: 1px solid #dbe3ef; border-radius: 6px; background: #f8fafc; padding: 9px 10px; page-break-inside: avoid; }
           .attachment-name { font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
           .attachment-name a { color: #1d4ed8; text-decoration: underline; text-underline-offset: 2px; }
@@ -720,6 +766,10 @@ export default function RequestDetailPage() {
                 <div class="detail-value">${requesterInfo}</div>
               </div>
               <div class="detail-item">
+                <div class="detail-label">Assigned To</div>
+                <div class="detail-value">${assigneeInfo}</div>
+              </div>
+              <div class="detail-item">
                 <div class="detail-label">Created</div>
                 <div class="detail-value">${fmtDateTime(request.createdAt)}</div>
               </div>
@@ -728,33 +778,24 @@ export default function RequestDetailPage() {
                 <div class="detail-value">${fmtDateTime(request.updatedAt)}</div>
               </div>
               <div class="detail-item">
-                <div class="detail-label">Assigned To</div>
-                <div class="detail-value">${assigneeInfo}</div>
-              </div>
-              <div class="detail-item">
                 <div class="detail-label">CC Recipients</div>
                 <div class="detail-value">${ccList}</div>
-              </div>
-              <div class="detail-item">
-                <div class="detail-label">Admin CC</div>
-                <div class="detail-value">${adminCcList}</div>
               </div>
             </div>
           </div>
 
-          ${request.description ? `
-            <div class="section">
-              <div class="section-title">Description</div>
-              <div class="description-box">${request.description.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
-            </div>
-          ` : ""}
-
-          ${Object.keys(request.payload || {}).length > 0 ? `
+          ${Object.keys(request.payload || {}).length > 0 || requestDescription ? `
             <div class="section">
               <div class="section-title">Request Details</div>
               <div class="details-grid">
+                ${requestDescription ? `
+                  <div class="detail-item">
+                    <div class="detail-label">${escapePrintHtml(requestDescription.label)}</div>
+                    <div class="detail-value">${escapePrintHtml(requestDescription.value)}</div>
+                  </div>
+                ` : ""}
                 ${Object.entries(request.payload || {})
-                  .filter(([key]) => !["ccEmails", "adminCc", "expenseRows", "totalsByCurrency"].includes(key) && !isPrintAttachmentField(key) && !(request.module === "finance_invoice_payment" && ["supplier", "poOrContract", "poNumbers", "otherDetails", "amount", "currency", "paymentTerms", "paymentMethod", "invoiceRows"].includes(key)))
+                  .filter(([key, value]) => !["ccEmails", "adminCc", "description", "requestDescription", "purposeOfTrip", "purpose", "expenseRows", "amount", "totalsByCurrency", "invoiceTotalsByCurrency", "refundTotalsByCurrency"].includes(key) && !isPrintAttachmentField(key, value) && !(request.module === "finance_invoice_payment" && ["supplier", "poOrContract", "poNumbers", "otherDetails", "amount", "currency", "paymentTerms", "paymentMethod", "invoiceRows"].includes(key)) && !(request.module === "finance_reimbursement" && ["poOption", "paidByPersonalCreditCard", "poNumbers", "costCenter", "currency", "refundAmount", "directManagerEmail", "directManagerId", "directManagerName"].includes(key)))
                   .map(([key, value]) => {
                     if (value === null || value === undefined || value === "") return ""
                     const label = humanizeKey(key)
@@ -975,6 +1016,7 @@ export default function RequestDetailPage() {
           companyName: engineRequest.companyName,
           ccEmails: Array.isArray((engineRequest.payload as any)?.ccEmails) ? (engineRequest.payload as any).ccEmails : [],
           adminCc: Array.isArray(engineRequest.adminCc) ? engineRequest.adminCc : [],
+          commentCcRecipients: Array.isArray(engineRequest.commentCcRecipients) ? engineRequest.commentCcRecipients : [],
           requester: {
             id: engineRequest.requesterId,
             name: engineRequest.requesterName,
@@ -1023,6 +1065,7 @@ export default function RequestDetailPage() {
               ...att,
               source: 'comment',
               commentAuthor: comment.author?.name || 'Unknown',
+              commentCreatedAt: comment.createdAt,
             }))
           )
 
@@ -1388,6 +1431,46 @@ export default function RequestDetailPage() {
                     )}
                   </CardContent>
                 </Card>
+
+                <Card className="md:col-span-2 lg:col-span-3">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      CC Recipients
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid gap-5 md:grid-cols-2">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">From request form</p>
+                      {Array.isArray((request.payload as any).ccEmails) && (request.payload as any).ccEmails.length > 0 ? (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {((request.payload as any).ccEmails as string[]).map((email) => (
+                            <Badge key={email} variant="secondary" className="font-normal">{email}</Badge>
+                          ))}
+                        </div>
+                      ) : <p className="mt-2 text-sm text-muted-foreground">No recipients were added on the form.</p>}
+                      <p className="mt-2 text-xs text-muted-foreground">Submitted by {request.requester?.name || "the requester"}</p>
+                    </div>
+                    <div className="border-t pt-4 md:border-l md:border-t-0 md:pl-5 md:pt-0">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Added in comments</p>
+                      {request.adminCc.length > 0 ? (
+                        <div className="mt-2 space-y-2">
+                          {request.adminCc.map((email) => {
+                            const record = request.commentCcRecipients?.find((item) => item.email.toLowerCase() === email.toLowerCase())
+                            return (
+                              <div key={email} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-slate-50 px-3 py-2 text-sm dark:bg-slate-800/60">
+                                <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-100">{email}</Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  {record ? `Added by ${record.addedByName} on ${fmtDateTime(record.addedAt)}` : "Added before attribution was recorded"}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ) : <p className="mt-2 text-sm text-muted-foreground">No recipients were added in Comments.</p>}
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
 
               {/* Request Payload Details */}
@@ -1405,14 +1488,26 @@ export default function RequestDetailPage() {
                         // ccEmails has its own panel; attachments has its own tab.
                         // Skip empty values so the grid doesn't show 20 blank rows.
                         .filter(([key, value]) => {
-                          // Skip ccEmails and all attachment-related fields
-                          if (["ccEmails", "attachments", "expenseRows", "amount", "priority", "totalsByCurrency", "refundTotalsByCurrency"].includes(key)) return false
+                          // CC recipients have their own panel; expense values have structured tables.
+                          if (["ccEmails", "expenseRows", "amount", "priority", "totalsByCurrency", "refundTotalsByCurrency"].includes(key)) return false
                           if (request.module === "finance_invoice_payment" && ["supplier", "poOrContract", "currency", "paymentTerms", "paymentMethod", "poNumbers", "invoiceRows"].includes(key)) return false
-                          // Skip individual attachment fields (travelRequestForm, passport, amanSticker, flightPhoto, visaDocument, etc.)
-                          if (key.includes("attachment") || key.includes("Attachment")) return false
-                          // Skip known file upload fields
-                          const fileFields = ["travelRequestForm", "passport", "amanSticker", "visaDocument", "aman_sticker", "flightPhoto", "flight_photo", "visaDoc", "visa_doc"]
-                          if (fileFields.includes(key)) return false
+                          // Finance reimbursements render their line items and both calculated totals
+                          // below. Do not repeat the raw, internal summary fields in this grid.
+                          if (request.module === "finance_reimbursement" && [
+                            "poOption",
+                            "paidByPersonalCreditCard",
+                            "poNumbers",
+                            "costCenter",
+                            "currency",
+                            "invoiceTotalsByCurrency",
+                            "refundTotalsByCurrency",
+                            "refundAmount",
+                            "directManagerEmail",
+                            "directManagerId",
+                            "directManagerName",
+                          ].includes(key)) return false
+                          // Files are collected in the dedicated Attachments card below.
+                          if (isPayloadAttachmentField(key, value)) return false
                           if (value == null) return false
                           if (typeof value === "string" && value.trim() === "") return false
                           if (Array.isArray(value) && value.length === 0) return false
@@ -1426,6 +1521,52 @@ export default function RequestDetailPage() {
                   </CardContent>
                 </Card>
               )}
+
+              {request.attachments && request.attachments.length > 0 && (() => {
+                const formAttachments = request.attachments.filter((attachment: any) => attachment.source !== "comment")
+                const commentAttachments = request.attachments.filter((attachment: any) => attachment.source === "comment")
+                const linkFor = (attachment: any) => {
+                  if (String(attachment.url || "").startsWith("data:")) return attachment.url
+                  if (attachment.id) return `/api/requests/${request.id}/attachments/${encodeURIComponent(String(attachment.id))}`
+                  return attachment.url || "#"
+                }
+                const attachmentRow = (attachment: any, label: string) => (
+                  <div key={`${attachment.source || "form"}-${attachment.id || attachment.name}`} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-800/60">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+                      <a href={linkFor(attachment)} target="_blank" rel="noreferrer" className="mt-1 inline-block break-all text-sm font-medium text-blue-700 underline underline-offset-2 hover:text-blue-900 dark:text-blue-300 dark:hover:text-blue-200">
+                        {attachment.name || attachment.fileName || "Attachment"}
+                      </a>
+                    </div>
+                    {attachment.sizeBytes ? <span className="shrink-0 text-xs text-muted-foreground">{(Number(attachment.sizeBytes) / 1024).toFixed(1)} KB</span> : null}
+                  </div>
+                )
+                return (
+                  <Card>
+                    <CardHeader className="border-b bg-slate-50/70 py-4 dark:border-slate-700 dark:!bg-[#142139]">
+                      <CardTitle className="text-base flex items-center gap-2"><FileText className="h-5 w-5" />Attachments</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid gap-6 p-4 sm:p-5 md:grid-cols-2">
+                      <section>
+                        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Attachments from Form</h3>
+                        <div className="mt-3 space-y-2">
+                          {formAttachments.length > 0
+                            ? formAttachments.map((attachment: any) => attachmentRow(attachment, humanizeKey(String(attachment.category || attachment._fieldLabel || "Attachment"))))
+                            : <p className="text-sm text-muted-foreground">No files were attached to the form.</p>}
+                        </div>
+                      </section>
+                      <section className="border-t pt-5 md:border-l md:border-t-0 md:pl-6 md:pt-0">
+                        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Comment Attachments</h3>
+                        <div className="mt-3 space-y-2">
+                          {commentAttachments.length > 0
+                            ? commentAttachments.map((attachment: any) => attachmentRow(attachment, `Comment by ${attachment.commentAuthor || "Unknown"}${attachment.commentCreatedAt ? ` · ${fmtDateTime(String(attachment.commentCreatedAt))}` : ""}`))
+                            : <p className="text-sm text-muted-foreground">No files were attached in comments.</p>}
+                        </div>
+                      </section>
+                    </CardContent>
+                  </Card>
+                )
+              })()}
             </div>
           )}
 
@@ -1502,8 +1643,12 @@ export default function RequestDetailPage() {
               adminCc={request.adminCc || []}
               canEditCc={sessionStatus === "authenticated" && hasPermission(session?.user?.permissions ?? [], "manage_cc")}
               onAdminCcChange={(emails) => {
-                updateAdminCc(request.id, emails)
-                setRequest((prev) => prev ? { ...prev, adminCc: emails } : prev)
+                const updated = updateAdminCc(request.id, emails, { name: session?.user?.name, email: session?.user?.email })
+                setRequest((prev) => prev ? {
+                  ...prev,
+                  adminCc: emails,
+                  commentCcRecipients: updated?.commentCcRecipients ?? prev.commentCcRecipients,
+                } : prev)
               }}
               onAddComment={async (content, attachments) => {
                 try {
@@ -1853,14 +1998,17 @@ function extractRequestAttachments(request: any): any[] {
     result.push(...payload.attachments.filter(Boolean))
   }
 
-  // Travel + Finance named fields
-  const namedFields = [
-    "amanSticker", "passport", "hotelPhoto", "flightPhoto",
-    "supportingDocument", "creditCardStatement", "reimbursementForm", "invoiceFile",
-  ]
-  for (const field of namedFields) {
-    if (payload[field] && typeof payload[field] === "object" && payload[field].id) {
-      result.push({ ...payload[field], _fieldLabel: field })
+  // Named upload fields vary by function. Detect the shared attachment
+  // metadata shape instead of maintaining a brittle, incomplete field list.
+  for (const [field, value] of Object.entries(payload)) {
+    const entries = Array.isArray(value) ? value : [value]
+    for (const entry of entries) {
+      if (entry && typeof entry === "object") {
+        const attachment = entry as Record<string, unknown>
+        if (attachment.id && (attachment.name || attachment.fileName) && attachment.url) {
+          result.push({ ...attachment, _fieldLabel: field })
+        }
+      }
     }
   }
 
@@ -1894,22 +2042,31 @@ function humanizeKey(key: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-function isPayloadAttachmentField(fieldKey: string): boolean {
-  return ["supportingDocument", "creditCardStatement", "reimbursementForm", "invoiceFile", "travelRequestForm", "passport", "amanSticker", "visaDocument", "flightPhoto", "hotelPhoto", "additionalAttachments"].includes(fieldKey)
+function isPayloadAttachmentField(fieldKey: string, value?: unknown): boolean {
+  const items = Array.isArray(value) ? value : [value]
+  const hasAttachmentMetadata = items.some((item) => {
+    if (!item || typeof item !== "object") return false
+    const file = item as Record<string, unknown>
+    return typeof (file.name ?? file.fileName) === "string" && typeof file.url === "string"
+  })
+  return ["supportingDocument", "creditCardStatement", "reimbursementForm", "invoiceFile", "travelRequestForm", "passport", "amanSticker", "visaDocument", "flightPhoto", "hotelPhoto", "invitationLetter", "additionalAttachments"].includes(fieldKey)
     || fieldKey.toLowerCase().includes("attachment")
+    || hasAttachmentMetadata
 }
 
-function attachmentFileNames(value: unknown): string[] {
+function payloadAttachmentFiles(value: unknown): Array<{ name: string; href?: string }> {
   const items = Array.isArray(value) ? value : [value]
   return items
     .map((item) => {
       if (item && typeof item === "object") {
         const file = item as Record<string, unknown>
-        return String(file.name ?? file.fileName ?? "")
+        const name = String(file.name ?? file.fileName ?? "")
+        const href = typeof file.url === "string" && /^(\/|https?:\/\/)/i.test(file.url) ? file.url : undefined
+        return { name, href }
       }
-      return typeof item === "string" ? item : ""
+      return { name: typeof item === "string" ? item : "" }
     })
-    .filter(Boolean)
+    .filter((file) => Boolean(file.name))
 }
 
 function FinanceExpenseDetailsTable({ module, payload }: { module: string; payload: Record<string, unknown> }) {
@@ -1942,6 +2099,21 @@ function FinanceExpenseDetailsTable({ module, payload }: { module: string; paylo
   const isReimbursement = module === "finance_reimbursement"
   const hasPo = payload.poOption === "has_po"
   const currencies = FINANCE_TABLE_CURRENCIES
+  const savedInvoiceTotals = payload.invoiceTotalsByCurrency && typeof payload.invoiceTotalsByCurrency === "object"
+    ? payload.invoiceTotalsByCurrency as Record<string, unknown>
+    : {}
+  const invoiceTotals = Object.fromEntries(currencies.map((currency) => {
+    const calculated = rows.reduce((sum, row) => {
+      const invoiceCurrency = row.invoiceCurrency ?? row.currency
+      const invoiceAmount = row.invoiceAmount ?? row.amount
+      return sum + (invoiceCurrency === currency && Number.isFinite(Number(invoiceAmount)) ? Number(invoiceAmount) : 0)
+    }, 0)
+    if (calculated !== 0) return [currency, calculated]
+    const hasCurrencyColumn = rows.some((row) => row.invoiceCurrency === currency || row.currency === currency)
+    if (hasCurrencyColumn) return [currency, 0]
+    const savedValue = Number(savedInvoiceTotals[currency])
+    return [currency, Number.isFinite(savedValue) ? savedValue : 0]
+  })) as Record<(typeof FINANCE_TABLE_CURRENCIES)[number], number>
 
   const legacyCurrency = (row: Record<string, any>) => Number(row.usdAmount ?? 0) > 0 ? "USD" : Number(row.eurAmount ?? 0) > 0 ? "EUR" : "EGP"
   const legacyAmount = (row: Record<string, any>) => Number(row[`${legacyCurrency(row).toLowerCase()}Amount`] ?? 0)
@@ -1982,6 +2154,14 @@ function FinanceExpenseDetailsTable({ module, payload }: { module: string; paylo
           })}
         </tbody>
         <tfoot className="border-t bg-amber-50/70 font-bold text-slate-950 dark:border-slate-600 dark:!bg-[#1d3652] dark:text-slate-100">
+          <tr className="border-b border-amber-100 dark:border-slate-600">
+            <td className="px-3 py-3 text-right text-xs font-semibold" colSpan={isReimbursement ? (hasPo ? 3 : 2) : 1}>Invoice totals</td>
+            <td className="px-3 py-3" colSpan={isReimbursement ? 4 : 4}>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs font-semibold">
+                {currencies.map((currency) => <span key={currency}>{currency}: {printAmount(invoiceTotals[currency])}</span>)}
+              </div>
+            </td>
+          </tr>
           <tr>
             <td className="px-3 py-3 text-right text-xs font-semibold" colSpan={isReimbursement ? (hasPo ? 3 : 2) : 1}>Refund totals</td>
             <td className="px-3 py-3" colSpan={isReimbursement ? 4 : 4}>
@@ -2010,17 +2190,25 @@ function PayloadField({ fieldKey, value }: { fieldKey: string; value: unknown })
 
 function PayloadValue({ fieldKey, value }: { fieldKey: string; value: unknown }) {
   // Skip attachments — they have their own dedicated tab
-  if (fieldKey === "attachments") {
-    return <p className="text-sm text-gray-500 italic">See Attachments tab</p>
-  }
-
   // Named upload fields are persisted as attachment metadata objects. The
   // details card should identify the document without exposing its internal
   // storage URL, checksum, upload data, or other technical fields.
-  if (isPayloadAttachmentField(fieldKey)) {
-    const names = attachmentFileNames(value)
-    return names.length > 0
-      ? <p className="text-sm font-medium text-blue-700 break-words">{names.join(", ")}</p>
+  if (isPayloadAttachmentField(fieldKey, value)) {
+    const files = payloadAttachmentFiles(value)
+    return files.length > 0
+      ? <div className="flex flex-col items-start gap-1.5">
+          {files.map((file, index) => file.href ? (
+            <a
+              key={`${file.name}-${index}`}
+              href={file.href}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm font-medium text-blue-700 underline underline-offset-2 hover:text-blue-900 dark:text-blue-300 dark:hover:text-blue-200"
+            >
+              {file.name}
+            </a>
+          ) : <span key={`${file.name}-${index}`} className="text-sm font-medium text-slate-700 dark:text-slate-200">{file.name}</span>)}
+        </div>
       : <p className="text-sm text-gray-500 italic">No file attached</p>
   }
 

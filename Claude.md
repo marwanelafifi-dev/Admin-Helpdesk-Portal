@@ -2100,3 +2100,26 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] **Verification and local deployment:**
   - Production builds completed successfully after the portal, feedback, email, and comment-attachment changes (the project build intentionally skips type and lint validation).
   - Compiled `.next-dev` output was copied to `company-portal-app`, the container was restarted, and `http://localhost:3003/feedback-survey` returned HTTP 200 after the health check passed.
+
+## Phase 13: Request Details, CC Traceability, Attachments, and Print Consistency (Completed - 28 Sep 2026)
+
+- [x] **Unified request-detail attachments:**
+  - The shared request detail page now detects attachment metadata by its persisted `{ id, name/fileName, url }` shape rather than relying on a fixed list of module field names. New form upload fields are therefore included automatically.
+  - Raw attachment metadata (storage URLs, checksums, uploader data, and JSON) is suppressed from Request Details. Attachments are presented once in a dedicated **Attachments** card as hyperlinks using their actual filenames.
+  - Attachments are grouped into **Attachments from Form** (retaining the source field label, such as Invitation Letter, Passport, or Supporting Document) and **Comment Attachments**.
+  - Every comment attachment identifies the comment author and the parent comment's date/time in both the request detail page and printed summary.
+- [x] **Print-summary parity for every request module:**
+  - The central shared print renderer now uses one standardized Request Information order: Requester, Assigned To, Created, Last Updated, and a single combined **CC Recipients** field.
+  - The primary request narrative appears once as the first standard label/value field in **Request Details**. It resolves `Description`, `requestDescription`, `Purpose of Trip`, or `Purpose` as applicable; Travel retains the exact **Purpose of Trip** label.
+  - The same primary narrative keys are excluded from the remaining payload grid, preventing duplicate descriptions. Attachment metadata is likewise excluded from the payload grid and rendered once under grouped attachments.
+  - Printed attachment groups use real file-name links, form-field labels, comment author/date/time, and file sizes. This applies to every module using the shared request detail/print route.
+  - Finance Reimbursement print and on-screen expense tables show separate, correct **Invoice totals** and **Refund totals** by USD, EUR, and EGP; persisted totals remain a fallback for legacy data.
+- [x] **CC recipients: unified display, attribution, and audit behavior:**
+  - Form CC and Comment-added CC recipients are shown as one de-duplicated recipient list in the Comments panel and as one combined **CC Recipients** field in print.
+  - The Request Details page separately explains provenance: form recipients are attributed to the requester, while Comment-added recipients record the actor and timestamp. Existing recipients without historical attribution are explicitly marked as legacy.
+  - `EngineRequest.commentCcRecipients` persists email, actor name/email, and addition time. `updateAdminCc()` tracks additions/removals, preserves attribution for retained recipients, and sends a named audit action.
+  - The request upsert API no longer writes false `request_edited` audit records for ordinary background synchronization. Explicit CC changes record `cc_recipients_updated`; the Audit Trail labels these as **CC Recipients updated** and ignores legacy sync-only edit noise.
+  - The specialized HR Travel Letter detail page uses the same CC-attribution update path.
+- [x] **Verification and local deployment:**
+  - Production builds completed successfully after the shared request detail, print, CC, attachment, and audit updates (the configured build intentionally skips type and lint validation).
+  - The compiled `.next-dev` output was deployed to `company-portal-app`; after restart the container was healthy and the portal feedback route returned HTTP 200.

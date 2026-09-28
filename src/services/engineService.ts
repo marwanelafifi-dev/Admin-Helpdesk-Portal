@@ -53,6 +53,13 @@ export interface CommentActivity {
   changedAt: string
 }
 
+export interface CommentCcRecipient {
+  email: string
+  addedByName: string
+  addedByEmail: string
+  addedAt: string
+}
+
 export interface EngineRequest<T = Record<string, unknown>> {
   id: string
   /** Stable key used to make retried create requests idempotent. */
@@ -72,6 +79,8 @@ export interface EngineRequest<T = Record<string, unknown>> {
   commentHistory: CommentActivity[]
   /** Admin-added CC recipients (editable from request detail page) */
   adminCc: string[]
+  /** Attribution for recipients added from the Comments tab. */
+  commentCcRecipients?: CommentCcRecipient[]
   /** Currently assigned Administration Team member, if any. */
   assignedToId?: string | null
   assignedToName?: string | null
@@ -258,7 +267,10 @@ export async function retryPendingPushes(): Promise<void> {
   savePending()
 }
 
-export async function pushToServer(request: EngineRequest): Promise<boolean> {
+export async function pushToServer(
+  request: EngineRequest,
+  audit?: { action: "cc_recipients_updated"; details: string },
+): Promise<boolean> {
   if (typeof window === "undefined") return false
   // Callers mark pending before writing locally. Keep this as a fallback for
   // retries and older call paths.
@@ -269,7 +281,7 @@ export async function pushToServer(request: EngineRequest): Promise<boolean> {
       const res = await fetch("/api/requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ request }),
+        body: JSON.stringify({ request, audit }),
       })
       if (!res.ok) {
         if (attempt < ATTEMPTS - 1) { await new Promise(r => setTimeout(r, (attempt + 1) * 2000)); continue }
@@ -741,21 +753,53 @@ export function recordCommentActivity(
  * updateAdminCc
  * Replaces the admin-managed CC list on a request.
  */
-export function updateAdminCc(id: string, adminCc: string[]): EngineRequest | null {
+export function updateAdminCc(
+  id: string,
+  adminCc: string[],
+  actor: { name?: string; email?: string } = {},
+): EngineRequest | null {
   const requests = readAll()
   const index = requests.findIndex((r) => r.id === id)
   if (index === -1) return null
 
+  const existingCc = Array.isArray(requests[index].adminCc) ? requests[index].adminCc : []
+  const normalizedExisting = new Set(existingCc.map((email) => email.trim().toLowerCase()).filter(Boolean))
+  const normalizedNext = new Set(adminCc.map((email) => email.trim().toLowerCase()).filter(Boolean))
+  const added = adminCc.filter((email) => !normalizedExisting.has(email.trim().toLowerCase()))
+  const removed = existingCc.filter((email) => !normalizedNext.has(email.trim().toLowerCase()))
+  const now = new Date().toISOString()
+  const storedRecipients = Array.isArray(requests[index].commentCcRecipients)
+    ? requests[index].commentCcRecipients
+    : []
+  const retainedRecipients = storedRecipients.filter((recipient) => normalizedNext.has(recipient.email.trim().toLowerCase()))
+  const addedRecipients = added.map((email) => ({
+    email: email.trim(),
+    addedByName: actor.name || actor.email || "Unknown",
+    addedByEmail: actor.email || "",
+    addedAt: now,
+  }))
+
   const updated = {
     ...requests[index],
     adminCc,
-    updatedAt: new Date().toISOString(),
+    commentCcRecipients: [...retainedRecipients, ...addedRecipients],
+    updatedAt: now,
   }
 
   requests[index] = updated
   markPending(updated)
-  writeAll(requests)
-  pushToServer(updated)
+  if (added.length > 0 || removed.length > 0) {
+    const changes = [
+      added.length > 0 ? `Added: ${added.join(", ")}` : "",
+      removed.length > 0 ? `Removed: ${removed.join(", ")}` : "",
+    ].filter(Boolean).join(". ")
+    writeAll(requests)
+    pushToServer(updated, { action: "cc_recipients_updated", details: `CC recipients updated. ${changes}` })
+  } else {
+    writeAll(requests)
+    pushToServer(updated)
+  }
+
   return updated
 }
 

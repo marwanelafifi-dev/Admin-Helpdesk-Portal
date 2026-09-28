@@ -158,10 +158,14 @@ export function CcPanel({ ccEmails, adminCc, onAdminCcChange, canEdit = false }:
   const [input, setInput] = useState("")
   const [error, setError] = useState("")
 
-  const allCc = useMemo(
-    () => Array.from(new Set([...ccEmails, ...adminCc])),
-    [ccEmails, adminCc]
-  )
+  const allCc = useMemo(() => {
+    const unique = new Map<string, string>()
+    for (const rawEmail of [...ccEmails, ...adminCc]) {
+      const email = rawEmail.trim()
+      if (email && !unique.has(email.toLowerCase())) unique.set(email.toLowerCase(), email)
+    }
+    return Array.from(unique.values())
+  }, [ccEmails, adminCc])
   const lowerAll = useMemo(() => new Set(allCc.map((e) => e.toLowerCase())), [allCc])
 
   function addEmail(rawEmail: string) {
@@ -201,18 +205,13 @@ export function CcPanel({ ccEmails, adminCc, onAdminCcChange, canEdit = false }:
         ) : (
           allCc.map((email) => {
             const isAdminAdded = adminCc.some((e) => e.toLowerCase() === email.toLowerCase())
-            const isFromForm = ccEmails.some((e) => e.toLowerCase() === email.toLowerCase())
             return (
               <span
                 key={email}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium",
-                  isAdminAdded && !isFromForm ? "bg-blue-100 text-blue-700" : "bg-gray-200 text-gray-700"
-                )}
+                className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700"
               >
                 <Mail className="h-3 w-3 shrink-0" />
                 {email}
-                {isFromForm && <span className="text-[10px] opacity-60 ml-0.5">(from form)</span>}
                 {canEdit && isAdminAdded && (
                   <button
                     onClick={() => handleRemove(email)}

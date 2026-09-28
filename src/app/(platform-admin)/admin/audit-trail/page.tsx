@@ -286,6 +286,7 @@ async function buildAuditLog(): Promise<AuditEntry[]> {
           ev.action === "request_deleted"   ? "Request deleted"
           : ev.action === "request_edited"  ? "Request edited"
           : ev.action === "request_assigned"? "Assigned"
+          : ev.action === "cc_recipients_updated" ? "CC Recipients updated"
           : ev.action === "database_backup"             ? "Database backup"
           : ev.action === "database_restore"            ? "Database restore"
           : ev.action === "database_import"             ? "Request import"
@@ -312,6 +313,9 @@ async function buildAuditLog(): Promise<AuditEntry[]> {
       const json = await res.json()
       const serverEvents: any[] = Array.isArray(json?.data) ? json.data : []
       serverEvents.forEach((ev) => {
+        // Older versions logged every local-storage sync as an edit. They do
+        // not represent a user changing the corresponding request.
+        if (ev.action === "request_edited" && / request updated$/i.test(String(ev.details ?? ""))) return
         const actionLabel: Record<string, string> = {
           user_created:          "User created",
           user_updated:          "User updated",
@@ -325,6 +329,7 @@ async function buildAuditLog(): Promise<AuditEntry[]> {
           request_deleted:       "Request deleted",
           request_created:       "Request created",
           request_edited:        "Request edited",
+          cc_recipients_updated: "CC Recipients updated",
           login_succeeded:       "Login succeeded",
           login_failed:          "Login failed",
           login_rate_limited:    "Login rate limited",
