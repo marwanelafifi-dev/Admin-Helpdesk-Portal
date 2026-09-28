@@ -24,6 +24,7 @@ import { CcVisibilityToggle } from "@/components/ui/CcVisibilityToggle"
 import { CompanyFilter, matchesCompanyFilter, type CompanyFilterValue } from "@/components/ui/CompanyFilter"
 import { useCcVisibility } from "@/hooks/useCcVisibility"
 import { LABEL_COLORS, LABEL_DOTS } from "@/lib/statusPalette"
+import { OperationalPageHeader, OperationalStatusGrid } from "@/components/ui/OperationalPage"
 import { MarkdownDisplay } from "@/components/ui/MarkdownDisplay"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -216,75 +217,55 @@ export default function MaintenancePage() {
     new:       companyRequests.filter((r) => r.status === "new").length,
     inProgress:companyRequests.filter((r) => r.status === "in_progress").length,
     completed: companyRequests.filter((r) => r.status === "completed").length,
+    cancelled: companyRequests.filter((r) => r.status === "cancelled").length,
   }), [companyRequests])
 
   const statCards = [
+    { key: "all",       label: "Total Tickets", value: counts.total,      icon: Wrench,       iconBg: "bg-slate-100",  iconColor: "text-slate-600",  activeBg: "bg-slate-800", activeBorder: "border-slate-800" },
     { key: "new",       label: "New",           value: counts.new,        icon: Clock,        iconBg: "bg-sky-50",    iconColor: "text-sky-600",    activeBg: "bg-sky-500",    activeBorder: "border-sky-500" },
     { key: "in_progress",   label: "In Progress",   value: counts.inProgress, icon: Wrench,       iconBg: "bg-blue-50",   iconColor: "text-blue-600",   activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
     { key: "completed", label: "Completed",     value: counts.completed,  icon: CheckCircle2, iconBg: "bg-emerald-50",iconColor: "text-emerald-600",activeBg: "bg-emerald-600",activeBorder: "border-emerald-600" },
+    { key: "cancelled", label: "Cancelled",     value: counts.cancelled,  icon: Clock,        iconBg: "bg-red-50",    iconColor: "text-red-600",    activeBg: "bg-red-600",    activeBorder: "border-red-600" },
   ] as const
 
   return (
     <div className="space-y-6">
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight">Administration Team - Maintenance</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Submit and track maintenance requests</p>
-        </div>
+      <OperationalPageHeader
+        eyebrow="Administration operations · Facilities"
+        title="Maintenance Requests"
+        description="Submit and track maintenance requests."
+        actions={<>
         {(newRequestsCount > 0 || newTasksCount > 0) && (
-          <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" className="ml-4" />
+          <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" />
         )}
         <Link href="/maintenance/new">
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white ml-4">
+          <Button className="h-10 bg-blue-600 px-4 font-semibold text-white shadow-sm hover:bg-blue-700">
             <Plus className="h-4 w-4 mr-2" />
             New Maintenance Request
           </Button>
         </Link>
-      </div>
+        </>}
+      />
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-3 gap-4">
-        {statCards.map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }, index) => {
-          const isActive = statusFilter === key || (key === "all" && statusFilter === "all")
-          return (
-            <button
-              key={key}
-              onClick={() => setStatusFilter(key === "all" ? "all" : (p) => p === key ? "all" : key)}
-              className={cn(
-                "text-left rounded-xl border-2 p-5 flex items-center gap-4 transition-all hover:shadow-md",
-                isActive ? `${activeBg} ${activeBorder} text-white shadow-sm` : "bg-white border-gray-100 hover:border-gray-200",
-                
-              )}
-            >
-              <div className={cn("h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all", isActive ? "bg-white/20" : iconBg)}>
-                <Icon className={cn("h-6 w-6 transition-all", isActive ? "text-white" : iconColor)} />
-              </div>
-              <div>
-                <p className={cn("text-sm font-medium", isActive ? "text-white/80" : "text-muted-foreground")}>{label}</p>
-                <p className={cn("text-2xl font-bold", isActive ? "text-white" : "")}>{value}</p>
-              </div>
-            </button>
-          )
-        })}
-      </div>
+      <OperationalStatusGrid items={statCards} activeKey={statusFilter} onSelect={(key) => setStatusFilter(key === "all" ? "all" : statusFilter === key ? "all" : key)} />
 
       {/* Table Card */}
-      <Card>
+      <Card className="overflow-hidden border-slate-200 shadow-sm dark:border-slate-700">
         <div className="-mx-6 px-6 -mb-6 overflow-visible">
-          <CardHeader className="pb-4">
-            <div className="flex flex-wrap gap-3">
-              <div className="relative flex-1 min-w-[200px]">
+          <CardHeader className="space-y-0 border-b border-slate-200 bg-slate-50/70 px-5 py-4 dark:border-slate-700 dark:bg-slate-900/40 sm:px-6">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+              <div className="relative min-w-[220px] flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search by ID, title, or comments…"
-                  className="pl-9"
+                  className="h-10 border-slate-300 bg-white pl-9 shadow-sm focus-visible:ring-blue-500 dark:border-slate-600 dark:bg-slate-950"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              <div className="flex flex-wrap gap-1.5 items-center">
+              <div className="flex flex-wrap items-center gap-1.5 xl:justify-end">
                 {(["all", ...STATUSES] as const).map((s) => {
                   const activeClass = s === "all" ? "bg-slate-900 border-slate-900 text-white" : STATUS_PILL_ACTIVE[s]
                   return (
@@ -303,17 +284,16 @@ export default function MaintenancePage() {
               </div>
             </div>
 
-            {/* CC Visibility Toggle */}
-            <CompanyFilter value={companyFilter} onChange={setCompanyFilter} className="mt-3" />
-            <div className="mt-3">
-              <CcVisibilityToggle checked={showCcRequests} onCheckedChange={toggleCcVisibility} />
+            <div className="mt-3 flex flex-col gap-3 border-t border-slate-200 pt-3 dark:border-slate-700 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-wrap items-center gap-3">
+                <CompanyFilter value={companyFilter} onChange={setCompanyFilter} />
+                <CcVisibilityToggle checked={showCcRequests} onCheckedChange={toggleCcVisibility} className="rounded-md border-slate-200 bg-white px-3 py-1.5 shadow-sm dark:border-slate-700 dark:bg-slate-950" />
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-3 lg:justify-end">
+                <p className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300"><span className="h-2 w-2 rounded-full bg-blue-500" />{filtered.length} ticket{filtered.length !== 1 ? "s" : ""} shown</p>
+                <div data-request-export-slot className="shrink-0" />
+              </div>
             </div>
-
-            <p className="text-sm text-muted-foreground font-normal mt-2">
-              {showCcRequests
-                ? `Showing ${filtered.length} ticket${filtered.length !== 1 ? "s" : ""} (including CC'd requests)`
-                : `Showing ${filtered.length} ticket${filtered.length !== 1 ? "s" : ""}`}
-            </p>
           </CardHeader>
 
           {/* Table */}

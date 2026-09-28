@@ -2158,3 +2158,24 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] **Verification and local deployment:**
   - Production builds completed successfully after the SLA, audit, export, mobile, and Google Sheets changes (`npm run build`; the project configuration intentionally skips separate type/lint validation).
   - Compiled `.next-dev` output was copied to `company-portal-app`, the container was restarted, and it passed its health check. The secured Google Sheets export endpoint correctly rejects unauthenticated calls; the full Google creation flow requires the signed-in browser user to complete Google authorization.
+
+## Phase 15: Unified Operational Request Queues (Completed - 28 Sep 2026)
+
+- [x] **Shared Finance-style queue pattern:**
+  - Added `OperationalPageHeader` and `OperationalStatusGrid` as reusable UI primitives. They provide the approved operational hierarchy: eyebrow/title/description/actions, compact status summaries, active-state indication, keyboard focus treatment, dark-mode contrast, and responsive six/seven-card grids.
+  - Finance Travel Reimbursement, Invoice Payment, and General Reimbursement use the same status-summary system. People’s reusable General/All Request views, Administration Travel, Event, Purchase, Maintenance, HR, Shipping, Import, Export, and Administration All Requests now use the same visual language instead of module-specific card designs.
+  - Administration and People request queues retain their module-specific fields and workflow behavior; the work standardizes presentation and navigation controls only.
+- [x] **Formal queue toolbar and table surfaces:**
+  - Request-list cards use one compact structure: search/status controls in the first row; contextual filters on the left and result count plus Export on the right in the second row. The table width, columns, sorting, and row actions are unchanged.
+  - Request export uses an explicit `data-request-export-slot` target in supported queue toolbars. This makes Export appear once in the intended location and prevents the former duplicate/local-menu placement on Administration queues.
+  - CC visibility remains available where users need it. In Administration team queues it is intentionally positioned beside the Company/queue filters on the left, while the live count and Export action remain aligned on the right, matching Finance.
+  - Shipping queues retain carrier filters; Shipping Import additionally retains its import Type filter (Supplier Will Ship / Si-Ware Will Ship).
+- [x] **Permissions and navigation consistency:**
+  - `export_requests` is a role permission with an **Export Requests** label. The common export menu checks this permission, while Full Access roles retain export access.
+  - System Notices is registered under Platform Administration rather than Administration, so the role editor and navigation no longer expose it in the wrong function.
+- [x] **Interaction and responsive polish:**
+  - The What’s New launcher has visible hover, press, and focus feedback in dark mode.
+  - Queue headers, primary actions, status cards, filters, counters, and export controls remain usable at desktop and mobile breakpoints without hiding controls.
+- [x] **Verification and local deployment:**
+  - Production builds passed after the queue consistency and CC-placement changes (`npm run build`; project configuration intentionally skips separate type/lint validation).
+  - To avoid Docker compiler-cache copy failures, only the production runtime build output (`server`, `static`, build ID, and manifests) was copied to `company-portal-app`; the container was restarted and confirmed healthy.

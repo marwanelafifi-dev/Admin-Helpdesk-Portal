@@ -42,7 +42,6 @@ export const PAGES: PageDefinition[] = [
   { id: "feedback-reports",   label: "Administration Feedback & Reports", path: "/feedback-reports", group: "Administration Function" },
   { id: "tasks",              label: "Administration Team Tasks", path: "/tasks",                    group: "Administration Function" },
   { id: "announcements",      label: "Administration Announcements", path: "/announcements",          group: "Administration Function" },
-  { id: "system-notices",     label: "Administration System Notices", path: "/system/notices",        group: "Administration Function" },
   { id: "my-requests",        label: "Administration My Requests", path: "/requests",                 group: "Administration Function" },
   { id: "team-requests",      label: "Administration Team Requests", path: "/team-requests",          group: "Administration Function" },
   { id: "request-detail",     label: "Administration Request Detail", path: "/requests/[id]",          group: "Administration Function" },
@@ -107,6 +106,7 @@ export const PAGES: PageDefinition[] = [
   { id: "admin-roles-buchi",   label: "Roles - BUCHI (Admin)", path: "/admin/roles/buchi", group: "Admin" },
   { id: "admin-settings",      label: "Settings (Admin)",      path: "/admin/settings",       group: "Admin" },
   { id: "admin-notifications", label: "Notifications (Admin)", path: "/admin/notifications",  group: "Admin" },
+  { id: "system-notices",     label: "System Notices (Admin)", path: "/system/notices",       group: "Admin" },
   { id: "admin-portal-updates", label: "What's New & Releases (Admin)", path: "/admin/portal-updates", group: "Admin" },
   { id: "admin-portal-feedback", label: "Portal Feedback (Admin)", path: "/admin/portal-feedback", group: "Admin" },
   { id: "admin-announcements", label: "Send Announcements",    path: "/admin/announcements", group: "Core" },
@@ -155,7 +155,7 @@ export function pagesByGroup(includeNonAssignable = false): Array<{ group: strin
     "maintenance", "maintenance-new", "purchase", "purchase-new",
     "event", "event-new", "travel", "travel-new", "general", "general-new",
     "my-requests", "team-requests", "all-requests", "tasks", "feedback-reports",
-    "announcements", "system-notices", "admin-announcements", "request-detail",
+    "announcements", "admin-announcements", "request-detail",
   ]
   return Object.entries(groups).map(([group, pages]) => ({
     group: editorGroupLabels[group] ?? group,

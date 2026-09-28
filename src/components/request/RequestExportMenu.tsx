@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
+import { useSession } from "next-auth/react"
 import Link from "next/link"
 import { createPortal } from "react-dom"
 import { AlarmClock, ArrowRight, ChevronDown, Download, FileSpreadsheet, Loader2 } from "lucide-react"
 import type { EngineRequest } from "@/services/engineService"
 import { modulesVisibleToFunction, type FunctionId } from "@/lib/functionRegistry"
+import { hasPermission, isSuperAdmin } from "@/lib/access"
 import { downloadRequestCsv, requestExportTable } from "@/lib/requestExport"
 import { Button } from "@/components/ui/button"
 import {
@@ -63,41 +65,73 @@ function slug(value: string): string {
 }
 
 export function RequestExportMenu({ portal }: { portal: FunctionId | "platform-admin" }) {
+  const { data: session } = useSession()
   const pathname = usePathname()
   const scope = scopeForPath(pathname)
   const [exporting, setExporting] = useState<"csv" | "spreadsheet" | null>(null)
   const [message, setMessage] = useState("")
-  const [target, setTarget] = useState<HTMLElement | null>(null)
+  const [exportTarget, setExportTarget] = useState<HTMLElement | null>(null)
+  const [slaTarget, setSlaTarget] = useState<HTMLElement | null>(null)
   const [financeSlaReminderCount, setFinanceSlaReminderCount] = useState(0)
   const financeModuleScope = (scope?.modules ?? []).filter((module) => FINANCE_MODULES.has(module))
   const financeScopeKey = financeModuleScope.join("|")
   const shouldShowFinanceSla = portal === "finance" && financeModuleScope.length > 0
+  const canExport = isSuperAdmin(session?.user?.role) || hasPermission(session?.user?.permissions, "export_requests")
 
   useEffect(() => {
     if (!scope || portal === "platform-admin") return
 
-    let anchor: HTMLDivElement | null = null
+    let exportAnchor: HTMLDivElement | null = null
+    let reminderAnchor: HTMLDivElement | null = null
     const mount = () => {
-      if (anchor) return true
+      if (exportAnchor) return true
+
+      const explicitExportSlot = document.querySelector<HTMLElement>("[data-request-export-slot]")
+      if (explicitExportSlot) {
+        setExportTarget(explicitExportSlot)
+        setSlaTarget(document.querySelector<HTMLElement>("[data-finance-sla-reminder-slot]"))
+        return true
+      }
+
       const table = document.querySelector("main table")
       const parent = table?.parentElement
       if (!table || !parent) return false
-      anchor = document.createElement("div")
-      anchor.className = "border-b border-slate-100 bg-white/95 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900/95 sm:px-4"
-      anchor.setAttribute("data-request-export-menu", "true")
-      parent.insertBefore(anchor, table)
-      setTarget(anchor)
+
+      // Request pages place their visible "Showing … tickets/requests" count
+      // Position its portal alongside that count without mutating React's
+      // CardHeader tree or adding a physical row before the table.
+      exportAnchor = document.createElement("div")
+      exportAnchor.className = "relative h-0 overflow-visible"
+      exportAnchor.setAttribute("data-request-export-menu", "true")
+      // The table's direct parent scrolls horizontally and clips positioned
+      // content. Mount just outside it so the control remains visible.
+      const exportParent = parent.parentElement ?? parent
+      exportParent.insertBefore(exportAnchor, parent)
+
+      reminderAnchor = document.createElement("div")
+      reminderAnchor.className = "-mt-2 mb-0"
+      reminderAnchor.setAttribute("data-request-sla-reminder", "true")
+      parent.insertBefore(reminderAnchor, table)
+      setExportTarget(exportAnchor)
+      setSlaTarget(reminderAnchor)
       return true
     }
 
-    if (mount()) return () => { anchor?.remove(); setTarget(null) }
+    if (mount()) return () => {
+      exportAnchor?.remove()
+      reminderAnchor?.remove()
+      setExportTarget(null)
+      setSlaTarget(null)
+    }
     const observer = new MutationObserver(() => { if (mount()) observer.disconnect() })
     const main = document.querySelector("main")
     if (main) observer.observe(main, { childList: true, subtree: true })
     return () => {
       observer.disconnect()
-      anchor?.remove()
-      setTarget(null)
+      exportAnchor?.remove()
+      reminderAnchor?.remove()
+      setExportTarget(null)
+      setSlaTarget(null)
     }
   }, [pathname, portal])
 
@@ -126,7 +160,7 @@ export function RequestExportMenu({ portal }: { portal: FunctionId | "platform-a
     }
   }, [shouldShowFinanceSla, financeScopeKey])
 
-  if (!scope || portal === "platform-admin" || !target) return null
+  if (!scope || portal === "platform-admin" || !canExport || !exportTarget) return null
 
   async function getScopedRequests(): Promise<EngineRequest[]> {
     const response = await fetch("/api/requests", { credentials: "include", cache: "no-store" })
@@ -194,15 +228,13 @@ export function RequestExportMenu({ portal }: { portal: FunctionId | "platform-a
     }
   }
 
-  return createPortal(
-    <div className="flex w-full flex-col gap-2">
-      {shouldShowFinanceSla && financeSlaReminderCount > 0 && (
+  const reminderBanner = shouldShowFinanceSla && financeSlaReminderCount > 0 && (
         <Link
           href="/departments/finance/sla-reminders"
-          className="group flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-100/70 px-4 py-3 shadow-sm transition hover:border-amber-400 hover:shadow-md dark:border-amber-500/40 dark:from-amber-950/50 dark:via-orange-950/35 dark:to-slate-900"
+          className="group flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-100/70 px-4 py-2 shadow-sm transition hover:border-amber-400 hover:shadow-md dark:border-amber-500/40 dark:from-amber-950/50 dark:via-orange-950/35 dark:to-slate-900"
         >
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white shadow-sm"><AlarmClock className="h-4.5 w-4.5" /></span>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white shadow-sm"><AlarmClock className="h-4 w-4" /></span>
             <div className="min-w-0">
               <p className="font-semibold text-amber-950 dark:text-amber-100">{financeSlaReminderCount} SLA reminder{financeSlaReminderCount === 1 ? "" : "s"} need attention in this request list</p>
               <p className="mt-0.5 text-xs text-amber-800 dark:text-amber-200">Review the affected requests and their SLA deadlines before they are missed.</p>
@@ -210,8 +242,11 @@ export function RequestExportMenu({ portal }: { portal: FunctionId | "platform-a
           </div>
           <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-amber-900 group-hover:underline dark:text-amber-100">View SLA Reminders <ArrowRight className="h-3.5 w-3.5" /></span>
         </Link>
-      )}
-      <div className="flex justify-end">
+  )
+
+  const usesInlineExportSlot = exportTarget.hasAttribute("data-request-export-slot")
+  const exportControl = (
+      <div className={usesInlineExportSlot ? "flex justify-end" : "absolute -top-[52px] right-3 z-20 flex justify-end sm:right-4"}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="inline-flex gap-1.5 border-blue-200 bg-white/90 font-semibold text-[#173f91] shadow-sm hover:border-blue-300 hover:bg-blue-50 dark:border-sky-400/30 dark:bg-slate-900/80 dark:text-sky-100 dark:hover:bg-sky-400/10" title={`Export ${scope.label}`}>
@@ -235,8 +270,10 @@ export function RequestExportMenu({ portal }: { portal: FunctionId | "platform-a
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-    </div>
-    ,
-    target,
   )
+
+  return <>
+    {slaTarget && reminderBanner ? createPortal(reminderBanner, slaTarget) : null}
+    {createPortal(exportControl, exportTarget)}
+  </>
 }

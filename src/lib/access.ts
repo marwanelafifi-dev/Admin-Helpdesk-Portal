@@ -71,6 +71,7 @@ export type RoutePermission =
   | "view_details"
   | "manage_cc"
   | "manage_users"
+  | "export_requests"
   | "manage_roles"
   | "manage_tasks"
   | "manage_feedback"

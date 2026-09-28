@@ -42,10 +42,10 @@ export function PortalUpdatesLauncher() {
   }, [notices, session?.user?.email])
 
   return <>
-    <button type="button" onClick={() => setOpen(true)} title="What's new in the portal" className="relative flex h-9 items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 text-xs font-bold text-[#263d8b] transition hover:border-blue-400 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/60 dark:text-cyan-200">
-      <Sparkles className="h-4 w-4" />
+    <button type="button" onClick={() => setOpen(true)} title="What's new in the portal" aria-expanded={open} className="group relative flex h-9 items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 text-xs font-bold text-[#263d8b] shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-400 hover:bg-blue-100 hover:shadow-[0_8px_18px_-10px_rgba(37,99,235,0.5)] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:border-sky-300/40 dark:bg-blue-950/70 dark:text-cyan-100 dark:shadow-[0_8px_18px_-12px_rgba(0,0,0,0.72)] dark:hover:border-cyan-300 dark:hover:bg-sky-400/20 dark:hover:text-white dark:hover:shadow-[0_0_0_3px_rgba(34,211,238,0.2),0_12px_24px_-12px_rgba(34,211,238,0.55)] dark:focus-visible:ring-cyan-300 dark:focus-visible:ring-offset-[#10203a]">
+      <Sparkles className="h-4 w-4 transition-transform duration-200 group-hover:rotate-12 group-hover:scale-110" />
       <span>What's New</span>
-      {notices.length > 0 && <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#263d8b] px-1 text-[9px] font-bold text-white">{notices.length > 9 ? "9+" : notices.length}</span>}
+      {notices.length > 0 && <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#263d8b] px-1 text-[9px] font-bold text-white shadow-sm ring-1 ring-white/30 dark:bg-cyan-300 dark:text-[#08203d] dark:ring-cyan-100/70">{notices.length > 9 ? "9+" : notices.length}</span>}
     </button>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-h-[86vh] max-w-3xl overflow-y-auto border-slate-200 bg-background p-0 dark:border-slate-700">
