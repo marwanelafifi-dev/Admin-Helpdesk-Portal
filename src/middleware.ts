@@ -1,6 +1,6 @@
 import { getToken } from "@auth/core/jwt"
 import { NextRequest, NextResponse } from "next/server"
-import { permissionForPath } from "@/lib/access"
+import { canAccessPath, permissionForPath } from "@/lib/access"
 
 const publicRoutes = ["/login", "/unauthorized", "/feedback-survey", "/system-maintenance"]
 
@@ -113,11 +113,9 @@ export async function middleware(request: NextRequest) {
     const userPermissions = (token.permissions as string[]) || []
     const role = token.role as string | undefined
 
-    const isSuperAdmin = role === "super_admin" || role === "Full Access"
-    const hasWildcard = userPermissions.includes("*")
-    const hasPermission = userPermissions.includes(requiredPermission)
-
-    if (!isSuperAdmin && !hasWildcard && !hasPermission) {
+    // Keep direct URL access in lockstep with the Sidebar and server layouts:
+    // an unchecked page permission must neither be visible nor loadable.
+    if (!canAccessPath(pathname, userPermissions, role)) {
       return NextResponse.redirect(new URL("/unauthorized", publicBase))
     }
   }

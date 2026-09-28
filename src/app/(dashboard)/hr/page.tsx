@@ -229,9 +229,10 @@ export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
   const companyRequests = useMemo(() => hrRequests.filter((r) => matchesCompanyFilter(r, companyFilter)), [hrRequests, companyFilter])
   const stats = useMemo(() => ({
     total:       companyRequests.length,
-    onboarding:  companyRequests.filter((r) => (r.payload as HRPayload).hrType === "onboarding").length,
-    offboarding: companyRequests.filter((r) => (r.payload as HRPayload).hrType === "offboarding").length,
+    new:         companyRequests.filter((r) => r.status === "new").length,
+    inProgress:  companyRequests.filter((r) => r.status === "in_progress").length,
     completed:   companyRequests.filter((r) => r.status === "completed").length,
+    cancelled:   companyRequests.filter((r) => r.status === "cancelled").length,
   }), [companyRequests])
 
   const tabCount = (tab: Tab) =>
@@ -282,23 +283,25 @@ export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
       {/* Stat Cards — clickable */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {([
-          { key: "all",         label: "Total Requests", value: stats.total,       icon: Users,    iconBg: "bg-slate-100", iconColor: "text-slate-600", activeBg: "bg-slate-800",  activeBorder: "border-slate-800" },
-          { key: "onboarding",  label: "Onboarding",     value: stats.onboarding,  icon: UserPlus, iconBg: "bg-blue-50",   iconColor: "text-blue-600",  activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
-          { key: "offboarding", label: "Offboarding",    value: stats.offboarding, icon: UserMinus,iconBg: "bg-red-50",    iconColor: "text-red-600",   activeBg: "bg-red-600",    activeBorder: "border-red-600" },
+          { key: "all",           label: "Total Requests", value: stats.total,      icon: Users,         iconBg: "bg-slate-100",   iconColor: "text-slate-600",   activeBg: "bg-slate-800",   activeBorder: "border-slate-800" },
+          { key: "new",           label: "New",            value: stats.new,        icon: UserPlus,      iconBg: "bg-sky-50",     iconColor: "text-sky-600",     activeBg: "bg-sky-500",    activeBorder: "border-sky-500" },
+          { key: "in_progress",   label: "In Progress",    value: stats.inProgress, icon: Clock,         iconBg: "bg-blue-50",    iconColor: "text-blue-600",    activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
+          { key: "completed",     label: "Completed",      value: stats.completed,  icon: Users,         iconBg: "bg-emerald-50", iconColor: "text-emerald-600", activeBg: "bg-emerald-600",activeBorder: "border-emerald-600" },
+          { key: "cancelled",     label: "Cancelled",      value: stats.cancelled,  icon: UserMinus,     iconBg: "bg-rose-50",    iconColor: "text-rose-600",    activeBg: "bg-rose-600",  activeBorder: "border-rose-600" },
         ] as const).map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }) => {
-          const isTabActive  = key === "onboarding" || key === "offboarding"
-          const isStatActive = isTabActive
-            ? activeTab === key
-            : key === "all" ? (activeTab === "all" && statusFilter === "all") : statusFilter === key
+          const isStatActive = key === "all"
+            ? activeTab === "all" && statusFilter === "all"
+            : statusFilter === key
           return (
             <button
               key={key}
               onClick={() => {
-                if (key === "onboarding" || key === "offboarding") {
-                  setActiveTab((p) => p === key ? "all" : key)
-                } else {
-                  setActiveTab("all"); setStatusFilter("all")
+                if (key === "all") {
+                  setActiveTab("all")
+                  setStatusFilter("all")
+                  return
                 }
+                setStatusFilter((current) => current === key ? "all" : key)
               }}
               className={cn(
                 "group relative flex min-h-[92px] items-center gap-3 overflow-hidden rounded-xl border p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
@@ -351,7 +354,7 @@ export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
               />
             </div>
             <div className="flex flex-wrap items-center gap-1.5 xl:justify-end">
-              {(["all", "new", "in_progress", "completed"] as const).map((s) => {
+              {(["all", ...HR_STATUSES] as const).map((s) => {
                 const activeClass = s === "all"
                   ? "bg-slate-900 border-slate-900 text-white"
                   : STATUS_PILL_ACTIVE[s]

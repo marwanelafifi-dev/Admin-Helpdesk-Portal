@@ -257,12 +257,12 @@ export default function AdminRolesPage() {
   // module grants requester-level visibility (own requests); the second
   // control below explicitly upgrades it to all requests for that module.
   const MODULES = [
-    { id: "shipping", label: "Administration — Shipping", pages: ["shipping", "shipping-new"] },
+    { id: "shipping", label: "Administration — Shipping", pages: ["shipping", "shipping-new", "shipping-sending", "shipping-receiving"] },
     { id: "maintenance", label: "Administration — Maintenance", pages: ["maintenance", "maintenance-new"] },
     { id: "purchase", label: "Administration — Purchase", pages: ["purchase", "purchase-new"] },
     { id: "event", label: "Administration — Event", pages: ["event", "event-new"] },
     { id: "travel", label: "Administration — Travel", pages: ["travel", "travel-new"] },
-    { id: "hr", label: "Administration — HR", pages: ["hr", "hr-new"] },
+    { id: "hr", label: "Administration — HR", pages: ["hr", "hr-new", "hr-onboarding", "hr-offboarding"] },
     { id: "general", label: "Administration — General Request", pages: ["general", "general-new"] },
     { id: "finance_reimbursement", label: "Finance — General Reimbursement", pages: ["finance-reimbursement"] },
     { id: "finance_travel_reimbursement", label: "Finance — Travel Reimbursement", pages: ["finance-travel"] },

@@ -2179,3 +2179,26 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] **Verification and local deployment:**
   - Production builds passed after the queue consistency and CC-placement changes (`npm run build`; project configuration intentionally skips separate type/lint validation).
   - To avoid Docker compiler-cache copy failures, only the production runtime build output (`server`, `static`, build ID, and manifests) was copied to `company-portal-app`; the container was restarted and confirmed healthy.
+
+## Phase 16: Complete Queue Status Coverage and Strict Role Page Access (Implemented - 28 Sep 2026)
+
+- [x] **Complete status summaries for Administration queues:**
+  - **Administration All Requests** now has the same operational card set as the approved Finance pattern: Total Requests, New, Awaiting Approval, In Progress, Completed, and Cancelled. Each card filters the table and the Total card restores the full queue.
+  - **Administration HR** now summarizes actual workflow status (Total, New, In Progress, Completed, Cancelled) instead of mixing request-type totals into status cards. Onboarding and Offboarding remain available through their table tabs.
+  - Every other request-list module was audited. Each shows every status that belongs to its workflow: Finance and Travel include Awaiting Approval; Shipping includes In Customs and Delivered; Purchase/Event expose Delivered where it is their terminal workflow state; modules without an approval/cancellation state do not invent one.
+- [x] **Central page registry is the permission authority:**
+  - `permissionForPath()` now derives exact and dynamic page permissions from `pageRegistry.ts`, the same source that renders the role-editor checkboxes. This covers Administration, People, Finance, and Platform Administration routes consistently, including Portal Updates, Portal Feedback, and System Notices.
+  - Nested module action/detail URLs retain their parent module-page permission where no separate Role checkbox exists. Dynamic request-detail routes resolve to their exact registered detail permission.
+  - Sidebar visibility, middleware direct-URL protection, and dashboard/platform layouts all use the same `canAccessPath()` rule. An unchecked page is hidden from navigation and direct access redirects to `/unauthorized`.
+  - Legacy broad fallbacks were removed: `settings`, `manage_users`, or similar operational permissions no longer make an unchecked Platform page visible. Full Access / `*` remains the deliberate, explicit all-pages exception.
+- [x] **Role changes persist without silent restoration:**
+  - `rolesStore` no longer auto-adds page permissions, request permissions, or module access to existing Finance Team, People Team, Requester, or Manager roles whenever roles are read. A saved unchecked permission remains unchecked.
+  - The role editor's module synchronization now removes all linked child pages for Administration Shipping (main, new, import, export) and Administration HR (main, new, onboarding, offboarding) when its module is unchecked.
+  - Role validation expectation: test with a user assigned to the restricted role. A **Full Access** user intentionally retains every page through the wildcard permission and is not a valid restricted-access test account. After a role save, affected users should refresh their session or sign out/in.
+- [x] **Platform Administration navigation and System Notices retirement:**
+  - The TopBar Platform Administration shield and Landing shortcut appear only if the user can access at least one permitted Platform Administration page. Its eligible route set includes Users, Roles, Settings, Notifications, Whatâ€™s New & Releases, Portal Feedback, Company Data, Audit Trail, and Database.
+  - **System Notices is retired.** It is removed from role permissions, the Platform Administration sidebar, and platform-navigation eligibility. Existing `page:system-notices` grants are automatically removed when roles are read, and `/system/notices` permanently redirects to `/admin/portal-updates`.
+  - No release data is lost or duplicated: `data/notices.json` is already the shared source for **Whatâ€™s New & Releases**. User feedback remains in `data/user-feedback.json`, and its notification-email links now open **Portal Feedback**.
+- [x] **Verification:**
+  - Repeated `npm run build` production compilation completed successfully after the queue and permission work (the project intentionally skips separate type/lint validation).
+  - The changes are source-controlled locally and require the normal commit, push, and Ubuntu Docker deployment before the remote portal reflects them.

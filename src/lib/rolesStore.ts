@@ -23,6 +23,7 @@ const MANAGER_BUCHI = "Manager - BUCHI"
 const SHIPPING_PERMISSIONS = new Set([
   "page:shipping", "page:shipping-new", "page:shipping-sending", "page:shipping-receiving",
 ])
+const RETIRED_PAGE_PERMISSIONS = new Set(["page:system-notices"])
 const SI_WARE_MODULES = ["shipping", "maintenance", "purchase", "event", "travel", "hr", "general"]
 const BUCHI_MODULES = SI_WARE_MODULES.filter((module) => module !== "shipping")
 const FINANCE_MODULES = ["finance_reimbursement", "finance_travel_reimbursement", "finance_invoice_payment"]
@@ -134,7 +135,9 @@ export function readRoles(): StoredRole[] {
         delete (role as StoredRole & { intranetOwners?: unknown }).intranetOwners
         changed = true
       }
-      const activePermissions = role.permissions.filter((permission) => !permission.startsWith("page:intranet-"))
+      const activePermissions = role.permissions.filter((permission) =>
+        !permission.startsWith("page:intranet-") && !RETIRED_PAGE_PERMISSIONS.has(permission)
+      )
       if (activePermissions.length !== role.permissions.length) {
         role.permissions = activePermissions
         changed = true
@@ -152,16 +155,6 @@ export function readRoles(): StoredRole[] {
       roles.push({ ...siWare })
       changed = true
     }
-    if (siWare.name !== REQUESTER_SI_WARE) {
-      siWare.name = REQUESTER_SI_WARE
-      changed = true
-    }
-    if (JSON.stringify(siWare.readModules) !== JSON.stringify(SI_WARE_MODULES)) {
-      siWare.readModules = [...SI_WARE_MODULES]
-      siWare.readAllModules = []
-      changed = true
-    }
-
     if (!roles.some((role) => role.name.toLowerCase() === REQUESTER_BUCHI.toLowerCase())) {
       roles.push({
         ...siWare,
@@ -196,39 +189,6 @@ export function readRoles(): StoredRole[] {
       changed = true
     }
 
-    // Function portals have dedicated pages, request modules, and work queues.
-    // Keep the seeded roles in sync when a portal page is introduced, without
-    // removing any permissions an administrator has intentionally added.
-    const updateFunctionRole = (name: string, pagePermissions: string[], modules: string[], canReadAll = true) => {
-      const role = roles.find((item) => item.name.toLowerCase() === name.toLowerCase())
-      if (!role) return
-      const permissions = addMissing(role.permissions, [
-        "create", "read_own", "update", "update_status", "delete", "view_details", "activity",
-        "manage_cc", "assign_requests", "edit_request", "cancel_request",
-        ...SHARED_REQUEST_PAGE_PERMISSIONS, ...pagePermissions,
-      ])
-      if (canReadAll) permissions.push("read")
-      const readModules = addMissing(role.readModules, modules)
-      const readAllModules = canReadAll ? addMissing(role.readAllModules, modules) : (role.readAllModules ?? [])
-      if (JSON.stringify(permissions) !== JSON.stringify(role.permissions)
-        || JSON.stringify(readModules) !== JSON.stringify(role.readModules)
-        || JSON.stringify(readAllModules) !== JSON.stringify(role.readAllModules)) {
-        role.permissions = permissions
-        role.readModules = readModules
-        role.readAllModules = readAllModules
-        role.updatedAt = new Date().toISOString()
-        changed = true
-      }
-    }
-
-    updateFunctionRole("Finance Team", FINANCE_PAGE_PERMISSIONS, FINANCE_MODULES)
-    updateFunctionRole("People Team", PEOPLE_PAGE_PERMISSIONS, PEOPLE_MODULES)
-
-    // Requesters can open their own shared request list from either function,
-    // as well as the request forms belonging to those functions.
-    updateFunctionRole(REQUESTER_SI_WARE, [...FINANCE_PAGE_PERMISSIONS.filter((p) => !p.includes("team-") && !p.includes("all-") && !p.includes("tasks") && !p.includes("sla-")), ...PEOPLE_PAGE_PERMISSIONS.filter((p) => !p.includes("team-") && !p.includes("all-") && !p.includes("tasks") && !p.includes("feedback"))], [...FINANCE_MODULES, ...PEOPLE_MODULES], false)
-    updateFunctionRole(REQUESTER_BUCHI, [...FINANCE_PAGE_PERMISSIONS.filter((p) => !p.includes("team-") && !p.includes("all-") && !p.includes("tasks") && !p.includes("sla-")), ...PEOPLE_PAGE_PERMISSIONS.filter((p) => !p.includes("team-") && !p.includes("all-") && !p.includes("tasks") && !p.includes("feedback"))], [...FINANCE_MODULES, ...PEOPLE_MODULES], false)
-
     let manager = roles.find((role) => role.name.toLowerCase() === MANAGER.toLowerCase())
     if (!manager) {
       const now = new Date().toISOString()
@@ -245,19 +205,6 @@ export function readRoles(): StoredRole[] {
       }
       roles.push(manager)
       changed = true
-    } else {
-      const permissions = addMissing(manager.permissions, MANAGER_PERMISSIONS)
-      const readModules = addMissing(manager.readModules, ALL_FUNCTION_MODULES)
-      const readAllModules = addMissing(manager.readAllModules, ALL_FUNCTION_MODULES)
-      if (JSON.stringify(permissions) !== JSON.stringify(manager.permissions)
-        || JSON.stringify(readModules) !== JSON.stringify(manager.readModules)
-        || JSON.stringify(readAllModules) !== JSON.stringify(manager.readAllModules)) {
-        manager.permissions = permissions
-        manager.readModules = readModules
-        manager.readAllModules = readAllModules
-        manager.updatedAt = new Date().toISOString()
-        changed = true
-      }
     }
 
     if (changed) writeRoles(roles)

@@ -14,6 +14,15 @@ const nextConfig: NextConfig = {
   },
   serverExternalPackages: ["imapflow", "mailparser"],
   skipTrailingSlashRedirect: true,
+  async redirects() {
+    return [
+      {
+        source: "/system/notices",
+        destination: "/admin/portal-updates",
+        permanent: true,
+      },
+    ]
+  },
   async headers() {
     return [
       {

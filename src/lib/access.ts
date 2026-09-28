@@ -1,88 +1,7 @@
 import { getCompanyFromEmail, getRequestCompany } from "@/lib/userCompany"
+import { PAGES, pagePermission } from "@/lib/pageRegistry"
 
-export type RoutePermission =
-  | "page:dashboard"
-  | "page:admin-services"
-  | "page:it-services"
-  | "page:feedback-reports"
-  | "page:tasks"
-  | "page:announcements"
-  | "page:system-notices"
-  | "page:all-requests"
-  | "page:my-requests"
-  | "page:team-requests"
-  | "page:request-detail"
-  | "page:shipping"
-  | "page:shipping-new"
-  | "page:shipping-sending"
-  | "page:shipping-receiving"
-  | "page:hr"
-  | "page:hr-new"
-  | "page:hr-onboarding"
-  | "page:hr-offboarding"
-  | "page:maintenance"
-  | "page:maintenance-new"
-  | "page:purchase"
-  | "page:purchase-new"
-  | "page:event"
-  | "page:event-new"
-  | "page:travel"
-  | "page:travel-new"
-  | "page:general"
-  | "page:general-new"
-  | "page:admin-users"
-  | "page:admin-roles"
-  | "page:admin-roles-buchi"
-  | "page:admin-settings"
-  | "page:admin-audit"
-  | "page:admin-database"
-  | "page:admin-notifications"
-  | "page:admin-announcements"
-  | "page:admin-company-data"
-  | "page:admin-company-data-buchi"
-  | "page:finance-dashboard"
-  | "page:finance-services"
-  | "page:finance-reimbursement"
-  | "page:finance-travel"
-  | "page:finance-invoices"
-  | "page:finance-my-requests"
-  | "page:finance-team-requests"
-  | "page:finance-all-requests"
-  | "page:finance-tasks"
-  | "page:finance-sla-reminders"
-  | "page:finance-feedback"
-  | "page:finance-request-detail"
-  | "page:hr-dashboard"
-  | "page:hr-services"
-  | "page:hr-general"
-  | "page:hr-letter-request"
-  | "page:hr-my-requests"
-  | "page:hr-team-requests"
-  | "page:hr-all-requests"
-  | "page:hr-tasks"
-  | "page:hr-feedback"
-  | "page:hr-request-detail"
-  | "create"
-  | "read"
-  | "read_own"
-  | "update"
-  | "delete"
-  | "activity"
-  | "view_details"
-  | "manage_cc"
-  | "manage_users"
-  | "export_requests"
-  | "manage_roles"
-  | "manage_tasks"
-  | "manage_feedback"
-  | "manage_backups"
-  | "restore_backups"
-  | "purge_data"
-  | "settings"
-  | "update_status"
-  | "cancel_request"
-  | "edit_request"
-  | "assign_requests"
+export type RoutePermission = string
 
 function normalizePathname(pathname: string) {
   if (pathname.length > 1 && pathname.endsWith("/")) {
@@ -106,69 +25,26 @@ export function isSuperAdmin(role?: string) {
 export function permissionForPath(pathname: string): RoutePermission | null {
   const path = normalizePathname(pathname)
 
-  if (path === "/dashboard") return "page:dashboard"
-  if (path === "/departments/admin") return "page:admin-services"
-  if (path === "/departments/it") return "page:it-services"
-  if (path === "/feedback-reports") return "page:feedback-reports"
-  if (path === "/tasks") return "page:tasks"
-  if (path === "/announcements") return "page:announcements"
-  if (path === "/system/notices") return "page:system-notices"
-  if (path === "/admin/all-requests") return "page:all-requests"
-  if (path === "/requests") return "page:my-requests"
-  if (path === "/team-requests") return "page:team-requests"
-  if (path.startsWith("/requests/")) return "page:request-detail"
-  if (path === "/shipping") return "page:shipping"
-  if (path === "/shipping/new") return "page:shipping-new"
+  // The role editor's page registry is the authority for exact routes and
+  // dynamic detail pages. Prefer assignable pages when a legacy route shares
+  // the same pattern with a retained, non-assignable entry.
+  const routePattern = (route: string) => new RegExp(
+    `^${route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\\[id\\\]/g, "[^/]+")}$`
+  )
+  const registered = [...PAGES]
+    .sort((a, b) => Number(b.assignable !== false) - Number(a.assignable !== false))
+    .find((page) => routePattern(page.path).test(path))
+  if (registered) return pagePermission(registered.id)
+
+  // Module detail/action URLs intentionally inherit the access permission of
+  // their parent page. These paths do not have an individual Roles checkbox.
   if (path.startsWith("/shipping/sending")) return "page:shipping-sending"
   if (path.startsWith("/shipping/receiving")) return "page:shipping-receiving"
-  if (path === "/hr") return "page:hr"
-  if (path === "/hr/new") return "page:hr-new"
-  if (path === "/hr/onboarding") return "page:hr-onboarding"
-  if (path === "/hr/offboarding") return "page:hr-offboarding"
-  if (path === "/maintenance") return "page:maintenance"
-  if (path === "/maintenance/new") return "page:maintenance-new"
-  if (path === "/purchase") return "page:purchase"
-  if (path === "/purchase/new") return "page:purchase-new"
-  if (path === "/event") return "page:event"
-  if (path === "/event/new") return "page:event-new"
-  if (path === "/travel") return "page:travel"
-  if (path === "/travel/new") return "page:travel-new"
-  if (path === "/general") return "page:general"
-  if (path === "/general/new") return "page:general-new"
-  if (path === "/admin/users") return "page:admin-users"
-  if (path === "/admin/roles/buchi") return "page:admin-roles-buchi"
-  if (path === "/admin/roles") return "page:admin-roles"
-  if (path === "/admin/settings") return "page:admin-settings"
-  if (path === "/admin/audit-trail") return "page:admin-audit"
-  if (path === "/admin/database") return "page:admin-database"
-  if (path === "/admin/notifications") return "page:admin-notifications"
-  if (path === "/admin/announcements") return "page:admin-announcements"
-  if (path === "/admin/company-data/buchi") return "page:admin-company-data-buchi"
-  if (path === "/admin/company-data") return "page:admin-company-data"
-
-  if (path === "/departments/finance") return "page:finance-dashboard"
-  if (path === "/departments/finance/services") return "page:finance-services"
   if (path.startsWith("/departments/finance/reimbursement")) return "page:finance-reimbursement"
   if (path.startsWith("/departments/finance/travel-reimbursement")) return "page:finance-travel"
   if (path.startsWith("/departments/finance/invoices")) return "page:finance-invoices"
-  if (path === "/departments/finance/my-requests") return "page:finance-my-requests"
-  if (path === "/departments/finance/team-requests") return "page:finance-team-requests"
-  if (path === "/departments/finance/all-requests") return "page:finance-all-requests"
-  if (path === "/departments/finance/tasks") return "page:finance-tasks"
-  if (path === "/departments/finance/sla-reminders") return "page:finance-sla-reminders"
-  if (path === "/departments/finance/feedback") return "page:finance-feedback"
-  if (path.startsWith("/departments/finance/requests/")) return "page:finance-request-detail"
-
-  if (path === "/departments/hr") return "page:hr-dashboard"
-  if (path === "/departments/hr/services") return "page:hr-services"
   if (path.startsWith("/departments/hr/general")) return "page:hr-general"
   if (path.startsWith("/departments/hr/letter")) return "page:hr-letter-request"
-  if (path === "/departments/hr/my-requests") return "page:hr-my-requests"
-  if (path === "/departments/hr/team-requests") return "page:hr-team-requests"
-  if (path === "/departments/hr/all-requests") return "page:hr-all-requests"
-  if (path === "/departments/hr/tasks") return "page:hr-tasks"
-  if (path === "/departments/hr/feedback") return "page:hr-feedback"
-  if (path.startsWith("/departments/hr/requests/")) return "page:hr-request-detail"
 
   return null
 }
@@ -236,47 +112,7 @@ export function canAccessPath(pathname: string, permissions: string[] = [], role
     return true
   }
 
-  if (hasPermission(permissions, permission)) {
-    return true
-  }
-
-  if (permission === "page:admin-users") {
-    return hasPermission(permissions, "manage_users")
-  }
-
-  if (permission === "page:admin-roles") {
-    return hasPermission(permissions, "manage_roles")
-  }
-
-  if (permission === "page:admin-settings") {
-    return hasPermission(permissions, "settings")
-  }
-
-  if (permission === "page:admin-audit") {
-    return false
-  }
-
-  if (permission === "page:admin-database") {
-    return isSuperAdmin(role) || hasPermission(permissions, "settings")
-  }
-
-  if (permission === "page:admin-notifications") {
-    return isSuperAdmin(role) || hasPermission(permissions, "settings")
-  }
-
-  if (permission === "page:admin-portal-updates") {
-    return isSuperAdmin(role) || hasPermission(permissions, "settings") || hasPermission(permissions, "manage_users")
-  }
-
-  if (permission === "page:admin-announcements") {
-    return isSuperAdmin(role) || hasPermission(permissions, "settings")
-  }
-
-  if (permission === "page:admin-company-data") {
-    return isSuperAdmin(role) || hasPermission(permissions, "settings")
-  }
-
-  return false
+  return hasPermission(permissions, permission)
 }
 
 const defaultRouteOrder = [
@@ -319,6 +155,8 @@ const PLATFORM_ADMIN_PATHS = [
   "/admin/roles/buchi",
   "/admin/settings",
   "/admin/notifications",
+  "/admin/portal-updates",
+  "/admin/portal-feedback",
   "/admin/company-data",
   "/admin/company-data/buchi",
   "/admin/audit-trail",

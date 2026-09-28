@@ -45,7 +45,6 @@ import { modulesVisibleToFunction, roleToFunctionId } from "@/lib/functionRegist
 import { DEFAULT_PLATFORM_SETTINGS, type SidebarFunctionId, type SupportFunctionId } from "@/lib/platformSettings"
 
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
-import { useUnreadNotices } from "@/hooks/useUnreadNotices"
 import { useMobileNav } from "./MobileNavContext"
 import {
   DropdownMenu,
@@ -348,9 +347,6 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
         return false
       }
 
-      // "Send Announcements" links aren't permission-gated by path (same
-      // convention as other /departments/* pages), so hide them here for
-      // anyone who couldn't actually manage any of the owners they'd post as.
       // Check module-level access restrictions
       const mod = moduleForHref(href)
       if (mod) {
@@ -372,8 +368,6 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
   )
 
   // Pre-compute the all-requests total once instead of recomputing on every call
-  const unreadNotices = useUnreadNotices()
-
   // Full Access sees the raw total across every module (it's a super-admin
   // role); every other audience is scoped to modules its own portal/function
   // can actually see, so the "All Requests" badge count never hints at the
@@ -392,7 +386,6 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
   )
 
   const badgeCountForHref = useCallback((href: string): number => {
-    if (href === "/system/notices") return unreadNotices
     if (href === "/departments/finance/sla-reminders") return financeSlaReminderCount
     if (!isAdminAudience) return 0
     if (href === "/tasks") return newTasksCount
@@ -400,7 +393,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
     const mod = moduleForHref(href)
     if (mod) return newRequestsByModule[mod] ?? 0
     return 0
-  }, [unreadNotices, financeSlaReminderCount, isAdminAudience, newTasksCount, allRequestsTotal, newRequestsByModule, moduleForHref])
+  }, [financeSlaReminderCount, isAdminAudience, newTasksCount, allRequestsTotal, newRequestsByModule, moduleForHref])
 
   const navItemsForPortal = portal === "hr" ? hrNavItems : portal === "finance" ? financeNavItems : portal === "platform-admin" ? platformAdminNavItems : adminNavItems
 

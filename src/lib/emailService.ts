@@ -1889,7 +1889,7 @@ export async function sendFeedbackStatusChangeEmail(
         </div>
 
         <p style="color: #374151; font-size: 14px; margin: 20px 0 0 0;">
-          <a href="${process.env.NEXTAUTH_URL || "http://localhost:3003"}/system/notices" style="color: #14b8a6; text-decoration: none; font-weight: bold;">
+          <a href="${process.env.NEXTAUTH_URL || "http://localhost:3003"}/admin/portal-feedback" style="color: #14b8a6; text-decoration: none; font-weight: bold;">
             View Feedback in Portal →
           </a>
         </p>
@@ -1915,7 +1915,7 @@ export async function sendFeedbackStatusChangeEmail(
         <p style="margin:0 0 7px;color:#102a4c;font-size:16px;font-weight:700;">${escapeHtml(feedback.title)}</p>
         <p style="margin:0;color:#526b88;font-size:13px;line-height:1.55;">${escapeHtml(feedback.comment.substring(0, 200))}${feedback.comment.length > 200 ? "..." : ""}</p>
       </div>
-      <div style="margin-top:22px;text-align:center;"><a href="${getBaseUrl()}/system/notices" style="display:inline-block;background:#2563eb;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 24px;border-radius:8px;">View feedback in the portal</a></div>
+      <div style="margin-top:22px;text-align:center;"><a href="${getBaseUrl()}/admin/portal-feedback" style="display:inline-block;background:#2563eb;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 24px;border-radius:8px;">View feedback in the portal</a></div>
     </div>`,
   })
 

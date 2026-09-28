@@ -192,14 +192,14 @@ const SERVER_FILE_STORES = [
   },
   {
     key: "server:notices",
-    label: "System Notices",
-    description: "data/notices.json — system updates, features, and bug fix announcements",
+    label: "What's New & Releases",
+    description: "data/notices.json — published releases, features, improvements, and fixes",
     icon: MessageSquare, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200",
   },
   {
     key: "server:user-feedback",
-    label: "System Notices Feedback",
-    description: "data/user-feedback.json — user feedback on system notices and updates",
+    label: "Portal Feedback",
+    description: "data/user-feedback.json — user feedback and improvement requests",
     icon: MessageSquare, color: "text-green-600", bg: "bg-green-50", border: "border-green-200",
   },
   {

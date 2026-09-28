@@ -308,10 +308,12 @@ export default function AllRequestsPage() {
   }, [totalPages])
 
   const stats = useMemo(() => ({
-    total:     requests.length,
-    new:       requests.filter((r) => r.status === "new").length,
-    inProgress: requests.filter((r) => r.status === "in_progress").length,
-    completed: requests.filter((r) => r.status === "completed").length,
+    total:              requests.length,
+    new:                requests.filter((r) => r.status === "new").length,
+    awaitingApproval:   requests.filter((r) => r.status === "awaiting_approval").length,
+    inProgress:         requests.filter((r) => r.status === "in_progress").length,
+    completed:          requests.filter((r) => r.status === "completed").length,
+    cancelled:          requests.filter((r) => r.status === "cancelled").length,
   }), [requests])
 
   const tabCount = (tab: ModuleTab) =>
@@ -460,9 +462,12 @@ export default function AllRequestsPage() {
       {/* Stat Cards — clickable, synced with status filter */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {([
-          { key: "new" as const,       label: "New",            value: stats.new,       icon: TrendingUp,   iconBg: "bg-sky-50",      iconColor: "text-sky-600",     activeBg: "bg-sky-500",     activeBorder: "border-sky-500" },
-          { key: "in_progress" as const, label: "In Progress",   value: stats.inProgress, icon: Clock,        iconBg: "bg-blue-50",     iconColor: "text-blue-600",    activeBg: "bg-blue-600",    activeBorder: "border-blue-600" },
-          { key: "completed" as const, label: "Completed",      value: stats.completed, icon: CheckCircle2, iconBg: "bg-emerald-50",  iconColor: "text-emerald-600", activeBg: "bg-emerald-600", activeBorder: "border-emerald-600" },
+          { key: "all" as const,                label: "Total Requests",      value: stats.total,              icon: TrendingUp,   iconBg: "bg-amber-50",    iconColor: "text-amber-600",   activeBg: "bg-slate-800",   activeBorder: "border-slate-800" },
+          { key: "new" as const,                label: "New",                 value: stats.new,                icon: TrendingUp,   iconBg: "bg-sky-50",      iconColor: "text-sky-600",     activeBg: "bg-sky-500",     activeBorder: "border-sky-500" },
+          { key: "awaiting_approval" as const,  label: "Awaiting Approval",   value: stats.awaitingApproval,   icon: Clock,        iconBg: "bg-amber-50",    iconColor: "text-amber-600",   activeBg: "bg-amber-500",  activeBorder: "border-amber-500" },
+          { key: "in_progress" as const,        label: "In Progress",         value: stats.inProgress,         icon: Clock,        iconBg: "bg-blue-50",     iconColor: "text-blue-600",    activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
+          { key: "completed" as const,          label: "Completed",           value: stats.completed,          icon: CheckCircle2, iconBg: "bg-emerald-50",  iconColor: "text-emerald-600", activeBg: "bg-emerald-600",activeBorder: "border-emerald-600" },
+          { key: "cancelled" as const,          label: "Cancelled",           value: stats.cancelled,          icon: Clock,        iconBg: "bg-rose-50",     iconColor: "text-rose-600",    activeBg: "bg-rose-600",   activeBorder: "border-rose-600" },
         ] as const).map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }, index) => {
           const isActive = statusFilter === key
           return (
