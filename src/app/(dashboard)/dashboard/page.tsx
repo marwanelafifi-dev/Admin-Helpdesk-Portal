@@ -286,6 +286,11 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
   const chartTooltipBorder = isDark ? "#334155" : "#e2e8f0"
   const scopeModules = moduleScope ?? MODULES
   const moduleHref = (mod: string) => moduleLinks?.[mod] ?? `/${mod}`
+  const feedbackHref = detailBasePath.startsWith("/departments/hr/")
+    ? "/departments/hr/feedback"
+    : detailBasePath.startsWith("/departments/finance/")
+      ? "/departments/finance/feedback"
+      : "/feedback-reports"
 
   const [requests, setRequests] = useState<EngineRequest[]>([])
   const [timeRange, setTimeRange] = useState<TimeRange>("30d")
@@ -605,10 +610,13 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
 
   // Feedback summary
   const feedbackStats = useMemo(() => {
+    const scopedRequestIds = new Set(companyRequests.map((request) => request.id))
     const scopedFeedback = feedback.filter((item) => {
-      const request = companyRequests.find((candidate) => candidate.id === item.requestId)
-      if (request) return true
-      if (companyFilter === "all") return true
+      // A response must belong to this function even when its request is not
+      // present in the local request cache. Never treat "All Companies" as
+      // permission to include responses from other functions.
+      if (!scopeModules.includes(item.module) && !scopedRequestIds.has(item.requestId)) return false
+      if (companyFilter === "all" || scopedRequestIds.has(item.requestId)) return true
       return matchesCompanyFilter({ requesterEmail: item.requesterEmail }, companyFilter)
     })
     if (scopedFeedback.length === 0) return { count: 0, avg: 0, csat: 0, recent: [] as any[] }
@@ -619,7 +627,7 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
       .sort((a, b) => new Date(b.completedAt || b.createdAt).getTime() - new Date(a.completedAt || a.createdAt).getTime())
       .slice(0, 4)
     return { count: scopedFeedback.length, avg, csat, recent }
-  }, [feedback, companyRequests, companyFilter])
+  }, [feedback, companyRequests, companyFilter, scopeModules])
 
   // Chart data
   const statusChartData = useMemo(() => {
@@ -1079,7 +1087,7 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
                   {feedbackStats.count > 0 ? `${feedbackStats.avg.toFixed(1)}★ avg over ${feedbackStats.count}` : "No responses yet"}
                 </p>
               </div>
-              <Link href="/feedback-reports" className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1">
+              <Link href={feedbackHref} className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1">
                 View all <ArrowRight className="h-3 w-3" />
               </Link>
             </div>

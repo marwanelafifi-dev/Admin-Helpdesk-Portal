@@ -47,15 +47,9 @@ export const MODULE_REGISTRY: Record<string, ModuleOwnership> = {
   travel: { owner: "admin" },
   general: { owner: "admin" },
 
-  // "hr" (Onboarding/Offboarding) is owned by Admin, shared with HR: the
-  // People Team is the *requester* here — informing Administration Team about
-  // a new hire or leaver — and Administration Team is who actually
-  // executes the operational items (access card, seating, medical
-  // insurance, desk/office). "hr_general", "hr_letter", and "hr_travel_letter"
-  // are different: HR-Portal-exclusive intake channels that People Team itself
-  // owns and processes, with no Admin-Portal involvement, so they stay HR-only.
-  // Onboarding/offboarding must not appear in People Team dashboard, queues,
-  // feedback, or task views. People-only services are the hr_* modules below.
+  // Onboarding/offboarding is an Administration workflow. People Team handles
+  // the distinct hr_* services below. Keep Administration HR records out of
+  // People dashboards, queues, feedback, notifications, and task views.
   hr: { owner: "admin" },
   hr_general: { owner: "hr" },
   hr_letter: { owner: "hr" },
@@ -119,7 +113,7 @@ export function functionsForLegacyRequestId(requestId?: string): FunctionId[] {
   const prefix = (requestId ?? "").split("-")[0]?.toUpperCase()
   if (["HRG", "HRL", "HRLTR"].includes(prefix)) return ["hr"]
   if (["REI", "TRE", "INV"].includes(prefix)) return ["finance"]
-  if (prefix === "HR") return ["admin", "hr"]
+  if (prefix === "HR") return ["admin"]
   return ["admin"]
 }
 
