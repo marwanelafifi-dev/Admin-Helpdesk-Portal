@@ -2255,3 +2255,10 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
   - Audited all functions: Administration, Finance, and People General/Letter use the shared request-detail feedback card. The specialised People HR Travel Letter detail now uses the same requester-only feedback policy and submission endpoint.
   - Restored **Feedback & Reports** to the Administration Team sidebar. Administration, Finance, and People Team navigation now each expose their function-scoped feedback reporting page when the role grants the corresponding permission.
   - Restored the **Active** status quick filter to the shared Finance and People All Requests queues. Active means New, Awaiting Approval, or In Progress; it excludes Completed, Delivered, and Cancelled requests.
+
+## Phase 25: Function-Owned HR Request Queues (Implemented - 29 Sep 2026)
+
+- [x] **Administration and People request boundaries:**
+  - Administration HR onboarding and offboarding requests (`hr`) are Administration-owned workflows. They are no longer shared with the People function, so they cannot appear in People Team **All Requests**.
+  - People Team All Requests is limited to its own service modules: General Requests (`hr_general`), HR Letters (`hr_letter`), and HR Travel Letters (`hr_travel_letter`).
+  - The Administration HR routes (`/hr`, `/hr/onboarding`, and `/hr/offboarding`) remain Administration Team operational pages and are distinct from the People Team request pages under `/departments/hr`.
