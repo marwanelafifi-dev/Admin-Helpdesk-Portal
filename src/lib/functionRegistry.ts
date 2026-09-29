@@ -54,7 +54,7 @@ export const MODULE_REGISTRY: Record<string, ModuleOwnership> = {
   // insurance, desk/office). "hr_general", "hr_letter", and "hr_travel_letter"
   // are different: HR-Portal-exclusive intake channels that People Team itself
   // owns and processes, with no Admin-Portal involvement, so they stay HR-only.
-  hr: { owner: "admin", sharedWith: ["hr"] },
+  hr: { owner: "admin" },
   hr_general: { owner: "hr" },
   hr_letter: { owner: "hr" },
   hr_travel_letter: { owner: "hr" },
