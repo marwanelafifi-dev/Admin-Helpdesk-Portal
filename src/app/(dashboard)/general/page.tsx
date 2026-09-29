@@ -307,7 +307,11 @@ export default function GeneralRequestPage({
 
   const filtered = useMemo(() => {
     let result = allVisibleRequests
-    if (statusFilter !== "all") result = result.filter((r) => (r.status as string) === statusFilter)
+    if (statusFilter === "active") {
+      result = result.filter((r) => !["completed", "delivered", "cancelled"].includes(r.status as string))
+    } else if (statusFilter !== "all") {
+      result = result.filter((r) => (r.status as string) === statusFilter)
+    }
     if (companyFilter !== "all") result = result.filter((r) =>
       (r.companyId ?? getRequestCompany(r.module, r.requesterEmail)?.id) === companyFilter
     )
@@ -398,8 +402,12 @@ export default function GeneralRequestPage({
               />
             </div>
             <div className="flex flex-wrap items-center gap-1.5 xl:justify-end">
-              {(["all", ...STATUSES] as const).map((s) => {
-                const activeClass = s === "all" ? "bg-slate-900 border-slate-900 text-white" : STATUS_PILL_ACTIVE[s]
+              {(["all", "active", ...STATUSES] as const).map((s) => {
+                const activeClass = s === "all"
+                  ? "bg-slate-900 border-slate-900 text-white"
+                  : s === "active"
+                    ? "bg-indigo-600 border-indigo-600 text-white"
+                    : STATUS_PILL_ACTIVE[s]
                 return (
                   <button
                     key={s}
@@ -409,7 +417,7 @@ export default function GeneralRequestPage({
                       statusFilter === s ? activeClass : "bg-white border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700"
                     )}
                   >
-                    {s === "all" ? "All Statuses" : STATUS_LABELS[s]}
+                    {s === "all" ? "All Statuses" : s === "active" ? "Active" : STATUS_LABELS[s]}
                   </button>
                 )
               })}

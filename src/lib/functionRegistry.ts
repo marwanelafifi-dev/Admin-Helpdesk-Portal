@@ -130,6 +130,46 @@ export function functionForModule(moduleId: string): FunctionId {
   return MODULE_REGISTRY[moduleId]?.owner ?? "admin"
 }
 
+/**
+ * The function-owned request-detail route. Notifications must use this rather
+ * than the legacy shared `/requests/[id]` route so opening a Finance or
+ * People request retains the correct portal navigation and access context.
+ */
+export function requestDetailPathForModule(moduleId: string, requestId: string): string {
+  const requestIdPath = encodeURIComponent(requestId)
+  switch (functionForModule(moduleId)) {
+    case "finance":
+      return `/departments/finance/requests/${requestIdPath}`
+    case "hr":
+      return `/departments/hr/requests/${requestIdPath}`
+    default:
+      return `/requests/${requestIdPath}`
+  }
+}
+
+/** Human-facing service names. Internal module identifiers must not leak into portal UI or email. */
+const MODULE_LABELS: Record<string, string> = {
+  shipping: "Shipping",
+  maintenance: "Maintenance",
+  purchase: "Purchase",
+  event: "Event",
+  travel: "Travel",
+  general: "General Request",
+  hr: "Onboarding / Offboarding",
+  hr_general: "People General Request",
+  hr_letter: "HR Letter Request",
+  hr_travel_letter: "HR Travel Letter Request",
+  finance_reimbursement: "General Reimbursement",
+  finance_travel_reimbursement: "Travel Reimbursement",
+  finance_invoice_payment: "Invoice Payment",
+}
+
+export function requestModuleLabel(moduleId: string): string {
+  return MODULE_LABELS[moduleId] ?? moduleId
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase())
+}
+
 /** Every module id visible to `fn` — pass this as the `moduleScope` for that function's Dashboard / All Requests / Feedback & Reports. */
 export function modulesVisibleToFunction(fn: FunctionId): string[] {
   return Object.keys(MODULE_REGISTRY).filter((moduleId) => isModuleVisibleToFunction(moduleId, fn))

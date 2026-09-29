@@ -4,6 +4,7 @@ import {
   functionsForLegacyRequestId,
   functionsVisibleToModule,
   isModuleVisibleToFunction,
+  requestDetailPathForModule,
   type FunctionId,
 } from "@/lib/functionRegistry"
 
@@ -36,10 +37,7 @@ function functionMailbox(module: string) {
 }
 
 function requestActionUrl(requestId: string, module: string) {
-  const scopes = functionsVisibleToModule(module.toLowerCase())
-  if (scopes.length === 1 && scopes[0] === "hr") return `/departments/hr/requests/${requestId}`
-  if (scopes.length === 1 && scopes[0] === "finance") return `/departments/finance/requests/${requestId}`
-  return `/requests/${requestId}`
+  return requestDetailPathForModule(module.toLowerCase(), requestId)
 }
 
 // BroadcastChannel for cross-tab sync (Phase D)

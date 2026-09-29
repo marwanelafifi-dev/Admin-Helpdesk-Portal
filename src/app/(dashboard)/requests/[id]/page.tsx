@@ -24,7 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { MarkdownDisplay } from "@/components/ui/MarkdownDisplay"
-import { functionForModule, requiresManagerApproval } from "@/lib/functionRegistry"
+import { functionForModule, requestModuleLabel, requiresManagerApproval } from "@/lib/functionRegistry"
 import { hasRecordedApproval } from "@/lib/approvalRules"
 
 const STATUS_COLORS: Record<string, string> = {
@@ -462,6 +462,11 @@ export default function RequestDetailPage() {
   const [surveyComment, setSurveyComment] = useState("")
   const [surveySubmitted, setSurveySubmitted] = useState(false)
   const [feedbackSurveyEnabled, setFeedbackSurveyEnabled] = useState<boolean | null>(null)
+  const sessionEmail = session?.user?.email?.trim().toLowerCase()
+  const isRequestRequester = Boolean(request && (
+    request.requesterId === session?.user?.id
+    || (sessionEmail && request.requesterEmail?.trim().toLowerCase() === sessionEmail)
+  ))
   const [approvalEmailStatus, setApprovalEmailStatus] = useState<{
     type: "idle" | "sending" | "success" | "error"
     message: string
@@ -1868,8 +1873,8 @@ export default function RequestDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Feedback Survey — hidden for Administration Team role (they process requests, not evaluate them) */}
-      {(request.status === "completed" || request.status === "delivered") && session?.user?.role !== "Administration Team" && feedbackSurveyEnabled === true && (
+      {/* Requesters may rate their own completed or delivered request, including historical requests. */}
+      {(request.status === "completed" || request.status === "delivered") && isRequestRequester && feedbackSurveyEnabled === true && (
         <Card className="border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-white shadow-sm dark:border-emerald-700 dark:!bg-[#102a2b] dark:!bg-none">
           <CardHeader className="pb-3 border-b border-emerald-100 dark:border-emerald-800 dark:!bg-[#123033]">
             <div className="flex items-center gap-3">
@@ -1878,7 +1883,7 @@ export default function RequestDetailPage() {
               </div>
               <div>
                 <CardTitle className="text-base font-semibold text-gray-900 dark:text-emerald-50">Service Feedback</CardTitle>
-                <p className="text-xs text-gray-500 mt-0.5 dark:text-emerald-100/80">How satisfied are you with this {request.module} request?</p>
+                <p className="text-xs text-gray-500 mt-0.5 dark:text-emerald-100/80">How satisfied are you with this {requestModuleLabel(request.module)} request?</p>
               </div>
             </div>
           </CardHeader>

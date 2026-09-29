@@ -2226,3 +2226,32 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 
 - [x] **HR Onboarding and Offboarding routes:**
   - Restored the missing Lucide `Clock` import used by the In Progress status card. This removed the production `ReferenceError: Clock is not defined` that caused `/hr/onboarding` and `/hr/offboarding` to fall into the global page error boundary.
+
+## Phase 21: Role Deletion Persistence (Implemented - 29 Sep 2026)
+
+- [x] **No silent role recreation:**
+  - Once `data/roles.json` exists, it is administrator-owned. Reading roles no longer recreates deleted Manager, Manager - BUCHI, Requester - Si-Ware, or Requester - BUCHI entries. Deleting a role in Platform Administration now persists after refresh and restart.
+  - Default roles are still seeded only when the role store does not exist at all, preserving first-install behavior without overriding deliberate role administration.
+
+## Phase 22: Administrator-Owned Roles Only (Implemented - 29 Sep 2026)
+
+- [x] **No hardcoded role definitions or recovery seeding:**
+  - `data/roles.json` is the sole source of roles. An absent or invalid store is initialized as an empty array; it never receives predefined Full Access, Administration, Manager, Requester, or Viewer roles.
+  - Removed name-based permission/module upgrades so role names never imply access. Roles, permissions, module visibility, and company scope must be explicitly created or restored by a Platform Administrator.
+  - Operational note: restore a verified backup containing at least one Platform Administrator role and a user assigned to it before relying on a rebuilt environment, otherwise no one will have permission to create the initial role.
+
+## Phase 23: Function-Owned Request Links (Implemented - 29 Sep 2026)
+
+- [x] **Email links preserve request function context:**
+  - Added a single module-to-detail-route resolver. Finance request emails now open `/departments/finance/requests/[id]`; People request emails open `/departments/hr/requests/[id]`; Administration requests retain `/requests/[id]`.
+  - Applied this routing to generic request updates, Finance SLA notices, approval emails, in-portal notifications, and shared My Requests links. A Finance or People request can no longer be opened from email or these shared entry points in the Administration Team shell.
+  - Replaced internal module IDs in email with formal service labels. For example, `finance_reimbursement` is displayed as **General Reimbursement**.
+
+## Phase 24: Historical Request Feedback (Implemented - 29 Sep 2026)
+
+- [x] **Requester-owned feedback, including older requests:**
+  - Removed the incorrect Administration Team role exclusion from the completed-request feedback card. A requester can rate their own completed or delivered Administration request even if it predates automated survey emails.
+  - The server now verifies that the request exists, is complete, and belongs to the signed-in requester. This prevents a privileged user from submitting feedback for someone else's request while retaining the one-response-per-request rule.
+  - Audited all functions: Administration, Finance, and People General/Letter use the shared request-detail feedback card. The specialised People HR Travel Letter detail now uses the same requester-only feedback policy and submission endpoint.
+  - Restored **Feedback & Reports** to the Administration Team sidebar. Administration, Finance, and People Team navigation now each expose their function-scoped feedback reporting page when the role grants the corresponding permission.
+  - Restored the **Active** status quick filter to the shared Finance and People All Requests queues. Active means New, Awaiting Approval, or In Progress; it excludes Completed, Delivered, and Cancelled requests.

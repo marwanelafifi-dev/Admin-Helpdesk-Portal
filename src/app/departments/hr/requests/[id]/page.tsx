@@ -16,6 +16,7 @@ import { getAuthorizedManagerEmail } from '@/lib/companyDataStore';
 import RequestDetailPage from '@/app/(dashboard)/requests/[id]/page';
 import { CommentsTab, type Comment } from '@/components/request/CommentsTab';
 import { InlineStatusSelect } from '@/components/ui/InlineStatusSelect';
+import { RequesterFeedbackCard } from '@/components/request/RequesterFeedbackCard';
 
 const HR_LETTER_STATUS_LABELS: Record<string, string> = {
   new: 'New', in_progress: 'In Progress', completed: 'Completed', cancelled: 'Cancelled',
@@ -288,7 +289,7 @@ function HrTravelLetterDetail({ id }: { id: string }) {
         adminCc={request.adminCc ?? []}
         canEditCc={Boolean(canManageCc)}
         onAdminCcChange={(emails) => {
-          const updated = updateAdminCc(request.id, emails, { name: session?.user?.name, email: session?.user?.email });
+          const updated = updateAdminCc(request.id, emails, { name: session?.user?.name ?? undefined, email: session?.user?.email ?? undefined });
           setRequest((current) => current ? {
             ...current,
             adminCc: emails,
@@ -443,6 +444,8 @@ function HrTravelLetterDetail({ id }: { id: string }) {
           </div>
         </CardContent>
       </Card>
+
+      <RequesterFeedbackCard request={request} />
 
       {/* Status & Actions */}
       <div className="flex gap-2 justify-between items-center p-4 bg-gray-50 rounded-lg border">

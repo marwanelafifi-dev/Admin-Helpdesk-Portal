@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Bell, X, Check, Settings } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { requestDetailPathForModule } from "@/lib/functionRegistry"
 import {
   getNotifications,
   getUnreadCount,
@@ -112,7 +113,7 @@ export function NotificationCenter({ userId }: NotificationCenterProps) {
               notifications.map((notif) => (
                 <Link
                   key={notif.id}
-                  href={`/requests/${notif.requestId}`}
+                  href={requestDetailPathForModule(notif.module, notif.requestId)}
                   onClick={() => {
                     handleMarkAsRead(notif.id)
                     setIsOpen(false)

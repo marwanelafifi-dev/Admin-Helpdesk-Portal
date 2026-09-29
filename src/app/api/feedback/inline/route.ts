@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 })
   }
 
-  const { requestId, requestTitle, module, requesterName, requesterEmail, rating, comment } = body
+  const { requestId, rating, comment } = body
   const r = Number(rating)
   if (!requestId || !Number.isInteger(r) || r < 1 || r > 5) {
     return NextResponse.json({ error: "invalid_input" }, { status: 400 })
@@ -34,7 +34,23 @@ export async function POST(req: NextRequest) {
   // feedback emails. Derive the function from the stored request where
   // possible so a client cannot select a different function in the payload.
   const storedRequest = requestStore.get(requestId)
-  const requestModule = storedRequest?.module || module || "general"
+  if (!storedRequest) {
+    return NextResponse.json({ error: "request_not_found" }, { status: 404 })
+  }
+
+  if (storedRequest.status !== "completed" && storedRequest.status !== "delivered") {
+    return NextResponse.json({ error: "request_not_completed" }, { status: 409 })
+  }
+
+  const sessionEmail = session.user.email?.trim().toLowerCase()
+  const requestEmail = storedRequest.requesterEmail?.trim().toLowerCase()
+  const isRequester = storedRequest.requesterId === session.user.id
+    || Boolean(sessionEmail && requestEmail && sessionEmail === requestEmail)
+  if (!isRequester) {
+    return NextResponse.json({ error: "requester_only" }, { status: 403 })
+  }
+
+  const requestModule = storedRequest.module
   const functionId = functionForModule(requestModule)
   const feedbackSettings = loadSettingsServer().feedbackSurveysByFunction[functionId]
   if (!feedbackSettings.enabled) {
@@ -56,10 +72,10 @@ export async function POST(req: NextRequest) {
   const pending = feedbackStore.findPendingForRequest(requestId)
   const survey = pending ?? feedbackStore.createSurvey({
     requestId,
-    requesterName: requesterName || session.user.name || "Unknown User",
-    requesterEmail: requesterEmail || session.user.email || "",
-    requestTitle: requestTitle || requestId,
-    module: module || "general",
+    requesterName: storedRequest.requesterName || session.user.name || "Unknown User",
+    requesterEmail: storedRequest.requesterEmail || session.user.email || "",
+    requestTitle: storedRequest.title || requestId,
+    module: requestModule,
   })
 
   const response = feedbackStore.submitResponse(survey.id, r, safeComment)

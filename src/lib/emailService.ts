@@ -3,7 +3,7 @@ import fs from "fs"
 import path from "path"
 import { FUNCTION_EMAILS, getFunctionEmailSenderName, readEmailConfig, type EmailFunctionId } from "./emailConfig"
 import { DEFAULT_ANNOUNCEMENT_SIGNATURE } from "./announcementStore"
-import { functionForModule } from "./functionRegistry"
+import { functionForModule, requestDetailPathForModule, requestModuleLabel } from "./functionRegistry"
 import { logServerAudit } from "./serverAuditLog"
 
 function getLogoBuffer(): Buffer | null {
@@ -463,9 +463,9 @@ export async function sendRequestUpdateEmail(params: {
   const emailFn = functionForModule(params.module)
   const functionIdentity = functionEmailIdentity(emailFn)
   const transporter = createTransporter(emailFn)
-  const actionUrl = `${getBaseUrl()}/requests/${encodeURIComponent(params.requestId)}`
+  const actionUrl = `${getBaseUrl()}${requestDetailPathForModule(params.module, params.requestId)}`
   const actor = params.actorName || "A team member"
-  const moduleLabel = params.module.charAt(0).toUpperCase() + params.module.slice(1)
+  const moduleLabel = requestModuleLabel(params.module)
   const threadHeaders = getRequestThreadHeaders(params.requestId)
   const replyTo = getReplyToAddress(params.requestId)
 
@@ -590,12 +590,8 @@ export async function sendFinanceSlaReminderEmail(params: {
   const senderFunction: EmailFunctionId = financeConfig ? "finance" : "admin"
   const transporter = createTransporter(senderFunction)
   const logoBuffer = getLogoBuffer()
-  const actionUrl = `${getBaseUrl()}/departments/finance/requests/${encodeURIComponent(params.requestId)}`
-  const moduleLabel = params.module
-    .replace(/^finance_/, "")
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ")
+  const actionUrl = `${getBaseUrl()}${requestDetailPathForModule(params.module, params.requestId)}`
+  const moduleLabel = requestModuleLabel(params.module)
   const basisLabel = params.slaBasis === "approval" ? "after approval" : "after submission"
   const statusLabel = params.status.replace(/_/g, " ")
   const value = (input: string) => escapeHtml(input || "—")
@@ -826,7 +822,7 @@ export async function sendFeedbackSurveyEmail(params: {
   const transporter = createTransporter(emailFn)
   const baseUrl = getBaseUrl()
   const surveyUrl = `${baseUrl}/feedback-survey?id=${params.surveyId}`
-  const moduleLabel = params.module.charAt(0).toUpperCase() + params.module.slice(1)
+  const moduleLabel = requestModuleLabel(params.module)
 
   const templateVars = {
     requesterName: params.requesterName,
@@ -1027,7 +1023,7 @@ export async function sendPurchaseApprovalEmail(params: {
 }) {
   const transporter = createTransporter()
   const baseUrl = getBaseUrl()
-  const requestUrl = `${baseUrl}/requests/${params.requestId}`
+  const requestUrl = `${baseUrl}${requestDetailPathForModule("purchase", params.requestId)}`
   const logoBuffer = getLogoBuffer()
 
   const subject = `Approval needed: ${params.requestTitle} — ${params.requestId}`
@@ -1168,7 +1164,7 @@ export async function sendShippingApprovalEmail(params: {
 }) {
   const transporter = createTransporter()
   const baseUrl = getBaseUrl()
-  const requestUrl = `${baseUrl}/requests/${params.requestId}`
+  const requestUrl = `${baseUrl}${requestDetailPathForModule("shipping", params.requestId)}`
   const logoBuffer = getLogoBuffer()
 
   const subject = `Approval needed: ${params.requestTitle} — ${params.requestId}`
@@ -1310,7 +1306,7 @@ export async function sendTravelApprovalEmail(params: {
 }) {
   const transporter = createTransporter()
   const baseUrl = getBaseUrl()
-  const requestUrl = `${baseUrl}/requests/${params.requestId}`
+  const requestUrl = `${baseUrl}${requestDetailPathForModule("travel", params.requestId)}`
   const logoBuffer = getLogoBuffer()
 
   const subject = `Approval needed: ${params.requestTitle} — ${params.requestId}`
@@ -1464,7 +1460,7 @@ export async function sendReimbursementApprovalEmail(params: {
 }) {
   const transporter = createTransporter("finance")
   const baseUrl = getBaseUrl()
-  const requestUrl = `${baseUrl}/requests/${params.requestId}`
+  const requestUrl = `${baseUrl}${requestDetailPathForModule("finance_reimbursement", params.requestId)}`
   const logoBuffer = getLogoBuffer()
 
   const subject = `Approval needed: ${params.requestTitle} — ${params.requestId}`
@@ -1592,7 +1588,7 @@ export async function sendTravelReimbursementApprovalEmail(params: {
 }) {
   const transporter = createTransporter("finance")
   const baseUrl = getBaseUrl()
-  const requestUrl = `${baseUrl}/requests/${params.requestId}`
+  const requestUrl = `${baseUrl}${requestDetailPathForModule("finance_travel_reimbursement", params.requestId)}`
   const logoBuffer = getLogoBuffer()
 
   const subject = `Approval needed: ${params.requestTitle} — ${params.requestId}`
@@ -1743,7 +1739,7 @@ export async function sendInvoicePaymentApprovalEmail(params: {
 }) {
   const transporter = createTransporter("finance")
   const baseUrl = getBaseUrl()
-  const requestUrl = `${baseUrl}/requests/${params.requestId}`
+  const requestUrl = `${baseUrl}${requestDetailPathForModule("finance_invoice_payment", params.requestId)}`
   const logoBuffer = getLogoBuffer()
 
   const subject = `Approval needed: ${params.requestTitle} — ${params.requestId}`

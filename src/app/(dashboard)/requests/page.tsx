@@ -19,7 +19,7 @@ import { useCommentSearch } from "@/hooks/useCommentSearch"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { CompanyBadge } from "@/components/ui/CompanyBadge"
 import { LABEL_COLORS, LABEL_DOTS, buildLabelDrivenMaps } from "@/lib/statusPalette"
-import { modulesVisibleToFunction } from "@/lib/functionRegistry"
+import { modulesVisibleToFunction, requestDetailPathForModule } from "@/lib/functionRegistry"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -345,7 +345,7 @@ export default function RequestsPage({ moduleScope }: { moduleScope?: string[] }
                 {pendingFeedback.slice(0, 5).map((r) => (
                   <Link
                     key={r.id}
-                    href={`/requests/${r.id}?source=my-requests#feedback`}
+                    href={`${requestDetailPathForModule(r.module, r.id)}?source=my-requests#feedback`}
                     className="inline-flex items-center gap-1.5 rounded-md bg-white border border-amber-300 px-2.5 py-1 text-xs font-medium text-amber-900 hover:border-amber-400 hover:bg-amber-100 transition-colors"
                   >
                     <span className="font-semibold">{r.id}</span>
@@ -499,7 +499,7 @@ export default function RequestsPage({ moduleScope }: { moduleScope?: string[] }
                 )}>
                   <td className="py-3 overflow-hidden" style={{ paddingLeft: 20, paddingRight: 8 }}>
                     <div className="flex items-center gap-2">
-                      <Link href={`/requests/${req.id}?source=my-requests`} className="text-sm font-medium text-blue-600 truncate hover:underline">
+                      <Link href={`${requestDetailPathForModule(req.module, req.id)}?source=my-requests`} className="text-sm font-medium text-blue-600 truncate hover:underline">
                         {req.id}
                       </Link>
                       {(commentCounts[req.id] ?? 0) > 0 && (

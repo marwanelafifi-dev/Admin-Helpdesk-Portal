@@ -83,6 +83,7 @@ const adminNavItems: NavItem[] = [
     icon: Users,
     children: [
       { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { title: "Feedback & Reports", href: "/feedback-reports", icon: BarChart3 },
       { title: "Team Tasks", href: "/tasks", icon: CheckSquare },
       { title: "All Requests", href: "/admin/all-requests", icon: ClipboardList },
       { title: "Send Announcements", href: "/admin/announcements", icon: Megaphone },
@@ -211,7 +212,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
     pathname === "/departments/hr" || pathname.startsWith("/departments/hr/all-requests") || pathname.startsWith("/departments/hr/tasks") || pathname.startsWith("/departments/hr/feedback")
   )
   const [financeTeamExpanded, setFinanceTeamExpanded] = useState(
-    pathname === "/departments/finance" || pathname.startsWith("/departments/finance/all-requests") || pathname.startsWith("/departments/finance/tasks") || pathname.startsWith("/departments/finance/sla-reminders")
+    pathname === "/departments/finance" || pathname.startsWith("/departments/finance/all-requests") || pathname.startsWith("/departments/finance/tasks") || pathname.startsWith("/departments/finance/feedback") || pathname.startsWith("/departments/finance/sla-reminders")
   )
   // When the sidebar is collapsed, clicking a parent opens a flyout popover
   // anchored to that parent's row so the user can pick a child page without
@@ -513,7 +514,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
             } else if (isFinanceTeam) {
               expanded = financeTeamExpanded
               setExpandedFn = (val) => setFinanceTeamExpanded(val)
-              active = pathname === "/departments/finance" || pathname.startsWith("/departments/finance/all-requests") || pathname.startsWith("/departments/finance/tasks") || pathname.startsWith("/departments/finance/sla-reminders")
+              active = pathname === "/departments/finance" || pathname.startsWith("/departments/finance/all-requests") || pathname.startsWith("/departments/finance/tasks") || pathname.startsWith("/departments/finance/feedback") || pathname.startsWith("/departments/finance/sla-reminders")
             }
 
             const isFlyoutOpen = flyoutOpen === item.title
