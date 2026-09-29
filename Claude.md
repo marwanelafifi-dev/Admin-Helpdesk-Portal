@@ -2221,3 +2221,8 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
   - The Ubuntu Synology installer now generates its CIFS mount unit with `/usr/bin/mount`, the location supplied by Ubuntu's merged `/usr` layout. This prevents systemd `status=203/EXEC` failures before any NAS authentication or network connection is attempted.
   - Production validation confirmed the NAS share is reachable through SMB. The protected Ubuntu credential file must use the exact Synology account name (`company portal`, with a space, for this deployment) and `domain=WORKGROUP`; no NAS credentials are committed to the repository.
   - Once the CIFS mount reports `active`, rerunning the installer creates the five-minute systemd timer. The Portal Database page then controls whether a daily recovery copy runs, its time, destination below the protected mount, and retention.
+
+## Phase 20: Administration HR Queue Render Fix (Implemented - 29 Sep 2026)
+
+- [x] **HR Onboarding and Offboarding routes:**
+  - Restored the missing Lucide `Clock` import used by the In Progress status card. This removed the production `ReferenceError: Clock is not defined` that caused `/hr/onboarding` and `/hr/offboarding` to fall into the global page error boundary.
