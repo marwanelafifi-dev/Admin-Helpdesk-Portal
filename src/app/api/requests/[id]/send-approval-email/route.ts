@@ -54,8 +54,9 @@ export async function POST(
 
   const payload = (request.payload ?? {}) as Record<string, any>
   const managerName = resolveRequestManagerName(request) ?? ""
+  const isPoInvoice = request.module === "finance_invoice_payment" && payload.poOrContract === "po"
   if (!managerName) {
-    return NextResponse.json({ error: "No Direct Manager set on the request" }, { status: 400 })
+    return NextResponse.json({ error: isPoInvoice ? "No approver selected for this PO invoice" : "No Direct Manager set on the request" }, { status: 400 })
   }
 
   // Resolve manager email from the shared company-data.json. Accepts

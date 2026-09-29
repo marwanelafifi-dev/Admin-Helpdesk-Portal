@@ -11,7 +11,7 @@ import {
   PAYMENT_METHODS,
   InvoicePaymentPayloadSchema,
 } from "./invoicePayment.schema"
-import { submitRequest, updateRequest, pushToServer, type EngineRequest } from "@/services/engineService"
+import { submitRequest, updateRequest, updateStatus, pushToServer, type EngineRequest } from "@/services/engineService"
 import { createNewRequestNotifications } from "@/lib/notificationStore"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -25,6 +25,8 @@ import { cn } from "@/lib/utils"
 import { CcEmailsField } from "@/components/ui/CcEmailsField"
 import { SearchableSelect } from "@/components/ui/SearchableSelect"
 import { FinanceProcessingNotice } from "./FinancePriorityField"
+import { ApproverField } from "./ApproverField"
+import { roleToFunctionId } from "@/lib/functionRegistry"
 import { addItem, getList, getManagerEmail } from "@/lib/companyDataStore"
 import { filesToAttachments } from "@/lib/attachments"
 
@@ -64,9 +66,12 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
 export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { onCancel?: () => void; editingRequest?: EngineRequest | null; isEditing?: boolean }) {
   const router = useRouter()
   const { data: session } = useSession()
+  const canSelectPoApprover = session?.user?.role === "Full Access" || roleToFunctionId(session?.user?.role) === "finance"
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null)
   const [additionalFiles, setAdditionalFiles] = useState<File[]>([])
   const [invoiceFileError, setInvoiceFileError] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState("")
+  const [savedRequestId, setSavedRequestId] = useState("")
   const [suppliers, setSuppliers] = useState<string[]>([])
   const [managers, setManagers] = useState<string[]>([])
   useEffect(() => {
@@ -74,7 +79,7 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
     setManagers(getList("managers"))
   }, [])
 
-  const { register, control, handleSubmit, watch, setError, formState: { errors, isSubmitting }, reset } = useForm<InvoicePaymentFormValues>({
+  const { register, control, handleSubmit, watch, setValue, setError, formState: { errors, isSubmitting }, reset } = useForm<InvoicePaymentFormValues>({
     resolver: zodResolver(InvoicePaymentPayloadSchema),
     defaultValues: { priority: "Normal", poOrContract: "po", poNumbers: [], invoiceRows: [{ ...EMPTY_INVOICE_ROW }], directManager: "", approverEmail: "", approverName: "", ccEmails: [] },
   })
@@ -88,6 +93,9 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
   }, {})
   const poOrContract = watch("poOrContract")
   const requiresManagerApproval = poOrContract !== "po"
+  const poApproverEmail = watch("approverEmail") ?? ""
+  const poApproverName = watch("approverName") ?? ""
+  const requiresApproval = requiresManagerApproval || (poOrContract === "po" && !!poApproverEmail)
   const hasOtherSupplier = poOrContract !== "po" && invoiceRows.some((row) => row.supplier === "Other")
 
   useEffect(() => {
@@ -98,7 +106,10 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
         priority: payload.priority || "Normal",
         poOrContract: payload.poOrContract || "po",
         invoiceRows: Array.isArray(payload.invoiceRows) && payload.invoiceRows.length > 0 ? payload.invoiceRows : [{ supplier: payload.supplier || "", supplierName: "", poNumber: Array.isArray(payload.poNumbers) ? payload.poNumbers[0] || "" : "", otherDescription: payload.otherDetails || "", amount: payload.amount || 0, currency: payload.currency || "USD", paymentTerms: payload.paymentTerms || "", paymentMethod: payload.paymentMethod === "Ramp" ? "Company Credit Card" : payload.paymentMethod || "Wire Transfer" }],
-        directManager: payload.directManager || payload.approverName || "",
+        directManager: payload.directManager || "",
+        approverEmail: payload.approverEmail || "",
+        approverName: payload.approverName || "",
+        ccEmails: payload.ccEmails || [],
       })
     }
   }, [editingRequest, isEditing, reset])
@@ -118,6 +129,8 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
   }
 
   const onSubmit = async (data: InvoicePaymentFormValues) => {
+    if (savedRequestId) return
+    setSubmitError("")
     if (!validateInvoiceFile()) return
     if (data.poOrContract === "po" && data.invoiceRows.some((row) => !row.poNumber?.trim())) {
       setError("invoiceRows", { type: "manual", message: "Enter a PO number for every invoice row" })
@@ -147,8 +160,8 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
       setSuppliers(getList("suppliers"))
     }
 
-    // PO-backed invoices have already passed purchasing approval. Contract
-    // and Other invoices use the Direct Manager approval workflow.
+    // Contract and Other invoices use the Direct Manager approval workflow.
+    // PO-backed invoices only need approval when an eligible user selects one.
     const directManager = data.poOrContract === "po" ? "" : data.directManager?.trim() || ""
     const directManagerEmail = directManager ? getManagerEmail(directManager) ?? "" : ""
     if (directManagerEmail) {
@@ -160,16 +173,22 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
     }
 
     const primaryRow = resolvedInvoiceRows[0]
-    const payload = { ...data, invoiceRows: resolvedInvoiceRows, supplier: primaryRow.supplier, poNumbers: resolvedInvoiceRows.map((row) => row.poNumber).filter(Boolean), amount: resolvedInvoiceRows.reduce((sum, row) => sum + Number(row.amount || 0), 0), currency: primaryRow.currency, paymentTerms: primaryRow.paymentTerms, paymentMethod: primaryRow.paymentMethod, directManagerEmail, directManager }
+    const approverEmail = data.poOrContract === "po" && (canSelectPoApprover || isEditing) ? data.approverEmail?.trim().toLowerCase() || "" : ""
+    const approverName = approverEmail ? data.approverName?.trim() || approverEmail : ""
+    const payload = { ...data, approverEmail, approverName, invoiceRows: resolvedInvoiceRows, supplier: primaryRow.supplier, poNumbers: resolvedInvoiceRows.map((row) => row.poNumber).filter(Boolean), amount: resolvedInvoiceRows.reduce((sum, row) => sum + Number(row.amount || 0), 0), currency: primaryRow.currency, paymentTerms: primaryRow.paymentTerms, paymentMethod: primaryRow.paymentMethod, directManagerEmail, directManager }
     let redirectTo: string | null = null
     try {
       if (isEditing && editingRequest) {
-        updateRequest(editingRequest.id, payload, {
+        const updated = updateRequest(editingRequest.id, payload, {
           title: data.requestTitle,
           requesterId: editingRequest.requesterId,
           requesterName: editingRequest.requesterName,
           requesterEmail: editingRequest.requesterEmail,
-        })
+        }, false)
+        if (!updated || !await pushToServer(updated)) throw new Error("Could not save the invoice changes.")
+        if (data.poOrContract === "po" && approverEmail && editingRequest.status === "new") {
+          await updateStatus(editingRequest.id, "awaiting_approval", session?.user?.id || "USR-001")
+        }
       } else {
         // 1. Create request first (server-assigns the ID)
         const newReq = await submitRequest("finance_invoice_payment", payload as any, {
@@ -178,6 +197,7 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
           requesterName: session?.user?.name || session?.user?.email || "Current User",
           requesterEmail: session?.user?.email || "user@si-ware.com",
         })
+        setSavedRequestId(newReq.id)
 
         // 2. Upload the invoice file (required) + any additional files, then patch them in
         const filesToUpload = invoiceFile ? [invoiceFile, ...additionalFiles] : additionalFiles
@@ -185,10 +205,8 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
           const attachments = await filesToAttachments(filesToUpload, newReq.id)
           const uploadedInvoiceFile = invoiceFile ? attachments[0] : undefined
           const additionalAttachments = invoiceFile ? attachments.slice(1) : attachments
-          const updated = updateRequest(newReq.id, { ...payload, invoiceFile: uploadedInvoiceFile, additionalAttachments } as any, { title: data.requestTitle })
-          if (updated) {
-            void pushToServer(updated)
-          }
+          const updated = updateRequest(newReq.id, { ...payload, invoiceFile: uploadedInvoiceFile, additionalAttachments } as any, { title: data.requestTitle }, false)
+          if (!updated || !await pushToServer(updated)) throw new Error("Could not save the invoice attachment.")
         }
 
         createNewRequestNotifications({
@@ -201,10 +219,15 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
           ccEmails: data.ccEmails,
           managerEmail: directManagerEmail,
         })
+
+        if (data.poOrContract === "po" && approverEmail) {
+          await updateStatus(newReq.id, "awaiting_approval", session?.user?.id || "USR-001")
+        }
       }
       redirectTo = "/departments/finance/invoices"
     } catch (error) {
       console.error(isEditing ? "Failed to update request:" : "Failed to create request:", error)
+      setSubmitError(error instanceof Error ? error.message : "The invoice could not be submitted. Please try again.")
     }
     if (redirectTo) {
       router.push(redirectTo)
@@ -216,7 +239,7 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
     <div className="space-y-5 max-w-7xl mx-auto">
       <form onSubmit={handleSubmit(onSubmit, validateInvoiceFile)} className="space-y-5">
         {/* Processing time */}
-        <FinanceProcessingNotice hasApproval={requiresManagerApproval} />
+        <FinanceProcessingNotice hasApproval={requiresApproval} />
 
         {/* Request Title */}
         <Card>
@@ -334,10 +357,26 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
               </div>
             </CardContent>
           </Card>
+        ) : canSelectPoApprover ? (
+          <Card>
+            <SectionHeader icon={UserCheck} title="PO Invoice Approver" subtitle="Choose a portal user or enter an approver email" />
+            <CardContent className="space-y-3">
+              <ApproverField
+                email={poApproverEmail}
+                name={poApproverName}
+                onChange={({ email, name }) => {
+                  setValue("approverEmail", email, { shouldDirty: true, shouldValidate: true })
+                  setValue("approverName", name, { shouldDirty: true })
+                }}
+              />
+              <FieldError message={errors.approverEmail?.message} />
+              <p className="text-xs text-muted-foreground">Optional. Leave blank to submit without approval. If you select an approver, the request enters Awaiting Approval on submission and they receive an Approve/Reject email. They must sign in with that email address to decide.</p>
+            </CardContent>
+          </Card>
         ) : (
           <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100">
             <FileCheck2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-            <span><strong>PO-backed invoice:</strong> no Direct Manager approval is required.</span>
+            <span><strong>PO-backed invoice:</strong> purchasing approval is already recorded.</span>
           </div>
         )}
 
@@ -446,9 +485,17 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
           </CardContent>
         </Card>
 
+        {submitError && (
+          <div role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+            {submitError}
+            {savedRequestId && (
+              <p className="mt-1">The request was created. Do not submit it again. <a className="underline" href={`/requests/${encodeURIComponent(savedRequestId)}`}>Open the request</a> to check its approval status.</p>
+            )}
+          </div>
+        )}
         <div className="form-footer border-t bg-gray-50 py-4 px-1 flex items-center justify-between gap-3">
           <Button type="button" variant="ghost" onClick={handleCancel}>Cancel</Button>
-          <Button type="submit" disabled={isSubmitting} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px]">
+          <Button type="submit" disabled={isSubmitting || !!savedRequestId} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px]">
             {isSubmitting ? (isEditing ? "Updating..." : "Submitting...") : (isEditing ? "Update Request" : "Submit Invoice Payment Request")}
           </Button>
         </div>

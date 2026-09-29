@@ -47,11 +47,12 @@ export async function GET(
 
   // Strict manager check — no legacy bypass
   const currentManager = resolveRequestManagerEmail(request)
+  const approverLabel = request.module === "finance_invoice_payment" && (request.payload as any)?.poOrContract === "po" ? "selected approver" : "Direct Manager"
   if (!verified.managerEmail || !currentManager || currentManager !== verified.managerEmail) {
     logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "reject", actorEmail: verified.managerEmail, outcome: "denied", details: "Token manager does not match the request manager" })
     return htmlResponse({
       title: "Not authorized",
-      body: `<p>Only the request's Direct Manager can use this link.</p>`,
+      body: `<p>Only the request's ${approverLabel} can use this link.</p>`,
       accent: "red",
     }, 403)
   }
@@ -71,7 +72,7 @@ export async function GET(
   }
   if (signedInEmail !== verified.managerEmail) {
     logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "reject", actorEmail: signedInEmail, outcome: "denied", details: `Signed-in user does not match assigned manager ${verified.managerEmail}` })
-    return htmlResponse({ title: "Not authorized", body: `<p>Sign in as the assigned Direct Manager to reject this request.</p>`, accent: "red" }, 403)
+    return htmlResponse({ title: "Not authorized", body: `<p>Sign in as the assigned ${approverLabel} to reject this request.</p>`, accent: "red" }, 403)
   }
 
   if (!AWAITING_STATUSES.includes(request.status)) {
@@ -87,7 +88,7 @@ export async function GET(
   // Show the reason form — POST back to the same route
   const postUrl = `/api/requests/${encodeURIComponent(id)}/reject`
   const html = `<!doctype html>
-<html><head><meta charset="utf-8"><title>Reject Purchase Request</title>
+<html><head><meta charset="utf-8"><title>Reject Request</title>
 <style>
   body{font:14px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f8fafc;color:#0f172a;margin:0;padding:48px 16px}
   .card{max-width:520px;margin:0 auto;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:32px;box-shadow:0 4px 12px rgba(0,0,0,.04)}
@@ -102,7 +103,7 @@ export async function GET(
   button:hover{background:#dc2626}
 </style></head>
 <body><div class="card">
-  <h1>Reject Purchase Request</h1>
+  <h1>Reject Request</h1>
   <p class="subtitle">Please provide a reason so the requester understands why this was rejected.</p>
   <div class="req-box"><strong>${escapeHtml(request.title)}</strong> &nbsp;·&nbsp; ${escapeHtml(request.id)}</div>
   <form method="POST" action="${escapeHtml(postUrl)}">
@@ -163,11 +164,12 @@ export async function POST(
   }
 
   const currentManager = resolveRequestManagerEmail(request)
+  const approverLabel = request.module === "finance_invoice_payment" && (request.payload as any)?.poOrContract === "po" ? "selected approver" : "Direct Manager"
   if (!verified.managerEmail || !currentManager || currentManager !== verified.managerEmail) {
     logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "reject", actorEmail: verified.managerEmail, outcome: "denied", details: "Token manager does not match the request manager" })
     return htmlResponse({
       title: "Not authorized",
-      body: `<p>Only the request's Direct Manager can use this link.</p>`,
+      body: `<p>Only the request's ${approverLabel} can use this link.</p>`,
       accent: "red",
     }, 403)
   }
@@ -180,7 +182,7 @@ export async function POST(
   }
   if (signedInEmail !== verified.managerEmail) {
     logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "reject", actorEmail: signedInEmail, outcome: "denied", details: `Signed-in user does not match assigned manager ${verified.managerEmail}` })
-    return htmlResponse({ title: "Not authorized", body: `<p>Sign in as the assigned Direct Manager to reject this request.</p>`, accent: "red" }, 403)
+    return htmlResponse({ title: "Not authorized", body: `<p>Sign in as the assigned ${approverLabel} to reject this request.</p>`, accent: "red" }, 403)
   }
 
   if (!AWAITING_STATUSES.includes(request.status)) {

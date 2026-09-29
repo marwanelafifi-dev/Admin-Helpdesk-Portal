@@ -559,7 +559,7 @@ export default function RequestDetailPage() {
       if (requiresManagerApproval(request) && newStatus === "awaiting_approval" && oldStatus !== newStatus) {
         setApprovalEmailStatus({
           type: "success",
-          message: "Approval email sent to the Direct Manager.",
+          message: `Approval email sent to the ${request.module === "finance_invoice_payment" && (request.payload as any)?.poOrContract === "po" ? "selected approver" : "Direct Manager"}.`,
         })
       }
 
@@ -1306,7 +1306,7 @@ export default function RequestDetailPage() {
             {requiresManagerApproval(request) && request.status === "awaiting_approval" && (
               <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-sm font-medium text-amber-800">{["travel", "finance_travel_reimbursement"].includes(request.module) ? "Authorized Manager" : "Direct Manager"} approval is required</p>
+                  <p className="text-sm font-medium text-amber-800">{request.module === "finance_invoice_payment" && (request.payload as any)?.poOrContract === "po" ? "Selected approver" : ["travel", "finance_travel_reimbursement"].includes(request.module) ? "Authorized Manager" : "Direct Manager"} approval is required</p>
                   {approvalEmailStatus.message && (
                     <p className={cn(
                       "mt-1 text-xs",

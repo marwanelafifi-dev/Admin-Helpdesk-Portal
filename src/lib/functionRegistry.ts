@@ -86,7 +86,9 @@ export function requiresManagerApproval(request: { module: string; payload?: unk
   if (!(MANAGER_APPROVAL_MODULES as readonly string[]).includes(request.module)) return false
 
   const payload = (request.payload ?? {}) as Record<string, unknown>
-  if (request.module === "finance_invoice_payment") return payload.poOrContract !== "po"
+  if (request.module === "finance_invoice_payment") {
+    return payload.poOrContract !== "po" || Boolean(String(payload.approverEmail ?? "").trim())
+  }
   if (request.module === "finance_reimbursement") return payload.poOption === "no_po"
 
   return true

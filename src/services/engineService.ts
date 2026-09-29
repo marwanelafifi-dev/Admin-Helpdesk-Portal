@@ -474,7 +474,8 @@ export async function submitRequest<T extends Record<string, unknown>>(
 export function updateRequest<T extends Record<string, unknown>>(
   id: string,
   payload: T,
-  meta: Partial<SubmitMeta>
+  meta: Partial<SubmitMeta>,
+  sync = true,
 ): EngineRequest<T> | null {
   const requests = readAll()
   const index = requests.findIndex((r) => r.id === id)
@@ -493,7 +494,7 @@ export function updateRequest<T extends Record<string, unknown>>(
   requests[index] = updated
   markPending(updated)
   writeAll(requests)
-  pushToServer(updated)
+  if (sync) void pushToServer(updated)
 
   try {
     logAuditEvent({

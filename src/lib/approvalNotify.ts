@@ -19,6 +19,11 @@ function functionMailbox(module: string) {
 export function resolveRequestManagerEmail(request: EngineRequest): string | undefined {
   const payload = (request.payload ?? {}) as Record<string, any>
 
+  if (request.module === "finance_invoice_payment" && payload.poOrContract === "po") {
+    const approverEmail = typeof payload.approverEmail === "string" ? payload.approverEmail.trim().toLowerCase() : ""
+    return approverEmail || undefined
+  }
+
   // Shipping uses approvers.directManager.{name,email}
   const shippingMgrEmail = payload?.approvers?.directManager?.email
   if (typeof shippingMgrEmail === "string" && shippingMgrEmail.trim()) {
@@ -63,6 +68,10 @@ export function resolveRequestManagerEmail(request: EngineRequest): string | und
 /** Find the Direct Manager display name for a request. */
 export function resolveRequestManagerName(request: EngineRequest): string | undefined {
   const payload = (request.payload ?? {}) as Record<string, any>
+
+  if (request.module === "finance_invoice_payment" && payload.poOrContract === "po") {
+    return String(payload.approverName ?? payload.approverEmail ?? "").trim() || undefined
+  }
 
   // Shipping — name stored directly
   const shippingMgrName = payload?.approvers?.directManager?.name

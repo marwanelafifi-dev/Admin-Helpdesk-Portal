@@ -3,6 +3,6 @@ export function hasRecordedApproval(request: {
   statusHistory?: Array<{ comment?: string | null }>
 }): boolean {
   return (request.statusHistory ?? []).some((entry) =>
-    /^Approved by (Direct|Authorized) Manager/i.test(entry.comment ?? "")
+    /^Approved by (?:(Direct|Authorized) Manager|Selected Approver)/i.test(entry.comment ?? "")
   )
 }

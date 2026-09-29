@@ -6,7 +6,7 @@ import { getDefaultAssignee } from "@/lib/userStore"
 import type { EngineRequest } from "@/services/engineService"
 import { getCompanyFromEmail, getRequestCompany } from "@/lib/userCompany"
 import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
-import { functionForModule, isRequestVisibleToViewer, MODULE_REGISTRY } from "@/lib/functionRegistry"
+import { functionForModule, isRequestVisibleToViewer, MODULE_REGISTRY, roleToFunctionId } from "@/lib/functionRegistry"
 import { logServerAudit } from "@/lib/serverAuditLog"
 import { hasRecordedApproval } from "@/lib/approvalRules"
 import { deliverFeedbackSurveyForRequest } from "@/lib/feedbackSurveyDelivery"
@@ -231,6 +231,32 @@ export async function POST(req: Request) {
     assignedToEmail: incoming.assignedToEmail ?? null,
   }
   const existing = requestStore.getAll().find((r) => r.id === incoming.id)
+  if (incoming.module === "finance_invoice_payment") {
+    const payload = (incoming.payload ?? {}) as Record<string, unknown>
+    const previousPayload = (existing?.payload ?? {}) as Record<string, unknown>
+    const approverEmail = String(payload.approverEmail ?? "").trim().toLowerCase()
+    const previousApproverEmail = String(previousPayload.approverEmail ?? "").trim().toLowerCase()
+    const approverName = String(payload.approverName ?? "").trim()
+    const previousApproverName = String(previousPayload.approverName ?? "").trim()
+    const approverChanged = approverEmail !== previousApproverEmail || approverName !== previousApproverName
+    const canSelectPoApprover = session.user.role === "Full Access" || roleToFunctionId(session.user.role) === "finance"
+
+    if (approverEmail && payload.poOrContract !== "po") {
+      return NextResponse.json({ error: "An invoice approver can only be selected for a PO-backed invoice." }, { status: 400 })
+    }
+    if (approverEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(approverEmail)) {
+      return NextResponse.json({ error: "Enter a valid approver email address." }, { status: 400 })
+    }
+    if (approverName && !approverEmail) {
+      return NextResponse.json({ error: "An approver email address is required." }, { status: 400 })
+    }
+    if (!canSelectPoApprover && approverChanged) {
+      return NextResponse.json({ error: "Only Finance Team or Full Access can select an invoice approver." }, { status: 403 })
+    }
+    if (existing && approverChanged && (existing.status === "awaiting_approval" || hasRecordedApproval(existing))) {
+      return NextResponse.json({ error: "The approver cannot be changed after the invoice enters approval." }, { status: 409 })
+    }
+  }
   // The server record is authoritative. A stale browser cache must never
   // overwrite an approved request by putting it back into Awaiting Approval.
   if (

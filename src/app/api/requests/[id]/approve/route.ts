@@ -54,11 +54,12 @@ export async function GET(
   // Strict manager check — token must carry managerEmail and it must match
   // the request's current Direct Manager. No legacy fallback bypass.
   const currentManager = resolveRequestManagerEmail(request)
+  const approverLabel = request.module === "finance_invoice_payment" && (request.payload as any)?.poOrContract === "po" ? "selected approver" : "Direct Manager"
   if (!verified.managerEmail || !currentManager || currentManager !== verified.managerEmail) {
     logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "approve", actorEmail: verified.managerEmail, outcome: "denied", details: "Token manager does not match the request manager" })
     return htmlResponse({
       title: "Not authorized",
-      body: `<p>Only the request's Direct Manager can use this link.</p>`,
+      body: `<p>Only the request's ${approverLabel} can use this link.</p>`,
       accent: "red",
     }, 403)
   }
@@ -78,7 +79,7 @@ export async function GET(
   }
   if (signedInEmail !== verified.managerEmail) {
     logApprovalAttempt({ req, requestId: id, requestTitle: request.title, action: "approve", actorEmail: signedInEmail, outcome: "denied", details: `Signed-in user does not match assigned manager ${verified.managerEmail}` })
-    return htmlResponse({ title: "Not authorized", body: `<p>Sign in as the assigned Direct Manager to approve this request.</p>`, accent: "red" }, 403)
+    return htmlResponse({ title: "Not authorized", body: `<p>Sign in as the assigned ${approverLabel} to approve this request.</p>`, accent: "red" }, 403)
   }
 
   if (!AWAITING_STATUSES.includes(request.status)) {
@@ -103,7 +104,7 @@ export async function GET(
       status: "in_progress" as const,
       updatedAt: now,
       adminCc,
-      statusHistory: [...(current.statusHistory ?? []), { status: "in_progress" as const, changedBy: verified.managerEmail, changedAt: now, comment: "Approved by Direct Manager" }],
+      statusHistory: [...(current.statusHistory ?? []), { status: "in_progress" as const, changedBy: verified.managerEmail, changedAt: now, comment: approverLabel === "selected approver" ? "Approved by Selected Approver" : "Approved by Direct Manager" }],
     }
   })
   if (!updated) {
