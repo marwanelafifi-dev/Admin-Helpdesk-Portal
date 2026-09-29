@@ -54,6 +54,8 @@ export const MODULE_REGISTRY: Record<string, ModuleOwnership> = {
   // insurance, desk/office). "hr_general", "hr_letter", and "hr_travel_letter"
   // are different: HR-Portal-exclusive intake channels that People Team itself
   // owns and processes, with no Admin-Portal involvement, so they stay HR-only.
+  // Onboarding/offboarding must not appear in People Team dashboard, queues,
+  // feedback, or task views. People-only services are the hr_* modules below.
   hr: { owner: "admin" },
   hr_general: { owner: "hr" },
   hr_letter: { owner: "hr" },
