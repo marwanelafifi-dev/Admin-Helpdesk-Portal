@@ -111,6 +111,7 @@ export default function AdminSettingsPage() {
   const [headerSave, setHeaderSave] = useState<SaveState>("idle")
   const [feedbackSave, setFeedbackSave] = useState<SaveState>("idle")
   const [financeSlaSave, setFinanceSlaSave] = useState<SaveState>("idle")
+  const [prePaidInvoiceSlaSave, setPrePaidInvoiceSlaSave] = useState<SaveState>("idle")
   const [mainAppsSave, setMainAppsSave] = useState<SaveState>("idle")
   const [mainAppIconUpload, setMainAppIconUpload] = useState<string | null>(null)
   const [mainAppIconUploadError, setMainAppIconUploadError] = useState<string | null>(null)
@@ -144,6 +145,8 @@ export default function AdminSettingsPage() {
             feedbackSurveysByFunction: { ...prev.feedbackSurveysByFunction, ...data.settings.feedbackSurveysByFunction },
             financeSlaWorkingDays: String(data.settings.financeSlaWorkingDays ?? prev.financeSlaWorkingDays),
             financeSlaReminderDay: String(data.settings.financeSlaReminderDay ?? prev.financeSlaReminderDay),
+            prePaidInvoiceSlaWorkingDays: String(data.settings.prePaidInvoiceSlaWorkingDays ?? prev.prePaidInvoiceSlaWorkingDays),
+            prePaidInvoiceSlaReminderDay: String(data.settings.prePaidInvoiceSlaReminderDay ?? prev.prePaidInvoiceSlaReminderDay),
             itServiceDeskEnabled: data.settings.itServiceDeskEnabled ?? prev.itServiceDeskEnabled,
             itServiceDeskUrl: data.settings.itServiceDeskUrl ?? prev.itServiceDeskUrl,
             supportFunctionLogos: { ...prev.supportFunctionLogos, ...data.settings.supportFunctionLogos },
@@ -311,6 +314,35 @@ export default function AdminSettingsPage() {
     }
   }
 
+  async function persistPrePaidInvoiceSla() {
+    const slaDays = Number.parseInt(settings.prePaidInvoiceSlaWorkingDays, 10)
+    const reminderDay = Number.parseInt(settings.prePaidInvoiceSlaReminderDay, 10)
+    if (!Number.isInteger(slaDays) || slaDays < 2 || slaDays > 60 || !Number.isInteger(reminderDay) || reminderDay < 1 || reminderDay >= slaDays) {
+      setPrePaidInvoiceSlaSave("error")
+      setTimeout(() => setPrePaidInvoiceSlaSave("idle"), 3000)
+      return
+    }
+
+    setPrePaidInvoiceSlaSave("saving")
+    try {
+      const response = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prePaidInvoiceSlaWorkingDays: String(slaDays),
+          prePaidInvoiceSlaReminderDay: String(reminderDay),
+        }),
+      })
+      if (!response.ok) throw new Error("Failed to save Pre Paid Invoice SLA settings")
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...settings, prePaidInvoiceSlaWorkingDays: String(slaDays), prePaidInvoiceSlaReminderDay: String(reminderDay) }))
+      setPrePaidInvoiceSlaSave("saved")
+      setTimeout(() => setPrePaidInvoiceSlaSave("idle"), 3000)
+    } catch {
+      setPrePaidInvoiceSlaSave("error")
+      setTimeout(() => setPrePaidInvoiceSlaSave("idle"), 3000)
+    }
+  }
+
   async function persistMainApps() {
     setMainAppsSave("saving")
     try {
@@ -465,7 +497,7 @@ export default function AdminSettingsPage() {
             <div className="bg-amber-100 rounded-lg p-2"><Clock className="h-4 w-4 text-amber-700" /></div>
             <div>
               <CardTitle className="text-base font-semibold text-gray-900">Finance Team SLA</CardTitle>
-              <p className="text-xs text-gray-500 mt-0.5">Configure the processing target and automatic reminder timing for Finance requests</p>
+              <p className="text-xs text-gray-500 mt-0.5">Configure General and Travel Reimbursement; Pre Paid Invoice has its own policy below.</p>
             </div>
           </div>
         </CardHeader>
@@ -482,7 +514,7 @@ export default function AdminSettingsPage() {
                 onChange={(e) => set("financeSlaWorkingDays", e.target.value)}
                 className="text-sm"
               />
-              <p className="text-xs text-gray-400">Shown in all Finance request forms and used to calculate the deadline.</p>
+              <p className="text-xs text-gray-400">Shown in General and Travel Reimbursement forms and used to calculate their deadlines.</p>
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm font-medium text-gray-700">SLA Reminder Day</Label>
@@ -499,10 +531,41 @@ export default function AdminSettingsPage() {
             </div>
           </div>
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            Current policy: requests are due within <strong>{settings.financeSlaWorkingDays || "—"} working days</strong>; the reminder is sent on working day <strong>{settings.financeSlaReminderDay || "—"}</strong>.
+            Reimbursement policy: requests are due within <strong>{settings.financeSlaWorkingDays || "—"} working days</strong>; the reminder is sent on working day <strong>{settings.financeSlaReminderDay || "—"}</strong>.
           </div>
           <p className="text-xs text-gray-500">The reminder day must be at least 1 and earlier than the SLA deadline.</p>
           <SaveButton state={financeSlaSave} onClick={persistFinanceSla} label="Save Finance SLA" />
+        </CardContent>
+      </Card>
+
+      <Card className="border shadow-sm">
+        <CardHeader className="border-b bg-gray-50 rounded-t-lg">
+          <div className="flex items-center gap-2">
+            <div className="bg-amber-100 rounded-lg p-2"><Clock className="h-4 w-4 text-amber-700" /></div>
+            <div>
+              <CardTitle className="text-base font-semibold text-gray-900">Pre Paid Invoice SLA</CardTitle>
+              <p className="text-xs text-gray-500 mt-0.5">Separate processing target and reminder for Pre Paid Invoice requests.</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-6 space-y-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-gray-700">SLA Working Days</Label>
+              <Input type="number" min="2" max="60" step="1" value={settings.prePaidInvoiceSlaWorkingDays} onChange={(e) => set("prePaidInvoiceSlaWorkingDays", e.target.value)} className="text-sm" />
+              <p className="text-xs text-gray-400">Shown on the Pre Paid Invoice form and used to calculate its deadline.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-gray-700">SLA Reminder Day</Label>
+              <Input type="number" min="1" max={Math.max(1, Number.parseInt(settings.prePaidInvoiceSlaWorkingDays, 10) - 1 || 1)} step="1" value={settings.prePaidInvoiceSlaReminderDay} onChange={(e) => set("prePaidInvoiceSlaReminderDay", e.target.value)} className="text-sm" />
+              <p className="text-xs text-gray-400">The working day when Finance Team members receive the Pre Paid Invoice reminder.</p>
+            </div>
+          </div>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Pre Paid Invoice policy: requests are due within <strong>{settings.prePaidInvoiceSlaWorkingDays || "—"} working days</strong>; the reminder is sent on working day <strong>{settings.prePaidInvoiceSlaReminderDay || "—"}</strong>.
+          </div>
+          <p className="text-xs text-gray-500">The reminder day must be at least 1 and earlier than the SLA deadline.</p>
+          <SaveButton state={prePaidInvoiceSlaSave} onClick={persistPrePaidInvoiceSla} label="Save Pre Paid Invoice SLA" />
         </CardContent>
       </Card>
 

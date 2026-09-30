@@ -266,7 +266,7 @@ export default function AdminRolesPage() {
     { id: "general", label: "Administration — General Request", pages: ["general", "general-new"] },
     { id: "finance_reimbursement", label: "Finance — General Reimbursement", pages: ["finance-reimbursement"] },
     { id: "finance_travel_reimbursement", label: "Finance — Travel Reimbursement", pages: ["finance-travel"] },
-    { id: "finance_invoice_payment", label: "Finance — Invoices Payment", pages: ["finance-invoices"] },
+    { id: "finance_invoice_payment", label: "Finance — Pre Paid Invoice", pages: ["finance-invoices"] },
     { id: "hr_general", label: "People — General Request", pages: ["hr-general"] },
     { id: "hr_letter", label: "People — HR Letter Request", pages: ["hr-letter-request"] },
   ] as const

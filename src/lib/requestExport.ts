@@ -31,7 +31,7 @@ const MODULE_LABELS: Record<string, string> = {
   hr_travel_letter: "HR Travel Letter Request",
   finance_reimbursement: "Finance Reimbursement",
   finance_travel_reimbursement: "Finance Travel Reimbursement",
-  finance_invoice_payment: "Finance Invoice Payment",
+  finance_invoice_payment: "Finance Pre Paid Invoice",
 }
 
 export function humanizeExportKey(key: string): string {

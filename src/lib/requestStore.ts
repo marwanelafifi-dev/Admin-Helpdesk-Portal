@@ -2,6 +2,7 @@ import fs from "fs"
 import path from "path"
 import type { EngineRequest } from "@/services/engineService"
 import { hasRecordedApproval } from "@/lib/approvalRules"
+import { requestTombstoneStore } from "@/lib/requestTombstoneStore"
 
 /**
  * Server-side JSON store for requests — the shared source of truth across
@@ -154,8 +155,8 @@ class RequestStore {
     const month = String(createdAt.getMonth() + 1).padStart(2, "0")
     const prefix = requestIdPrefix(request)
     const pattern = new RegExp(`^${prefix}-${year}-${month}-(\\d{4})$`)
-    const currentMax = this.store.reduce((max, item) => {
-      const match = item.id.match(pattern)
+    const currentMax = [...this.store.map((item) => item.id), ...requestTombstoneStore.ids()].reduce((max, id) => {
+      const match = id.match(pattern)
       if (!match) return max
       const value = Number(match[1])
       return Number.isFinite(value) ? Math.max(max, value) : max

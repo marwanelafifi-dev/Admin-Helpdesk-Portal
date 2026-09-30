@@ -283,6 +283,14 @@ export async function pushToServer(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ request, audit }),
       })
+      if (res.status === 410) {
+        // A server-side deletion marker is authoritative, even if this tab
+        // still has an older edit queued in localStorage.
+        _pendingPush.delete(request.id)
+        savePending()
+        writeAll(readAll().filter((item) => item.id !== request.id))
+        return false
+      }
       if (!res.ok) {
         if (attempt < ATTEMPTS - 1) { await new Promise(r => setTimeout(r, (attempt + 1) * 2000)); continue }
         return false
@@ -885,8 +893,8 @@ export function clearStore(): void {
 /**
  * Permanently delete a single request — from localStorage, from the
  * server's data/requests.json, and from comments.json (cascade). Returns
- * true if the local cache changed. The server call is fire-and-forget
- * but normally completes within the same tick.
+ * true if the local cache changed. The server confirms deletion separately;
+ * a failed server response restores the cache and alerts the user.
  */
 export function deleteRequestPermanently(id: string): boolean {
   if (typeof window === "undefined") return false
@@ -894,6 +902,8 @@ export function deleteRequestPermanently(id: string): boolean {
   const req = requests.find((r) => r.id === id)
   const next = requests.filter((r) => r.id !== id)
   const changed = next.length !== requests.length
+  _pendingPush.delete(id)
+  savePending()
   if (changed) {
     writeAll(next)
     if (req) {
@@ -910,20 +920,17 @@ export function deleteRequestPermanently(id: string): boolean {
       } catch {}
     }
   }
-  // Save a snapshot to the recycle bin before the server deletes it.
-  // Fire-and-forget — the server DELETE handler also saves the snapshot,
-  // but this client-side call ensures the snapshot exists even if the
-  // server DELETE races ahead.
-  if (req) {
-    fetch("/api/requests/deleted", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ request: req, deletedBy: "User" }),
-    }).catch(() => {})
-  }
-  // Server delete + comment cascade in parallel.
-  fetch(`/api/requests?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {})
-  fetch(`/api/requests/comments?requestId=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {})
+  // The server DELETE creates the recycle-bin snapshot atomically with the
+  // live removal. A second client POST can race with a later bin purge.
+  void fetch(`/api/requests?id=${encodeURIComponent(id)}`, { method: "DELETE" })
+    .then(async (response) => {
+      if (!response.ok) throw new Error(`Server rejected deletion (${response.status})`)
+      void fetch(`/api/requests/comments?requestId=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {})
+    })
+    .catch(async (error) => {
+      await syncFromServer()
+      window.alert(`The request could not be deleted from the server and may reappear. ${error instanceof Error ? error.message : "Please try again."}`)
+    })
   return changed
 }
 

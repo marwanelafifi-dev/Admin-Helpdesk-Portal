@@ -224,7 +224,6 @@ export async function POST(
         poNumbers: Array.isArray(payload.poNumbers) ? payload.poNumbers : undefined,
         amount: typeof payload.amount === "number" ? payload.amount : undefined,
         currency: payload.currency,
-        paymentTerms: payload.paymentTerms,
         paymentMethod: payload.paymentMethod,
         invoiceRows: Array.isArray(payload.invoiceRows) ? payload.invoiceRows : [],
         totalsByCurrency: Object.fromEntries((Array.isArray(payload.invoiceRows) ? payload.invoiceRows : []).reduce((totals: Record<string, number>, row: Record<string, any>) => {

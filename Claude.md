@@ -2269,3 +2269,14 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] **Selected-approver workflow:** When a PO invoice is submitted with an approver, its required invoice attachment is saved before the request moves to Awaiting Approval. The existing signed Approve/Reject email is then sent to the selected address. The recipient must sign in with that same email to decide; approval advances the request to In Progress. Adding an approver while editing a New PO invoice starts the same workflow.
 - [x] **Clear status and failure handling:** Request details identify the selected approver rather than a Direct Manager. If submission creates a request but saving or sending approval fails, the form shows the error and links to the created request instead of permitting a duplicate submission.
 - [x] **Verification:** `npm run build` and `git diff --check` passed locally. The standalone `tsc --noEmit` check still reports pre-existing project-wide errors; the production build intentionally skips that separate validation.
+
+## Phase 27: Durable Request Purge (Implemented - 30 Sep 2026)
+
+- [x] **Prevent purged requests from reappearing:** Server-side request tombstones record IDs deleted through the request and database-admin APIs. Request synchronization and restore paths respect those IDs instead of importing an old browser or backup copy into the live queue again.
+- [x] **Backup compatibility:** Tombstones are included with server data backups and restores so a restored environment preserves the deletion boundary. This does not delete unrelated user, role, or company data.
+
+## Phase 28: Pre Paid Invoice Service and Separate SLA (Implemented - 30 Sep 2026)
+
+- [x] **Service name and form:** The Finance Invoice Payment service is displayed as **Pre Paid Invoice** across navigation, queues, request details, exports, feedback, and email labels. The stored module key remains `finance_invoice_payment` for existing requests and integrations. Payment Terms was removed from the PO, Contract, and Other invoice-row tables and new submissions; older stored request data remains readable.
+- [x] **Independent processing policy:** Platform Administration → Settings has a dedicated **Pre Paid Invoice SLA** card with an SLA working-day target and an earlier reminder working day. It defaults to 4/3 working days independently of the General and Travel Reimbursement Finance policy. The Pre Paid Invoice form note and hourly reminder scheduler read this policy; other Finance requests continue using the original Finance SLA settings. The reminder history identifies the policies separately.
+- [x] **Validation and verification:** The settings API requires a 2–60 working-day SLA and a reminder day from 1 to the day before the deadline. `npm run build` and `git diff --check` passed locally. Deployment still requires the usual Ubuntu pull and app rebuild.

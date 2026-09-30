@@ -164,9 +164,6 @@ function recordFinanceSlaAudit(params: {
 export function runFinanceSlaReminderCheck(now = new Date()): number {
   const todayKey = dateKey(cairoDate(now))
   const settings = loadSettingsServer()
-  const slaDays = normalizeFinanceSlaDays(settings.financeSlaWorkingDays)
-  const reminderDay = normalizeFinanceReminderDay(settings.financeSlaReminderDay, slaDays)
-  const daysRemaining = slaDays - reminderDay
   // Record the SLA event even while a Finance Team roster is being set up.
   // Full Access users are the operational fallback, so they can see and act
   // on Finance deadlines instead of the scheduler silently doing nothing.
@@ -177,6 +174,10 @@ export function runFinanceSlaReminderCheck(now = new Date()): number {
   let created = 0
   for (const request of requestStore.getAll()) {
     if (!FINANCE_MODULES.has(request.module) || TERMINAL_STATUSES.has(String(request.status))) continue
+    const isPrePaidInvoice = request.module === "finance_invoice_payment"
+    const slaDays = normalizeFinanceSlaDays(isPrePaidInvoice ? settings.prePaidInvoiceSlaWorkingDays : settings.financeSlaWorkingDays)
+    const reminderDay = normalizeFinanceReminderDay(isPrePaidInvoice ? settings.prePaidInvoiceSlaReminderDay : settings.financeSlaReminderDay, slaDays)
+    const daysRemaining = slaDays - reminderDay
     const slaStart = resolveSlaStart(request)
     if (!slaStart || !Number.isFinite(new Date(slaStart.at).getTime())) continue
 

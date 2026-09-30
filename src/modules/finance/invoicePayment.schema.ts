@@ -35,7 +35,7 @@ export const InvoicePaymentRowSchema = z.object({
   otherDescription: z.string().optional(),
   amount: z.number().min(0.01, "Amount must be greater than 0"),
   currency: z.enum(INVOICE_PAYMENT_CURRENCIES),
-  paymentTerms: z.string().min(1, "Payment terms are required"),
+  paymentTerms: z.string().optional(), // legacy requests may still contain this field
   paymentMethod: z.enum(PAYMENT_METHODS),
 })
 

@@ -18,7 +18,7 @@ interface Service {
 const services: Service[] = [
   { title: "General Reimbursement", description: "Submit a general expense for reimbursement, with Direct Manager approval.", href: "/departments/finance/reimbursement", icon: Receipt },
   { title: "Travel Reimbursement", description: "Submit a travel expense for reimbursement, with Authorized Manager approval.", href: "/departments/finance/travel-reimbursement", icon: Plane },
-  { title: "Invoices Payment", description: "Submit a vendor invoice for payment.", href: "/departments/finance/invoices", icon: CreditCard },
+  { title: "Pre Paid Invoice", description: "Submit a pre paid vendor invoice.", href: "/departments/finance/invoices", icon: CreditCard },
 ]
 
 export default async function FinanceDepartmentServicesPage() {

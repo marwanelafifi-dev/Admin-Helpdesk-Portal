@@ -110,11 +110,11 @@ export const MODULE_GUIDES: ModuleGuide[] = [
     comments: "Use comments to add a missing receipt, clarify an itinerary or expense, or answer Finance questions.",
   },
   {
-    id: "finance_invoice_payment", label: "Invoice Payment", function: "Finance", startPath: "/departments/finance/invoices", paths: ["/departments/finance/invoices", "/departments/finance/invoices/new"],
-    summary: "Submit a supplier invoice for Finance to process.",
-    notes: ["Enter the supplier, PO or contract type, invoice amount, currency, payment terms and payment method for every row.", "Attach the required vendor invoice document and any supporting files.", "Enter a PO number for every PO-backed row; for Contract or Other requests, select a Direct Manager and enter a supplier name when using Other."],
-    afterSubmit: "Track the payment request in Finance My Requests and respond if Finance needs clarification.",
-    comments: "Use comments for an invoice correction, supplier or PO clarification, payment terms, or documents requested by Finance.",
+    id: "finance_invoice_payment", label: "Pre Paid Invoice", function: "Finance", startPath: "/departments/finance/invoices", paths: ["/departments/finance/invoices", "/departments/finance/invoices/new"],
+    summary: "Submit a pre paid supplier invoice for Finance to process.",
+    notes: ["Enter the supplier, PO or contract type, invoice amount, currency and payment method for every row.", "Attach the required vendor invoice document and any supporting files.", "Enter a PO number for every PO-backed row; for Contract or Other requests, select a Direct Manager and enter a supplier name when using Other."],
+    afterSubmit: "Track the pre paid invoice request in Finance My Requests and respond if Finance needs clarification.",
+    comments: "Use comments for an invoice correction, supplier or PO clarification, or documents requested by Finance.",
   },
 ]
 

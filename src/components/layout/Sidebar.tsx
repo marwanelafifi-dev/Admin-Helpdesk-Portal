@@ -178,7 +178,7 @@ const financeNavItems: NavItem[] = [
   { title: "Team Requests", href: "/departments/finance/team-requests", icon: UsersRound },
   { title: "General Reimbursement", href: "/departments/finance/reimbursement", icon: Receipt },
   { title: "Travel Reimbursement", href: "/departments/finance/travel-reimbursement", icon: Plane },
-  { title: "Invoices Payment", href: "/departments/finance/invoices", icon: CreditCard },
+  { title: "Pre Paid Invoice", href: "/departments/finance/invoices", icon: CreditCard },
 ]
 
 const SETTINGS_KEY = "arp_platform_settings"

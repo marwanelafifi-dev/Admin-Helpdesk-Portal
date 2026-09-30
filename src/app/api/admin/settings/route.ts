@@ -34,6 +34,16 @@ export async function POST(req: NextRequest) {
     body.financeSlaWorkingDays = String(slaDays)
     body.financeSlaReminderDay = String(reminderDay)
   }
+  if (body.prePaidInvoiceSlaWorkingDays !== undefined || body.prePaidInvoiceSlaReminderDay !== undefined) {
+    const current = loadSettingsServer()
+    const slaDays = Number.parseInt(String(body.prePaidInvoiceSlaWorkingDays ?? current.prePaidInvoiceSlaWorkingDays), 10)
+    const reminderDay = Number.parseInt(String(body.prePaidInvoiceSlaReminderDay ?? current.prePaidInvoiceSlaReminderDay), 10)
+    if (!Number.isInteger(slaDays) || slaDays < 2 || slaDays > 60 || !Number.isInteger(reminderDay) || reminderDay < 1 || reminderDay >= slaDays) {
+      return NextResponse.json({ error: "Reminder day must be at least 1 and earlier than the Pre Paid Invoice SLA deadline." }, { status: 400 })
+    }
+    body.prePaidInvoiceSlaWorkingDays = String(slaDays)
+    body.prePaidInvoiceSlaReminderDay = String(reminderDay)
+  }
   if (body.itServiceDeskUrl !== undefined) {
     const url = String(body.itServiceDeskUrl).trim()
     if (url) {

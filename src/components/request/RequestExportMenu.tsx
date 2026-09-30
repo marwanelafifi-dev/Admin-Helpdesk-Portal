@@ -55,7 +55,7 @@ function scopeForPath(pathname: string): RequestExportScope | null {
     "/departments/finance/all-requests": { label: "Finance Team - All Requests", modules: modulesVisibleToFunction("finance") },
     "/departments/finance/reimbursement": { label: "Finance Reimbursement Requests", modules: ["finance_reimbursement"] },
     "/departments/finance/travel-reimbursement": { label: "Finance Travel Reimbursement Requests", modules: ["finance_travel_reimbursement"] },
-    "/departments/finance/invoices": { label: "Finance Invoice Payment Requests", modules: ["finance_invoice_payment"] },
+    "/departments/finance/invoices": { label: "Finance Pre Paid Invoice Requests", modules: ["finance_invoice_payment"] },
   }
   return exactScopes[pathname] ?? null
 }

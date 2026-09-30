@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic"
 const MODULE_LABELS: Record<string, string> = {
   finance_reimbursement: "General Reimbursement",
   finance_travel_reimbursement: "Travel Reimbursement",
-  finance_invoice_payment: "Invoices Payment",
+  finance_invoice_payment: "Pre Paid Invoice",
 }
 
 function formatDateTime(value: string) {
@@ -60,6 +60,8 @@ export default async function FinanceSlaRemindersPage() {
   const slaDays = normalizeFinanceSlaDays(settings.financeSlaWorkingDays)
   const reminderDay = normalizeFinanceReminderDay(settings.financeSlaReminderDay, slaDays)
   const daysRemaining = slaDays - reminderDay
+  const invoiceSlaDays = normalizeFinanceSlaDays(settings.prePaidInvoiceSlaWorkingDays)
+  const invoiceReminderDay = normalizeFinanceReminderDay(settings.prePaidInvoiceSlaReminderDay, invoiceSlaDays)
   const requests = new Map(requestStore.getAll().map((request) => [request.id, request]))
   const approvalBased = reminders.filter((item) => item.slaBasis === "approval").length
   const open = reminders.filter((item) => {
@@ -77,7 +79,7 @@ export default async function FinanceSlaRemindersPage() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Finance SLA Reminders</h1>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-              History of reminders sent on working day {reminderDay}, {daysRemaining} working {daysRemaining === 1 ? "day" : "days"} before the {slaDays}-working-day Finance SLA deadline.
+              General and Travel Reimbursement: reminder on working day {reminderDay}, {daysRemaining} working days before the {slaDays}-working-day deadline. Pre Paid Invoice: reminder on working day {invoiceReminderDay} before its {invoiceSlaDays}-working-day deadline.
             </p>
           </div>
         </div>
@@ -103,7 +105,7 @@ export default async function FinanceSlaRemindersPage() {
           <div className="px-6 py-16 text-center">
             <AlarmClock className="mx-auto h-10 w-10 text-slate-300" />
             <h2 className="mt-3 font-semibold text-slate-900 dark:text-white">No SLA reminders yet</h2>
-            <p className="mt-1 text-sm text-slate-500">Reminders will appear here when a Finance request reaches working day {reminderDay}.</p>
+            <p className="mt-1 text-sm text-slate-500">Reminders will appear here when a request reaches its service-specific reminder day.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">

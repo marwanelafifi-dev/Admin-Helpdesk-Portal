@@ -159,7 +159,7 @@ const MODULE_LABELS: Record<string, string> = {
   hr_travel_letter: "HR Travel Letter Request",
   finance_reimbursement: "General Reimbursement",
   finance_travel_reimbursement: "Travel Reimbursement",
-  finance_invoice_payment: "Invoice Payment",
+  finance_invoice_payment: "Pre Paid Invoice",
 }
 
 export function requestModuleLabel(moduleId: string): string {

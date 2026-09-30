@@ -1712,7 +1712,7 @@ export async function sendTravelReimbursementApprovalEmail(params: {
 }
 
 /**
- * Send the Invoices Payment approval-request email to the Finance-Team-
+ * Send the Pre Paid Invoice approval-request email to the Finance-Team-
  * chosen approver (with one-click Approve / Reject buttons), and a
  * read-only copy to CC recipients. Unlike the other Finance approval
  * emails, the recipient here isn't sourced from Company Data — Finance can
@@ -1728,7 +1728,6 @@ export async function sendInvoicePaymentApprovalEmail(params: {
   poNumbers?: string[]
   amount?: number
   currency?: string
-  paymentTerms?: string
   paymentMethod?: string
   invoiceRows?: Array<Record<string, any>>
   totalsByCurrency?: Record<string, number>
@@ -1765,12 +1764,11 @@ export async function sendInvoicePaymentApprovalEmail(params: {
         ${row("Supplier", params.supplier)}
         ${row("PO number(s)", poDisplay)}
         ${row("Amount", amountDisplay)}
-        ${row("Payment terms", params.paymentTerms)}
         ${row("Method", params.paymentMethod)}
       </table>`
   const lineItemsTable = financeLineItemsTable(
-    ["Supplier", "PO / contract", "Amount", "Payment terms", "Method"],
-    (params.invoiceRows ?? []).map((item) => [item.supplier || item.supplierName || "—", item.poNumber || item.otherDescription || "—", money(item.amount, item.currency), item.paymentTerms || "—", item.paymentMethod || "—"]),
+    ["Supplier", "PO / contract", "Amount", "Method"],
+    (params.invoiceRows ?? []).map((item) => [item.supplier || item.supplierName || "—", item.poNumber || item.otherDescription || "—", money(item.amount, item.currency), item.paymentMethod || "—"]),
     params.totalsByCurrency,
   )
 
@@ -1780,7 +1778,7 @@ export async function sendInvoicePaymentApprovalEmail(params: {
     ${logoBuffer ? `<div style="text-align:center;margin-bottom:24px;"><img src="cid:siware-logo" alt="Si-Ware" style="height:36px;"></div>` : ""}
     <div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.04);">
       <div style="background:linear-gradient(135deg,#1e40af,#2563eb);color:#fff;padding:24px 28px;">
-        <p style="margin:0;font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:1px;">Invoice Payment Approval Request</p>
+        <p style="margin:0;font-size:11px;opacity:.85;text-transform:uppercase;letter-spacing:1px;">Pre Paid Invoice Approval Request</p>
         <h1 style="margin:6px 0 0;font-size:22px;font-weight:600;">${escapeHtml(params.requestTitle)}</h1>
         <p style="margin:8px 0 0;font-size:13px;opacity:.9;">${escapeHtml(params.requestId)}</p>
       </div>
@@ -1793,7 +1791,7 @@ export async function sendInvoicePaymentApprovalEmail(params: {
   // Manager email — has Approve / Reject action buttons
   const managerHtml = wrapper(`
       <div style="padding:24px 28px 8px;">
-        <p style="margin:0 0 8px;font-size:14px;color:#334155;">${params.managerName ? `Hi ${escapeHtml(params.managerName)}, a` : "A"} vendor invoice payment requires your approval. Please review the details below and click <strong>Approve</strong> or <strong>Reject</strong>.</p>
+        <p style="margin:0 0 8px;font-size:14px;color:#334155;">${params.managerName ? `Hi ${escapeHtml(params.managerName)}, a` : "A"} pre paid vendor invoice requires your approval. Please review the details below and click <strong>Approve</strong> or <strong>Reject</strong>.</p>
       </div>
       ${detailsTable}
       ${lineItemsTable}
@@ -1807,7 +1805,7 @@ export async function sendInvoicePaymentApprovalEmail(params: {
   // CC email — read-only copy, no action buttons
   const ccHtml = wrapper(`
       <div style="padding:24px 28px 8px;">
-        <p style="margin:0 0 8px;font-size:14px;color:#334155;">A vendor invoice payment request is <strong>awaiting approval</strong>. This is an informational copy — no action is required from you.</p>
+        <p style="margin:0 0 8px;font-size:14px;color:#334155;">A pre paid vendor invoice request is <strong>awaiting approval</strong>. This is an informational copy — no action is required from you.</p>
       </div>
       ${detailsTable}
       ${lineItemsTable}

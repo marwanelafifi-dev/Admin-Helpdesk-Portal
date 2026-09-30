@@ -21,8 +21,8 @@ export default function NewInvoicePaymentRequestPage() {
   }, [requestId])
 
   const isEditing = !!requestId
-  const title = isEditing ? "Edit Invoice Payment Request" : "New Invoice Payment Request"
-  const subtitle = isEditing ? "Update the invoice payment request details" : "Submit a vendor invoice for payment"
+  const title = isEditing ? "Edit Pre Paid Invoice Request" : "New Pre Paid Invoice Request"
+  const subtitle = isEditing ? "Update the pre paid invoice request details" : "Submit a pre paid vendor invoice"
 
   return (
     <div className="space-y-6">

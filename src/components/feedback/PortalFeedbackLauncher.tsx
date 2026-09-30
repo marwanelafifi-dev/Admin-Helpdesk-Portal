@@ -15,7 +15,7 @@ type PortalFunction = "Home Page" | "Administration Team" | "Finance Team" | "Pe
 const PORTAL_FUNCTIONS: PortalFunction[] = ["Home Page", "Administration Team", "Finance Team", "People Team"]
 const FUNCTION_MODULES: Record<Exclude<PortalFunction, "Home Page">, string[]> = {
   "Administration Team": ["Shipping", "Maintenance", "Purchase", "Event", "Travel", "General", "HR — Onboarding", "HR — Offboarding"],
-  "Finance Team": ["Reimbursement", "Travel Reimbursement", "Invoice Payment", "Finance Requests"],
+  "Finance Team": ["Reimbursement", "Travel Reimbursement", "Pre Paid Invoice", "Finance Requests"],
   "People Team": ["HR General Request", "Letter Request", "Travel Letter"],
 }
 

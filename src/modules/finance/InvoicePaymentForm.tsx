@@ -35,7 +35,7 @@ const CURRENCY_OPTIONS: string[] = [...INVOICE_PAYMENT_CURRENCIES]
 
 type InvoicePaymentFormValues = z.infer<typeof InvoicePaymentPayloadSchema>
 
-const EMPTY_INVOICE_ROW = { supplier: "", supplierName: "", poNumber: "", otherDescription: "", amount: 0, currency: "USD" as const, paymentTerms: "", paymentMethod: "Wire Transfer" as const }
+const EMPTY_INVOICE_ROW = { supplier: "", supplierName: "", poNumber: "", otherDescription: "", amount: 0, currency: "USD" as const, paymentMethod: "Wire Transfer" as const }
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null
@@ -121,7 +121,7 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
   // RHF field is invalid, so users see all missing required inputs at once.
   const validateInvoiceFile = () => {
     if (!isEditing && !invoiceFile) {
-      setInvoiceFileError("The invoice file is required to submit an invoice payment request.")
+      setInvoiceFileError("The invoice file is required to submit a pre paid invoice request.")
       return false
     }
     setInvoiceFileError(null)
@@ -175,7 +175,7 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
     const primaryRow = resolvedInvoiceRows[0]
     const approverEmail = data.poOrContract === "po" && (canSelectPoApprover || isEditing) ? data.approverEmail?.trim().toLowerCase() || "" : ""
     const approverName = approverEmail ? data.approverName?.trim() || approverEmail : ""
-    const payload = { ...data, approverEmail, approverName, invoiceRows: resolvedInvoiceRows, supplier: primaryRow.supplier, poNumbers: resolvedInvoiceRows.map((row) => row.poNumber).filter(Boolean), amount: resolvedInvoiceRows.reduce((sum, row) => sum + Number(row.amount || 0), 0), currency: primaryRow.currency, paymentTerms: primaryRow.paymentTerms, paymentMethod: primaryRow.paymentMethod, directManagerEmail, directManager }
+    const payload = { ...data, approverEmail, approverName, invoiceRows: resolvedInvoiceRows, supplier: primaryRow.supplier, poNumbers: resolvedInvoiceRows.map((row) => row.poNumber).filter(Boolean), amount: resolvedInvoiceRows.reduce((sum, row) => sum + Number(row.amount || 0), 0), currency: primaryRow.currency, paymentMethod: primaryRow.paymentMethod, directManagerEmail, directManager }
     let redirectTo: string | null = null
     try {
       if (isEditing && editingRequest) {
@@ -239,7 +239,7 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
     <div className="space-y-5 max-w-7xl mx-auto">
       <form onSubmit={handleSubmit(onSubmit, validateInvoiceFile)} className="space-y-5">
         {/* Processing time */}
-        <FinanceProcessingNotice hasApproval={requiresApproval} />
+        <FinanceProcessingNotice hasApproval={requiresApproval} policy="prePaidInvoice" />
 
         {/* Request Title */}
         <Card>
@@ -309,7 +309,6 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
                     {poOrContract === "other" && <th className="border-b px-2 py-3">Description</th>}
                     <th className="border-b px-2 py-3">Invoice Amount <span className="text-red-500">*</span></th>
                     <th className="w-[13%] border-b px-2 py-3">Currency <span className="text-red-500">*</span></th>
-                    <th className="w-[16%] border-b px-2 py-3">Payment Terms <span className="text-red-500">*</span></th>
                     <th className="w-[17%] border-b px-2 py-3">Payment Method <span className="text-red-500">*</span></th>
                     <th className="w-10 border-b px-1 py-3" />
                   </tr>
@@ -321,11 +320,10 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
                   {poOrContract === "other" && <td data-label="Description" className="px-2 py-3"><Input placeholder="Optional description" {...register(`invoiceRows.${index}.otherDescription`)} /></td>}
                   <td data-label="Invoice Amount" className="px-2 py-3"><Input type="number" min="0" step="0.01" placeholder="0.00" {...register(`invoiceRows.${index}.amount`, { valueAsNumber: true })} className={cn(errors.invoiceRows?.[index]?.amount && "border-red-400")} /><FieldError message={errors.invoiceRows?.[index]?.amount?.message} /></td>
                   <td data-label="Currency" className="px-2 py-3"><Controller name={`invoiceRows.${index}.currency`} control={control} render={({ field }) => <SearchableSelect value={field.value ?? ""} onChange={field.onChange} options={CURRENCY_OPTIONS} placeholder="Currency" hasError={!!errors.invoiceRows?.[index]?.currency} />} /></td>
-                  <td data-label="Payment Terms" className="px-2 py-3"><Input placeholder="e.g. Net 30" {...register(`invoiceRows.${index}.paymentTerms`)} className={cn(errors.invoiceRows?.[index]?.paymentTerms && "border-red-400")} /><FieldError message={errors.invoiceRows?.[index]?.paymentTerms?.message} /></td>
                   <td data-label="Payment Method" className="px-2 py-3"><Controller name={`invoiceRows.${index}.paymentMethod`} control={control} render={({ field }) => <Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue placeholder="Method" /></SelectTrigger><SelectContent>{PAYMENT_METHODS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select>} /></td>
                   <td data-label="Actions" className="px-1 py-3 text-center"><Button type="button" variant="ghost" size="icon" disabled={invoiceFields.length === 1} onClick={() => removeInvoice(index)}><Trash2 className="h-4 w-4 text-red-500" /></Button></td>
                 </tr>)}</tbody>
-                <tfoot><tr className="finance-totals-row border-t bg-amber-50/70 font-bold text-slate-950"><td colSpan={poOrContract === "po" ? 3 : poOrContract === "other" ? (hasOtherSupplier ? 4 : 3) : (hasOtherSupplier ? 3 : 2)} className="px-3 py-3 text-right text-xs">Amount totals by currency</td><td colSpan={4} className="px-3 py-3"><div className="flex flex-wrap gap-x-5 gap-y-1 text-xs">{Object.entries(invoiceTotalsByCurrency).map(([currency, amount]) => <span key={currency}>{currency}: {amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>)}</div></td></tr></tfoot>
+                <tfoot><tr className="finance-totals-row border-t bg-amber-50/70 font-bold text-slate-950"><td colSpan={poOrContract === "po" ? 3 : poOrContract === "other" ? (hasOtherSupplier ? 4 : 3) : (hasOtherSupplier ? 3 : 2)} className="px-3 py-3 text-right text-xs">Amount totals by currency</td><td colSpan={3} className="px-3 py-3"><div className="flex flex-wrap gap-x-5 gap-y-1 text-xs">{Object.entries(invoiceTotalsByCurrency).map(([currency, amount]) => <span key={currency}>{currency}: {amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>)}</div></td></tr></tfoot>
               </table>
             </div>
             <Button type="button" variant="outline" className="gap-2" onClick={() => appendInvoice({ ...EMPTY_INVOICE_ROW })}><Plus className="h-4 w-4" /> Add Invoice Row</Button>
@@ -335,7 +333,7 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
         {/* Approval path follows the invoice rows and totals. */}
         {requiresManagerApproval ? (
           <Card>
-            <SectionHeader icon={UserCheck} title="Direct Manager Approval" subtitle="Required for Contract and Other invoice payments" />
+            <SectionHeader icon={UserCheck} title="Direct Manager Approval" subtitle="Required for Contract and Other pre paid invoices" />
             <CardContent>
               <div className="space-y-1.5">
                 <Label>Direct Manager <span className="text-red-500">*</span></Label>
@@ -496,7 +494,7 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
         <div className="form-footer border-t bg-gray-50 py-4 px-1 flex items-center justify-between gap-3">
           <Button type="button" variant="ghost" onClick={handleCancel}>Cancel</Button>
           <Button type="submit" disabled={isSubmitting || !!savedRequestId} style={{ backgroundColor: BRAND }} className="text-white hover:opacity-90 min-w-[160px]">
-            {isSubmitting ? (isEditing ? "Updating..." : "Submitting...") : (isEditing ? "Update Request" : "Submit Invoice Payment Request")}
+            {isSubmitting ? (isEditing ? "Updating..." : "Submitting...") : (isEditing ? "Update Request" : "Submit Pre Paid Invoice Request")}
           </Button>
         </div>
       </form>

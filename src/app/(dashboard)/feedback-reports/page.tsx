@@ -105,7 +105,7 @@ const MODULE_LABELS: Record<string, string> = {
   hr_letter: "HR Letter",
   finance_reimbursement: "General Reimbursement",
   finance_travel_reimbursement: "Travel Reimbursement",
-  finance_invoice_payment: "Invoices Payment",
+  finance_invoice_payment: "Pre Paid Invoice",
 }
 function getModuleLabel(module: string) {
   return MODULE_LABELS[module] ?? (module.charAt(0).toUpperCase() + module.slice(1))

@@ -9,7 +9,7 @@ const VALID_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"])
 const VALID_FUNCTIONS = new Set(["Home Page", "Administration Team", "Finance Team", "People Team"])
 const FUNCTION_MODULES: Record<string, Set<string>> = {
   "Administration Team": new Set(["Shipping", "Maintenance", "Purchase", "Event", "Travel", "General", "HR — Onboarding", "HR — Offboarding"]),
-  "Finance Team": new Set(["Reimbursement", "Travel Reimbursement", "Invoice Payment", "Finance Requests"]),
+  "Finance Team": new Set(["Reimbursement", "Travel Reimbursement", "Pre Paid Invoice", "Invoice Payment", "Finance Requests"]),
   "People Team": new Set(["HR General Request", "Letter Request", "Travel Letter"]),
 }
 const recentSubmissions = new Map<string, number[]>()

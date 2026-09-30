@@ -21,6 +21,7 @@ import { canManageDatabase, requestMetadata } from "@/lib/databaseAccess"
 import { verifyBackupManifestIntegrity } from "@/lib/backupRunner"
 import { verifyDatabaseReauth } from "@/lib/databaseReauth"
 import { logServerAudit } from "@/lib/serverAuditLog"
+import { requestTombstoneStore } from "@/lib/requestTombstoneStore"
 import {
   ATTACHMENTS_DIR,
   DATA_DIR,
@@ -433,6 +434,18 @@ export async function DELETE(req: NextRequest) {
   }
 
   const cleared: string[] = []
+  if (candidates.some((file) => file.filename === "requests.json")) {
+    try {
+      const requestsPath = path.join(DATA_DIR, "requests.json")
+      if (fs.existsSync(requestsPath)) {
+        const requests = JSON.parse(fs.readFileSync(requestsPath, "utf-8")) as Array<{ id?: string }>
+        if (!Array.isArray(requests)) throw new Error("Invalid request store")
+        requestTombstoneStore.record(requests.map((request) => request.id).filter((id): id is string => typeof id === "string"))
+      }
+    } catch {
+      return NextResponse.json({ error: "Could not preserve request deletion markers; no data was cleared." }, { status: 500 })
+    }
+  }
   for (const file of candidates) {
     if (file.filename === "attachments.json") clearAttachmentFiles()
     if (writeFileSafe(file.filename, emptyBackupFileValue(file.filename))) cleared.push(file.filename)

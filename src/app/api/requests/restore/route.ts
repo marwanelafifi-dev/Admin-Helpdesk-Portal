@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { requestStore } from "@/lib/requestStore"
 import { deletedRequestStore } from "@/lib/deletedRequestStore"
+import { requestTombstoneStore } from "@/lib/requestTombstoneStore"
 
 export const runtime = "nodejs"
 
@@ -41,6 +42,7 @@ export async function POST(req: Request) {
     ...entry.request,
     updatedAt: new Date().toISOString(),
   })
+  requestTombstoneStore.remove(body.id)
 
   // Remove from the recycle bin.
   deletedRequestStore.remove(body.id)

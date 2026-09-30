@@ -72,6 +72,8 @@ export interface PlatformSettings {
   feedbackSurveysByFunction: Record<FeedbackFunctionId, FeedbackSurveySettings>
   financeSlaWorkingDays: string
   financeSlaReminderDay: string
+  prePaidInvoiceSlaWorkingDays: string
+  prePaidInvoiceSlaReminderDay: string
   itServiceDeskEnabled: boolean
   itServiceDeskUrl: string
   supportFunctionLogos: Record<SupportFunctionId, string>
@@ -117,6 +119,8 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   },
   financeSlaWorkingDays: "4",
   financeSlaReminderDay: "3",
+  prePaidInvoiceSlaWorkingDays: "4",
+  prePaidInvoiceSlaReminderDay: "3",
   itServiceDeskEnabled: true,
   itServiceDeskUrl: "",
   supportFunctionLogos: { administration: "", people: "", finance: "", it: "" },

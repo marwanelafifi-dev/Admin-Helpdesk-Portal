@@ -107,7 +107,7 @@ const REQUEST_MODULES: ClearModuleDefinition[] = [
   // Finance function requests
   { id: "finance_reimbursement", storageModule: "finance_reimbursement", label: "Finance · Reimbursement", icon: Package, color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200" },
   { id: "finance_travel_reimbursement", storageModule: "finance_travel_reimbursement", label: "Finance · Travel Reimbursement", icon: Plane, color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200" },
-  { id: "finance_invoice_payment", storageModule: "finance_invoice_payment", label: "Finance · Invoice Payment", icon: ShoppingCart, color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200" },
+  { id: "finance_invoice_payment", storageModule: "finance_invoice_payment", label: "Finance · Pre Paid Invoice", icon: ShoppingCart, color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200" },
 ]
 
 // Note: Team Requests is a view (filtered by direct manager), not a module —

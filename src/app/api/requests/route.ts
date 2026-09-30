@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { requestStore } from "@/lib/requestStore"
 import { deletedRequestStore } from "@/lib/deletedRequestStore"
+import { requestTombstoneStore } from "@/lib/requestTombstoneStore"
 import { getDefaultAssignee } from "@/lib/userStore"
 import type { EngineRequest } from "@/services/engineService"
 import { getCompanyFromEmail, getRequestCompany } from "@/lib/userCompany"
@@ -231,6 +232,9 @@ export async function POST(req: Request) {
     assignedToEmail: incoming.assignedToEmail ?? null,
   }
   const existing = requestStore.getAll().find((r) => r.id === incoming.id)
+  if (body.operation !== "create" && !existing && requestTombstoneStore.has(incoming.id)) {
+    return NextResponse.json({ error: "This request was permanently deleted.", code: "REQUEST_DELETED" }, { status: 410 })
+  }
   if (incoming.module === "finance_invoice_payment") {
     const payload = (incoming.payload ?? {}) as Record<string, unknown>
     const previousPayload = (existing?.payload ?? {}) as Record<string, unknown>
@@ -420,6 +424,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Invalid request type" }, { status: 400 })
     }
     const remaining = all.filter((request) => !matchesRequestedType(request))
+    requestTombstoneStore.record(all.filter(matchesRequestedType).map((request) => request.id))
     requestStore.bulkReplace(remaining)
     const label = requestType ?? moduleId
     logServerAudit({ actor: session.user.name ?? session.user.email ?? "System", actorEmail: session.user.email ?? "", action: "request_deleted", targetId: moduleId, targetTitle: "Module requests deleted", details: `${all.length - remaining.length} ${label} request(s) deleted`, category: "request", outcome: "success" })
@@ -428,6 +433,7 @@ export async function DELETE(req: Request) {
 
   // No id and no module — wipe everything.
   if (!id) {
+    requestTombstoneStore.record(requestStore.getAll().map((request) => request.id))
     requestStore.clear()
     logServerAudit({ actor: session.user.name ?? session.user.email ?? "System", actorEmail: session.user.email ?? "", action: "request_deleted", targetId: "", targetTitle: "All requests deleted", details: "All requests permanently deleted", category: "request", outcome: "success" })
     return NextResponse.json({ success: true, cleared: "all" })
@@ -438,6 +444,7 @@ export async function DELETE(req: Request) {
   const allRequests = requestStore.getAll()
   const toDelete = allRequests.find((r) => r.id === id)
   if (toDelete) {
+    requestTombstoneStore.record([id])
     const actor = session.user.name ?? session.user.email ?? "Admin"
     deletedRequestStore.save(toDelete, actor)
   }

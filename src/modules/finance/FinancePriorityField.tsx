@@ -5,18 +5,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Clock, Info } from "lucide-react"
 import { financeSlaNote, FINANCE_MISSING_DOCS_NOTE, FINANCE_PROCESSING_DAYS, normalizeFinanceSlaDays } from "./financeSla"
 
-/** Processing timeline shared by every Finance request form. */
-export function FinanceProcessingNotice({ hasApproval = false }: { hasApproval?: boolean }) {
+/** Processing timeline shared by Finance forms, with a separate invoice policy. */
+export function FinanceProcessingNotice({ hasApproval = false, policy = "finance" }: { hasApproval?: boolean; policy?: "finance" | "prePaidInvoice" }) {
   const [processingDays, setProcessingDays] = useState(FINANCE_PROCESSING_DAYS)
 
   useEffect(() => {
     fetch("/api/admin/settings")
       .then((response) => response.ok ? response.json() : null)
       .then((data) => {
-        if (data?.settings) setProcessingDays(normalizeFinanceSlaDays(data.settings.financeSlaWorkingDays))
+        if (data?.settings) setProcessingDays(normalizeFinanceSlaDays(policy === "prePaidInvoice" ? data.settings.prePaidInvoiceSlaWorkingDays : data.settings.financeSlaWorkingDays))
       })
       .catch(() => {})
-  }, [])
+  }, [policy])
 
   return (
     <Card>

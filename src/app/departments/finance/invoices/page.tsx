@@ -270,12 +270,12 @@ export default function InvoicePaymentRequestsPage() {
       <div className="flex flex-col gap-4 border-b border-slate-200 pb-4 dark:border-slate-700 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Finance operations · Invoices</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 dark:text-white">Invoice Payment Requests</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Review, prioritize, and process vendor invoice payment requests.</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950 dark:text-white">Pre Paid Invoice Requests</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Review, prioritize, and process pre paid vendor invoices.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {(newRequestsCount > 0 || newTasksCount > 0) && <NewItemsAlert requestsCount={newRequestsCount} tasksCount={newTasksCount} variant="icon" />}
-          {canCreateRequest && <Link href="/departments/finance/invoices/new"><Button className="h-10 bg-amber-600 px-4 font-semibold text-white shadow-sm hover:bg-amber-700"><Plus className="mr-2 h-4 w-4" />New Invoice Payment Request</Button></Link>}
+          {canCreateRequest && <Link href="/departments/finance/invoices/new"><Button className="h-10 bg-amber-600 px-4 font-semibold text-white shadow-sm hover:bg-amber-700"><Plus className="mr-2 h-4 w-4" />New Pre Paid Invoice Request</Button></Link>}
         </div>
       </div>
 
@@ -468,10 +468,6 @@ export default function InvoicePaymentRequestsPage() {
                           <div>
                             <p className="font-semibold text-gray-700">Amount</p>
                             <p className="text-gray-600">{formatAmount(payload)}</p>
-                          </div>
-                          <div>
-                            <p className="font-semibold text-gray-700">Payment Terms</p>
-                            <p className="text-gray-600 whitespace-pre-wrap break-words">{String(payload.paymentTerms ?? "—")}</p>
                           </div>
                           <div>
                             <p className="font-semibold text-gray-700">Method</p>

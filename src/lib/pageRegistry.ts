@@ -77,7 +77,7 @@ export const PAGES: PageDefinition[] = [
   { id: "finance-services",   label: "Finance Services",     path: "/departments/finance/services",                group: "Finance" },
   { id: "finance-reimbursement", label: "General Reimbursement", path: "/departments/finance/reimbursement",          group: "Finance" },
   { id: "finance-travel",     label: "Travel Reimbursement", path: "/departments/finance/travel-reimbursement",      group: "Finance" },
-  { id: "finance-invoices",   label: "Invoices Payment",     path: "/departments/finance/invoices",                group: "Finance" },
+  { id: "finance-invoices",   label: "Pre Paid Invoice",     path: "/departments/finance/invoices",                group: "Finance" },
   { id: "finance-my-requests", label: "Finance My Requests", path: "/departments/finance/my-requests",              group: "Finance" },
   { id: "finance-team-requests", label: "Finance Team Requests", path: "/departments/finance/team-requests",        group: "Finance" },
   { id: "finance-all-requests", label: "Finance All Requests", path: "/departments/finance/all-requests",           group: "Finance" },

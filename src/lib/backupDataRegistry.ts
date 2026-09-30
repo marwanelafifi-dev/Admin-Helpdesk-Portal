@@ -26,6 +26,9 @@ export const SERVER_BACKUP_FILES: readonly ServerBackupFile[] = [
   // histories are stored with each request in requests.json.
   { filename: "requests.json",                 restorable: true, clearable: true },
   { filename: "deleted-requests.json",         restorable: true, clearable: true },
+  // Never clear deletion markers alongside requests: stale browsers must not
+  // be able to recreate records after a Database Clear or recycle-bin purge.
+  { filename: "request-tombstones.json",       restorable: true, clearable: false },
   { filename: "comments.json",                 restorable: true, clearable: true },
   { filename: "attachments.json",              restorable: true, clearable: true },
   { filename: "feedback.json",                 restorable: true, clearable: true },
