@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { APPROVAL_CALLBACK_STORAGE_KEY, isSafeApprovalCallback } from "@/components/auth/ApprovalCallbackHandoff"
 
 const SETTINGS_KEY = "arp_platform_settings"
 const GOOGLE_AUTH_ENABLED = process.env.NEXT_PUBLIC_ENABLE_GOOGLE_AUTH !== "false"
@@ -60,9 +61,17 @@ function LoginFormContent({ callbackUrl, oauthError, forceFreshSession = false }
     return <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-950 text-slate-600 dark:text-slate-300">Preparing secure sign-in…</div>
   }
 
+  const preserveApprovalCallback = () => {
+    if (!isSafeApprovalCallback(callbackUrl)) return
+    try {
+      sessionStorage.setItem(APPROVAL_CALLBACK_STORAGE_KEY, JSON.stringify({ url: callbackUrl, createdAt: Date.now() }))
+    } catch {}
+  }
+
   const handleGoogleSignIn = async () => {
     setError("")
     setLoadingProvider("google")
+    preserveApprovalCallback()
     await signIn("google", { redirectTo: callbackUrl, redirect: true })
   }
 
@@ -70,6 +79,7 @@ function LoginFormContent({ callbackUrl, oauthError, forceFreshSession = false }
     e.preventDefault()
     setError("")
     setLoadingProvider("credentials")
+    preserveApprovalCallback()
 
     const result = await signIn("credentials", {
       email,
@@ -88,6 +98,9 @@ function LoginFormContent({ callbackUrl, oauthError, forceFreshSession = false }
     // NextAuth may normalize an API callback to the portal landing page.
     // For the tightly-scoped signed approval callback, preserve the original
     // internal route so the manager returns to the decision immediately.
+    if (callbackUrl.startsWith("/api/requests/")) {
+      try { sessionStorage.removeItem(APPROVAL_CALLBACK_STORAGE_KEY) } catch {}
+    }
     window.location.href = callbackUrl.startsWith("/api/requests/")
       ? callbackUrl
       : result?.url ?? callbackUrl
@@ -227,11 +240,8 @@ function LoginFormWrapper() {
   const forceFreshSession = searchParams.get("approval") === "1"
   const parsedCallback = requestedCallback ? new URL(requestedCallback, "http://portal.local") : null
   const approvalCallback = requestedCallback
-    && requestedCallback.startsWith("/")
-    && !requestedCallback.startsWith("//")
-    && /^\/api\/requests\/[^/?]+\/(approve|reject)$/.test(parsedCallback?.pathname ?? "")
-    && parsedCallback?.searchParams.has("token")
-    && parsedCallback?.searchParams.get("fresh") === "1"
+    && parsedCallback
+    && isSafeApprovalCallback(requestedCallback)
     ? requestedCallback
     : null
   const callbackUrl = approvalCallback ?? "/landing"
