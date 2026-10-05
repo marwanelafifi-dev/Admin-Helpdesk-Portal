@@ -72,7 +72,14 @@ function LoginFormContent({ callbackUrl, oauthError, forceFreshSession = false }
     setError("")
     setLoadingProvider("google")
     preserveApprovalCallback()
-    await signIn("google", { redirectTo: callbackUrl, redirect: true })
+    await signIn("google", {
+      // Auth.js beta releases used callbackUrl; current builds use redirectTo.
+      // Supplying both keeps the decision handoff stable across our pinned
+      // production beta and newer local installs.
+      callbackUrl,
+      redirectTo: callbackUrl,
+      redirect: true,
+    })
   }
 
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
@@ -84,6 +91,7 @@ function LoginFormContent({ callbackUrl, oauthError, forceFreshSession = false }
     const result = await signIn("credentials", {
       email,
       password,
+      callbackUrl,
       redirectTo: callbackUrl,
       redirect: false,
     })
