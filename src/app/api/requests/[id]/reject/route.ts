@@ -6,6 +6,7 @@ import { commentsStore } from "@/lib/commentsStore"
 import { auth } from "@/auth"
 import { requiresManagerApproval } from "@/lib/functionRegistry"
 import { logApprovalAttempt } from "@/lib/approvalSecurity"
+import { publicBaseUrl } from "@/lib/publicBaseUrl"
 
 export const runtime = "nodejs"
 
@@ -61,7 +62,7 @@ export async function GET(
   // explicitly signs in from scratch.
   if (url.searchParams.get("fresh") !== "1") {
     const returnTo = `${url.pathname}?token=${encodeURIComponent(token)}&fresh=1`
-    return NextResponse.redirect(new URL(`/login?approval=1&callbackUrl=${encodeURIComponent(returnTo)}`, req.url), 303)
+    return NextResponse.redirect(new URL(`/login?approval=1&callbackUrl=${encodeURIComponent(returnTo)}`, publicBaseUrl(req)), 303)
   }
 
   const session = await auth()
