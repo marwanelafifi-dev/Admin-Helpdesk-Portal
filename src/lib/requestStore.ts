@@ -72,15 +72,43 @@ function writeToDisk(data: EngineRequest[]) {
 
 class RequestStore {
   private store: EngineRequest[] = []
+  private loadedMtimeMs: number | null = null
 
   constructor() {
-    this.store = readFromDisk()
+    this.reloadIfChanged()
+  }
+
+  /**
+   * Keep the in-process copy hot between API calls, while still noticing
+   * writes made by another Next.js instance that shares the data volume.
+   *
+   * Parsing the whole requests file for every list/detail request was a
+   * frequent synchronous filesystem operation during page navigation.
+   */
+  private reloadIfChanged() {
+    try {
+      ensureStore()
+      const modifiedAt = fs.statSync(STORE_PATH).mtimeMs
+      if (this.loadedMtimeMs === modifiedAt) return
+      this.store = readFromDisk()
+      this.loadedMtimeMs = modifiedAt
+    } catch {
+      this.store = readFromDisk()
+      this.loadedMtimeMs = null
+    }
+  }
+
+  private persist() {
+    writeToDisk(this.store)
+    try {
+      this.loadedMtimeMs = fs.statSync(STORE_PATH).mtimeMs
+    } catch {
+      this.loadedMtimeMs = null
+    }
   }
 
   getAll(): EngineRequest[] {
-    // Re-read on every call so multiple Next.js server instances stay
-    // consistent without needing pub/sub. JSON file IO is cheap at this scale.
-    this.store = readFromDisk()
+    this.reloadIfChanged()
     // Repair legacy/test records that were manually put back into Awaiting
     // Approval after the manager had already approved them.
     let repaired = false
@@ -98,7 +126,7 @@ class RequestStore {
         ],
       } as EngineRequest
     })
-    if (repaired) writeToDisk(this.store)
+    if (repaired) this.persist()
     return [...this.store]
   }
 
@@ -107,7 +135,7 @@ class RequestStore {
   }
 
   upsert(request: EngineRequest): EngineRequest {
-    this.store = readFromDisk()
+    this.reloadIfChanged()
     const idx = this.store.findIndex((r) => r.id === request.id)
     if (idx >= 0) {
       if (this.store[idx].updatedAt > request.updatedAt) {
@@ -117,7 +145,7 @@ class RequestStore {
     } else {
       this.store.push(request)
     }
-    writeToDisk(this.store)
+    this.persist()
     return request
   }
 
@@ -131,17 +159,17 @@ class RequestStore {
     expectedStatuses: readonly string[],
     transform: (current: EngineRequest) => EngineRequest,
   ): EngineRequest | null {
-    this.store = readFromDisk()
+    this.reloadIfChanged()
     const idx = this.store.findIndex((request) => request.id === id)
     if (idx < 0 || !expectedStatuses.includes(this.store[idx].status)) return null
     const updated = transform(this.store[idx])
     this.store[idx] = updated
-    writeToDisk(this.store)
+    this.persist()
     return updated
   }
 
   create(request: EngineRequest): EngineRequest {
-    this.store = readFromDisk()
+    this.reloadIfChanged()
 
     if (request.clientRequestId) {
       const existing = this.store.find(
@@ -170,12 +198,12 @@ class RequestStore {
     const saved = { ...request, id, updatedAt: now }
 
     this.store.push(saved)
-    writeToDisk(this.store)
+    this.persist()
     return saved
   }
 
   importMany(requests: EngineRequest[]): EngineRequest[] {
-    this.store = readFromDisk()
+    this.reloadIfChanged()
     const existingIds = new Set(this.store.map((request) => request.id))
     const incomingIds = new Set<string>()
 
@@ -187,27 +215,27 @@ class RequestStore {
     }
 
     this.store.push(...requests)
-    writeToDisk(this.store)
+    this.persist()
     return requests
   }
 
   bulkReplace(requests: EngineRequest[]): void {
     this.store = requests
-    writeToDisk(this.store)
+    this.persist()
   }
 
   remove(id: string): boolean {
-    this.store = readFromDisk()
+    this.reloadIfChanged()
     const next = this.store.filter((r) => r.id !== id)
     if (next.length === this.store.length) return false
     this.store = next
-    writeToDisk(this.store)
+    this.persist()
     return true
   }
 
   clear(): void {
     this.store = []
-    writeToDisk(this.store)
+    this.persist()
   }
 }
 

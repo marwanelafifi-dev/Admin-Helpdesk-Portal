@@ -15,6 +15,7 @@ export type StoredRole = {
 }
 
 const STORE_PATH = path.join(process.cwd(), "data", "roles.json")
+let cachedRoles: { modifiedAt: number; roles: StoredRole[] } | null = null
 
 function ensureStore() {
   const dir = path.dirname(STORE_PATH)
@@ -27,8 +28,13 @@ function ensureStore() {
 export function readRoles(): StoredRole[] {
   try {
     ensureStore()
+    const modifiedAt = fs.statSync(STORE_PATH).mtimeMs
+    if (cachedRoles?.modifiedAt === modifiedAt) return cachedRoles.roles
+
     const parsed = JSON.parse(fs.readFileSync(STORE_PATH, "utf-8")) as StoredRole[]
-    return Array.isArray(parsed) ? parsed : []
+    const roles = Array.isArray(parsed) ? parsed : []
+    cachedRoles = { modifiedAt, roles }
+    return roles
   } catch {
     return []
   }
@@ -37,6 +43,11 @@ export function readRoles(): StoredRole[] {
 function writeRoles(roles: StoredRole[]) {
   ensureStore()
   fs.writeFileSync(STORE_PATH, JSON.stringify(roles, null, 2), "utf-8")
+  try {
+    cachedRoles = { modifiedAt: fs.statSync(STORE_PATH).mtimeMs, roles }
+  } catch {
+    cachedRoles = null
+  }
 }
 
 export function findRoleById(id: string): StoredRole | undefined {

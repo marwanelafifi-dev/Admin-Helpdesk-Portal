@@ -33,6 +33,7 @@ export type StoredUser = {
 }
 
 const STORE_PATH = path.join(process.cwd(), "data", "users.json")
+let cachedUsers: { modifiedAt: number; users: StoredUser[] } | null = null
 
 function ensureStore() {
   const dir = path.dirname(STORE_PATH)
@@ -43,6 +44,9 @@ function ensureStore() {
 export function readUsers(): StoredUser[] {
   try {
     ensureStore()
+    const modifiedAt = fs.statSync(STORE_PATH).mtimeMs
+    if (cachedUsers?.modifiedAt === modifiedAt) return cachedUsers.users
+
     const users = JSON.parse(fs.readFileSync(STORE_PATH, "utf-8")) as StoredUser[]
     let changed = false
     for (const user of users) {
@@ -57,7 +61,11 @@ export function readUsers(): StoredUser[] {
         changed = true
       }
     }
-    if (changed) writeUsers(users)
+    if (changed) {
+      writeUsers(users)
+    } else {
+      cachedUsers = { modifiedAt, users }
+    }
     return users
   } catch {
     return []
@@ -67,6 +75,11 @@ export function readUsers(): StoredUser[] {
 function writeUsers(users: StoredUser[]) {
   ensureStore()
   fs.writeFileSync(STORE_PATH, JSON.stringify(users, null, 2), "utf-8")
+  try {
+    cachedUsers = { modifiedAt: fs.statSync(STORE_PATH).mtimeMs, users }
+  } catch {
+    cachedUsers = null
+  }
 }
 
 export function findUserByEmail(email: string): StoredUser | undefined {

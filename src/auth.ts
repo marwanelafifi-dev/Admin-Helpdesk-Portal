@@ -62,18 +62,51 @@ const hasGoogleOAuth =
   !!(googleClientId && googleClientSecret)
 
 // Try DB lookup, fall back to file store
-async function lookupUser(email: string) {
+type LookupUser = {
+  id: string
+  email: string
+  name: string | null
+  image: string | null
+  role: string
+  active: boolean
+  passwordHash?: string | null
+} | null
+
+const USER_LOOKUP_CACHE_MS = 5_000
+const userLookupCache = new Map<string, { expiresAt: number; user: LookupUser }>()
+const userLookupInFlight = new Map<string, Promise<LookupUser>>()
+
+async function lookupUser(email: string): Promise<LookupUser> {
+  const normalizedEmail = email.toLowerCase()
+  const cached = userLookupCache.get(normalizedEmail)
+  if (cached && cached.expiresAt > Date.now()) return cached.user
+
+  const pending = userLookupInFlight.get(normalizedEmail)
+  if (pending) return pending
+
+  const lookup = lookupUserFromStorage(normalizedEmail)
+  userLookupInFlight.set(normalizedEmail, lookup)
+  try {
+    const user = await lookup
+    userLookupCache.set(normalizedEmail, { expiresAt: Date.now() + USER_LOOKUP_CACHE_MS, user })
+    return user
+  } finally {
+    userLookupInFlight.delete(normalizedEmail)
+  }
+}
+
+async function lookupUserFromStorage(email: string): Promise<LookupUser> {
   try {
     const { prisma } = await import("@/lib/prisma")
     const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
+      where: { email },
       select: { id: true, email: true, name: true, image: true, role: true, active: true, passwordHash: true },
     })
     if (user) return user
   } catch {
     // DB unavailable — fall through to file store
   }
-  return findUserByEmail(email) as any ?? null
+  return findUserByEmail(email) ?? null
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
