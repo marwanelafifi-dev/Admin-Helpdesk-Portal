@@ -5,7 +5,7 @@
  * application port, so request.url may point at localhost rather than the
  * address a user can reach.
  */
-export function publicBaseUrl(request: Request): URL {
+export function configuredPublicBaseUrl(fallback: string | URL): URL {
   const configured = process.env.NEXTAUTH_URL ?? process.env.AUTH_URL
   if (configured) {
     try {
@@ -14,5 +14,9 @@ export function publicBaseUrl(request: Request): URL {
       // Fall through to the request origin if the deployment setting is bad.
     }
   }
-  return new URL(request.url)
+  return new URL(fallback)
+}
+
+export function publicBaseUrl(request: Request): URL {
+  return configuredPublicBaseUrl(request.url)
 }

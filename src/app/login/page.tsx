@@ -63,7 +63,7 @@ function LoginFormContent({ callbackUrl, oauthError, forceFreshSession = false }
   const handleGoogleSignIn = async () => {
     setError("")
     setLoadingProvider("google")
-    await signIn("google", { callbackUrl, redirect: true })
+    await signIn("google", { redirectTo: callbackUrl, redirect: true })
   }
 
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
@@ -74,7 +74,7 @@ function LoginFormContent({ callbackUrl, oauthError, forceFreshSession = false }
     const result = await signIn("credentials", {
       email,
       password,
-      callbackUrl,
+      redirectTo: callbackUrl,
       redirect: false,
     })
 

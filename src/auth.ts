@@ -6,6 +6,7 @@ import { getPermissionsForRole } from "@/lib/userRoles"
 import { upsertGoogleUser, findUserByEmail } from "@/lib/userStore"
 import { findRoleByName } from "@/lib/rolesStore"
 import { logServerAudit } from "@/lib/serverAuditLog"
+import { configuredPublicBaseUrl } from "@/lib/publicBaseUrl"
 import { z } from "zod"
 
 const credentialsSchema = z.object({
@@ -155,11 +156,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     async redirect({ url, baseUrl }) {
+      const publicBase = configuredPublicBaseUrl(baseUrl)
+      const internalBase = new URL(baseUrl)
+
       // If NextAuth redirects to the error page, send back to login instead
-      if (url.includes("/api/auth/error")) return `${baseUrl}/login`
-      if (url.startsWith(baseUrl)) return url
-      if (url.startsWith("/")) return `${baseUrl}${url}`
-      return baseUrl
+      if (url.includes("/api/auth/error")) return new URL("/login", publicBase).toString()
+
+      try {
+        const destination = new URL(url, internalBase)
+        // Only return to this application. A relative callback resolves to
+        // the tunnel's internal host, so rebuild it from the public origin.
+        if (destination.origin !== internalBase.origin && destination.origin !== publicBase.origin) {
+          return publicBase.toString()
+        }
+        return new URL(`${destination.pathname}${destination.search}${destination.hash}`, publicBase).toString()
+      } catch {
+        return publicBase.toString()
+      }
     },
     async signIn({ user, account }) {
       if (!user.email) return false
