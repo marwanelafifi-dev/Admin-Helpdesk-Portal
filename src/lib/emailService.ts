@@ -645,7 +645,6 @@ export async function sendAnnouncementEmail(params: {
   subject: string
   body: string
   signature?: string
-  signatureLogo?: string
   senderName?: string
   functionId?: EmailFunctionId
   attachments?: Array<{
@@ -671,7 +670,7 @@ export async function sendAnnouncementEmail(params: {
   const signatureName = signatureLines[0]?.trim() || ""
   const signatureTitle = signatureLines[1]?.trim() || ""
   const signaturePhone = signatureLines[2]?.trim() || ""
-  const hasSignatureBlock = Boolean(params.signatureLogo || signatureName || signatureTitle || signaturePhone)
+  const hasSignatureBlock = Boolean(signatureName || signatureTitle || signaturePhone)
   const disclaimerLines = hasSignatureBlock ? signatureLines.slice(3) : signatureLines
   const disclaimer = disclaimerLines.filter((line) => line.trim()).join(" ")
 
@@ -702,9 +701,6 @@ export async function sendAnnouncementEmail(params: {
             <td style="padding:32px 40px;border-top:none;">
               <table cellpadding="0" cellspacing="0" width="100%" style="margin:0;">
                 <tr>
-                  <td style="vertical-align:top;padding-right:16px;width:auto;">
-                    ${params.signatureLogo ? `<img src="cid:signature-logo" alt="Company logo" style="height:48px;width:auto;display:block;object-fit:contain;" />` : ""}
-                  </td>
                   <td style="vertical-align:middle;text-align:left;">
                     <p style="margin:0;color:#1f2937;font-size:14px;font-weight:700;letter-spacing:0.3px;text-transform:uppercase;">${escapeHtml(signatureName)}</p>
                     ${signatureTitle ? `<p style="margin:6px 0 0;color:#4b5563;font-size:12px;font-weight:500;letter-spacing:0.2px;">${escapeHtml(signatureTitle)}</p>` : ""}
@@ -741,19 +737,6 @@ export async function sendAnnouncementEmail(params: {
   </table>
 </body>
 </html>`
-
-  const signatureLogoAttachment = params.signatureLogo && params.signatureLogo.startsWith("data:")
-    ? (() => {
-        const match = params.signatureLogo!.match(/^data:([^;,]+)?(?:;base64)?,(.+)$/)
-        if (!match || !match[2]) return null
-        return {
-          filename: "signature-logo.png",
-          content: Buffer.from(match[2], "base64"),
-          cid: "signature-logo",
-          contentType: match[1] || "image/png",
-        }
-      })()
-    : null
 
   // Send individual emails to each recipient to create separate threads
   // instead of grouping all recipients in one "To:" line
@@ -796,7 +779,6 @@ export async function sendAnnouncementEmail(params: {
           cid: "siware-logo",
           contentType: "image/png",
         }] : []),
-        ...(signatureLogoAttachment ? [signatureLogoAttachment] : []),
         ...(params.attachments ?? []),
       ],
     })

@@ -65,7 +65,6 @@ export function startAnnouncementScheduler() {
             subject: template.subject,
             body: template.body,
             signature: template.signature,
-            signatureLogo: template.signatureLogo,
             senderName: template.createdBy,
             attachments: [],
           })

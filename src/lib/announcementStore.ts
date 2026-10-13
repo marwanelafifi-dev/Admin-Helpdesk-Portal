@@ -15,7 +15,6 @@ export type AnnouncementMessage = {
   subject: string
   body: string
   signature: string
-  signatureLogo?: string
   to: string[]
   cc: string[]
   includeAllCompany: boolean
@@ -39,7 +38,6 @@ export type AnnouncementTemplate = {
   subject: string
   body: string
   signature: string
-  signatureLogo?: string
   to: string[]
   cc: string[]
   includeAllCompany: boolean
@@ -132,7 +130,6 @@ function normalizeMessage<T extends Partial<AnnouncementMessage>>(message: T): T
   return {
     ...record,
     signature: typeof message.signature === "string" ? message.signature : DEFAULT_ANNOUNCEMENT_SIGNATURE,
-    signatureLogo: typeof message.signatureLogo === "string" ? message.signatureLogo : undefined,
     to: Array.isArray(message.to) ? message.to : [],
     cc: Array.isArray(message.cc) ? message.cc : [],
     includeAllCompany: Boolean(message.includeAllCompany),
@@ -149,7 +146,6 @@ function normalizeTemplate(template: Partial<AnnouncementTemplate>): Announcemen
     subject: template.subject ?? "",
     body: template.body ?? "",
     signature: typeof template.signature === "string" ? template.signature : DEFAULT_ANNOUNCEMENT_SIGNATURE,
-    signatureLogo: typeof template.signatureLogo === "string" ? template.signatureLogo : undefined,
     to: Array.isArray(template.to) ? template.to : ["eg.team@si-ware.com"],
     cc: Array.isArray(template.cc) ? template.cc : [],
     includeAllCompany: Boolean(template.includeAllCompany),

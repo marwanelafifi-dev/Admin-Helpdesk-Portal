@@ -1851,6 +1851,7 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] Announcement API ownership is restricted to Administration-owned `admin` and archived `company` buckets; HR/Finance announcement creation and management are no longer accepted.
 - [x] Disabled automatic sending of existing HR/Finance scheduled announcement templates without deleting their stored history, drafts, or templates.
 - [x] Administration retains its Announcements feed and Send Announcements composer unchanged.
+- [x] Announcement branding has one logo source: the template email header. The optional signature-logo upload, persistence, and delivery path were removed; legacy saved signature-logo values are ignored so they cannot produce a duplicate or broken image.
 
 ## Phase 7v: IT Team in Portal Switcher (Completed — 20 Sep 2026)
 

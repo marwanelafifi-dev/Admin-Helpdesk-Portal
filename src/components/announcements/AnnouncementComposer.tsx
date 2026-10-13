@@ -30,7 +30,6 @@ type AnnouncementRecord = {
   subject: string
   body: string
   signature: string
-  signatureLogo?: string
   to: string[]
   cc: string[]
   includeAllCompany: boolean
@@ -49,7 +48,6 @@ type TemplateRecord = {
   subject: string
   body: string
   signature: string
-  signatureLogo?: string
   to: string[]
   cc: string[]
   includeAllCompany: boolean
@@ -133,7 +131,6 @@ export default function AnnouncementComposer() {
   const [subject, setSubject] = useState("")
   const [body, setBody] = useState("")
   const [signature, setSignature] = useState(defaultSignature())
-  const [signatureLogo, setSignatureLogo] = useState(DEFAULT_SIGNATURE_LOGO)
   const [templateName, setTemplateName] = useState("")
   const [autoSendEnabled, setAutoSendEnabled] = useState(false)
   const [scheduleFrequency, setScheduleFrequency] = useState<"once" | "weekly" | "monthly">("once")
@@ -188,7 +185,6 @@ export default function AnnouncementComposer() {
     setIncludeEgyptTeam(false)
     setFiles([])
     setSignature(defaultSignature())
-    setSignatureLogo(DEFAULT_SIGNATURE_LOGO)
     setAutoSendEnabled(false)
     setScheduleFrequency("once")
     setScheduleDayOfWeek(1)
@@ -200,7 +196,6 @@ export default function AnnouncementComposer() {
     setSubject(template.subject)
     setBody(template.body)
     setSignature(template.signature || defaultSignature())
-    setSignatureLogo(template.signatureLogo || "")
     setTemplateName(template.name)
     setIncludeAllCompany(Boolean(template.includeAllCompany))
     setIncludeEgyptTeam((template.to ?? []).includes(EGYPT_TEAM_EMAIL))
@@ -220,7 +215,6 @@ export default function AnnouncementComposer() {
     setSubject(draft.subject)
     setBody(draft.body)
     setSignature(draft.signature || defaultSignature())
-    setSignatureLogo(draft.signatureLogo || "")
     setIncludeEgyptTeam((draft.to ?? []).includes(EGYPT_TEAM_EMAIL))
     setToText(joinEmails((draft.to ?? []).filter((email) => email !== EGYPT_TEAM_EMAIL)))
     setCcText(joinEmails(draft.cc ?? []))
@@ -248,7 +242,6 @@ export default function AnnouncementComposer() {
           subject,
           body,
           signature,
-          signatureLogo: signatureLogo || undefined,
           to: toEmails,
           cc: splitEmails(ccText),
           includeAllCompany,
@@ -280,7 +273,6 @@ export default function AnnouncementComposer() {
           subject,
           body,
           signature,
-          signatureLogo: signatureLogo || undefined,
           to: toEmails,
           cc: splitEmails(ccText),
           includeAllCompany,
@@ -318,7 +310,6 @@ export default function AnnouncementComposer() {
             subject,
             body,
             signature,
-            signatureLogo: signatureLogo || undefined,
             to: toEmails,
             cc: splitEmails(ccText),
             includeAllCompany,
@@ -355,7 +346,6 @@ export default function AnnouncementComposer() {
           subject,
           body,
           signature,
-          signatureLogo: signatureLogo || undefined,
           to: toEmails,
           cc: splitEmails(ccText),
           includeAllCompany,
@@ -543,34 +533,6 @@ export default function AnnouncementComposer() {
               />
               <p className="text-xs text-gray-500">Professional signature including title, contact info, and legal disclaimer</p>
             </div>
-            <div className="space-y-2 rounded-lg border bg-blue-50 p-4 border-blue-200">
-              <div className="flex items-center justify-between gap-3">
-                <label className="text-sm font-semibold text-gray-700">Signature Logo (Optional)</label>
-                <Button type="button" variant="outline" size="sm" onClick={() => document.getElementById("announcement-logo-input")?.click()} className="bg-white hover:bg-gray-50">Upload logo</Button>
-              </div>
-              <input
-                id="announcement-logo-input"
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(event) => {
-                  const file = event.target.files?.[0]
-                  if (!file) return
-                  const reader = new FileReader()
-                  reader.onload = () => setSignatureLogo(typeof reader.result === "string" ? reader.result : "")
-                  reader.readAsDataURL(file)
-                }}
-              />
-              {signatureLogo ? (
-                <div className="flex items-center gap-3 rounded-md border bg-white p-3">
-                  <img src={signatureLogo} alt="Signature logo preview" className="h-12 w-12 rounded object-contain" />
-                  <span className="text-sm text-gray-600">Logo ready to be used in the email signature</span>
-                </div>
-              ) : (
-                <p className="text-sm text-gray-500">No custom signature logo selected yet.</p>
-              )}
-            </div>
-
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" onClick={saveDraft} disabled={saving || !subject.trim() || !body.trim()}>
                 <Save className="h-4 w-4" />
@@ -888,9 +850,6 @@ export default function AnnouncementComposer() {
                       <div style="padding: 32px 40px; border-top: none;">
                         <table cellpadding="0" cellspacing="0" width="100%" style="margin: 0;">
                           <tr>
-                            <td style="vertical-align: top; padding-right: 16px; width: auto;">
-                              ${signatureLogo ? `<img src="${signatureLogo}" alt="Company logo" style="height: 48px; width: auto; display: block; object-fit: contain;" />` : ''}
-                            </td>
                             <td style="vertical-align: middle; text-align: left;">
                               <p style="margin: 0; color: #1f2937; font-size: 14px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase;">ADMINISTRATION TEAM</p>
                               <p style="margin: 8px 0 0; color: #6b7280; font-size: 12px; letter-spacing: 0.1px; font-weight: 500;">+20222684704</p>
