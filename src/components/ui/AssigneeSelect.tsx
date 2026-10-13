@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { Check, ChevronDown, Search, UserCircle2, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -182,7 +183,7 @@ export function AssigneeSelect({ value, onChange, disabled, compact, className, 
         {!disabled && <ChevronDown className={cn(compact ? "h-3 w-3" : "h-4 w-4", "opacity-50 flex-shrink-0")} />}
       </button>
 
-      {open && panelPos && (
+      {open && panelPos && createPortal(
         <div
           ref={panelRef}
           style={{
@@ -252,7 +253,8 @@ export function AssigneeSelect({ value, onChange, disabled, compact, className, 
           <div className="border-t px-3 py-1.5 text-[10px] text-muted-foreground">
             {filtered.length} of {admins.length} {teamLabel} member{admins.length !== 1 ? "s" : ""}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
