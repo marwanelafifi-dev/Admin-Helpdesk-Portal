@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { requestDetailPathForModule } from "@/lib/functionRegistry"
 
 export function getEditLink(requestId: string, module: string): string {
   const moduleMap: Record<string, string> = {
@@ -13,5 +14,14 @@ export function getEditLink(requestId: string, module: string): string {
 }
 
 export function getDetailLink(requestId: string, module: string): string {
-  return `/requests/${requestId}?source=${module}`
+  const sourceByModule: Record<string, string> = {
+    finance_reimbursement: "reimbursement",
+    finance_travel_reimbursement: "travel-reimbursement",
+    finance_invoice_payment: "invoices",
+    hr_general: "departments/hr/general",
+    hr_letter: "departments/hr/letter",
+    hr_travel_letter: "departments/hr/letter",
+  }
+  const source = sourceByModule[module] ?? module
+  return `${requestDetailPathForModule(module, requestId)}?source=${encodeURIComponent(source)}`
 }

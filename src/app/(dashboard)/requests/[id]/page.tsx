@@ -26,6 +26,7 @@ import {
 import { MarkdownDisplay } from "@/components/ui/MarkdownDisplay"
 import { functionForModule, requestModuleLabel, requiresManagerApproval } from "@/lib/functionRegistry"
 import { hasRecordedApproval } from "@/lib/approvalRules"
+import { getRequestBackDestination } from "@/lib/requestNavigation"
 
 const STATUS_COLORS: Record<string, string> = {
   draft:             "bg-zinc-100 text-zinc-600",
@@ -451,21 +452,7 @@ export default function RequestDetailPage() {
   const searchParams = useSearchParams()
   const pathname = usePathname()
   const source = searchParams.get("source")
-  const backDestination = source === "invoices"
-    ? { href: "/departments/finance/invoices", label: "Back to Pre Paid Invoice Requests" }
-    : source === "reimbursement"
-      ? { href: "/departments/finance/reimbursement", label: "Back to General Reimbursement Requests" }
-      : source === "travel-reimbursement"
-        ? { href: "/departments/finance/travel-reimbursement", label: "Back to Travel Reimbursement Requests" }
-        : source === "departments/finance/reimbursement"
-          ? { href: "/departments/finance/all-requests", label: "Back to Finance Requests" }
-          : source === "departments/hr/general"
-            ? { href: "/departments/hr/general", label: "Back to HR General Requests" }
-            : pathname.startsWith("/departments/finance/requests/")
-              ? { href: "/departments/finance/my-requests", label: "Back to Finance Requests" }
-              : pathname.startsWith("/departments/hr/requests/")
-                ? { href: "/departments/hr/my-requests", label: "Back to People Requests" }
-                : { href: "/requests", label: "Back to Requests" }
+  const backDestination = getRequestBackDestination(pathname, source)
   const backHref = backDestination.href
   const backLabel = backDestination.label
   const { data: session, status: sessionStatus } = useSession()

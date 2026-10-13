@@ -2246,6 +2246,7 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
   - Added a single module-to-detail-route resolver. Finance request emails now open `/departments/finance/requests/[id]`; People request emails open `/departments/hr/requests/[id]`; Administration requests retain `/requests/[id]`.
   - Applied this routing to generic request updates, Finance SLA notices, approval emails, in-portal notifications, and shared My Requests links. A Finance or People request can no longer be opened from email or these shared entry points in the Administration Team shell.
   - Replaced internal module IDs in email with formal service labels. For example, `finance_reimbursement` is displayed as **General Reimbursement**.
+  - Request-detail return navigation is resolved from one source map. Administration module queues, Finance reimbursement/travel/invoice/SLA/team queues, People general/letter/team queues, and Shipping import/export queues return to their exact originating page. Direct Finance and People detail links fall back to their own My Requests page rather than Administration.
 
 ## Phase 24: Historical Request Feedback (Implemented - 29 Sep 2026)
 

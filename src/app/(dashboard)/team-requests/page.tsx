@@ -20,7 +20,7 @@ import { useCommentSearch } from "@/hooks/useCommentSearch"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { CompanyBadge } from "@/components/ui/CompanyBadge"
 import { buildLabelDrivenMaps } from "@/lib/statusPalette"
-import { modulesVisibleToFunction } from "@/lib/functionRegistry"
+import { modulesVisibleToFunction, requestDetailPathForModule } from "@/lib/functionRegistry"
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -159,7 +159,7 @@ function isDirectManagerOf(
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function TeamRequestsPage({ moduleScope }: { moduleScope?: string[] }) {
+export default function TeamRequestsPage({ moduleScope, detailSource = "team-requests" }: { moduleScope?: string[]; detailSource?: string }) {
   const { data: session } = useSession()
   const currentUserName  = session?.user?.name  ?? ""
   const currentUserEmail = (session?.user?.email ?? "").toLowerCase()
@@ -484,7 +484,7 @@ export default function TeamRequestsPage({ moduleScope }: { moduleScope?: string
                         <td className="px-4 py-3 font-mono text-xs">
                           <div className="flex items-center gap-1.5">
                             <Link
-                              href={`/requests/${request.id}`}
+                              href={`${requestDetailPathForModule(request.module, request.id)}?source=${encodeURIComponent(detailSource)}`}
                               className="text-blue-600 hover:underline font-semibold"
                             >
                               {request.id}
@@ -504,7 +504,7 @@ export default function TeamRequestsPage({ moduleScope }: { moduleScope?: string
                         {/* Title */}
                         <td className="px-4 py-3">
                           <Link
-                            href={`/requests/${request.id}`}
+                            href={`${requestDetailPathForModule(request.module, request.id)}?source=${encodeURIComponent(detailSource)}`}
                             className="text-sm font-medium text-gray-700 hover:text-blue-600 hover:underline truncate block max-w-xs"
                           >
                             {request.title}

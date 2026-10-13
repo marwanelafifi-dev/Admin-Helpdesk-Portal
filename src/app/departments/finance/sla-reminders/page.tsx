@@ -127,7 +127,7 @@ export default async function FinanceSlaRemindersPage() {
                   return (
                     <tr key={item.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
                       <td className="px-5 py-4">
-                        <Link href={`/departments/finance/requests/${item.requestId}`} className="font-semibold text-blue-600 hover:underline dark:text-blue-400">
+                        <Link href={`/departments/finance/requests/${item.requestId}?source=sla-reminders`} className="font-semibold text-blue-600 hover:underline dark:text-blue-400">
                           {item.requestId}
                         </Link>
                         <p className="mt-1 max-w-xs truncate text-xs text-slate-500" title={item.requestTitle}>{item.requestTitle}</p>

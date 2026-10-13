@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { MapPin, AlertCircle, CheckCircle2, Download, Eye, Clock, MessageCircle, Paperclip } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +17,7 @@ import RequestDetailPage from '@/app/(dashboard)/requests/[id]/page';
 import { CommentsTab, type Comment } from '@/components/request/CommentsTab';
 import { InlineStatusSelect } from '@/components/ui/InlineStatusSelect';
 import { RequesterFeedbackCard } from '@/components/request/RequesterFeedbackCard';
+import { getRequestBackDestination } from '@/lib/requestNavigation';
 
 const HR_LETTER_STATUS_LABELS: Record<string, string> = {
   new: 'New', in_progress: 'In Progress', completed: 'Completed', cancelled: 'Cancelled',
@@ -119,6 +120,9 @@ function HrTravelLetterDetail({ id }: { id: string }) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const backDestination = getRequestBackDestination(pathname, searchParams.get('source'));
   const { data: session } = useSession();
 
   useEffect(() => {
@@ -452,9 +456,9 @@ function HrTravelLetterDetail({ id }: { id: string }) {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={() => router.back()}
+            onClick={() => router.push(backDestination.href)}
           >
-            Back
+            {backDestination.label}
           </Button>
         </div>
       </div>

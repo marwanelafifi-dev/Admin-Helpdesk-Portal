@@ -5,7 +5,7 @@ export default function FinanceAllRequestsPage() {
   return (
     <GeneralRequestPage
       aggregateModules={modulesVisibleToFunction("finance")}
-      basePath="/departments/finance/reimbursement"
+      basePath="/departments/finance/all-requests"
       detailPath="/departments/finance/requests"
       pageTitle="Finance Team - All Requests"
       pageSubtitle="Every request submitted to the Finance Team, across all Finance modules"
