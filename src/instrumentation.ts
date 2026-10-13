@@ -1,11 +1,11 @@
 export async function register() {
-  // Only run the backup scheduler in the Node.js runtime (not Edge),
-  // and only in production to avoid noise during local dev.
+  // The backup worker owns archive creation. The web process only monitors
+  // backup health, so a slow attachment backup cannot block portal traffic.
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    const { startBackupScheduler } = await import("@/lib/backupCron")
+    const { startBackupHealthMonitor } = await import("@/lib/backupCron")
     const { startAnnouncementScheduler } = await import("@/lib/announcementScheduler")
     const { startFinanceSlaReminderScheduler } = await import("@/lib/financeSlaReminderScheduler")
-    startBackupScheduler()
+    startBackupHealthMonitor()
     startAnnouncementScheduler()
     startFinanceSlaReminderScheduler()
   }

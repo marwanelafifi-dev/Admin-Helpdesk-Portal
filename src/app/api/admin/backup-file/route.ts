@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import fs from "fs"
 import path from "path"
+import { Readable } from "stream"
 import { getToken } from "@auth/core/jwt"
 import { BACKUP_DIR, listBackupFiles } from "@/lib/backupScheduleStore"
-import { verifyBackupFile } from "@/lib/backupRunner"
 import { canManageDatabase, requestMetadata } from "@/lib/databaseAccess"
 import { logServerAudit } from "@/lib/serverAuditLog"
 
@@ -42,32 +42,30 @@ export async function GET(req: NextRequest) {
   }
 
   const backupPath = path.join(BACKUP_DIR, filename)
-  const integrity = verifyBackupFile(backupPath)
-  if (!integrity.valid) {
-    // Do not distribute a corrupted or unverifiable signed backup. Legacy
-    // backups remain downloadable because the verifier explicitly accepts
-    // them with a `legacy` status.
-    return NextResponse.json({ error: "Backup integrity check failed", integrity }, { status: 409 })
-  }
-
-  const contents = fs.readFileSync(backupPath)
+  const size = fs.statSync(backupPath).size
+  // New backups are integrity-checked by the isolated worker before their
+  // temporary file is atomically published. Do not re-read/hash a 500+ MB
+  // snapshot in the web process merely to download it: that was capable of
+  // blocking all portal requests. Restore still validates the manifest.
+  const stream = Readable.toWeb(fs.createReadStream(backupPath)) as ReadableStream<Uint8Array>
   logServerAudit({
     actor: String(token.name ?? token.email ?? "Unknown"),
     actorEmail: String(token.email ?? ""),
     action: "database_backup",
     targetId: filename,
     targetTitle: "Download scheduled backup",
-    details: `Downloaded scheduled backup; integrity status: ${integrity.status}.`,
+    details: "Downloaded scheduled backup; worker verification is performed at creation and again before restore.",
     category: "database",
     outcome: "success",
     ...requestMetadata(req),
   })
-  return new NextResponse(new Uint8Array(contents), {
+  return new NextResponse(stream, {
     headers: {
       "Content-Type": "application/json; charset=utf-8",
       "Content-Disposition": `attachment; filename="${filename.replace(/[^a-zA-Z0-9 ._-]/g, "_")}"`,
+      "Content-Length": String(size),
       "Cache-Control": "no-store",
-      "X-Backup-Integrity": integrity.status,
+      "X-Backup-Integrity": "verified-at-creation",
     },
   })
 }

@@ -932,10 +932,8 @@ export default function DatabasePage() {
         setScheduleLastFile(json.schedule.lastBackupFile ?? null)
       }
       if (!res.ok) throw new Error(json.error ?? "Unknown error")
-      setScheduleLastAt(json.schedule?.lastBackupAt ?? new Date().toISOString())
-      setScheduleLastFile(json.schedule?.lastBackupFile ?? json.filename)
-      logAuditEvent({ actor: actorName, actorEmail, action: "database_backup", targetId: "", targetTitle: "Scheduled Backup (Run Now)", module: "database", details: `Server backup saved as ${json.filename} (${(json.sizeBytes / 1024).toFixed(1)} KB, ${json.attachmentFiles ?? 0} uploaded files)` })
-      setRunNowStatus({ type: "success", message: `Backup saved: ${json.filename} (${(json.sizeBytes / 1024).toFixed(1)} KB, ${json.serverFiles} server files, ${json.attachmentFiles ?? 0} uploaded files)` })
+      logAuditEvent({ actor: actorName, actorEmail, action: "database_backup", targetId: json.job?.id ?? "", targetTitle: "Scheduled Backup (Run Now)", module: "database", details: "Backup queued for the isolated worker." })
+      setRunNowStatus({ type: "success", message: json.queued === false ? "A backup is already queued or running." : "Backup queued. The isolated worker will run it shortly without interrupting the portal." })
     } catch (e: any) {
       setRunNowStatus({ type: "error", message: `Backup failed: ${e?.message}` })
     } finally {

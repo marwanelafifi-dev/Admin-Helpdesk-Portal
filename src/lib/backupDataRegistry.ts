@@ -8,6 +8,7 @@
 import crypto from "crypto"
 import fs from "fs"
 import path from "path"
+import backupInventory from "@/lib/backupInventory.json"
 
 export const BACKUP_VERSION = "1.2" as const
 export const DATA_DIR = path.join(process.cwd(), "data")
@@ -21,41 +22,9 @@ export interface ServerBackupFile {
   clearable: boolean
 }
 
-export const SERVER_BACKUP_FILES: readonly ServerBackupFile[] = [
-  // Requests for every Administration, HR, and Finance module. Approval
-  // histories are stored with each request in requests.json.
-  { filename: "requests.json",                 restorable: true, clearable: true },
-  { filename: "deleted-requests.json",         restorable: true, clearable: true },
-  // Never clear deletion markers alongside requests: stale browsers must not
-  // be able to recreate records after a Database Clear or recycle-bin purge.
-  { filename: "request-tombstones.json",       restorable: true, clearable: false },
-  { filename: "comments.json",                 restorable: true, clearable: true },
-  { filename: "attachments.json",              restorable: true, clearable: true },
-  { filename: "feedback.json",                 restorable: true, clearable: true },
-  { filename: "finance-sla-reminders.json",    restorable: true, clearable: true },
-
-  // Communications, notifications, and the new approval-link audit trail.
-  { filename: "announcements.json",            restorable: true, clearable: true },
-  { filename: "notifications.json",            restorable: true, clearable: true },
-  { filename: "notices.json",                  restorable: true, clearable: true },
-  { filename: "user-feedback.json",            restorable: true, clearable: true },
-  { filename: "admin-survey.json",             restorable: true, clearable: true },
-  { filename: "audit-log.json",                restorable: true, clearable: false },
-
-  // Organisation and platform configuration.
-  { filename: "company-data.json",             restorable: true, clearable: true },
-  { filename: "company-data-buchi.json",       restorable: true, clearable: true },
-  { filename: "platform-settings.json",        restorable: true, clearable: false },
-  { filename: "email-config.json",             restorable: true, clearable: false },
-  { filename: "maintenance.json",              restorable: true, clearable: false },
-  { filename: "backup-schedule.json",          restorable: true, clearable: false },
-  { filename: "synology-backup.json",          restorable: true, clearable: false },
-  { filename: "browser-data.json",             restorable: true, clearable: true },
-
-  // Keep identities and access control in the disaster-recovery snapshot.
-  { filename: "users.json",                    restorable: true, clearable: false },
-  { filename: "roles.json",                    restorable: true, clearable: false },
-] as const
+// This inventory is deliberately JSON so the isolated Node backup worker and
+// the Next.js restore path consume exactly the same allow-list.
+export const SERVER_BACKUP_FILES: readonly ServerBackupFile[] = backupInventory
 
 export interface AttachmentBackupFile {
   /** Path relative to data/attachments, always slash-separated. */

@@ -47,3 +47,5 @@ next-env.d.ts
 /data/company-data.json
 /data/feedback.json
 /data/email-config.json
+/data/backup-job.json
+/data/.backup-worker.lock
