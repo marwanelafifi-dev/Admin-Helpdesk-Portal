@@ -461,6 +461,7 @@ export default function RequestDetailPage() {
   const [surveyHover, setSurveyHover] = useState(0)
   const [surveyComment, setSurveyComment] = useState("")
   const [surveySubmitted, setSurveySubmitted] = useState(false)
+  const [surveyCoveredByOverall, setSurveyCoveredByOverall] = useState(false)
   const [feedbackSurveyEnabled, setFeedbackSurveyEnabled] = useState<boolean | null>(null)
   const sessionEmail = session?.user?.email?.trim().toLowerCase()
   const isRequestRequester = Boolean(request && (
@@ -1109,9 +1110,13 @@ export default function RequestDetailPage() {
           const res = await fetch("/api/feedback/responses")
           if (res.ok) {
             const data = await res.json()
-            const existing = (data.responses ?? []).find((r: any) => r.requestId === foundRequest.id)
+            const existing = (data.responses ?? []).find((r: any) =>
+              r.requestId === foundRequest.id
+              || (r.feedbackScope === "overall" && r.coveredRequestIds?.includes(foundRequest.id)),
+            )
             if (existing) {
               setSurveySubmitted(true)
+              setSurveyCoveredByOverall(existing.feedbackScope === "overall")
               setSurveyRating(existing.rating ?? 0)
               setSurveyComment(existing.comment ?? "")
             }
@@ -1893,8 +1898,8 @@ export default function RequestDetailPage() {
                 <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center mb-3">
                   <CheckCircle2 className="h-6 w-6 text-emerald-600" />
                 </div>
-                <p className="font-semibold text-gray-900">Thank you for your feedback!</p>
-                <p className="text-sm text-gray-500 mt-1">Your response has been recorded.</p>
+                <p className="font-semibold text-gray-900">{surveyCoveredByOverall ? "This request is covered by your overall satisfaction feedback." : "Thank you for your feedback!"}</p>
+                <p className="text-sm text-gray-500 mt-1">{surveyCoveredByOverall ? "A second individual rating is not needed." : "Your response has been recorded."}</p>
                 <div className="flex gap-1 mt-3">
                   {[1,2,3,4,5].map((s) => (
                     <Star key={s} className={cn("h-5 w-5", s <= surveyRating ? "fill-yellow-400 text-yellow-400" : "text-gray-200")} />
@@ -1969,7 +1974,12 @@ export default function RequestDetailPage() {
                           comment: surveyComment,
                         }),
                       })
+                      const result = await res.json().catch(() => ({}))
                       if (res.ok) setSurveySubmitted(true)
+                      else if (result.error === "already_submitted") {
+                        setSurveySubmitted(true)
+                        setSurveyCoveredByOverall(result.response?.feedbackScope === "overall")
+                      }
                     } catch (err) {
                       console.error("Failed to submit feedback:", err)
                     }

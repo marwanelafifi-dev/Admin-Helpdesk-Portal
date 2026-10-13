@@ -22,6 +22,7 @@ export function RequesterFeedbackCard({ request }: { request: FeedbackRequest })
   const { data: session } = useSession()
   const [enabled, setEnabled] = useState<boolean | null>(null)
   const [submitted, setSubmitted] = useState(false)
+  const [coveredByOverall, setCoveredByOverall] = useState(false)
   const [rating, setRating] = useState(0)
   const [comment, setComment] = useState("")
   const [saving, setSaving] = useState(false)
@@ -44,8 +45,14 @@ export function RequesterFeedbackCard({ request }: { request: FeedbackRequest })
         }
         if (responsesResponse.ok) {
           const responses = await responsesResponse.json()
-          const existing = (responses.responses ?? []).find((item: { requestId?: string }) => item.requestId === request.id)
-          if (existing) setSubmitted(true)
+          const existing = (responses.responses ?? []).find((item: { requestId?: string; feedbackScope?: string; coveredRequestIds?: string[] }) =>
+            item.requestId === request.id
+            || (item.feedbackScope === "overall" && item.coveredRequestIds?.includes(request.id)),
+          )
+          if (existing) {
+            setSubmitted(true)
+            setCoveredByOverall(existing.feedbackScope === "overall")
+          }
         }
       })
       .catch(() => setEnabled(true))
@@ -60,6 +67,7 @@ export function RequesterFeedbackCard({ request }: { request: FeedbackRequest })
         <p className="text-xs text-slate-600">Rate your completed {requestModuleLabel(request.module)} request.</p>
       </CardHeader>
       <CardContent>
+        {submitted && coveredByOverall && <p className="mb-3 text-sm text-emerald-700">This request is covered by your overall satisfaction feedback, so a second individual rating is not needed.</p>}
         {submitted ? <div className="flex items-center gap-2 text-sm font-medium text-emerald-700"><CheckCircle2 className="h-5 w-5" />Thank you — your feedback has been recorded.</div> : (
           <div className="space-y-4">
             <div className="flex gap-2">{[1, 2, 3, 4, 5].map((value) => <button key={value} type="button" aria-label={`${value} stars`} onClick={() => setRating(value)}><Star className={cn("h-7 w-7", rating >= value ? "fill-yellow-400 text-yellow-400" : "text-slate-300")} /></button>)}</div>
@@ -69,8 +77,12 @@ export function RequesterFeedbackCard({ request }: { request: FeedbackRequest })
               setSaving(true); setError("")
               try {
                 const response = await fetch("/api/feedback/inline", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requestId: request.id, rating, comment }) })
+                const result = await response.json().catch(() => ({}))
                 if (response.ok) setSubmitted(true)
-                else setError("Feedback could not be submitted. Please refresh and try again.")
+                else if (result.error === "already_submitted") {
+                  setSubmitted(true)
+                  setCoveredByOverall(result.response?.feedbackScope === "overall")
+                } else setError(result.message || "Feedback could not be submitted. Please refresh and try again.")
               } catch { setError("Feedback could not be submitted. Please try again.") }
               finally { setSaving(false) }
             }} className="bg-emerald-600 hover:bg-emerald-700"><Send className="mr-2 h-4 w-4" />{saving ? "Submitting..." : "Submit Feedback"}</Button>

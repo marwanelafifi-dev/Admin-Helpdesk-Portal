@@ -104,6 +104,9 @@ class FeedbackStoreManager {
       return null
     }
     const survey = this.data.surveys[idx]
+    // Protect stale email links even if a caller skipped the route-level
+    // guard: an overall response finalizes every request it covers.
+    if (this.findCompletedForRequest(survey.requestId)) return null
     const response: StoredFeedbackSurvey = {
       ...survey,
       rating,
@@ -120,6 +123,14 @@ class FeedbackStoreManager {
   /** All completed responses — used by Feedback & Reports. */
   getResponses(): StoredFeedbackSurvey[] {
     return [...this.data.responses]
+  }
+
+  /** Return the completed response that already covers a request. */
+  findCompletedForRequest(requestId: string): StoredFeedbackSurvey | null {
+    return this.data.responses.find((response) =>
+      response.requestId === requestId
+      || (response.feedbackScope === "overall" && response.coveredRequestIds?.includes(requestId)),
+    ) ?? null
   }
 
   /**
@@ -165,7 +176,7 @@ class FeedbackStoreManager {
    */
   hasSurveyForRequest(requestId: string): boolean {
     return this.data.surveys.some((s) => s.requestId === requestId)
-        || this.data.responses.some((r) => r.requestId === requestId)
+        || Boolean(this.findCompletedForRequest(requestId))
   }
 
   /** Find an open (not yet completed) survey for a given request, if any. */

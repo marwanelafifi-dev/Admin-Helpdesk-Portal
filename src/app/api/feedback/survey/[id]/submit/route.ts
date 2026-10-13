@@ -20,6 +20,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "invalid_rating" }, { status: 400 })
   }
 
+  const survey = feedbackStore.findSurvey(id)
+  if (!survey) {
+    return NextResponse.json({ error: "not_found_or_already_completed" }, { status: 404 })
+  }
+  // A survey email can pre-date an overall submission. It must not create a
+  // second rating for a request already covered by that submission.
+  if (survey.status === "completed" || feedbackStore.findCompletedForRequest(survey.requestId)) {
+    return NextResponse.json({ error: "already_submitted" }, { status: 409 })
+  }
+
   const response = feedbackStore.submitResponse(id, rating, comment)
   if (!response) {
     return NextResponse.json({ error: "not_found_or_already_completed" }, { status: 404 })

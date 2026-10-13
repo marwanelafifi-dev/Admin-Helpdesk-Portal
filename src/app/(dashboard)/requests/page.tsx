@@ -383,7 +383,7 @@ export default function RequestsPage({ moduleScope }: { moduleScope?: string[] }
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <p className="text-sm font-semibold text-amber-950">Rate your overall experience</p>
-                        <p className="mt-0.5 text-xs text-amber-800">One response covers all {pendingFeedback.length} completed requests below. You can still rate any request individually.</p>
+                        <p className="mt-0.5 text-xs text-amber-800">One response covers all {pendingFeedback.length} completed requests below. Those requests cannot be rated again individually.</p>
                       </div>
                       <Button type="button" size="sm" onClick={() => { setOverallFeedbackOpen((open) => !open); setOverallFeedbackError("") }} className="bg-amber-700 text-white hover:bg-amber-800">
                         {overallFeedbackOpen ? "Close" : "Rate all completed requests"}

@@ -61,9 +61,15 @@ export async function POST(req: NextRequest) {
 
   // If a completed response already exists for this request, refuse — one
   // feedback per request.
-  const alreadyCompleted = feedbackStore.getResponses().find((x) => x.requestId === requestId)
+  const alreadyCompleted = feedbackStore.findCompletedForRequest(requestId)
   if (alreadyCompleted) {
-    return NextResponse.json({ error: "already_submitted", response: alreadyCompleted }, { status: 409 })
+    return NextResponse.json({
+      error: "already_submitted",
+      message: alreadyCompleted.feedbackScope === "overall"
+        ? "Your overall satisfaction feedback already covers this request."
+        : "Feedback has already been submitted for this request.",
+      response: alreadyCompleted,
+    }, { status: 409 })
   }
 
   // If an email survey is still pending for this request, complete THAT one
