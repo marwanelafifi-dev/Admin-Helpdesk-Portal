@@ -5,9 +5,9 @@ const STORE_PATH = path.join(process.cwd(), "data", "synology-backup.json")
 
 export interface SynologyBackupConfig {
   enabled: boolean
-  /** UNC destination only. Credentials are held in Windows Credential Manager. */
+  /** A Windows UNC destination or the protected Ubuntu mount path. Credentials stay on the backup host. */
   nasRoot: string
-  /** The Windows host task checks this value every five minutes. */
+  /** The backup host service checks this value every five minutes. */
   scheduleTime: string
   retentionDays: number
   pruneOldBackups: boolean

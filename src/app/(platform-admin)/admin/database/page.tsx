@@ -878,7 +878,7 @@ export default function DatabasePage() {
       const json = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(json.error ?? "Could not save Synology backup settings")
       if (json.config) setSynologyBackup(json.config as SynologyBackupConfig)
-      setSynologyStatus({ type: "success", message: "Synology backup settings saved. The host task will use them within five minutes." })
+      setSynologyStatus({ type: "success", message: "Synology backup settings saved. The backup host service will use them within five minutes." })
     } catch (error) {
       setSynologyStatus({ type: "error", message: error instanceof Error ? error.message : "Could not save Synology backup settings" })
     } finally {
@@ -898,7 +898,7 @@ export default function DatabasePage() {
       const json = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(json.error ?? "Could not request a Synology backup")
       if (json.config) setSynologyBackup(json.config as SynologyBackupConfig)
-      setSynologyStatus({ type: "success", message: "Synology backup queued. The Windows host task will start it within five minutes." })
+      setSynologyStatus({ type: "success", message: "Synology backup queued. The backup host service will start it within five minutes." })
     } catch (error) {
       setSynologyStatus({ type: "error", message: error instanceof Error ? error.message : "Could not request a Synology backup" })
     } finally {
@@ -2344,7 +2344,7 @@ export default function DatabasePage() {
               <div className="flex items-center justify-between gap-4 border-b border-gray-100 pb-4">
                 <div>
                   <p className="text-sm font-semibold text-gray-800">Enable Synology Recovery Backup</p>
-                  <p className="mt-0.5 text-xs text-gray-500">The Windows host checks this setting every five minutes while your account is signed in.</p>
+                  <p className="mt-0.5 text-xs text-gray-500">The backup host service checks this setting every five minutes. It runs independently of your browser session.</p>
                 </div>
                 <button
                   type="button"
@@ -2409,7 +2409,7 @@ export default function DatabasePage() {
 
               <div className={`rounded-lg border p-3 text-xs ${synologyBackup.lastFailureAt ? "border-red-200 bg-red-50 text-red-900" : synologyBackup.lastSuccessAt ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
                 {synologyBackup.lastFailureAt ? (
-                  <><p className="font-semibold">Latest Synology backup failed</p><p className="mt-1">{synologyBackup.lastFailureMessage ?? "Review the Windows host task and NAS connection."}</p><p className="mt-1">Failed: {fmt(synologyBackup.lastFailureAt)}</p></>
+                  <><p className="font-semibold">Latest Synology backup failed</p><p className="mt-1">{synologyBackup.lastFailureMessage ?? "Review the backup host service and NAS connection."}</p><p className="mt-1">Failed: {fmt(synologyBackup.lastFailureAt)}</p></>
                 ) : synologyBackup.lastSuccessAt ? (
                   <><p className="font-semibold">Synology recovery copy is current</p><p className="mt-1">Last successful sync: {fmt(synologyBackup.lastSuccessAt)}</p>{synologyBackup.lastPostgresDump && <p className="mt-1 break-all font-mono text-[11px]">Database: {synologyBackup.lastPostgresDump}</p>}</>
                 ) : (
