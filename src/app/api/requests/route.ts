@@ -3,7 +3,7 @@ import { auth } from "@/auth"
 import { requestStore } from "@/lib/requestStore"
 import { deletedRequestStore } from "@/lib/deletedRequestStore"
 import { requestTombstoneStore } from "@/lib/requestTombstoneStore"
-import { getDefaultAssignee } from "@/lib/userStore"
+import { getDefaultAssignee, readUsers } from "@/lib/userStore"
 import type { EngineRequest } from "@/services/engineService"
 import { getCompanyFromEmail, getRequestCompany } from "@/lib/userCompany"
 import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
@@ -223,6 +223,10 @@ export async function POST(req: Request) {
 
   const incoming = body.request
 
+  if (!REQUEST_MODULES.has(incoming.module)) {
+    return NextResponse.json({ error: "Invalid request module" }, { status: 400 })
+  }
+
   // Auto-assign: if this is a brand-new request (no existing record with the
   // same id) and the incoming payload doesn't already specify an assignee,
   // stamp on the owning function's configured default (if one exists).
@@ -232,6 +236,29 @@ export async function POST(req: Request) {
     assignedToEmail: incoming.assignedToEmail ?? null,
   }
   const existing = requestStore.getAll().find((r) => r.id === incoming.id)
+
+  // Validate assignments on the server as well as in the selector. This
+  // prevents stale clients or direct API calls from routing work to another
+  // function's team.
+  if (assignee.assignedToId) {
+    const selectedAssignee = readUsers().find((user) => user.id === assignee.assignedToId)
+    if (!selectedAssignee?.active) {
+      return NextResponse.json({ error: "The selected assignee is not active." }, { status: 400 })
+    }
+    if (roleToFunctionId(selectedAssignee.role) !== functionForModule(incoming.module)) {
+      return NextResponse.json(
+        { error: "The selected assignee does not belong to the team that owns this request." },
+        { status: 400 },
+      )
+    }
+    assignee = {
+      assignedToId: selectedAssignee.id,
+      assignedToName: selectedAssignee.name,
+      assignedToEmail: selectedAssignee.email,
+    }
+  } else {
+    assignee = { assignedToId: null, assignedToName: null, assignedToEmail: null }
+  }
   if (body.operation !== "create" && !existing && requestTombstoneStore.has(incoming.id)) {
     return NextResponse.json({ error: "This request was permanently deleted.", code: "REQUEST_DELETED" }, { status: 410 })
   }

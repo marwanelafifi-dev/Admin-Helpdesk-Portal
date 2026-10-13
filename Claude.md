@@ -2286,6 +2286,23 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] **Tunnel recovery procedure:** A healthy app can still yield a public `502` when the Cloudflare Tunnel has a stale upstream connection. Verify locally through `http://127.0.0.1:3003/api/auth/providers`; if it returns providers while the public URL fails, run `docker compose restart tunnel` and retry the public endpoint. Never print OAuth secrets with `docker exec ... printenv`; rotate any secret accidentally exposed in a terminal, log, or chat transcript.
 - [x] **Verification:** `git diff --check` passed. Targeted `tsc --noEmit` output contained no errors in the changed approval, authentication, login, or store files; unrelated project-wide type errors remain outside this work. Deploy with `docker compose --env-file .env.local up -d --build --force-recreate app`, then restart `tunnel`.
 
+## Administration Email Notification Policy (Confirmed - 13 Oct 2026)
+
+- [ ] **Shared Administration mailbox:** For Administration-owned modules, `adminhelpdesk@si-ware.com` must receive email only when a new request is submitted. It must not receive routine comment, status-update, assignment, manager-approval, or approval-decision emails.
+- [ ] **Administration team members:** Administration team members receive operational activity through in-portal notifications. Do not fan out routine request emails to every team member.
+- [ ] **Direct assignment exception:** When a request is assigned, email only the assigned individual (unless the assignment is to the actor themself); the shared mailbox and other Administration members do not receive that assignment email.
+- [ ] **Request conversation recipients:** Comment and routine status-update emails go only to the requester and request-specific CC recipients. They must exclude the Administration shared mailbox.
+- [ ] **Manager approvals:** A manager-approval email goes to the selected manager, with the requester and request-specific CC recipients copied as applicable. The Administration shared mailbox is excluded. Approval/rejection decisions follow the same exclusion while still notifying the requester, manager, and request-specific CC recipients.
+- [ ] **Implementation note:** The current comment and approval paths still add the owning function mailbox. Update those recipient builders before treating this policy as implemented.
+
+## Overall Satisfaction Feedback (Implemented - 13 Oct 2026)
+
+- [x] **Two feedback paths are retained:** A requester can still rate an individual completed/delivered request from its detail page. **My Requests** also provides a clearly labelled **Rate all completed requests** option for a single overall satisfaction rating and optional comment.
+- [x] **One response, not duplicated data:** An overall response stores the exact completed request IDs it covers and is reported once as **All completed requests**. It does not create one identical response per request, preventing artificial inflation of feedback totals and satisfaction metrics.
+- [x] **Future and individual feedback remain available:** Overall feedback clears the reminder for only the request IDs included at submission time. Later completed requests can prompt for another overall response, and request-detail feedback remains available for a requester who wants to add request-specific context.
+- [x] **Server-side safeguards:** The overall-feedback endpoint requires authentication, validates the 1–5 rating, accepts at most 200 request IDs, verifies requester ownership and completed/delivered status, rejects mixed-function submissions, honours the function's feedback setting, and prevents duplicate coverage.
+- [x] **Privacy and reporting:** Requesters can retrieve only their own submitted feedback to restore feedback state across devices. Function teams continue to receive their scoped report feed, including their own function's overall-satisfaction responses.
+
 ## Phase 28: Pre Paid Invoice Service and Separate SLA (Implemented - 30 Sep 2026)
 
 - [x] **Service name and form:** The Finance Invoice Payment service is displayed as **Pre Paid Invoice** across navigation, queues, request details, exports, feedback, and email labels. The stored module key remains `finance_invoice_payment` for existing requests and integrations. Payment Terms was removed from the PO, Contract, and Other invoice-row tables and new submissions; older stored request data remains readable.

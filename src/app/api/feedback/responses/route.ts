@@ -12,9 +12,26 @@ export async function GET(_req: NextRequest) {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 })
   }
   const functionId = session.user.role === "Full Access" ? "admin" : roleToFunctionId(session.user.role)
-  if (!functionId) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  // Requesters need their own responses to restore the per-request and
+  // overall-feedback state across devices, but must never receive the
+  // function-wide feedback feed used by the reporting pages.
+  if (!functionId) {
+    const requesterEmail = session.user.email?.trim().toLowerCase()
+    if (!requesterEmail) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    return NextResponse.json({
+      responses: feedbackStore.getResponses().filter(
+        (response) => response.requesterEmail.trim().toLowerCase() === requesterEmail,
+      ),
+    })
+  }
   const visibleModules = new Set(modulesVisibleToFunction(functionId))
-  return NextResponse.json({ responses: feedbackStore.getResponses().filter((response) => visibleModules.has(response.module)) })
+  return NextResponse.json({
+    responses: feedbackStore.getResponses().filter((response) =>
+      response.feedbackScope === "overall"
+        ? response.functionId === functionId
+        : visibleModules.has(response.module),
+    ),
+  })
 }
 
 // Auth-protected — Admin Database clear action.

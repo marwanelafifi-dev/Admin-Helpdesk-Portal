@@ -6,6 +6,7 @@ import { Search, ChevronUp, ChevronDown, ChevronsUpDown, MessageCircle, Star, X,
 import { useSession } from "next-auth/react"
 import { Input } from "@/components/ui/input"
 import { Card, CardHeader } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
 import { cn, fmtDate, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
@@ -165,6 +166,12 @@ export default function RequestsPage({ moduleScope }: { moduleScope?: string[] }
   // requests still need feedback. Server-side data: works across devices.
   const [feedbackDoneIds, setFeedbackDoneIds] = useState<Set<string> | null>(null)
   const [reminderDismissed, setReminderDismissed] = useState(false)
+  const [overallFeedbackOpen, setOverallFeedbackOpen] = useState(false)
+  const [overallRating, setOverallRating] = useState(0)
+  const [overallComment, setOverallComment] = useState("")
+  const [overallFeedbackSaving, setOverallFeedbackSaving] = useState(false)
+  const [overallFeedbackError, setOverallFeedbackError] = useState("")
+  const [overallFeedbackSubmitted, setOverallFeedbackSubmitted] = useState(false)
   const tableRef = useRef<HTMLTableElement>(null)
 
   const commentCounts = useCommentCounts(requests.map(r => r.id))
@@ -205,11 +212,14 @@ export default function RequestsPage({ moduleScope }: { moduleScope?: string[] }
       .then((res) => res.ok ? res.json() : { responses: [] })
       .then((data) => {
         if (cancelled) return
-        const ids = new Set<string>(
-          (Array.isArray(data.responses) ? data.responses : [])
-            .map((r: any) => r.requestId)
-            .filter(Boolean)
-        )
+        const ids = new Set<string>()
+        for (const response of (Array.isArray(data.responses) ? data.responses : [])) {
+          if (Array.isArray(response.coveredRequestIds)) {
+            response.coveredRequestIds.filter(Boolean).forEach((id: string) => ids.add(id))
+          } else if (response.requestId) {
+            ids.add(response.requestId)
+          }
+        }
         setFeedbackDoneIds(ids)
       })
       .catch(() => { /* feedback reminder is best-effort */ })
@@ -263,6 +273,30 @@ export default function RequestsPage({ moduleScope }: { moduleScope?: string[] }
       .filter((r) => isClosed(r.status) && !feedbackDoneIds.has(r.id))
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
   }, [userRequests, feedbackDoneIds])
+
+  async function submitOverallFeedback() {
+    if (!overallRating || pendingFeedback.length === 0) return
+    setOverallFeedbackSaving(true)
+    setOverallFeedbackError("")
+    try {
+      const response = await fetch("/api/feedback/overall", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestIds: pendingFeedback.map((request) => request.id), rating: overallRating, comment: overallComment }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || "Overall feedback could not be submitted.")
+
+      const coveredIds = Array.isArray(data.coveredRequestIds) ? data.coveredRequestIds.filter(Boolean) : []
+      setFeedbackDoneIds((current) => new Set([...(current ?? []), ...coveredIds]))
+      setOverallFeedbackSubmitted(true)
+      setOverallFeedbackOpen(false)
+    } catch (error) {
+      setOverallFeedbackError(error instanceof Error ? error.message : "Overall feedback could not be submitted.")
+    } finally {
+      setOverallFeedbackSaving(false)
+    }
+  }
 
   function updateRequestStatus(id: string, status: string) {
     setRequests((prev) => prev.map((request) =>
@@ -341,7 +375,45 @@ export default function RequestsPage({ moduleScope }: { moduleScope?: string[] }
               <p className="text-xs text-amber-700 mt-0.5">
                 Help us improve — your rating takes seconds and shapes how the team handles future requests.
               </p>
-              <div className="mt-2.5 flex flex-wrap gap-2">
+              <div className="mt-3 rounded-lg border border-amber-200 bg-white/80 p-3">
+                {overallFeedbackSubmitted ? (
+                  <p className="text-sm font-medium text-emerald-700">Thank you. Your overall satisfaction feedback has been recorded.</p>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-amber-950">Rate your overall experience</p>
+                        <p className="mt-0.5 text-xs text-amber-800">One response covers all {pendingFeedback.length} completed requests below. You can still rate any request individually.</p>
+                      </div>
+                      <Button type="button" size="sm" onClick={() => { setOverallFeedbackOpen((open) => !open); setOverallFeedbackError("") }} className="bg-amber-700 text-white hover:bg-amber-800">
+                        {overallFeedbackOpen ? "Close" : "Rate all completed requests"}
+                      </Button>
+                    </div>
+                    {overallFeedbackOpen && (
+                      <div className="mt-3 border-t border-amber-100 pt-3">
+                        <p className="text-sm font-medium text-amber-950">How satisfied are you overall?</p>
+                        <div className="mt-2 flex gap-1" role="radiogroup" aria-label="Overall satisfaction rating">
+                          {[1, 2, 3, 4, 5].map((rating) => (
+                            <button key={rating} type="button" role="radio" aria-checked={overallRating === rating} aria-label={`${rating} stars`} onClick={() => setOverallRating(rating)} className="rounded p-1 hover:bg-amber-100">
+                              <Star className={cn("h-7 w-7", overallRating >= rating ? "fill-amber-400 text-amber-500" : "text-slate-300")} />
+                            </button>
+                          ))}
+                        </div>
+                        <textarea value={overallComment} onChange={(event) => setOverallComment(event.target.value)} maxLength={4000} rows={3} placeholder="Tell us about your overall experience (optional)" className="mt-3 w-full rounded-md border border-amber-200 bg-white p-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200" />
+                        {overallFeedbackError && <p className="mt-2 text-sm text-red-700">{overallFeedbackError}</p>}
+                        <div className="mt-3 flex justify-end gap-2">
+                          <Button type="button" size="sm" variant="outline" onClick={() => setOverallFeedbackOpen(false)} disabled={overallFeedbackSaving}>Cancel</Button>
+                          <Button type="button" size="sm" onClick={submitOverallFeedback} disabled={!overallRating || overallFeedbackSaving} className="bg-emerald-600 text-white hover:bg-emerald-700">
+                            {overallFeedbackSaving ? "Submitting..." : "Submit overall feedback"}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+              <p className="mt-3 text-xs font-medium text-amber-800">Or rate a specific request:</p>
+              <div className="mt-2 flex flex-wrap gap-2">
                 {pendingFeedback.slice(0, 5).map((r) => (
                   <Link
                     key={r.id}

@@ -21,6 +21,8 @@ interface Feedback {
   rating: number
   comment: string
   submittedAt: string
+  feedbackScope?: "request" | "overall"
+  coveredRequestIds?: string[]
 }
 
 // Mock feedback data fallback
@@ -108,6 +110,7 @@ const MODULE_LABELS: Record<string, string> = {
   finance_invoice_payment: "Pre Paid Invoice",
 }
 function getModuleLabel(module: string) {
+  if (module === "overall") return "All completed requests"
   return MODULE_LABELS[module] ?? (module.charAt(0).toUpperCase() + module.slice(1))
 }
 
@@ -143,6 +146,8 @@ export default function FeedbackReportsPage({ moduleScope, title = "Feedback & R
             rating: r.rating || 0,
             comment: r.comment || "",
             submittedAt: r.completedAt || r.createdAt,
+            feedbackScope: r.feedbackScope,
+            coveredRequestIds: r.coveredRequestIds,
           }))
         setAllFeedback(feedback)
       })
@@ -170,7 +175,7 @@ export default function FeedbackReportsPage({ moduleScope, title = "Feedback & R
   // src/lib/functionRegistry.ts.
   const effectiveScope = moduleScope ?? modulesVisibleToFunction("admin")
   const scopedFeedback = useMemo(
-    () => allFeedback.filter((f) => effectiveScope.includes(f.module)),
+    () => allFeedback.filter((f) => f.feedbackScope === "overall" || effectiveScope.includes(f.module)),
     [allFeedback, effectiveScope],
   )
   const scopedRequests = useMemo(

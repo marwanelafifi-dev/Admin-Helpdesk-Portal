@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Check, ChevronDown, Search, UserCircle2, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { functionForModule, type FunctionId } from "@/lib/functionRegistry"
 
 interface AdminUser {
   id: string
@@ -31,23 +32,20 @@ interface AssigneeSelectProps {
   module?: string
 }
 
-// Which endpoint supplies the assignable-user pool for a given request
-// module. Add an entry here once a new function's requests need their own
-// assignee pool (e.g. a future Finance module -> "/api/users/finance-team").
-// "hr" (Onboarding/Offboarding) is deliberately NOT here — Administration
-// Team executes those operational items, so it uses the default pool below.
-const MODULE_ASSIGNEE_ENDPOINT: Record<string, string> = {
-  hr_general: "/api/users/hr-team",
-  hr_letter: "/api/users/hr-team",
-  finance_reimbursement: "/api/users/finance-team",
+// The function registry owns module-to-team routing. This prevents a new
+// Finance or People module from falling back to the Administration pool.
+// Administration's onboarding/offboarding module is also resolved through
+// the registry, which correctly identifies Administration as its owner.
+const FUNCTION_ASSIGNEE_ENDPOINT: Record<FunctionId, string> = {
+  admin: "/api/users/admin-team",
+  hr: "/api/users/hr-team",
+  finance: "/api/users/finance-team",
 }
-const MODULE_TEAM_LABEL: Record<string, string> = {
-  hr_general: "People Team",
-  hr_letter: "People Team",
-  finance_reimbursement: "Finance Team",
+const FUNCTION_TEAM_LABEL: Record<FunctionId, string> = {
+  admin: "Administration Team",
+  hr: "People Team",
+  finance: "Finance Team",
 }
-const DEFAULT_ASSIGNEE_ENDPOINT = "/api/users/admin-team"
-const DEFAULT_TEAM_LABEL = "Administration Team"
 
 function initials(name?: string, email?: string): string {
   const label = name || email || "?"
@@ -85,8 +83,9 @@ export function AssigneeSelect({ value, onChange, disabled, compact, className, 
   const wrapperRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const endpoint = (module && MODULE_ASSIGNEE_ENDPOINT[module]) || DEFAULT_ASSIGNEE_ENDPOINT
-  const teamLabel = (module && MODULE_TEAM_LABEL[module]) || DEFAULT_TEAM_LABEL
+  const ownerFunction = module ? functionForModule(module.toLowerCase()) : "admin"
+  const endpoint = FUNCTION_ASSIGNEE_ENDPOINT[ownerFunction]
+  const teamLabel = FUNCTION_TEAM_LABEL[ownerFunction]
 
   useEffect(() => {
     let cancelled = false

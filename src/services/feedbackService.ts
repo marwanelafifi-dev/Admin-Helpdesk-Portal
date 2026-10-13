@@ -13,6 +13,8 @@ export interface FeedbackSurvey {
   sentAt?: string
   completedAt?: string
   createdAt: string
+  feedbackScope?: "request" | "overall"
+  coveredRequestIds?: string[]
 }
 
 const FEEDBACK_SURVEYS_KEY = "feedback_surveys"

@@ -16,6 +16,12 @@ export interface StoredFeedbackSurvey {
   sentAt?: string
   completedAt?: string
   createdAt: string
+  /** Individual request feedback (default) or one response covering a set of requests. */
+  feedbackScope?: "request" | "overall"
+  /** Request IDs covered by an overall-satisfaction response. */
+  coveredRequestIds?: string[]
+  /** Owning support function for an overall-satisfaction response. */
+  functionId?: FunctionId
 }
 
 interface FeedbackData {
@@ -117,6 +123,42 @@ class FeedbackStoreManager {
   }
 
   /**
+   * Store one overall-satisfaction response for a group of completed requests.
+   * It deliberately remains one reportable response rather than cloning the
+   * same rating onto every request in the group.
+   */
+  createOverallResponse(input: {
+    requesterEmail: string
+    requesterName: string
+    functionId: FunctionId
+    coveredRequestIds: string[]
+    rating: number
+    comment: string
+  }): StoredFeedbackSurvey {
+    const id = `FB-${crypto.randomUUID()}`
+    const completedAt = new Date().toISOString()
+    const response: StoredFeedbackSurvey = {
+      id,
+      requestId: `OVERALL-${id}`,
+      requesterEmail: input.requesterEmail,
+      requesterName: input.requesterName,
+      requestTitle: `Overall satisfaction feedback (${input.coveredRequestIds.length} completed request${input.coveredRequestIds.length === 1 ? "" : "s"})`,
+      module: "overall",
+      status: "completed",
+      rating: input.rating,
+      comment: input.comment,
+      completedAt,
+      createdAt: completedAt,
+      feedbackScope: "overall",
+      coveredRequestIds: [...input.coveredRequestIds],
+      functionId: input.functionId,
+    }
+    this.data.responses.push(response)
+    writeToDisk(this.data)
+    return response
+  }
+
+  /**
    * Does any survey (pending, sent, or completed) already exist for this request?
    * Used to enforce "one survey email per request" — status changes that re-enter
    * the completed state must not re-trigger a survey email.
@@ -142,7 +184,11 @@ class FeedbackStoreManager {
     const before = { surveys: this.data.surveys.length, responses: this.data.responses.length }
     this.data = {
       surveys: this.data.surveys.filter((survey) => functionForModule(survey.module) !== functionId),
-      responses: this.data.responses.filter((response) => functionForModule(response.module) !== functionId),
+      responses: this.data.responses.filter((response) =>
+        response.feedbackScope === "overall"
+          ? response.functionId !== functionId
+          : functionForModule(response.module) !== functionId,
+      ),
     }
     writeToDisk(this.data)
     return {
