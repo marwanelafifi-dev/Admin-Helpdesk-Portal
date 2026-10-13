@@ -5,7 +5,18 @@ set -euo pipefail
 [[ "${EUID}" -eq 0 ]] || { echo "Run with sudo." >&2; exit 1; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_DATA_PATH="${APP_DATA_PATH:-/opt/company-portal/data}"
+# Docker Compose mounts ~/admin-helpdesk-data for the account that deploys the
+# portal. When the installer is invoked with sudo, retain that account's home
+# directory instead of silently falling back to an unrelated /opt path.
+INSTALL_USER_HOME=""
+if [[ -n "${SUDO_USER:-}" ]]; then
+  INSTALL_USER_HOME="$(getent passwd "$SUDO_USER" | cut -d: -f6 || true)"
+fi
+DEFAULT_APP_DATA_PATH="/opt/company-portal/data"
+if [[ -n "$INSTALL_USER_HOME" && -d "$INSTALL_USER_HOME/admin-helpdesk-data" ]]; then
+  DEFAULT_APP_DATA_PATH="$INSTALL_USER_HOME/admin-helpdesk-data"
+fi
+APP_DATA_PATH="${APP_DATA_PATH:-$DEFAULT_APP_DATA_PATH}"
 NAS_SHARE="${NAS_SHARE:-//192.168.2.204/Si-Ware Apps}"
 NAS_MOUNT="${NAS_MOUNT:-/mnt/company-portal-synology}"
 DB_CONTAINER="${DB_CONTAINER:-company-portal-db}"
