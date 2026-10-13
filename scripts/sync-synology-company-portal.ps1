@@ -106,7 +106,10 @@ try {
         throw 'Could not copy the PostgreSQL dump from the database container.'
     }
 
-    Invoke-RobocopySafe -Source $AppDataPath -Destination $dataDestination -ExtraArguments @('/XD', 'synology-staging')
+    # Local scheduled JSON snapshots are derived artifacts. The recovery copy
+    # needs live portal data and its dedicated PostgreSQL dump, not a second
+    # transfer of every large local archive or its temporary write file.
+    Invoke-RobocopySafe -Source $AppDataPath -Destination $dataDestination -ExtraArguments @('/XD', 'synology-staging', 'backups', '/XF', '*.partial')
     Copy-Item -LiteralPath $localDump -Destination (Join-Path $postgresDestination $dumpFile) -Force
 
     $manifest = [ordered]@{
@@ -115,7 +118,7 @@ try {
         dataDestination  = $dataDestination
         postgresDump     = (Join-Path $postgresDestination $dumpFile)
         databaseContainer = 'company-portal-db'
-        note             = 'Portal files copied without deletion mirroring; PostgreSQL is a logical gzip-compressed pg_dump.'
+        note             = 'Live portal data copied without deletion mirroring; local derived backup archives excluded; PostgreSQL is a logical gzip-compressed pg_dump.'
     } | ConvertTo-Json
     Set-Content -LiteralPath (Join-Path $manifestDestination "backup-$timestamp.json") -Value $manifest -Encoding utf8
 

@@ -92,12 +92,19 @@ docker exec "$DB_CONTAINER" sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" | 
 docker cp "$DB_CONTAINER:$container_dump" "$stage/$dump_file" || fail "Could not copy PostgreSQL dump from container"
 
 # Never use --delete: the NAS keeps the last known copy of portal files even
-# when a local file is accidentally removed.
-rsync -a --exclude 'synology-staging' "$APP_DATA_PATH/" "$destination/data/" || fail "Portal data sync failed"
+# when a local file is accidentally removed. Local JSON snapshots are derived
+# artifacts; copying them again makes every NAS recovery run transfer hundreds
+# of MB without protecting any additional live data. PostgreSQL receives its
+# own logical dump below, while the remaining app data is copied directly.
+rsync -a \
+  --exclude 'synology-staging' \
+  --exclude 'backups/' \
+  --exclude '*.partial' \
+  "$APP_DATA_PATH/" "$destination/data/" || fail "Portal data sync failed"
 cp "$stage/$dump_file" "$destination/postgres/$dump_file" || fail "Could not write PostgreSQL dump to Synology"
 
 jq -n --arg at "$(date --iso-8601=seconds)" --arg data "$destination/data" --arg dump "$destination/postgres/$dump_file" \
-  '{createdAt:$at,appDataDestination:$data,postgresDump:$dump,note:"Portal data copied without deletion mirroring; PostgreSQL is a gzip-compressed logical pg_dump."}' \
+  '{createdAt:$at,appDataDestination:$data,postgresDump:$dump,note:"Live portal data copied without deletion mirroring; local derived backup archives excluded; PostgreSQL is a gzip-compressed logical pg_dump."}' \
   > "$destination/manifests/backup-$(date +%Y%m%d-%H%M%S).json"
 
 if [[ "$prune_old" == "true" ]]; then
