@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams, useRouter, useSearchParams } from "next/navigation"
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { ArrowLeft, Calendar, User, FileText, Clock, CheckCircle2, AlertCircle, ChevronDown, Star, Send, Printer } from "lucide-react"
@@ -449,8 +449,25 @@ export default function RequestDetailPage() {
   const router = useRouter()
   const id = params.id as string
   const searchParams = useSearchParams()
-  const backHref = searchParams.get("source") === "departments/hr/general" ? "/departments/hr/general" : "/requests"
-  const backLabel = backHref === "/departments/hr/general" ? "Back to HR General Requests" : "Back to Requests"
+  const pathname = usePathname()
+  const source = searchParams.get("source")
+  const backDestination = source === "invoices"
+    ? { href: "/departments/finance/invoices", label: "Back to Pre Paid Invoice Requests" }
+    : source === "reimbursement"
+      ? { href: "/departments/finance/reimbursement", label: "Back to General Reimbursement Requests" }
+      : source === "travel-reimbursement"
+        ? { href: "/departments/finance/travel-reimbursement", label: "Back to Travel Reimbursement Requests" }
+        : source === "departments/finance/reimbursement"
+          ? { href: "/departments/finance/all-requests", label: "Back to Finance Requests" }
+          : source === "departments/hr/general"
+            ? { href: "/departments/hr/general", label: "Back to HR General Requests" }
+            : pathname.startsWith("/departments/finance/requests/")
+              ? { href: "/departments/finance/my-requests", label: "Back to Finance Requests" }
+              : pathname.startsWith("/departments/hr/requests/")
+                ? { href: "/departments/hr/my-requests", label: "Back to People Requests" }
+                : { href: "/requests", label: "Back to Requests" }
+  const backHref = backDestination.href
+  const backLabel = backDestination.label
   const { data: session, status: sessionStatus } = useSession()
 
   const [request, setRequest] = useState<RequestDetail | null>(null)
