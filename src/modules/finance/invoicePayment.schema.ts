@@ -71,6 +71,7 @@ export const InvoicePaymentPayloadSchema = z.object({
   directManager: z.string().optional(),
   invoiceFile: AttachmentSchema.optional(),
   additionalAttachments: z.array(AttachmentSchema).optional(),
+  additionalNotes: z.string().trim().max(4000, "Additional notes must be 4,000 characters or fewer").optional(),
   ccEmails: z.array(z.string().email()).default([]),
 }).superRefine((value, context) => {
   if (value.poOrContract === "po") {

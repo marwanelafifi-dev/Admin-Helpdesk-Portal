@@ -88,7 +88,7 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
 
   const { register, control, handleSubmit, watch, setError, formState: { errors, isSubmitting }, reset } = useForm<TravelReimbursementFormValues>({
     resolver: zodResolver(TravelReimbursementPayloadSchema),
-    defaultValues: { priority: "Normal", expenseRows: [{ ...EMPTY_EXPENSE_ROW }], paidByPersonalCreditCard: false, ccEmails: [] },
+    defaultValues: { priority: "Normal", expenseRows: [{ ...EMPTY_EXPENSE_ROW }], paidByPersonalCreditCard: false, additionalNotes: "", ccEmails: [] },
   })
 
   const { fields: expenseFields, append: appendExpense, remove: removeExpense } = useFieldArray({ control, name: "expenseRows" })
@@ -128,6 +128,8 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
             }],
         authorizedManager: payload.authorizedManager || "",
         paidByPersonalCreditCard: payload.paidByPersonalCreditCard || false,
+        additionalNotes: payload.additionalNotes || "",
+        ccEmails: payload.ccEmails || [],
       })
     }
   }, [editingRequest, isEditing, reset])
@@ -580,6 +582,21 @@ export function TravelReimbursementForm({ onCancel, editingRequest, isEditing }:
                 </div>
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <SectionHeader icon={FileText} title="Additional Notes (Optional)" subtitle="Add any context Finance should know about this request" />
+          <CardContent>
+            <textarea
+              id="additionalNotes"
+              rows={4}
+              maxLength={4000}
+              placeholder="Add optional notes or instructions..."
+              {...register("additionalNotes")}
+              className={cn("flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring", errors.additionalNotes && "border-red-400")}
+            />
+            <FieldError message={errors.additionalNotes?.message} />
           </CardContent>
         </Card>
 

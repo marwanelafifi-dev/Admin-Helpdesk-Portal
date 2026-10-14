@@ -151,6 +151,13 @@ function getModuleColor(module: string) {
 
 type Tab = "details" | "activity" | "comments" | "attachments"
 
+/** A function-specific URL is a strict navigation boundary, even for Full Access. */
+function functionScopeFromPath(pathname: string): "finance" | "hr" | null {
+  if (pathname.startsWith("/departments/finance/")) return "finance"
+  if (pathname.startsWith("/departments/hr/")) return "hr"
+  return null
+}
+
 const FINANCE_TABLE_CURRENCIES = ["USD", "EUR", "EGP"] as const
 
 function escapePrintHtml(value: unknown): string {
@@ -912,6 +919,17 @@ export default function RequestDetailPage() {
           return
         }
 
+        // Do not let a copied URL bypass a function queue's module boundary.
+        // This is intentionally enforced by route context even for Full Access:
+        // full access can use the appropriate portal or platform-wide view,
+        // but a Finance/People request URL must not render another function's
+        // confidential record.
+        const routeFunction = functionScopeFromPath(pathname)
+        if (routeFunction && functionForModule(engineRequest.module) !== routeFunction) {
+          setError("This request belongs to a different function and cannot be opened from this portal.")
+          return
+        }
+
         // Resolve user IDs in the activity log (changedBy) to actual names
         // + emails via the user directory. Without this, the timeline just
         // shows raw "USR-1779…" identifiers.
@@ -1137,7 +1155,7 @@ export default function RequestDetailPage() {
     if (id) {
       fetchRequest()
     }
-  }, [id])
+  }, [id, pathname])
 
   // Mark comments as viewed
   useEffect(() => {

@@ -2,6 +2,8 @@ import fs from "fs"
 import path from "path"
 
 const STORE_PATH = path.join(process.cwd(), "data", "synology-backup.json")
+const HISTORY_PATH = path.join(process.cwd(), "data", "synology-backup-history.json")
+const HISTORY_LIMIT = 50
 
 export interface SynologyBackupConfig {
   enabled: boolean
@@ -18,6 +20,24 @@ export interface SynologyBackupConfig {
   lastFailureAt: string | null
   lastFailureMessage: string | null
   lastPostgresDump: string | null
+}
+
+/**
+ * Written by the backup host only after the final NAS PostgreSQL dump has
+ * passed gzip validation.  The web application reads this local index rather
+ * than browsing the NAS share, which keeps the portal isolated from NAS
+ * credentials and avoids a slow network request on every page load.
+ */
+export interface SynologyBackupHistoryEntry {
+  createdAt: string
+  trigger: "scheduled" | "manual"
+  postgresDump: string
+  postgresDumpBytes: number
+  postgresDumpSha256: string
+  manifest: string
+  appDataDestination: string
+  sourceAttachmentCount: number | null
+  destinationAttachmentCount: number | null
 }
 
 export const SYNOLOGY_BACKUP_DEFAULTS: SynologyBackupConfig = {
@@ -91,6 +111,35 @@ export function readSynologyBackupConfig(): SynologyBackupConfig {
     return normalize(JSON.parse(fs.readFileSync(STORE_PATH, "utf8")))
   } catch {
     return { ...SYNOLOGY_BACKUP_DEFAULTS }
+  }
+}
+
+function validHistoryEntry(value: unknown): value is SynologyBackupHistoryEntry {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false
+  const entry = value as Partial<SynologyBackupHistoryEntry>
+  return isDate(entry.createdAt)
+    && (entry.trigger === "scheduled" || entry.trigger === "manual")
+    && typeof entry.postgresDump === "string" && entry.postgresDump.length > 0 && entry.postgresDump.length <= 500
+    && typeof entry.postgresDumpBytes === "number" && Number.isSafeInteger(entry.postgresDumpBytes) && entry.postgresDumpBytes > 0
+    && typeof entry.postgresDumpSha256 === "string" && /^[a-f0-9]{64}$/i.test(entry.postgresDumpSha256)
+    && typeof entry.manifest === "string" && entry.manifest.length > 0 && entry.manifest.length <= 500
+    && typeof entry.appDataDestination === "string" && entry.appDataDestination.length > 0 && entry.appDataDestination.length <= 500
+    && (entry.sourceAttachmentCount === null || (typeof entry.sourceAttachmentCount === "number" && Number.isSafeInteger(entry.sourceAttachmentCount) && entry.sourceAttachmentCount >= 0))
+    && (entry.destinationAttachmentCount === null || (typeof entry.destinationAttachmentCount === "number" && Number.isSafeInteger(entry.destinationAttachmentCount) && entry.destinationAttachmentCount >= 0))
+}
+
+export function readSynologyBackupHistory(): SynologyBackupHistoryEntry[] {
+  try {
+    if (!fs.existsSync(HISTORY_PATH)) return []
+    const saved = JSON.parse(fs.readFileSync(HISTORY_PATH, "utf8")) as { entries?: unknown }
+    if (!Array.isArray(saved.entries)) return []
+    return saved.entries
+      .filter(validHistoryEntry)
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+      .slice(0, HISTORY_LIMIT)
+  } catch {
+    // A damaged status index must never make the administration page fail.
+    return []
   }
 }
 

@@ -8,6 +8,8 @@ NAS_MOUNT="${NAS_MOUNT:-/mnt/company-portal-synology}"
 DEFAULT_DESTINATION="${DEFAULT_DESTINATION:-$NAS_MOUNT/Company Portal}"
 DB_CONTAINER="${DB_CONTAINER:-company-portal-db}"
 CONFIG_FILE="$APP_DATA_PATH/synology-backup.json"
+HISTORY_FILE="$APP_DATA_PATH/synology-backup-history.json"
+HISTORY_LIMIT=50
 SCHEDULED_INVOCATION="${SCHEDULED_INVOCATION:-1}"
 
 require() { command -v "$1" >/dev/null 2>&1 || { echo "Missing required command: $1" >&2; exit 1; }; }
@@ -15,6 +17,7 @@ require docker
 require jq
 require rsync
 require gzip
+require sha256sum
 
 if [[ ! -d "$APP_DATA_PATH" ]]; then
   echo "Portal data folder not found: $APP_DATA_PATH" >&2
@@ -31,7 +34,44 @@ write_state() {
   [[ -f "$CONFIG_FILE" ]] || return 0
   temp="$(mktemp "${CONFIG_FILE}.tmp.XXXXXX")"
   jq "$filter" "$CONFIG_FILE" > "$temp"
+  # The portal container must keep being able to read this shared status file.
+  # mktemp runs as the systemd service user (normally root), so preserve the
+  # original ownership and mode instead of turning the file into root:root 0600
+  # after the first scheduled Synology run.
+  chown --reference="$CONFIG_FILE" "$temp"
+  chmod --reference="$CONFIG_FILE" "$temp"
   mv "$temp" "$CONFIG_FILE"
+}
+
+# The portal reads this compact local index to display recent *verified* NAS
+# backups.  Do not put it on the NAS: the portal container intentionally has
+# no NAS credentials or mount.  The index is appended only after the final
+# NAS dump has passed gzip verification.
+write_history() {
+  local entry temp
+  [[ -f "$CONFIG_FILE" ]] || return 0
+  entry="$(jq -n \
+    --arg createdAt "$(date --iso-8601=seconds)" \
+    --arg trigger "$1" \
+    --arg postgresDump "$nas_dump" \
+    --argjson postgresDumpBytes "$(stat -c '%s' "$nas_dump")" \
+    --arg postgresDumpSha256 "$(sha256sum "$nas_dump" | awk '{print $1}')" \
+    --arg manifest "$manifest_path" \
+    --arg appDataDestination "$destination/data" \
+    --argjson sourceAttachmentCount "$source_attachment_count" \
+    --argjson destinationAttachmentCount "$destination_attachment_count" \
+    '{createdAt:$createdAt,trigger:$trigger,postgresDump:$postgresDump,postgresDumpBytes:$postgresDumpBytes,postgresDumpSha256:$postgresDumpSha256,manifest:$manifest,appDataDestination:$appDataDestination,sourceAttachmentCount:$sourceAttachmentCount,destinationAttachmentCount:$destinationAttachmentCount}')"
+  temp="$(mktemp "${HISTORY_FILE}.tmp.XXXXXX")"
+  if [[ -f "$HISTORY_FILE" ]] && jq -e '.entries | type == "array"' "$HISTORY_FILE" >/dev/null 2>&1; then
+    jq --argjson entry "$entry" --argjson limit "$HISTORY_LIMIT" \
+      '{version:1,entries:([$entry] + ((.entries // []) | map(select(type == "object"))))[0:$limit]}' \
+      "$HISTORY_FILE" > "$temp"
+  else
+    jq -n --argjson entry "$entry" '{version:1,entries:[$entry]}' > "$temp"
+  fi
+  chown --reference="$CONFIG_FILE" "$temp"
+  chmod --reference="$CONFIG_FILE" "$temp"
+  mv "$temp" "$HISTORY_FILE"
 }
 
 enabled="true"
@@ -90,6 +130,7 @@ mkdir -p "$destination/data" "$destination/postgres" "$destination/manifests" ||
 
 docker exec "$DB_CONTAINER" sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" | gzip -c > "$1"' sh "$container_dump" || fail "PostgreSQL logical dump failed"
 docker cp "$DB_CONTAINER:$container_dump" "$stage/$dump_file" || fail "Could not copy PostgreSQL dump from container"
+gzip -t "$stage/$dump_file" || fail "Local PostgreSQL dump failed gzip verification"
 
 # Never use --delete: the NAS keeps the last known copy of portal files even
 # when a local file is accidentally removed. Local JSON snapshots are derived
@@ -102,10 +143,35 @@ rsync -a \
   --exclude '*.partial' \
   "$APP_DATA_PATH/" "$destination/data/" || fail "Portal data sync failed"
 cp "$stage/$dump_file" "$destination/postgres/$dump_file" || fail "Could not write PostgreSQL dump to Synology"
+nas_dump="$destination/postgres/$dump_file"
+# A successful copy syscall is not proof that a network-backed share retained
+# the complete file.  Verify the final NAS artifact before publishing either a
+# manifest or a successful status to the portal.
+[[ -s "$nas_dump" ]] || fail "PostgreSQL dump is missing or empty on Synology"
+gzip -t "$nas_dump" || fail "PostgreSQL dump failed gzip verification on Synology"
 
-jq -n --arg at "$(date --iso-8601=seconds)" --arg data "$destination/data" --arg dump "$destination/postgres/$dump_file" \
-  '{createdAt:$at,appDataDestination:$data,postgresDump:$dump,note:"Live portal data copied without deletion mirroring; local derived backup archives excluded; PostgreSQL is a gzip-compressed logical pg_dump."}' \
-  > "$destination/manifests/backup-$(date +%Y%m%d-%H%M%S).json"
+source_attachment_count="$(find "$APP_DATA_PATH/attachments" -type f 2>/dev/null | wc -l)"
+destination_attachment_count="$(find "$destination/data/attachments" -type f 2>/dev/null | wc -l)"
+manifest_path="$destination/manifests/backup-$(date +%Y%m%d-%H%M%S).json"
+manifest_temp="$(mktemp "$destination/manifests/.backup.tmp.XXXXXX")"
+jq -n \
+  --arg at "$(date --iso-8601=seconds)" \
+  --arg data "$destination/data" \
+  --arg dump "$nas_dump" \
+  --arg dumpSha256 "$(sha256sum "$nas_dump" | awk '{print $1}')" \
+  --argjson dumpBytes "$(stat -c '%s' "$nas_dump")" \
+  --argjson sourceAttachmentCount "$source_attachment_count" \
+  --argjson destinationAttachmentCount "$destination_attachment_count" \
+  '{version:2,verified:true,createdAt:$at,appDataDestination:$data,postgresDump:$dump,postgresDumpSha256:$dumpSha256,postgresDumpBytes:$dumpBytes,sourceAttachmentCount:$sourceAttachmentCount,destinationAttachmentCount:$destinationAttachmentCount,note:"Live portal data copied without deletion mirroring; local derived backup archives excluded; PostgreSQL is a gzip-validated logical pg_dump."}' \
+  > "$manifest_temp" || fail "Could not write Synology backup manifest"
+mv "$manifest_temp" "$manifest_path" || fail "Could not publish Synology backup manifest"
+
+if [[ "$pending_request" == true ]]; then
+  backup_trigger="manual"
+else
+  backup_trigger="scheduled"
+fi
+write_history "$backup_trigger" || fail "Could not record verified Synology backup history"
 
 if [[ "$prune_old" == "true" ]]; then
   find "$destination/postgres" -type f -name 'company-portal-*.sql.gz' -mtime "+$retention_days" -delete
@@ -113,5 +179,5 @@ if [[ "$prune_old" == "true" ]]; then
 fi
 
 if [[ -n "$requested_at" ]]; then write_state ".lastRequestHandledAt = \"$requested_at\""; fi
-write_state ".lastSuccessAt = \"$(date --iso-8601=seconds)\" | .lastFailureAt = null | .lastFailureMessage = null | .lastPostgresDump = \"$destination/postgres/$dump_file\""
+write_state ".lastSuccessAt = \"$(date --iso-8601=seconds)\" | .lastFailureAt = null | .lastFailureMessage = null | .lastPostgresDump = \"$nas_dump\""
 echo "Synology recovery backup completed: $destination"

@@ -67,10 +67,12 @@ services:
       start_period: 90s
     restart: always
 
-  # Backups must never run in the Next.js process: a full attachment snapshot
-  # can be hundreds of MB and block the Node event loop. This worker shares
-  # only the durable data mount, has no network access, and is CPU/memory
-  # constrained so portal traffic remains available during a backup.
+  # Legacy JSON snapshot worker. It serializes every attachment into one JSON
+  # string, which is not safe for large attachment collections (V8 eventually
+  # fails with "Invalid string length"). It is deliberately opt-in so a normal
+  # `docker compose up -d` cannot restart it. Use the verified Synology
+  # recovery timer for production backups until a streamed local archive
+  # format with matching restore support replaces this legacy format.
   backup-worker:
     image: company-portal-app
     container_name: company-portal-backup-worker
@@ -91,7 +93,9 @@ services:
     mem_limit: 2g
     pids_limit: 128
     init: true
-    restart: always
+    restart: "no"
+    profiles:
+      - legacy-json-backup
 
   # Cloudflare Tunnel — makes app accessible from anywhere
   # To activate: set CLOUDFLARE_TUNNEL_TOKEN in .env.local

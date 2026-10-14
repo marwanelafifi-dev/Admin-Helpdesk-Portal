@@ -46,6 +46,7 @@ export const TravelReimbursementPayloadSchema = z.object({
   reimbursementForm: AttachmentSchema.optional(),
   supportingDocument: AttachmentSchema.optional(),
   additionalAttachments: z.array(AttachmentSchema).optional(),
+  additionalNotes: z.string().trim().max(4000, "Additional notes must be 4,000 characters or fewer").optional(),
   ccEmails: z.array(z.string().email()),
 }).superRefine((data, ctx) => {
   data.expenseRows.forEach((row, index) => {

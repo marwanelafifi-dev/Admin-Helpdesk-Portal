@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getToken } from "@auth/core/jwt"
 import { canManageDatabase, requestMetadata } from "@/lib/databaseAccess"
 import { logServerAudit } from "@/lib/serverAuditLog"
-import { readSynologyBackupConfig, requestSynologyBackupRun, updateSynologyBackupSettings } from "@/lib/synologyBackupStore"
+import { readSynologyBackupConfig, readSynologyBackupHistory, requestSynologyBackupRun, updateSynologyBackupSettings } from "@/lib/synologyBackupStore"
 
 export const runtime = "nodejs"
 
@@ -15,7 +15,11 @@ export async function GET(req: NextRequest) {
   if (!token || !canManageDatabase({ role: token.role as string | undefined, permissions: token.permissions as string[] | undefined }, "view")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
-  return NextResponse.json({ config: readSynologyBackupConfig(), hostTask: { cadenceMinutes: 5, runsWhileSignedIn: true } })
+  return NextResponse.json({
+    config: readSynologyBackupConfig(),
+    history: readSynologyBackupHistory(),
+    hostTask: { cadenceMinutes: 5, runsWhileSignedIn: true },
+  })
 }
 
 export async function POST(req: NextRequest) {

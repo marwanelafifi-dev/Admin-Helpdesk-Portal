@@ -24,6 +24,8 @@ function Invoke-RobocopySafe {
 }
 
 $configPath = Join-Path $AppDataPath 'synology-backup.json'
+$historyPath = Join-Path $AppDataPath 'synology-backup-history.json'
+$historyLimit = 50
 $config = $null
 if (Test-Path -LiteralPath $configPath -PathType Leaf) {
     try { $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json } catch { $config = $null }
@@ -44,6 +46,47 @@ function Save-ConfigState {
     $temporary = "$configPath.$PID.tmp"
     $config | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $temporary -Encoding utf8
     Move-Item -LiteralPath $temporary -Destination $configPath -Force
+}
+
+function Test-GzipFile {
+    param([Parameter(Mandatory)][string]$Path)
+    $file = [System.IO.File]::OpenRead($Path)
+    try {
+        $gzip = [System.IO.Compression.GzipStream]::new($file, [System.IO.Compression.CompressionMode]::Decompress, $false)
+        try {
+            $buffer = New-Object byte[] 65536
+            while ($gzip.Read($buffer, 0, $buffer.Length) -gt 0) { }
+        } finally {
+            $gzip.Dispose()
+        }
+    } finally {
+        $file.Dispose()
+    }
+}
+
+function Add-VerifiedHistory {
+    param(
+        [Parameter(Mandatory)]$Entry
+    )
+
+    $existingEntries = @()
+    if (Test-Path -LiteralPath $historyPath -PathType Leaf) {
+        try {
+            $saved = Get-Content -LiteralPath $historyPath -Raw | ConvertFrom-Json
+            if ($null -ne $saved.entries) { $existingEntries = @($saved.entries) }
+        } catch {
+            # A damaged history must not hide a newly verified recovery backup.
+            $existingEntries = @()
+        }
+    }
+
+    $history = [ordered]@{
+        version = 1
+        entries = @((@($Entry) + @($existingEntries)) | Select-Object -First $historyLimit)
+    }
+    $temporary = "$historyPath.$PID.tmp"
+    $history | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $temporary -Encoding utf8
+    Move-Item -LiteralPath $temporary -Destination $historyPath -Force
 }
 
 if ($null -ne $config) {
@@ -105,27 +148,56 @@ try {
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $localDump -PathType Leaf)) {
         throw 'Could not copy the PostgreSQL dump from the database container.'
     }
+    Test-GzipFile -Path $localDump
 
     # Local scheduled JSON snapshots are derived artifacts. The recovery copy
     # needs live portal data and its dedicated PostgreSQL dump, not a second
     # transfer of every large local archive or its temporary write file.
     Invoke-RobocopySafe -Source $AppDataPath -Destination $dataDestination -ExtraArguments @('/XD', 'synology-staging', 'backups', '/XF', '*.partial')
-    Copy-Item -LiteralPath $localDump -Destination (Join-Path $postgresDestination $dumpFile) -Force
+    $nasDump = Join-Path $postgresDestination $dumpFile
+    Copy-Item -LiteralPath $localDump -Destination $nasDump -Force
+    if (-not (Test-Path -LiteralPath $nasDump -PathType Leaf) -or (Get-Item -LiteralPath $nasDump).Length -le 0) {
+        throw 'PostgreSQL dump is missing or empty on Synology.'
+    }
+    Test-GzipFile -Path $nasDump
+
+    $sourceAttachmentCount = @(Get-ChildItem -LiteralPath (Join-Path $AppDataPath 'attachments') -File -Recurse -ErrorAction SilentlyContinue).Count
+    $destinationAttachmentCount = @(Get-ChildItem -LiteralPath (Join-Path $dataDestination 'attachments') -File -Recurse -ErrorAction SilentlyContinue).Count
+    $dumpHash = (Get-FileHash -LiteralPath $nasDump -Algorithm SHA256).Hash.ToLowerInvariant()
+    $manifestPath = Join-Path $manifestDestination "backup-$timestamp.json"
 
     $manifest = [ordered]@{
+        version          = 2
+        verified         = $true
         createdAt        = (Get-Date).ToString('o')
-        appDataSource    = $AppDataPath
-        dataDestination  = $dataDestination
-        postgresDump     = (Join-Path $postgresDestination $dumpFile)
+        appDataDestination = $dataDestination
+        postgresDump     = $nasDump
+        postgresDumpSha256 = $dumpHash
+        postgresDumpBytes = (Get-Item -LiteralPath $nasDump).Length
+        sourceAttachmentCount = $sourceAttachmentCount
+        destinationAttachmentCount = $destinationAttachmentCount
         databaseContainer = 'company-portal-db'
-        note             = 'Live portal data copied without deletion mirroring; local derived backup archives excluded; PostgreSQL is a logical gzip-compressed pg_dump.'
+        note             = 'Live portal data copied without deletion mirroring; local derived backup archives excluded; PostgreSQL is a gzip-validated logical pg_dump.'
     } | ConvertTo-Json
-    Set-Content -LiteralPath (Join-Path $manifestDestination "backup-$timestamp.json") -Value $manifest -Encoding utf8
+    Set-Content -LiteralPath $manifestPath -Value $manifest -Encoding utf8
+
+    $trigger = if (-not $ScheduledInvocation -or $requestPending) { 'manual' } else { 'scheduled' }
+    Add-VerifiedHistory -Entry ([ordered]@{
+        createdAt = (Get-Date).ToString('o')
+        trigger = $trigger
+        postgresDump = $nasDump
+        postgresDumpBytes = (Get-Item -LiteralPath $nasDump).Length
+        postgresDumpSha256 = $dumpHash
+        manifest = $manifestPath
+        appDataDestination = $dataDestination
+        sourceAttachmentCount = $sourceAttachmentCount
+        destinationAttachmentCount = $destinationAttachmentCount
+    })
 
     Set-ConfigValue -Name 'lastSuccessAt' -Value (Get-Date).ToString('o')
     Set-ConfigValue -Name 'lastFailureAt' -Value $null
     Set-ConfigValue -Name 'lastFailureMessage' -Value $null
-    Set-ConfigValue -Name 'lastPostgresDump' -Value (Join-Path $postgresDestination $dumpFile)
+    Set-ConfigValue -Name 'lastPostgresDump' -Value $nasDump
     if ($ScheduledInvocation -and $requestedAt) { Set-ConfigValue -Name 'lastRequestHandledAt' -Value $requestedAt }
     Save-ConfigState
 

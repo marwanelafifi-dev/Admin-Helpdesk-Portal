@@ -75,6 +75,18 @@ type SynologyBackupConfig = {
   lastPostgresDump: string | null
 }
 
+type SynologyBackupHistoryEntry = {
+  createdAt: string
+  trigger: "scheduled" | "manual"
+  postgresDump: string
+  postgresDumpBytes: number
+  postgresDumpSha256: string
+  manifest: string
+  appDataDestination: string
+  sourceAttachmentCount: number | null
+  destinationAttachmentCount: number | null
+}
+
 // ── Constants ────────────────────────────────────────────────────────────────
 
 type ClearModuleDefinition = {
@@ -546,6 +558,7 @@ export default function DatabasePage() {
   const [runNowStatus, setRunNowStatus]           = useState<Status>({ type: "idle", message: "" })
   const [runningNow, setRunningNow]               = useState(false)
   const [synologyBackup, setSynologyBackup]       = useState<SynologyBackupConfig | null>(null)
+  const [synologyHistory, setSynologyHistory]     = useState<SynologyBackupHistoryEntry[]>([])
   const [synologyStatus, setSynologyStatus]       = useState<Status>({ type: "idle", message: "" })
   const [synologySaving, setSynologySaving]       = useState(false)
   const [reauthAction, setReauthAction] = useState<"restore" | "purge" | null>(null)
@@ -648,6 +661,7 @@ export default function DatabasePage() {
       if (!res.ok) return
       const json = await res.json()
       if (json.config) setSynologyBackup(json.config as SynologyBackupConfig)
+      if (Array.isArray(json.history)) setSynologyHistory(json.history as SynologyBackupHistoryEntry[])
     }).catch(() => {})
   }, [])
 
@@ -2414,6 +2428,29 @@ export default function DatabasePage() {
                   <><p className="font-semibold">Synology recovery copy is current</p><p className="mt-1">Last successful sync: {fmt(synologyBackup.lastSuccessAt)}</p>{synologyBackup.lastPostgresDump && <p className="mt-1 break-all font-mono text-[11px]">Database: {synologyBackup.lastPostgresDump}</p>}</>
                 ) : (
                   <><p className="font-semibold">Awaiting first tracked Synology backup</p><p className="mt-1">Save the settings, then choose “Queue backup now.” The host task records its result here.</p></>
+                )}
+              </div>
+
+              <div className="rounded-lg border border-cyan-100 bg-white">
+                <div className="flex items-center justify-between border-b border-cyan-100 bg-cyan-50/50 px-3 py-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-cyan-950">Verified Synology backups</p>
+                  <span className="text-xs text-gray-500">Latest {synologyHistory.length}</span>
+                </div>
+                {synologyHistory.length === 0 ? (
+                  <p className="p-3 text-xs text-gray-500">No verified backup has been recorded by this version yet. The next successful queued or scheduled backup will appear here.</p>
+                ) : (
+                  <div className="max-h-72 overflow-y-auto divide-y divide-gray-100">
+                    {synologyHistory.map((entry) => (
+                      <div key={`${entry.createdAt}-${entry.postgresDump}`} className="p-3 text-xs text-gray-700">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="font-semibold text-gray-900">{fmt(entry.createdAt)}</p>
+                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-800">Verified · {entry.trigger}</span>
+                        </div>
+                        <p className="mt-1 break-all font-mono text-[11px] text-gray-600">{entry.postgresDump}</p>
+                        <p className="mt-1 text-gray-500">PostgreSQL dump: {(entry.postgresDumpBytes / 1024).toFixed(1)} KB · Attachments: {entry.sourceAttachmentCount ?? "–"} local / {entry.destinationAttachmentCount ?? "–"} on Synology</p>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </>

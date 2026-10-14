@@ -81,7 +81,7 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
 
   const { register, control, handleSubmit, watch, setValue, setError, formState: { errors, isSubmitting }, reset } = useForm<InvoicePaymentFormValues>({
     resolver: zodResolver(InvoicePaymentPayloadSchema),
-    defaultValues: { priority: "Normal", poOrContract: "po", poNumbers: [], invoiceRows: [{ ...EMPTY_INVOICE_ROW }], directManager: "", approverEmail: "", approverName: "", ccEmails: [] },
+    defaultValues: { priority: "Normal", poOrContract: "po", poNumbers: [], invoiceRows: [{ ...EMPTY_INVOICE_ROW }], directManager: "", approverEmail: "", approverName: "", additionalNotes: "", ccEmails: [] },
   })
 
   const { fields: invoiceFields, append: appendInvoice, remove: removeInvoice } = useFieldArray({ control, name: "invoiceRows" })
@@ -109,6 +109,7 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
         directManager: payload.directManager || "",
         approverEmail: payload.approverEmail || "",
         approverName: payload.approverName || "",
+        additionalNotes: payload.additionalNotes || "",
         ccEmails: payload.ccEmails || [],
       })
     }
@@ -466,6 +467,21 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
                 </div>
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <SectionHeader icon={FileText} title="Additional Notes (Optional)" subtitle="Add any context Finance should know about this request" />
+          <CardContent>
+            <textarea
+              id="additionalNotes"
+              rows={4}
+              maxLength={4000}
+              placeholder="Add optional notes or instructions..."
+              {...register("additionalNotes")}
+              className={cn("flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring", errors.additionalNotes && "border-red-400")}
+            />
+            <FieldError message={errors.additionalNotes?.message} />
           </CardContent>
         </Card>
 

@@ -171,7 +171,13 @@ function stripAttachmentDataToFitQuota(requests: EngineRequest[]): EngineRequest
         mimeType: a?.mimeType,
         sizeBytes: a?.sizeBytes,
         uploadedAt: a?.uploadedAt,
-        // url intentionally omitted to save space
+        // Preserve links to files already stored by the server.  These are
+        // tiny compared with legacy data: URLs, and retaining them prevents a
+        // localStorage quota cleanup from making a live attachment disappear
+        // from its request before the next server sync.
+        url: typeof a?.url === "string" && a.url.startsWith("/api/requests/")
+          ? a.url
+          : undefined,
       }))
     return {
       ...r,

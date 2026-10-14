@@ -293,17 +293,22 @@ export default function GeneralRequestPage({
 
   const allVisibleRequests = useMemo(() => {
     if (!showCcRequests) return requests
-    // When CC toggle is on, include requests where the user is CC'd but not the requester
+    // When the CC toggle is on, include CC'd requests only from this page's
+    // explicitly allowed module scope.  Aggregate team queues (Finance/HR)
+    // must never re-add a request from another function after `loadRequests`
+    // correctly removed it — that would disclose confidential work merely
+    // because the viewer was CC'd on it.
     const userEmail = session?.user?.email ?? ""
     const userId = session?.user?.id ?? ""
-    const allRequests = getRequests().filter((r) => r.module === moduleId)
+    const visibleModules = aggregateModules ?? [moduleId]
+    const allRequests = getRequests().filter((r) => visibleModules.includes(r.module))
     const ccRequests = allRequests.filter((r) =>
       r.requesterId !== userId && // Not the requester
       !requests.some(req => req.id === r.id) && // Not already included
       isUserInCc(r, userEmail) // User is in CC
     )
     return [...requests, ...ccRequests]
-  }, [moduleId, requests, showCcRequests, session?.user?.email, session?.user?.id])
+  }, [moduleId, aggregateModules, requests, showCcRequests, session?.user?.email, session?.user?.id])
 
   const filtered = useMemo(() => {
     let result = allVisibleRequests
