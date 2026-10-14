@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react"
 import {
   Download, Upload, CheckCircle2, AlertTriangle, Clock, Shield, Trash2,
   Package, Wrench, ShoppingCart, CalendarDays, Plane, UserCog, ChevronRight, Inbox,
-  Power, LogOut, RefreshCw, Save, CalendarClock, FolderOpen,
+  Power, LogOut, RefreshCw, Save, CalendarClock,
   MessageSquare, Building2, Settings, Mail, RotateCcw, FileText,
   HardDrive,
 } from "lucide-react"
@@ -44,21 +44,6 @@ interface BackupManifest {
 }
 
 type Status = { type: "success" | "error" | "idle"; message: string }
-
-type BackupHealth = {
-  status: "healthy" | "warning" | "critical" | "disabled"
-  label: string
-  message: string
-  lastSuccessAt: string | null
-  lastFailureAt: string | null
-  lastFailureMessage: string | null
-  consecutiveFailures: number
-  expectedWithinHours: number | null
-  backupAgeHours: number | null
-  fileCount: number
-  retentionCount: number
-  retentionIssue: boolean
-}
 
 type SynologyBackupConfig = {
   enabled: boolean
@@ -191,12 +176,6 @@ const SERVER_FILE_STORES = [
     icon: Settings, color: "text-gray-600", bg: "bg-gray-50", border: "border-gray-200",
   },
   {
-    key: "server:backup-schedule",
-    label: "Backup Schedule",
-    description: "data/backup-schedule.json — scheduled backup configuration",
-    icon: CalendarClock, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-200",
-  },
-  {
     key: "server:email-config",
     label: "Email Configuration",
     description: "data/email-config.json — SMTP settings",
@@ -323,8 +302,8 @@ async function collectBackup(): Promise<BackupManifest> {
     if (raw) { try { data[key] = JSON.parse(raw) } catch { data[key] = raw } }
   })
 
-  // Push browser localStorage snapshot to the server so scheduled/server-side
-  // backups (Run Backup Now) also capture the full picture.
+  // Push the browser-local snapshot to the server so the downloadable
+  // recovery archive captures the complete current picture.
   try {
     await fetch("/api/admin/browser-data", {
       method: "POST",
@@ -451,61 +430,6 @@ function StatusAlert({ status }: { status: Status }) {
   )
 }
 
-// ── Page ─────────────────────────────────────────────────────────────────────
-
-function BackupHealthPanel({ health }: { health: BackupHealth }) {
-  const appearance = {
-    healthy: {
-      wrapper: "border-emerald-200 bg-emerald-50 text-emerald-950",
-      icon: "bg-emerald-100 text-emerald-700",
-      Icon: CheckCircle2,
-    },
-    warning: {
-      wrapper: "border-amber-200 bg-amber-50 text-amber-950",
-      icon: "bg-amber-100 text-amber-700",
-      Icon: AlertTriangle,
-    },
-    critical: {
-      wrapper: "border-red-200 bg-red-50 text-red-950",
-      icon: "bg-red-100 text-red-700",
-      Icon: AlertTriangle,
-    },
-    disabled: {
-      wrapper: "border-slate-200 bg-slate-50 text-slate-800",
-      icon: "bg-slate-200 text-slate-700",
-      Icon: Shield,
-    },
-  }[health.status]
-  const Icon = appearance.Icon
-
-  return (
-    <div className={"rounded-xl border p-4 " + appearance.wrapper} role="status" aria-live="polite">
-      <div className="flex items-start gap-3">
-        <div className={"mt-0.5 rounded-lg p-2 " + appearance.icon}><Icon className="h-4 w-4" /></div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-            <p className="text-sm font-semibold">Backup health: {health.label}</p>
-            {health.expectedWithinHours !== null && (
-              <span className="text-xs font-medium">Protection window: {health.expectedWithinHours} hours</span>
-            )}
-          </div>
-          <p className="mt-1 text-xs leading-5 opacity-90">{health.message}</p>
-          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs opacity-80">
-            <span>Last success: {health.lastSuccessAt ? fmt(health.lastSuccessAt) : "Not recorded"}</span>
-            <span>Local files: {health.fileCount}</span>
-            <span>Retention: {health.retentionCount === 0 ? "Unlimited" : health.retentionCount + " backups"}</span>
-            {health.lastFailureAt && <span>Last failure: {fmt(health.lastFailureAt)}</span>}
-          </div>
-          {health.consecutiveFailures > 0 && (
-            <p className="mt-2 text-xs font-medium">Consecutive failed attempts: {health.consecutiveFailures}</p>
-          )}
-          <p className="mt-2 text-[11px] opacity-75">Critical failures and overdue backups alert Full Access users in the portal. Email uses the Administration SMTP account; Teams delivery is enabled when <code>TEAMS_WEBHOOK_URL</code> is configured. Configure Synology replication separately for offsite recovery.</p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export default function DatabasePage() {
   const { data: session } = useSession()
   const actorName  = session?.user?.name  ?? session?.user?.email ?? "Admin"
@@ -543,20 +467,6 @@ export default function DatabasePage() {
   const [scheduledMaintenanceEnd, setScheduledMaintenanceEnd] = useState("")
   const [scheduledMaintenanceStatus, setScheduledMaintenanceStatus] = useState<Status>({ type: "idle", message: "" })
 
-  // ── Scheduled Backup state ────────────────────────────────────────────────
-  const [scheduleEnabled, setScheduleEnabled]     = useState(false)
-  const [scheduleFreqs, setScheduleFreqs]         = useState<("hourly"|"daily"|"weekly"|"monthly")[]>(["daily"])
-  const [scheduleTime, setScheduleTime]           = useState("02:00")
-  const [scheduleDayOfWeek, setScheduleDayOfWeek] = useState(0)
-  const [scheduleDayOfMonth, setScheduleDayOfMonth] = useState(1)
-  const [scheduleRetention, setScheduleRetention] = useState(30)
-  const [scheduleLastAt, setScheduleLastAt]       = useState<string | null>(null)
-  const [scheduleLastFile, setScheduleLastFile]   = useState<string | null>(null)
-  const [backupFiles, setBackupFiles]             = useState<{ filename: string; size: number; createdAt: string }[]>([])
-  const [backupHealth, setBackupHealth]           = useState<BackupHealth | null>(null)
-  const [scheduleSaveStatus, setScheduleSaveStatus] = useState<Status>({ type: "idle", message: "" })
-  const [runNowStatus, setRunNowStatus]           = useState<Status>({ type: "idle", message: "" })
-  const [runningNow, setRunningNow]               = useState(false)
   const [synologyBackup, setSynologyBackup]       = useState<SynologyBackupConfig | null>(null)
   const [synologyHistory, setSynologyHistory]     = useState<SynologyBackupHistoryEntry[]>([])
   const [synologyStatus, setSynologyStatus]       = useState<Status>({ type: "idle", message: "" })
@@ -627,33 +537,6 @@ export default function DatabasePage() {
       }
     }).catch(() => {})
 
-    const refreshBackupSchedule = () => {
-      void fetch("/api/admin/backup-schedule", { cache: "no-store" }).then(async (res) => {
-        if (!res.ok) return
-        const json = await res.json()
-        const s = json.schedule
-        if (s) {
-          setScheduleEnabled(Boolean(s.enabled))
-          if (Array.isArray(s.frequencies) && s.frequencies.length > 0) setScheduleFreqs(s.frequencies)
-          else if (s.frequency) setScheduleFreqs([s.frequency])
-          if (s.time) setScheduleTime(s.time)
-          if (typeof s.dayOfWeek === "number") setScheduleDayOfWeek(s.dayOfWeek)
-          if (typeof s.dayOfMonth === "number") setScheduleDayOfMonth(s.dayOfMonth)
-          if (typeof s.retentionCount === "number") setScheduleRetention(s.retentionCount)
-          setScheduleLastAt(s.lastBackupAt ?? null)
-          setScheduleLastFile(s.lastBackupFile ?? null)
-        }
-        if (Array.isArray(json.files)) setBackupFiles(json.files)
-        if (json.health) setBackupHealth(json.health as BackupHealth)
-      }).catch(() => {})
-    }
-    refreshBackupSchedule()
-    const healthRefresh = window.setInterval(refreshBackupSchedule, 5 * 60 * 1000)
-    window.addEventListener("focus", refreshBackupSchedule)
-    return () => {
-      window.clearInterval(healthRefresh)
-      window.removeEventListener("focus", refreshBackupSchedule)
-    }
   }, [])
 
   const refreshSynologyBackup = useCallback(() => {
@@ -836,36 +719,6 @@ export default function DatabasePage() {
     }
   }
 
-  async function saveSchedule() {
-    setScheduleSaveStatus({ type: "idle", message: "" })
-    try {
-      const res = await fetch("/api/admin/backup-schedule", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          enabled: scheduleEnabled,
-          frequencies: scheduleFreqs,
-          time: scheduleTime,
-          dayOfWeek: scheduleDayOfWeek,
-          dayOfMonth: scheduleDayOfMonth,
-          retentionCount: scheduleRetention,
-        }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? "Unable to save the backup schedule")
-      if (Array.isArray(json.files)) setBackupFiles(json.files)
-      if (json.health) setBackupHealth(json.health as BackupHealth)
-      if (json.schedule) {
-        setScheduleLastAt(json.schedule.lastBackupAt ?? null)
-        setScheduleLastFile(json.schedule.lastBackupFile ?? null)
-      }
-      setScheduleSaveStatus({ type: "success", message: "Schedule saved. The backup runner will pick it up within 5 minutes." })
-      setTimeout(() => setScheduleSaveStatus({ type: "idle", message: "" }), 5000)
-    } catch (e: any) {
-      setScheduleSaveStatus({ type: "error", message: `Failed to save: ${e?.message}` })
-    }
-  }
-
   function updateSynologyBackup(patch: Partial<SynologyBackupConfig>) {
     setSynologyBackup((current) => current ? { ...current, ...patch } : current)
   }
@@ -917,41 +770,6 @@ export default function DatabasePage() {
       setSynologyStatus({ type: "error", message: error instanceof Error ? error.message : "Could not request a Synology backup" })
     } finally {
       setSynologySaving(false)
-    }
-  }
-
-  async function runBackupNow() {
-    setRunNowStatus({ type: "idle", message: "" })
-    setRunningNow(true)
-    try {
-      // Push current browser localStorage to server first so the server-side
-      // backup file includes browser data (tasks, notifications, audit log, etc.)
-      const browserData: Record<string, unknown> = {}
-      discoverAllOwnedKeys().forEach((key) => {
-        const raw = localStorage.getItem(key)
-        if (raw) { try { browserData[key] = JSON.parse(raw) } catch { browserData[key] = raw } }
-      })
-      await fetch("/api/admin/browser-data", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data: browserData }),
-      }).catch(() => {})
-
-      const res = await fetch("/api/admin/backup-now", { method: "POST" })
-      const json = await res.json()
-      if (Array.isArray(json.files)) setBackupFiles(json.files)
-      if (json.health) setBackupHealth(json.health as BackupHealth)
-      if (json.schedule) {
-        setScheduleLastAt(json.schedule.lastBackupAt ?? null)
-        setScheduleLastFile(json.schedule.lastBackupFile ?? null)
-      }
-      if (!res.ok) throw new Error(json.error ?? "Unknown error")
-      logAuditEvent({ actor: actorName, actorEmail, action: "database_backup", targetId: json.job?.id ?? "", targetTitle: "Scheduled Backup (Run Now)", module: "database", details: "Backup queued for the isolated worker." })
-      setRunNowStatus({ type: "success", message: json.queued === false ? "A backup is already queued or running." : "Backup queued. The isolated worker will run it shortly without interrupting the portal." })
-    } catch (e: any) {
-      setRunNowStatus({ type: "error", message: `Backup failed: ${e?.message}` })
-    } finally {
-      setRunningNow(false)
     }
   }
 
@@ -1359,12 +1177,6 @@ export default function DatabasePage() {
           body: JSON.stringify({}),
         })
         try { localStorage.removeItem("arp_platform_settings") } catch {}
-      } else if (key === "server:backup-schedule") {
-        await fetch("/api/admin/backup-schedule", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ enabled: false, lastBackupAt: null, lastBackupFile: null }),
-        })
       } else if (key === "server:email-config") {
         await fetch("/api/admin/server-data", {
           method: "POST",
@@ -1405,7 +1217,7 @@ export default function DatabasePage() {
         <Shield className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
         <div className="text-sm text-blue-800">
           <p className="font-semibold">What is included in a backup?</p>
-          <p className="mt-0.5 text-blue-700">Every store the app owns is captured automatically — browser data (requests, tasks, viewed comments, company data, platform settings, logos, theme) <strong>and</strong> server-side data for all Administration, HR, and Finance functions. That includes request and approval history, Finance SLA reminders, deleted requests, notifications, surveys, audit records, email settings, schedules, and uploaded supporting files. Browser data is synced to the server on every backup so <strong>Run Backup Now</strong> and scheduled backups capture the full picture too. Version 1.2 backups restore JSON data and attachment files together; old v1.0 and v1.1 files remain accepted. <strong>Team Requests</strong> is a filtered view of the request store (no separate data) — it is covered by the All Requests backup.</p>
+          <p className="mt-0.5 text-blue-700">Every store the app owns is captured automatically — browser data (requests, tasks, viewed comments, company data, platform settings, logos, theme) <strong>and</strong> server-side data for all Administration, HR, and Finance functions. That includes request and approval history, Finance SLA reminders, deleted requests, notifications, surveys, audit records, email settings, schedules, and uploaded supporting files. Download Backup creates a portable recovery archive; Synology Recovery Backup creates the verified off-device PostgreSQL and portal-data copy. Version 1.2 backups restore JSON data and attachment files together; old v1.0 and v1.1 files remain accepted. <strong>Team Requests</strong> is a filtered view of the request store (no separate data) — it is covered by the All Requests backup.</p>
         </div>
       </div>
 
@@ -2161,181 +1973,6 @@ export default function DatabasePage() {
               <StatusAlert status={recoverStatus} />
             </div>
           </div>
-
-        </CardContent>
-      </Card>
-
-      {/* ── Scheduled Backups ── */}
-      <Card className="border shadow-sm">
-        <CardHeader className="border-b bg-gray-50 rounded-t-lg">
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-100 rounded-lg p-2"><CalendarClock className="h-5 w-5 text-blue-700" /></div>
-            <div>
-              <CardTitle className="text-base font-semibold text-gray-900">Scheduled Backups</CardTitle>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Automatic backups saved to <code className="bg-gray-100 px-1 rounded text-[11px]">~/admin-helpdesk-Backup</code> on the Ubuntu server
-              </p>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-6 space-y-5">
-          {backupHealth && <BackupHealthPanel health={backupHealth} />}
-
-          {/* Enable toggle */}
-          <div className="flex items-center justify-between py-3 border-b border-gray-100">
-            <div>
-              <p className="text-sm font-semibold text-gray-800">Enable Automatic Backups</p>
-              <p className="text-xs text-gray-500 mt-0.5">The server runs a background check every 5 minutes and triggers a backup when due</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setScheduleEnabled((v) => !v)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${scheduleEnabled ? "bg-blue-600" : "bg-gray-300"}`}
-            >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${scheduleEnabled ? "translate-x-6" : "translate-x-1"}`} />
-            </button>
-          </div>
-
-          {/* Schedule config — only shown when enabled */}
-          {scheduleEnabled && (
-            <div className="space-y-4">
-              {/* Frequency — multi-select: click to toggle each on/off */}
-              <div>
-                <p className="text-xs font-medium text-gray-600 mb-2">Frequency <span className="text-gray-400 font-normal">(select one or more)</span></p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {(["hourly","daily","weekly","monthly"] as const).map((f) => {
-                    const active = scheduleFreqs.includes(f)
-                    return (
-                      <button
-                        key={f}
-                        onClick={() => setScheduleFreqs((prev) =>
-                          active ? prev.filter((x) => x !== f) : [...prev, f]
-                        )}
-                        className={`rounded-lg border-2 px-4 py-3 text-sm font-medium transition-all ${active ? "bg-blue-600 border-blue-600 text-white" : "border-gray-200 bg-white text-gray-700 hover:border-blue-300"}`}
-                      >
-                        {f.charAt(0).toUpperCase() + f.slice(1)}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Time (shown when any non-hourly frequency is active) */}
-                {scheduleFreqs.some((f) => f !== "hourly") && (
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-gray-600">Time (24h)</label>
-                    <input
-                      type="time"
-                      value={scheduleTime}
-                      onChange={(e) => setScheduleTime(e.target.value)}
-                      className="h-9 w-full rounded-md border border-input bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                    />
-                  </div>
-                )}
-
-                {/* Day of week (weekly only) */}
-                {scheduleFreqs.includes("weekly") && (
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-gray-600">Day of Week</label>
-                    <select
-                      value={scheduleDayOfWeek}
-                      onChange={(e) => setScheduleDayOfWeek(Number(e.target.value))}
-                      className="h-9 w-full rounded-md border border-input bg-white px-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                    >
-                      {["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].map((d, i) => (
-                        <option key={i} value={i}>{d}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Day of month (monthly only) */}
-                {scheduleFreqs.includes("monthly") && (
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-gray-600">Day of Month</label>
-                    <select
-                      value={scheduleDayOfMonth}
-                      onChange={(e) => setScheduleDayOfMonth(Number(e.target.value))}
-                      className="h-9 w-full rounded-md border border-input bg-white px-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                    >
-                      {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
-                        <option key={d} value={d}>{d}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Retention */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-gray-600">Keep last N backups (0 = keep all)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    max={365}
-                    value={scheduleRetention}
-                    onChange={(e) => setScheduleRetention(Number(e.target.value))}
-                    className="h-9 w-full rounded-md border border-input bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Save schedule + Run now */}
-          <div className="flex flex-wrap items-center gap-3 pt-1">
-            <Button onClick={saveSchedule} className="bg-blue-600 hover:bg-blue-700 text-white">
-              <Save className="h-4 w-4 mr-2" />Save Schedule
-            </Button>
-            <Button onClick={runBackupNow} disabled={runningNow} variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-50">
-              {runningNow
-                ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Running...</>
-                : <><Download className="h-4 w-4 mr-2" />Run Backup Now</>}
-            </Button>
-          </div>
-          <StatusAlert status={scheduleSaveStatus} />
-          <StatusAlert status={runNowStatus} />
-
-          {/* Last backup info */}
-          {scheduleLastAt && (
-            <div className="flex items-center gap-2 text-xs text-gray-500 border-t border-gray-100 pt-3">
-              <Clock className="h-3.5 w-3.5 shrink-0" />
-              <span>Last backup: <strong>{fmt(scheduleLastAt)}</strong></span>
-              {scheduleLastFile && <span className="font-mono text-gray-400">— {scheduleLastFile}</span>}
-            </div>
-          )}
-
-          {/* Backup file list */}
-          {backupFiles.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <FolderOpen className="h-4 w-4 text-gray-400" />
-                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Saved Backup Files ({backupFiles.length})</p>
-              </div>
-              <div className="rounded-xl border border-gray-200 divide-y divide-gray-100 overflow-hidden max-h-64 overflow-y-auto">
-                {backupFiles.map((f) => (
-                  <div key={f.filename} className="flex items-center gap-3 px-4 py-2.5 bg-white hover:bg-gray-50">
-                    <Download className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-mono text-gray-700 truncate">{f.filename}</p>
-                      <p className="text-xs text-gray-400">{(f.size / 1024).toFixed(1)} KB &bull; {fmt(f.createdAt)}</p>
-                    </div>
-                    <a
-                      href={`/api/admin/backup-file?name=${encodeURIComponent(f.filename)}`}
-                      className="shrink-0 text-xs font-medium text-blue-700 hover:text-blue-900 hover:underline"
-                    >
-                      Download
-                    </a>
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-gray-500">Download any saved scheduled backup, then use <strong>Restore from Backup</strong> above to restore it.</p>
-            </div>
-          )}
-
-          {backupFiles.length === 0 && scheduleLastAt === null && (
-            <p className="text-xs text-gray-400 italic">No automated backups yet. Click "Run Backup Now" to create the first one.</p>
-          )}
 
         </CardContent>
       </Card>
