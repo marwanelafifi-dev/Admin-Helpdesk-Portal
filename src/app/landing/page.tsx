@@ -138,7 +138,7 @@ export default async function DepartmentSelectorPage() {
             : "xl:grid-cols-4"
 
   return (
-    <main className="landing-page app-page-enter relative min-h-screen bg-[#f5f9ff] px-4 py-4 text-slate-900 dark:!bg-[radial-gradient(ellipse_at_top,_#123a60_0%,_#0b213a_42%,_#07111f_78%)] dark:text-slate-100 lg:h-screen lg:overflow-hidden sm:px-6 sm:py-6">
+    <main className="landing-page app-page-enter relative min-h-screen bg-[#f5f9ff] px-4 py-4 text-slate-900 dark:!bg-[radial-gradient(ellipse_at_top,_#123a60_0%,_#0b213a_42%,_#07111f_78%)] dark:text-slate-100 sm:px-6 sm:py-6">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[28rem] bg-[radial-gradient(ellipse_at_top,_rgba(191,219,254,0.98),_rgba(239,246,255,0.56)_42%,_transparent_70%)] dark:bg-[radial-gradient(ellipse_at_top,_rgba(56,189,248,0.22),_rgba(24,90,148,0.1)_44%,_transparent_72%)]" />
       <div className="pointer-events-none absolute -left-24 top-72 h-80 w-80 rounded-full bg-cyan-100/40 blur-3xl dark:bg-cyan-500/10" />
       <div className="pointer-events-none absolute -right-20 top-28 h-96 w-96 rounded-full bg-indigo-100/35 blur-3xl dark:bg-indigo-500/10" />
