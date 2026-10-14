@@ -25,8 +25,17 @@ if [ $attempt -gt $max_attempts ]; then
   exit 1
 fi
 
-echo "Generating Prisma client for Linux..."
-npx prisma generate
+# The image build already runs `prisma generate` after installing the Linux
+# dependencies. Re-running it on every container boot can take several
+# minutes on the production VM, unnecessarily keeping the web server offline.
+# Retain a safe fallback for an incomplete/corrupt image, but use the
+# generated client that belongs to a normal image.
+if [ ! -f /app/node_modules/.prisma/client/index.js ]; then
+  echo "Prisma client is missing; generating it for Linux..."
+  npx prisma generate
+else
+  echo "Prisma client is already available."
+fi
 
 echo "Running Prisma migrations..."
 if [ "${PRISMA_MIGRATION_MODE:-deploy}" = "push" ]; then
