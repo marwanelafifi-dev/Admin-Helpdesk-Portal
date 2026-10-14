@@ -68,8 +68,24 @@ type SynologyBackupHistoryEntry = {
   postgresDumpSha256: string
   manifest: string
   appDataDestination: string
+  dataArchive: string | null
+  dataArchiveBytes: number | null
+  dataArchiveSha256: string | null
   sourceAttachmentCount: number | null
   destinationAttachmentCount: number | null
+}
+
+type SynologyRestoreStatus = {
+  id: string
+  status: "queued" | "creating_safety_backup" | "validating" | "restoring" | "verifying" | "succeeded" | "failed"
+  requestedAt: string
+  requestedBy: string
+  targetManifest: string
+  targetCreatedAt: string
+  message: string
+  startedAt: string | null
+  completedAt: string | null
+  safetyBackupManifest: string | null
 }
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -471,6 +487,11 @@ export default function DatabasePage() {
   const [synologyHistory, setSynologyHistory]     = useState<SynologyBackupHistoryEntry[]>([])
   const [synologyStatus, setSynologyStatus]       = useState<Status>({ type: "idle", message: "" })
   const [synologySaving, setSynologySaving]       = useState(false)
+  const [synologyRestoreStatus, setSynologyRestoreStatus] = useState<SynologyRestoreStatus | null>(null)
+  const [restoreSynologyEntry, setRestoreSynologyEntry] = useState<SynologyBackupHistoryEntry | null>(null)
+  const [synologyRestoreConfirm, setSynologyRestoreConfirm] = useState("")
+  const [synologyRestoreAcknowledged, setSynologyRestoreAcknowledged] = useState(false)
+  const [synologyRestoreSubmitting, setSynologyRestoreSubmitting] = useState(false)
   const [reauthAction, setReauthAction] = useState<"restore" | "purge" | null>(null)
   const [reauthPassword, setReauthPassword] = useState("")
   const [reauthStatus, setReauthStatus] = useState<Status>({ type: "idle", message: "" })
@@ -545,6 +566,7 @@ export default function DatabasePage() {
       const json = await res.json()
       if (json.config) setSynologyBackup(json.config as SynologyBackupConfig)
       if (Array.isArray(json.history)) setSynologyHistory(json.history as SynologyBackupHistoryEntry[])
+      setSynologyRestoreStatus(json.restoreStatus ? json.restoreStatus as SynologyRestoreStatus : null)
     }).catch(() => {})
   }, [])
 
@@ -771,6 +793,41 @@ export default function DatabasePage() {
     } finally {
       setSynologySaving(false)
     }
+  }
+
+  function openSynologyRestore(entry: SynologyBackupHistoryEntry) {
+    setRestoreSynologyEntry(entry)
+    setSynologyRestoreConfirm("")
+    setSynologyRestoreAcknowledged(false)
+  }
+
+  async function queueSynologyRestore() {
+    if (!restoreSynologyEntry) return
+    await beginProtectedDatabaseAction("restore", async () => {
+      setSynologyRestoreSubmitting(true)
+      setSynologyStatus({ type: "idle", message: "" })
+      try {
+        const response = await fetch("/api/admin/synology-restore", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            manifest: restoreSynologyEntry.manifest,
+            confirmation: synologyRestoreConfirm,
+            safetyAcknowledged: synologyRestoreAcknowledged,
+          }),
+        })
+        const json = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(json.error ?? "Could not queue the Synology restore")
+        setSynologyRestoreStatus(json.status as SynologyRestoreStatus)
+        setRestoreSynologyEntry(null)
+        setSynologyStatus({ type: "success", message: "Restore queued. The host will create and verify a fresh Synology safety backup before it changes live data." })
+        refreshSynologyBackup()
+      } catch (error) {
+        setSynologyStatus({ type: "error", message: error instanceof Error ? error.message : "Could not queue the Synology restore" })
+      } finally {
+        setSynologyRestoreSubmitting(false)
+      }
+    })
   }
 
   // Per-module confirm
@@ -2039,13 +2096,13 @@ export default function DatabasePage() {
                     onChange={(event) => updateSynologyBackup({ retentionDays: Number(event.target.value) })}
                     className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-cyan-700"
                   />
-                  <p className="text-xs text-gray-500">Keeps recovery dumps and backup manifests for the selected period.</p>
+                  <p className="text-xs text-gray-500">Keeps recovery dumps, versioned data archives, and manifests for the selected period.</p>
                 </div>
               </div>
 
               <label className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
                 <input type="checkbox" checked={synologyBackup.pruneOldBackups} onChange={(event) => updateSynologyBackup({ pruneOldBackups: event.target.checked })} className="mt-0.5 h-4 w-4 accent-cyan-700" />
-                <span><strong>Apply the retention policy on Synology</strong><br /><span className="text-xs text-gray-500">When enabled, only old PostgreSQL dumps and manifests are removed. Portal data is never deletion-mirrored to the NAS.</span></span>
+                <span><strong>Apply the retention policy on Synology</strong><br /><span className="text-xs text-gray-500">When enabled, matching old PostgreSQL dumps, versioned recovery archives, and manifests are removed. The live portal-data mirror is never deletion-mirrored to the NAS.</span></span>
               </label>
 
               <div className="flex flex-wrap items-center gap-3">
@@ -2057,6 +2114,14 @@ export default function DatabasePage() {
                 </Button>
               </div>
               <StatusAlert status={synologyStatus} />
+
+              {synologyRestoreStatus && (
+                <div className={`rounded-lg border p-3 text-xs ${synologyRestoreStatus.status === "failed" ? "border-red-200 bg-red-50 text-red-900" : synologyRestoreStatus.status === "succeeded" ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+                  <p className="font-semibold">Synology restore: {synologyRestoreStatus.status.replaceAll("_", " ")}</p>
+                  <p className="mt-1">{synologyRestoreStatus.message}</p>
+                  {synologyRestoreStatus.safetyBackupManifest && <p className="mt-1 break-all font-mono text-[11px]">Safety point: {synologyRestoreStatus.safetyBackupManifest}</p>}
+                </div>
+              )}
 
               <div className={`rounded-lg border p-3 text-xs ${synologyBackup.lastFailureAt ? "border-red-200 bg-red-50 text-red-900" : synologyBackup.lastSuccessAt ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
                 {synologyBackup.lastFailureAt ? (
@@ -2090,10 +2155,60 @@ export default function DatabasePage() {
                   </div>
                 )}
               </div>
+
+              <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-950">Restore a complete historical version</p>
+                <p className="mt-1 text-xs text-amber-900">A restore always creates and verifies a new Synology safety backup first. Only entries with a versioned data archive can restore the database and attachments as one version.</p>
+                <div className="mt-3 space-y-2">
+                  {synologyHistory.filter((entry) => Boolean(entry.dataArchive)).map((entry) => (
+                    <div key={`restore-${entry.createdAt}-${entry.manifest}`} className="flex flex-wrap items-center justify-between gap-2 rounded border border-amber-100 bg-white p-2 text-xs">
+                      <div>
+                        <p className="font-semibold text-gray-900">{fmt(entry.createdAt)}</p>
+                        <p className="text-gray-600">Verified data archive: {((entry.dataArchiveBytes ?? 0) / 1024 / 1024).toFixed(1)} MB</p>
+                      </div>
+                      <Button type="button" size="sm" variant="outline" onClick={() => openSynologyRestore(entry)} disabled={synologyRestoreSubmitting} className="border-amber-300 text-amber-900 hover:bg-amber-50">
+                        <RotateCcw className="mr-1 h-3.5 w-3.5" />Restore this version
+                      </Button>
+                    </div>
+                  ))}
+                  {synologyHistory.length > 0 && synologyHistory.every((entry) => !entry.dataArchive) && <p className="text-xs text-amber-900">Existing entries use the legacy format. Queue one new Synology backup after deploying this update; it will create the first restorable complete version.</p>}
+                </div>
+              </div>
             </>
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={Boolean(restoreSynologyEntry)} onOpenChange={(open) => { if (!open && !synologyRestoreSubmitting) setRestoreSynologyEntry(null) }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Restore a verified Synology version</DialogTitle>
+            <DialogDescription>This replaces live portal data and PostgreSQL with the selected historical version. The host first creates and verifies a new complete Synology safety backup of the current portal, and automatically rolls back to it if this restore cannot be completed.</DialogDescription>
+          </DialogHeader>
+          {restoreSynologyEntry && (
+            <div className="space-y-4 text-sm text-gray-700">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-950">
+                <p className="font-semibold">Selected version: {fmt(restoreSynologyEntry.createdAt)}</p>
+                <p className="mt-1 text-xs">The portal will be temporarily unavailable while the host restores and health-checks it. The fresh safety point is kept on Synology.</p>
+              </div>
+              <label className="flex items-start gap-3 text-xs">
+                <input type="checkbox" checked={synologyRestoreAcknowledged} onChange={(event) => setSynologyRestoreAcknowledged(event.target.checked)} className="mt-0.5 h-4 w-4 accent-amber-700" />
+                <span>I understand that the live portal will be replaced only after a fresh Synology safety backup has completed and passed verification.</span>
+              </label>
+              <div>
+                <label className="text-xs font-medium text-gray-700">Type <code className="rounded bg-gray-100 px-1">RESTORE {restoreSynologyEntry.createdAt}</code> to confirm</label>
+                <input value={synologyRestoreConfirm} onChange={(event) => setSynologyRestoreConfirm(event.target.value)} autoComplete="off" className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 font-mono text-xs" />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setRestoreSynologyEntry(null)} disabled={synologyRestoreSubmitting}>Cancel</Button>
+            <Button type="button" onClick={() => void queueSynologyRestore()} disabled={!restoreSynologyEntry || !synologyRestoreAcknowledged || synologyRestoreConfirm !== `RESTORE ${restoreSynologyEntry.createdAt}` || synologyRestoreSubmitting} className="bg-amber-700 text-white hover:bg-amber-800">
+              {synologyRestoreSubmitting ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-2 h-4 w-4" />}Create safety backup, then restore
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Restore-drill tracking was removed at the administrator's request.
       <Card className="border-indigo-200">

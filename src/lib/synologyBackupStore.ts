@@ -1,8 +1,11 @@
 import fs from "fs"
 import path from "path"
+import crypto from "crypto"
 
 const STORE_PATH = path.join(process.cwd(), "data", "synology-backup.json")
 const HISTORY_PATH = path.join(process.cwd(), "data", "synology-backup-history.json")
+const RESTORE_REQUEST_PATH = path.join(process.cwd(), "data", "synology-restore-request.json")
+const RESTORE_STATUS_PATH = path.join(process.cwd(), "data", "synology-restore-status.json")
 const HISTORY_LIMIT = 50
 
 export interface SynologyBackupConfig {
@@ -36,8 +39,26 @@ export interface SynologyBackupHistoryEntry {
   postgresDumpSha256: string
   manifest: string
   appDataDestination: string
+  /** Present for recovery format v3 and later. A versioned, verified archive is required for an exact restore. */
+  dataArchive: string | null
+  dataArchiveBytes: number | null
+  dataArchiveSha256: string | null
   sourceAttachmentCount: number | null
   destinationAttachmentCount: number | null
+}
+
+export interface SynologyRestoreStatus {
+  id: string
+  status: "queued" | "creating_safety_backup" | "validating" | "restoring" | "verifying" | "succeeded" | "failed"
+  requestedAt: string
+  requestedBy: string
+  targetManifest: string
+  targetCreatedAt: string
+  message: string
+  startedAt: string | null
+  completedAt: string | null
+  /** The new, verified Synology point created immediately before a restore. */
+  safetyBackupManifest: string | null
 }
 
 export const SYNOLOGY_BACKUP_DEFAULTS: SynologyBackupConfig = {
@@ -124,6 +145,9 @@ function validHistoryEntry(value: unknown): value is SynologyBackupHistoryEntry 
     && typeof entry.postgresDumpSha256 === "string" && /^[a-f0-9]{64}$/i.test(entry.postgresDumpSha256)
     && typeof entry.manifest === "string" && entry.manifest.length > 0 && entry.manifest.length <= 500
     && typeof entry.appDataDestination === "string" && entry.appDataDestination.length > 0 && entry.appDataDestination.length <= 500
+    && (entry.dataArchive === null || (typeof entry.dataArchive === "string" && entry.dataArchive.length > 0 && entry.dataArchive.length <= 500))
+    && (entry.dataArchiveBytes === null || (typeof entry.dataArchiveBytes === "number" && Number.isSafeInteger(entry.dataArchiveBytes) && entry.dataArchiveBytes > 0))
+    && (entry.dataArchiveSha256 === null || (typeof entry.dataArchiveSha256 === "string" && /^[a-f0-9]{64}$/i.test(entry.dataArchiveSha256)))
     && (entry.sourceAttachmentCount === null || (typeof entry.sourceAttachmentCount === "number" && Number.isSafeInteger(entry.sourceAttachmentCount) && entry.sourceAttachmentCount >= 0))
     && (entry.destinationAttachmentCount === null || (typeof entry.destinationAttachmentCount === "number" && Number.isSafeInteger(entry.destinationAttachmentCount) && entry.destinationAttachmentCount >= 0))
 }
@@ -134,6 +158,18 @@ export function readSynologyBackupHistory(): SynologyBackupHistoryEntry[] {
     const saved = JSON.parse(fs.readFileSync(HISTORY_PATH, "utf8")) as { entries?: unknown }
     if (!Array.isArray(saved.entries)) return []
     return saved.entries
+      .map((entry) => {
+        if (!entry || typeof entry !== "object" || Array.isArray(entry)) return entry
+        // v2 history entries predate immutable data archives. Keep them visible
+        // while making their restore-ineligible state explicit to callers.
+        const source = entry as Record<string, unknown>
+        return {
+          ...source,
+          dataArchive: source.dataArchive ?? null,
+          dataArchiveBytes: source.dataArchiveBytes ?? null,
+          dataArchiveSha256: source.dataArchiveSha256 ?? null,
+        }
+      })
       .filter(validHistoryEntry)
       .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
       .slice(0, HISTORY_LIMIT)
@@ -141,6 +177,73 @@ export function readSynologyBackupHistory(): SynologyBackupHistoryEntry[] {
     // A damaged status index must never make the administration page fail.
     return []
   }
+}
+
+function safeRestoreStatus(value: unknown): SynologyRestoreStatus | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  const source = value as Partial<SynologyRestoreStatus>
+  const states: SynologyRestoreStatus["status"][] = ["queued", "creating_safety_backup", "validating", "restoring", "verifying", "succeeded", "failed"]
+  if (typeof source.id !== "string" || !/^[a-f0-9-]{16,80}$/i.test(source.id)
+    || !states.includes(source.status as SynologyRestoreStatus["status"])
+    || !isDate(source.requestedAt)
+    || typeof source.requestedBy !== "string" || source.requestedBy.length > 320
+    || typeof source.targetManifest !== "string" || source.targetManifest.length === 0 || source.targetManifest.length > 500
+    || !isDate(source.targetCreatedAt)
+    || typeof source.message !== "string" || source.message.length > 1000) return null
+  return {
+    id: source.id,
+    status: source.status as SynologyRestoreStatus["status"],
+    requestedAt: source.requestedAt,
+    requestedBy: source.requestedBy,
+    targetManifest: source.targetManifest,
+    targetCreatedAt: source.targetCreatedAt,
+    message: source.message,
+    startedAt: isDate(source.startedAt) ? source.startedAt : null,
+    completedAt: isDate(source.completedAt) ? source.completedAt : null,
+    safetyBackupManifest: typeof source.safetyBackupManifest === "string" && source.safetyBackupManifest.length <= 500 ? source.safetyBackupManifest : null,
+  }
+}
+
+export function readSynologyRestoreStatus(): SynologyRestoreStatus | null {
+  try {
+    if (!fs.existsSync(RESTORE_STATUS_PATH)) return null
+    return safeRestoreStatus(JSON.parse(fs.readFileSync(RESTORE_STATUS_PATH, "utf8")))
+  } catch {
+    return null
+  }
+}
+
+function writeJsonAtomically(target: string, value: unknown) {
+  fs.mkdirSync(path.dirname(target), { recursive: true })
+  const temporary = `${target}.${process.pid}.${Date.now()}.tmp`
+  fs.writeFileSync(temporary, JSON.stringify(value, null, 2), "utf8")
+  fs.renameSync(temporary, target)
+}
+
+/** Queue only a host-side operation. The portal container never receives NAS or Docker control. */
+export function requestSynologyRestore(entry: SynologyBackupHistoryEntry, requestedBy: string) {
+  const existing = readSynologyRestoreStatus()
+  if (existing && ["queued", "creating_safety_backup", "validating", "restoring", "verifying"].includes(existing.status)) {
+    throw new Error("A Synology restore is already queued or in progress.")
+  }
+  if (!entry.dataArchive || !entry.dataArchiveBytes || !entry.dataArchiveSha256) {
+    throw new Error("This older backup has no versioned portal-data archive and cannot be used for an exact restore.")
+  }
+  const status: SynologyRestoreStatus = {
+    id: crypto.randomUUID(),
+    status: "queued",
+    requestedAt: new Date().toISOString(),
+    requestedBy: requestedBy.slice(0, 320),
+    targetManifest: entry.manifest,
+    targetCreatedAt: entry.createdAt,
+    message: "Queued. The host will create and verify a fresh Synology safety backup before restoring this version.",
+    startedAt: null,
+    completedAt: null,
+    safetyBackupManifest: null,
+  }
+  writeJsonAtomically(RESTORE_REQUEST_PATH, status)
+  writeJsonAtomically(RESTORE_STATUS_PATH, status)
+  return status
 }
 
 export function writeSynologyBackupConfig(update: Partial<SynologyBackupConfig>): SynologyBackupConfig {

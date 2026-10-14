@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getToken } from "@auth/core/jwt"
 import { canManageDatabase, requestMetadata } from "@/lib/databaseAccess"
 import { logServerAudit } from "@/lib/serverAuditLog"
-import { readSynologyBackupConfig, readSynologyBackupHistory, requestSynologyBackupRun, updateSynologyBackupSettings } from "@/lib/synologyBackupStore"
+import { readSynologyBackupConfig, readSynologyBackupHistory, readSynologyRestoreStatus, requestSynologyBackupRun, updateSynologyBackupSettings } from "@/lib/synologyBackupStore"
 
 export const runtime = "nodejs"
 
@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     config: readSynologyBackupConfig(),
     history: readSynologyBackupHistory(),
+    restoreStatus: readSynologyRestoreStatus(),
     hostTask: { cadenceMinutes: 5, runsWhileSignedIn: true },
   })
 }

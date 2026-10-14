@@ -20,9 +20,10 @@ APP_DATA_PATH="${APP_DATA_PATH:-$DEFAULT_APP_DATA_PATH}"
 NAS_SHARE="${NAS_SHARE:-//192.168.2.204/Si-Ware Apps}"
 NAS_MOUNT="${NAS_MOUNT:-/mnt/company-portal-synology}"
 DB_CONTAINER="${DB_CONTAINER:-company-portal-db}"
+APP_CONTAINER="${APP_CONTAINER:-company-portal-app}"
 
 apt-get update
-apt-get install -y cifs-utils jq rsync
+apt-get install -y cifs-utils jq rsync tar
 install -d -m 0750 /etc/company-portal "$NAS_MOUNT" /usr/local/sbin
 
 if [[ ! -f /etc/company-portal/synology-credentials ]]; then
@@ -40,6 +41,7 @@ APP_DATA_PATH=$APP_DATA_PATH
 NAS_MOUNT=$NAS_MOUNT
 DEFAULT_DESTINATION=$NAS_MOUNT/Company Portal
 DB_CONTAINER=$DB_CONTAINER
+APP_CONTAINER=$APP_CONTAINER
 EOF
 chmod 600 /etc/company-portal/synology-backup.env
 
@@ -63,6 +65,7 @@ WantedBy=multi-user.target
 EOF
 
 install -m 0750 "$SCRIPT_DIR/synology-company-portal-backup.sh" /usr/local/sbin/company-portal-synology-backup
+install -m 0750 "$SCRIPT_DIR/synology-company-portal-restore.sh" /usr/local/sbin/company-portal-synology-restore
 cat > /etc/systemd/system/company-portal-synology-backup.service <<'EOF'
 [Unit]
 Description=Company Portal Synology recovery backup
@@ -89,7 +92,34 @@ Unit=company-portal-synology-backup.service
 WantedBy=timers.target
 EOF
 
+cat > /etc/systemd/system/company-portal-synology-restore.service <<'EOF'
+[Unit]
+Description=Company Portal guarded Synology recovery restore
+Wants=network-online.target company-portal-synology-mount.service docker.service
+After=network-online.target company-portal-synology-mount.service docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/company-portal/synology-backup.env
+ExecStart=/usr/local/sbin/company-portal-synology-restore
+EOF
+
+cat > /etc/systemd/system/company-portal-synology-restore.timer <<'EOF'
+[Unit]
+Description=Check Company Portal guarded Synology restore requests every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+Persistent=true
+Unit=company-portal-synology-restore.service
+
+[Install]
+WantedBy=timers.target
+EOF
+
 systemctl daemon-reload
 systemctl enable --now company-portal-synology-mount.service
 systemctl enable --now company-portal-synology-backup.timer
-echo "Installed. Confirm with: systemctl list-timers company-portal-synology-backup.timer"
+systemctl enable --now company-portal-synology-restore.timer
+echo "Installed. Confirm with: systemctl list-timers 'company-portal-synology-*'"
