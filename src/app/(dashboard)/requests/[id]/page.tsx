@@ -394,6 +394,57 @@ function attachmentDataUrl(blob: Blob): Promise<string> {
   })
 }
 
+// Browsers do not reliably print their built-in PDF viewer when it is nested
+// in an <object> inside a generated print window. Render PDF pages to images
+// before opening that window, so the attachment pages are normal printable DOM.
+const MAX_PRINTABLE_PDF_BYTES = 20 * 1024 * 1024
+const MAX_PRINTABLE_PDF_PAGES = 50
+let pdfJsPromise: Promise<typeof import("pdfjs-dist/legacy/build/pdf.mjs")> | null = null
+
+function loadPdfJs() {
+  if (!pdfJsPromise) {
+    pdfJsPromise = import("pdfjs-dist/legacy/build/pdf.mjs").then((pdfjs) => {
+      pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+        "pdfjs-dist/legacy/build/pdf.worker.min.mjs",
+        import.meta.url,
+      ).toString()
+      return pdfjs
+    })
+  }
+  return pdfJsPromise
+}
+
+async function renderPdfForPrint(blob: Blob): Promise<string[]> {
+  if (blob.size > MAX_PRINTABLE_PDF_BYTES) {
+    throw new Error("PDF is too large to prepare for printing")
+  }
+
+  const pdfjs = await loadPdfJs()
+  const loadingTask = pdfjs.getDocument({ data: new Uint8Array(await blob.arrayBuffer()) })
+  const document = await loadingTask.promise
+  try {
+    if (document.numPages > MAX_PRINTABLE_PDF_PAGES) {
+      throw new Error("PDF has too many pages to prepare for printing")
+    }
+
+    const pages: string[] = []
+    for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
+      const page = await document.getPage(pageNumber)
+      const viewport = page.getViewport({ scale: 1.4 })
+      const canvas = window.document.createElement("canvas")
+      canvas.width = Math.ceil(viewport.width)
+      canvas.height = Math.ceil(viewport.height)
+      const canvasContext = canvas.getContext("2d")
+      if (!canvasContext) throw new Error("Could not prepare PDF page")
+      await page.render({ canvasContext, viewport }).promise
+      pages.push(canvas.toDataURL("image/jpeg", 0.92))
+    }
+    return pages
+  } finally {
+    await loadingTask.destroy()
+  }
+}
+
 async function buildPrintAttachmentViews(
   attachments: Array<Record<string, any>>,
   requestId: string,
@@ -440,7 +491,14 @@ async function buildPrintAttachmentViews(
       }
 
       if (mimeType === "application/pdf") {
-        return `<section class="attachment-print-page">${heading}<object class="attachment-pdf" data="${escapePrintHtml(viewUrl)}" type="application/pdf"><a href="${escapePrintHtml(viewUrl)}" target="_blank" rel="noopener noreferrer">Open ${escapePrintHtml(name)}</a></object></section>`
+        const pages = await renderPdfForPrint(blob)
+        return pages.map((pageImage, index) => `
+          <section class="attachment-print-page">
+            ${heading}
+            <div class="attachment-page-number">PDF page ${index + 1} of ${pages.length}</div>
+            <img class="attachment-image" src="${escapePrintHtml(pageImage)}" alt="${escapePrintHtml(`${name} — page ${index + 1}`)}" />
+          </section>
+        `).join("")
       }
 
       return `<section class="attachment-print-page">${heading}<p class="attachment-unavailable">This file type cannot be previewed in the print document. <a href="${escapePrintHtml(viewUrl)}" target="_blank" rel="noopener noreferrer">Open attachment</a></p></section>`
@@ -754,7 +812,7 @@ export default function RequestDetailPage() {
           .attachment-view-heading .section-title { margin-bottom: 3px; }
           .attachment-view-name { color: #1e3a8a; font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
           .attachment-image { display: block; width: 100%; max-height: 900px; object-fit: contain; object-position: top left; border: 1px solid #d1d5db; }
-          .attachment-pdf { display: block; width: 100%; height: 900px; border: 1px solid #d1d5db; }
+          .attachment-page-number { margin: -6px 0 10px; color: #6b7280; font-size: 11px; font-weight: 600; }
           .attachment-unavailable { border: 1px solid #fbbf24; background: #fffbeb; color: #78350f; border-radius: 6px; padding: 12px; font-size: 12px; }
           .attachment-unavailable a { color: #1d4ed8; font-weight: 600; }
           .print-date { text-align: center; margin-top: auto; padding-top: 15px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; }

@@ -2342,3 +2342,8 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] **All Finance request forms:** Pre Paid Invoice, General Reimbursement, and Travel Reimbursement invoice selectors accept multiple files in one or more selections. The selected files are listed individually and can be removed before submission.
 - [x] **Durable request record:** Every uploaded invoice is stored in `invoiceAttachments`; the first is also retained in each form's historic single-file field (`invoiceFile` or `supportingDocument`) for backward compatibility with old views, email, print, and restore data.
 - [x] **Safe edits and visibility:** Editing Finance request fields preserves existing attachments. Invoice attachments are shown in the shared Attachments card with an `Invoice Attachments` label.
+
+## Phase 34: Reliable Attachment Printing (Implemented - 15 Oct 2026)
+
+- [x] **PDF pages in Print with Attachments:** The generated print window no longer embeds PDFs with the browser plugin, because Chrome can display the fallback link but leave the print page blank. PDF.js renders each authenticated PDF page to a print-safe image before the window opens.
+- [x] **Safe fallback:** A PDF over 20 MB or over 50 pages is not rasterized in the browser; the print document shows the existing secure open link instead of a misleading empty page. Images remain embedded directly as before.
