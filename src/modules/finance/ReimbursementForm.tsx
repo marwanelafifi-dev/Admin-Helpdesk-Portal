@@ -67,7 +67,7 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
 export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onCancel?: () => void; editingRequest?: EngineRequest | null; isEditing?: boolean }) {
   const router = useRouter()
   const { data: session } = useSession()
-  const [supportingDocFile, setSupportingDocFile] = useState<File | null>(null)
+  const [supportingDocFiles, setSupportingDocFiles] = useState<File[]>([])
   const [creditCardStatementFile, setCreditCardStatementFile] = useState<File | null>(null)
   const [additionalFiles, setAdditionalFiles] = useState<File[]>([])
   const [supportingDocError, setSupportingDocError] = useState<string | null>(null)
@@ -140,8 +140,8 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
   // is visible together.
   const validateRequiredFiles = (paidByCard: boolean) => {
     let valid = true
-    if (!isEditing && !supportingDocFile) {
-      setSupportingDocError("Supporting documents are required to submit a reimbursement request.")
+    if (!isEditing && supportingDocFiles.length === 0) {
+      setSupportingDocError("At least one invoice document is required to submit a reimbursement request.")
       valid = false
     } else {
       setSupportingDocError(null)
@@ -193,8 +193,14 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
     let redirectTo: string | null = null
     try {
       if (isEditing && editingRequest) {
+        const existingPayload = editingRequest.payload as Record<string, unknown>
         updateRequest(editingRequest.id, {
           ...payload,
+          // Editing form values must never discard already-uploaded files.
+          supportingDocument: existingPayload.supportingDocument,
+          invoiceAttachments: existingPayload.invoiceAttachments,
+          creditCardStatement: existingPayload.creditCardStatement,
+          additionalAttachments: existingPayload.additionalAttachments,
         }, {
           title: data.requestTitle,
           requesterId: editingRequest.requesterId,
@@ -212,19 +218,19 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
           requesterEmail: session?.user?.email || "user@si-ware.com",
         })
 
-        // 2. Upload the invoice, company-expense payment evidence (when
-        // applicable), and any additional files, then patch them in.
-        const namedFiles: File[] = []
-        if (supportingDocFile) namedFiles.push(supportingDocFile)
+        // 2. Upload all selected invoices, company-expense payment evidence
+        // (when applicable), and any additional files, then patch them in.
+        const namedFiles: File[] = [...supportingDocFiles]
         if (creditCardStatementFile) namedFiles.push(creditCardStatementFile)
         const filesToUpload = [...namedFiles, ...additionalFiles]
         if (filesToUpload.length > 0) {
           const attachments = await filesToAttachments(filesToUpload, newReq.id)
-          let idx = 0
-          const supportingDocument = supportingDocFile ? attachments[idx++] : undefined
+          const invoiceAttachments = attachments.slice(0, supportingDocFiles.length)
+          let idx = supportingDocFiles.length
+          const supportingDocument = invoiceAttachments[0]
           const creditCardStatement = creditCardStatementFile ? attachments[idx++] : undefined
           const additionalAttachments = attachments.slice(idx)
-          const updated = updateRequest(newReq.id, { ...payload, supportingDocument, creditCardStatement, additionalAttachments } as any, { title: data.requestTitle })
+          const updated = updateRequest(newReq.id, { ...payload, supportingDocument, invoiceAttachments, creditCardStatement, additionalAttachments } as any, { title: data.requestTitle })
           if (updated) {
             void pushToServer(updated)
           }
@@ -523,47 +529,62 @@ export function ReimbursementForm({ onCancel, editingRequest, isEditing }: { onC
           </CardContent>
         </Card>
 
-        {/* Supporting Documents */}
+        {/* Invoice Documents */}
         <Card>
-          <SectionHeader icon={FileCheck2} title="Attach Invoice" subtitle="Upload proof of the expense" />
+          <SectionHeader icon={FileCheck2} title="Attach Invoices" subtitle="Select every invoice for the expense rows above" />
           <CardContent>
             <div className="space-y-3">
               <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                 If you have a hard copy, please provide it to the Finance Team.
               </p>
               <input
-                id="supportingDocument"
+                id="supportingDocumentFiles"
                 type="file"
+                multiple
                 className="hidden"
                 onChange={(e) => {
-                  if (e.target.files?.[0]) {
-                    setSupportingDocFile(e.target.files[0])
+                  const files = e.currentTarget.files
+                  if (files?.length) {
+                    setSupportingDocFiles((current) => [...current, ...Array.from(files)])
                     setSupportingDocError(null)
                   }
+                  e.currentTarget.value = ""
                 }}
               />
               <button
                 type="button"
-                onClick={() => document.getElementById("supportingDocument")?.click()}
+                onClick={() => document.getElementById("supportingDocumentFiles")?.click()}
                 className={cn(
                   "w-full px-6 py-8 border-2 border-dashed rounded-lg transition-all duration-200 flex flex-col items-center justify-center gap-2",
-                  supportingDocError ? "border-red-400 bg-red-50 hover:border-red-500 hover:bg-red-50" : supportingDocFile ? "border-amber-400 bg-amber-50/60 hover:bg-amber-50" : "border-amber-300 hover:border-amber-500 hover:bg-amber-50"
+                  supportingDocError ? "border-red-400 bg-red-50 hover:border-red-500 hover:bg-red-50" : supportingDocFiles.length > 0 ? "border-amber-400 bg-amber-50/60 hover:bg-amber-50" : "border-amber-300 hover:border-amber-500 hover:bg-amber-50"
                 )}
               >
-                {supportingDocFile ? (
+                {supportingDocFiles.length > 0 ? (
                   <>
                     <FileText className="h-5 w-5 text-amber-600" />
-                    <span className="text-sm font-semibold text-amber-700">{supportingDocFile.name}</span>
-                    <span className="text-xs text-amber-500">Click to replace</span>
+                    <span className="text-sm font-semibold text-amber-700">{supportingDocFiles.length} invoice file{supportingDocFiles.length === 1 ? "" : "s"} selected</span>
+                    <span className="text-xs text-amber-500">Click to add more</span>
                   </>
                 ) : (
                   <>
                     <Upload className="h-6 w-6 text-amber-600" />
                     <span className="text-sm font-medium text-gray-700">Click to browse files</span>
-                    <span className="text-xs text-muted-foreground">Supporting document (required)</span>
+                    <span className="text-xs text-muted-foreground">One or more invoice documents (required)</span>
                   </>
                 )}
               </button>
+              {supportingDocFiles.length > 0 && (
+                <div className="space-y-1.5">
+                  {supportingDocFiles.map((file, index) => (
+                    <div key={`${file.name}-${file.lastModified}-${index}`} className="flex items-center justify-between gap-2 rounded-lg border border-amber-100 bg-amber-50/40 p-2.5">
+                      <span className="truncate text-sm text-gray-700">{file.name}</span>
+                      <button type="button" onClick={() => setSupportingDocFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="rounded p-1 hover:bg-amber-100" aria-label={`Remove ${file.name}`}>
+                        <X className="h-4 w-4 text-gray-600" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <FieldError message={supportingDocError ?? undefined} />
             </div>
           </CardContent>

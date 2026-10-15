@@ -67,7 +67,7 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
   const router = useRouter()
   const { data: session } = useSession()
   const canSelectPoApprover = session?.user?.role === "Full Access" || roleToFunctionId(session?.user?.role) === "finance"
-  const [invoiceFile, setInvoiceFile] = useState<File | null>(null)
+  const [invoiceFiles, setInvoiceFiles] = useState<File[]>([])
   const [additionalFiles, setAdditionalFiles] = useState<File[]>([])
   const [invoiceFileError, setInvoiceFileError] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState("")
@@ -121,8 +121,8 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
   // request ID exists. Check it on every submit attempt, even if a different
   // RHF field is invalid, so users see all missing required inputs at once.
   const validateInvoiceFile = () => {
-    if (!isEditing && !invoiceFile) {
-      setInvoiceFileError("The invoice file is required to submit a pre paid invoice request.")
+    if (!isEditing && invoiceFiles.length === 0) {
+      setInvoiceFileError("At least one invoice file is required to submit a pre paid invoice request.")
       return false
     }
     setInvoiceFileError(null)
@@ -180,7 +180,14 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
     let redirectTo: string | null = null
     try {
       if (isEditing && editingRequest) {
-        const updated = updateRequest(editingRequest.id, payload, {
+        const existingPayload = editingRequest.payload as Record<string, unknown>
+        const updated = updateRequest(editingRequest.id, {
+          ...payload,
+          // Editing form values must never discard already-uploaded files.
+          invoiceFile: existingPayload.invoiceFile,
+          invoiceAttachments: existingPayload.invoiceAttachments,
+          additionalAttachments: existingPayload.additionalAttachments,
+        }, {
           title: data.requestTitle,
           requesterId: editingRequest.requesterId,
           requesterName: editingRequest.requesterName,
@@ -200,13 +207,19 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
         })
         setSavedRequestId(newReq.id)
 
-        // 2. Upload the invoice file (required) + any additional files, then patch them in
-        const filesToUpload = invoiceFile ? [invoiceFile, ...additionalFiles] : additionalFiles
+        // 2. Upload every selected invoice plus any additional files, then
+        // retain both the legacy primary invoice and the full invoice set.
+        const filesToUpload = [...invoiceFiles, ...additionalFiles]
         if (filesToUpload.length > 0) {
           const attachments = await filesToAttachments(filesToUpload, newReq.id)
-          const uploadedInvoiceFile = invoiceFile ? attachments[0] : undefined
-          const additionalAttachments = invoiceFile ? attachments.slice(1) : attachments
-          const updated = updateRequest(newReq.id, { ...payload, invoiceFile: uploadedInvoiceFile, additionalAttachments } as any, { title: data.requestTitle }, false)
+          const invoiceAttachments = attachments.slice(0, invoiceFiles.length)
+          const additionalAttachments = attachments.slice(invoiceFiles.length)
+          const updated = updateRequest(newReq.id, {
+            ...payload,
+            invoiceFile: invoiceAttachments[0],
+            invoiceAttachments,
+            additionalAttachments,
+          } as any, { title: data.requestTitle }, false)
           if (!updated || !await pushToServer(updated)) throw new Error("Could not save the invoice attachment.")
         }
 
@@ -379,47 +392,62 @@ export function InvoicePaymentForm({ onCancel, editingRequest, isEditing }: { on
           </div>
         )}
 
-        {/* Attach Invoice */}
+        {/* Attach Invoices */}
         <Card>
-          <SectionHeader icon={FileText} title="Attach Invoice" subtitle="Upload the vendor invoice" />
+          <SectionHeader icon={FileText} title="Attach Invoices" subtitle="Select every vendor invoice for the rows above" />
           <CardContent>
             <div className="space-y-3">
               <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                 If you have a hard copy, please provide it to the Finance Team.
               </p>
               <input
-                id="invoiceFile"
+                id="invoiceFiles"
                 type="file"
+                multiple
                 className="hidden"
                 onChange={(e) => {
-                  if (e.target.files?.[0]) {
-                    setInvoiceFile(e.target.files[0])
+                  const files = e.currentTarget.files
+                  if (files?.length) {
+                    setInvoiceFiles((current) => [...current, ...Array.from(files)])
                     setInvoiceFileError(null)
                   }
+                  e.currentTarget.value = ""
                 }}
               />
               <button
                 type="button"
-                onClick={() => document.getElementById("invoiceFile")?.click()}
+                onClick={() => document.getElementById("invoiceFiles")?.click()}
                 className={cn(
                   "w-full px-6 py-8 border-2 border-dashed rounded-lg transition-all duration-200 flex flex-col items-center justify-center gap-2",
-                  invoiceFileError ? "border-red-400 bg-red-50 hover:border-red-500 hover:bg-red-50" : invoiceFile ? "border-amber-400 bg-amber-50/60 hover:bg-amber-50" : "border-amber-300 hover:border-amber-500 hover:bg-amber-50"
+                  invoiceFileError ? "border-red-400 bg-red-50 hover:border-red-500 hover:bg-red-50" : invoiceFiles.length > 0 ? "border-amber-400 bg-amber-50/60 hover:bg-amber-50" : "border-amber-300 hover:border-amber-500 hover:bg-amber-50"
                 )}
               >
-                {invoiceFile ? (
+                {invoiceFiles.length > 0 ? (
                   <>
                     <FileText className="h-5 w-5 text-amber-600" />
-                    <span className="text-sm font-semibold text-amber-700">{invoiceFile.name}</span>
-                    <span className="text-xs text-amber-500">Click to replace</span>
+                    <span className="text-sm font-semibold text-amber-700">{invoiceFiles.length} invoice file{invoiceFiles.length === 1 ? "" : "s"} selected</span>
+                    <span className="text-xs text-amber-500">Click to add more</span>
                   </>
                 ) : (
                   <>
                     <Upload className="h-6 w-6 text-amber-600" />
                     <span className="text-sm font-medium text-gray-700">Click to browse files</span>
-                    <span className="text-xs text-muted-foreground">Vendor invoice document (required)</span>
+                    <span className="text-xs text-muted-foreground">One or more vendor invoice documents (required)</span>
                   </>
                 )}
               </button>
+              {invoiceFiles.length > 0 && (
+                <div className="space-y-1.5">
+                  {invoiceFiles.map((file, index) => (
+                    <div key={`${file.name}-${file.lastModified}-${index}`} className="flex items-center justify-between gap-2 rounded-lg border border-amber-100 bg-amber-50/40 p-2.5">
+                      <span className="truncate text-sm text-gray-700">{file.name}</span>
+                      <button type="button" onClick={() => setInvoiceFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="rounded p-1 hover:bg-amber-100" aria-label={`Remove ${file.name}`}>
+                        <X className="h-4 w-4 text-gray-600" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <FieldError message={invoiceFileError ?? undefined} />
             </div>
           </CardContent>

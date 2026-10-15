@@ -2336,3 +2336,9 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 
 - [x] **Authenticated file streaming:** Comment attachments no longer open their stored `data:` URL directly in a browser tab. The Comments tab uses the existing authenticated attachment-open endpoint instead, which verifies request access and streams the decoded file with its original MIME type.
 - [x] **Finance compatibility:** This fixes blank new tabs for Finance PDF comment attachments while preserving Finance request-access boundaries. The same safe opening behavior applies consistently to every request function.
+
+## Phase 33: Multi-Invoice Finance Attachments (Implemented - 15 Oct 2026)
+
+- [x] **All Finance request forms:** Pre Paid Invoice, General Reimbursement, and Travel Reimbursement invoice selectors accept multiple files in one or more selections. The selected files are listed individually and can be removed before submission.
+- [x] **Durable request record:** Every uploaded invoice is stored in `invoiceAttachments`; the first is also retained in each form's historic single-file field (`invoiceFile` or `supportingDocument`) for backward compatibility with old views, email, print, and restore data.
+- [x] **Safe edits and visibility:** Editing Finance request fields preserves existing attachments. Invoice attachments are shown in the shared Attachments card with an `Invoice Attachments` label.

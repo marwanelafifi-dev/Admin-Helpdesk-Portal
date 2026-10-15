@@ -1808,6 +1808,7 @@ export default function RequestDetailPage() {
               creditCardStatement: "Payment Evidence — Company Expense Only",
               reimbursementForm: "Reimbursement Form",
               invoiceFile: "Invoice File",
+              invoiceAttachments: "Invoice Attachments",
             }
             return (
             <div className="space-y-2">

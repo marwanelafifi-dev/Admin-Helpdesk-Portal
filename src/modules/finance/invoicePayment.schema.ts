@@ -70,6 +70,8 @@ export const InvoicePaymentPayloadSchema = z.object({
   // Contract and Other invoices select a Direct Manager in the form.
   directManager: z.string().optional(),
   invoiceFile: AttachmentSchema.optional(),
+  /** Every vendor invoice selected for this request; invoiceFile remains as the legacy primary file. */
+  invoiceAttachments: z.array(AttachmentSchema).optional(),
   additionalAttachments: z.array(AttachmentSchema).optional(),
   additionalNotes: z.string().trim().max(4000, "Additional notes must be 4,000 characters or fewer").optional(),
   ccEmails: z.array(z.string().email()).default([]),
