@@ -2288,14 +2288,13 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] **Tunnel recovery procedure:** A healthy app can still yield a public `502` when the Cloudflare Tunnel has a stale upstream connection. Verify locally through `http://127.0.0.1:3003/api/auth/providers`; if it returns providers while the public URL fails, run `docker compose restart tunnel` and retry the public endpoint. Never print OAuth secrets with `docker exec ... printenv`; rotate any secret accidentally exposed in a terminal, log, or chat transcript.
 - [x] **Verification:** `git diff --check` passed. Targeted `tsc --noEmit` output contained no errors in the changed approval, authentication, login, or store files; unrelated project-wide type errors remain outside this work. Deploy with `docker compose --env-file .env.local up -d --build --force-recreate app`, then restart `tunnel`.
 
-## Administration Email Notification Policy (Confirmed - 13 Oct 2026)
+## Administration Email Notification Policy (Updated - 15 Oct 2026)
 
-- [ ] **Shared Administration mailbox:** For Administration-owned modules, `adminhelpdesk@si-ware.com` must receive email only when a new request is submitted. It must not receive routine comment, status-update, assignment, manager-approval, or approval-decision emails.
-- [ ] **Administration team members:** Administration team members receive operational activity through in-portal notifications. Do not fan out routine request emails to every team member.
-- [ ] **Direct assignment exception:** When a request is assigned, email only the assigned individual (unless the assignment is to the actor themself); the shared mailbox and other Administration members do not receive that assignment email.
-- [ ] **Request conversation recipients:** Comment and routine status-update emails go only to the requester and request-specific CC recipients. They must exclude the Administration shared mailbox.
-- [ ] **Manager approvals:** A manager-approval email goes to the selected manager, with the requester and request-specific CC recipients copied as applicable. The Administration shared mailbox is excluded. Approval/rejection decisions follow the same exclusion while still notifying the requester, manager, and request-specific CC recipients.
-- [ ] **Implementation note:** The current comment and approval paths still add the owning function mailbox. Update those recipient builders before treating this policy as implemented.
+- [x] **Shared Administration mailbox:** For Administration-owned modules, `adminhelpdesk@si-ware.com` receives **New Request Added**, the read-only **Approval Mail CC** copy, and **Approval Decision** email. These three workflows are intentionally retained.
+- [x] **Comments:** `adminhelpdesk@si-ware.com` is removed server-side from both To and CC before any request-comment email is sent. This is enforced in `/api/notifications/email`, so old browser tabs cannot reintroduce the mailbox. Other explicitly addressed recipients retain their normal delivery.
+- [x] **Routine status updates:** Email goes to the requester and request-specific CC/Admin CC recipients. It does not automatically add the shared Administration mailbox, assigned user, manager, or all Administration users.
+- [x] **Administration team members:** The portal does not automatically fan out routine request email to every Administration Team member. Individual members retain email when they are explicitly addressed—for example as requester, assignee, manager/approver, form CC/Admin CC recipient, announcement recipient, Full Access backup-alert recipient, or newly created portal user. In-app notifications remain available to the relevant team.
+- [x] **Direct assignment exception:** When a request is assigned, email only the assigned individual (unless the assignment is to the actor themself); the shared mailbox and other Administration members do not receive that assignment email.
 
 ## Overall Satisfaction Feedback (Implemented - 13 Oct 2026)
 
@@ -2326,3 +2325,8 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
 - [x] **Guarded live restore:** A Full Access or `restore_backups` administrator must reauthenticate, select a verified complete version, acknowledge the safeguard, and type the exact confirmation phrase. The browser queues only a JSON request; it never receives NAS credentials or Docker control.
 - [x] **Host-only safety sequence:** The Ubuntu restore service locks out concurrent recovery work, creates and verifies a fresh Synology backup first, validates SHA-256, size, gzip, and tar integrity of both the selected and fresh points, then stops the app and restores the historical data and PostgreSQL dump. Any failure triggers automatic rollback to the fresh safety point; the app must pass its Docker health check before success is published.
 - [x] **Ubuntu deployment:** Re-run `sudo ./scripts/install-synology-backup-ubuntu.sh` after pulling this release. It installs the guarded restore worker and a one-minute request timer alongside the existing five-minute backup timer. Verify with `systemctl list-timers 'company-portal-synology-*'`.
+
+## Phase 31: Finance Printed Review Signatures (Implemented - 15 Oct 2026)
+
+- [x] **Finance-only printed controls:** The request print document renders **Reviewed:** and **Approved:** signature lines immediately below the Finance expense/invoice totals table. The block is kept together with its totals section during printing.
+- [x] **Strict scope:** This applies only when a Finance Team user prints a Finance-owned request with a Finance totals table—Pre Paid Invoice, General Reimbursement, or Travel Reimbursement. It is absent from Administration and People requests and from printouts generated by users outside the Finance Team.

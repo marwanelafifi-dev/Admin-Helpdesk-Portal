@@ -24,7 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { MarkdownDisplay } from "@/components/ui/MarkdownDisplay"
-import { functionForModule, requestModuleLabel, requiresManagerApproval } from "@/lib/functionRegistry"
+import { functionForModule, requestModuleLabel, requiresManagerApproval, roleToFunctionId } from "@/lib/functionRegistry"
 import { hasRecordedApproval } from "@/lib/approvalRules"
 import { getRequestBackDestination } from "@/lib/requestNavigation"
 
@@ -682,6 +682,15 @@ export default function RequestDetailPage() {
     ].find((item) => typeof item.value === "string" && item.value.trim()) as { label: string; value: string } | undefined
 
     const expenseTableHtml = buildFinanceExpensePrintTable(request.module, request.payload || {})
+    const showFinancePrintSignatures = Boolean(expenseTableHtml)
+      && functionForModule(request.module) === "finance"
+      && roleToFunctionId(session?.user?.role) === "finance"
+    const financePrintSignaturesHtml = showFinancePrintSignatures ? `
+      <div class="finance-print-signatures" aria-label="Finance review signatures">
+        <div class="finance-print-signature"><span>Reviewed:</span><span class="finance-signature-line"></span></div>
+        <div class="finance-print-signature"><span>Approved:</span><span class="finance-signature-line"></span></div>
+      </div>
+    ` : ""
     // Standard Print keeps a compact attachment-name list. In Print with
     // Attachments, each document is rendered on its own following page, so
     // do not duplicate the names on the request's first page.
@@ -731,6 +740,9 @@ export default function RequestDetailPage() {
           .expense-table .center-cell { text-align: center; }
           .expense-table .total-label { text-align: right; }
           .currency-totals { display: flex; flex-wrap: wrap; gap: 4px 16px; color: #111827; font-weight: 700; }
+          .finance-print-signatures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; margin: 18px 0 8px; padding: 14px 2px 0; border-top: 1px solid #d1d5db; page-break-inside: avoid; break-inside: avoid; }
+          .finance-print-signature { display: flex; align-items: flex-end; gap: 10px; color: #111827; font-size: 12px; font-weight: 700; white-space: nowrap; }
+          .finance-signature-line { display: block; flex: 1; min-height: 22px; border-bottom: 1px solid #374151; }
           .attachment-list { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
           .attachment-group-title { margin: 12px 0 7px; color: #374151; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
           .attachment-item { border: 1px solid #dbe3ef; border-radius: 6px; background: #f8fafc; padding: 9px 10px; page-break-inside: avoid; }
@@ -839,6 +851,7 @@ export default function RequestDetailPage() {
             </div>
           ` : ""}
           ${expenseTableHtml}
+          ${financePrintSignaturesHtml}
           ${attachmentsHtml}
           ${attachmentViewsHtml}
           </div>

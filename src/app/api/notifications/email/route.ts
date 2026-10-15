@@ -25,6 +25,16 @@ type RequestUpdatePayload = {
 
 const MAX_COMMENT_EMAIL_ATTACHMENT_BYTES = 10 * 1024 * 1024
 const MAX_COMMENT_EMAIL_TOTAL_BYTES = 20 * 1024 * 1024
+const ADMIN_HELPDESK_EMAIL = "adminhelpdesk@si-ware.com"
+
+/**
+ * The Administration mailbox receives new-request and approval workflow email,
+ * but is not a recipient of request comments. Individual team members retain
+ * their existing email behavior when they are explicitly addressed.
+ */
+function filterCommentMailboxRecipient(recipients: string[]): string[] {
+  return recipients.filter((email) => email.trim().toLowerCase() !== ADMIN_HELPDESK_EMAIL)
+}
 
 function decodeCommentEmailAttachments(
   requestId: string,
@@ -100,13 +110,26 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const recipients = Array.isArray(body.to) ? body.to.filter(Boolean) : []
+    const suppliedRecipients = Array.isArray(body.to) ? body.to.filter(Boolean) : []
+    const suppliedCc = Array.isArray(body.cc) ? body.cc.filter(Boolean) : []
+    const excludeCommentMailbox = body.updateType === "comment"
+    const recipients = excludeCommentMailbox
+      ? filterCommentMailboxRecipient(suppliedRecipients)
+      : suppliedRecipients
+    const ccRecipients = excludeCommentMailbox
+      ? filterCommentMailboxRecipient(suppliedCc)
+      : suppliedCc
+
     if (recipients.length === 0) {
-      console.warn("[email] No recipients provided for notification", {
+      console.warn("[email] No eligible recipients for notification", {
         requestId: body.requestId,
         updateType: body.updateType,
+        suppliedRecipientCount: suppliedRecipients.length,
+        excludedCommentMailboxRecipients: excludeCommentMailbox
+          ? suppliedRecipients.length - recipients.length + suppliedCc.length - ccRecipients.length
+          : 0,
       })
-      return NextResponse.json({ data: { sent: false, reason: "No recipients" } })
+      return NextResponse.json({ data: { sent: false, reason: "No eligible recipients" } })
     }
 
     console.info("[email] Sending request update notification", {
@@ -121,7 +144,7 @@ export async function POST(req: NextRequest) {
 
     await sendRequestUpdateEmail({
       to: recipients,
-      cc: Array.isArray(body.cc) ? body.cc.filter(Boolean) : undefined,
+      cc: ccRecipients.length > 0 ? ccRecipients : undefined,
       updateType: body.updateType,
       requestId: body.requestId,
       requestTitle: body.requestTitle,
