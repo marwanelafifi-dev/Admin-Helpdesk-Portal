@@ -1954,6 +1954,7 @@ Finance user with `readModules: ["travel", "maintenance"]` and `readAllModules: 
   - Feedback surveys and responses derive the request module/function from the stored request on the server rather than trusting browser input.
   - Feedback stays inside its owning function's Feedback & Reports page and uses the corresponding function mailbox: Administration, People, or Finance.
   - Function-specific fallback display names are Si-Ware Administration Team, Si-Ware People Team, and Si-Ware Finance Team.
+  - Feedback report isolation is enforced twice: the API verifies every response against the authoritative stored request(s), and the portal report fails closed if a covered request cannot be verified as owned by that portal. Full Access users pass the active portal's function explicitly, so opening Finance never falls back to Administration-wide feedback.
 - [x] **Travel → People HR Letter integration:**
   - A Travel request that requests an HR letter creates one People-owned `hr_travel_letter` record when it enters processing.
   - Standard and Travel-created HR Letters share the readable sequential ID series `HRLTR-YYYY-####`; the Travel request stores the generated HR Letter ID as its link.

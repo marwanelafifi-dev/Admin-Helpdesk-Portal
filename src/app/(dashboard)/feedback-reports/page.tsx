@@ -11,7 +11,7 @@ import type { FeedbackSurvey } from "@/services/feedbackService"
 import { cn, fmtDate, fmtDateTime } from "@/lib/utils"
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
-import { modulesVisibleToFunction } from "@/lib/functionRegistry"
+import { functionForModule, modulesVisibleToFunction, type FunctionId } from "@/lib/functionRegistry"
 
 interface Feedback {
   requestId: string
@@ -117,10 +117,12 @@ function getModuleLabel(module: string) {
 interface FeedbackReportsPageProps {
   /** Restricts every stat/list on this page to feedback and requests from these module ids. Omit for the full company-wide report. */
   moduleScope?: string[]
+  /** Owning function for this portal. Keeps Full Access users within its active portal context. */
+  functionId?: FunctionId
   title?: string
 }
 
-export default function FeedbackReportsPage({ moduleScope, title = "Feedback & Reports" }: FeedbackReportsPageProps = {}) {
+export default function FeedbackReportsPage({ moduleScope, functionId, title = "Feedback & Reports" }: FeedbackReportsPageProps = {}) {
   const [search, setSearch] = useState("")
   const [filterRating, setFilterRating] = useState<number | null>(null)
   const [dateRange, setDateRange] = useState<"7d" | "30d" | "90d" | "all">("all")
@@ -131,7 +133,10 @@ export default function FeedbackReportsPage({ moduleScope, title = "Feedback & R
   useEffect(() => {
     let cancelled = false
     // Load feedback responses
-    fetch("/api/feedback/responses")
+    const feedbackUrl = functionId
+      ? `/api/feedback/responses?function=${encodeURIComponent(functionId)}`
+      : "/api/feedback/responses"
+    fetch(feedbackUrl)
       .then((res) => res.ok ? res.json() : { responses: [] })
       .then((data) => {
         if (cancelled) return
@@ -167,16 +172,34 @@ export default function FeedbackReportsPage({ moduleScope, title = "Feedback & R
       })
 
     return () => { cancelled = true }
-  }, [])
+  }, [functionId])
 
 
   // Without an explicit moduleScope (the company-wide Admin view), fall
   // back to every module registered as visible to "admin" in
-  // src/lib/functionRegistry.ts.
-  const effectiveScope = moduleScope ?? modulesVisibleToFunction("admin")
+  // src/lib/functionRegistry.ts. Function reports deliberately use only
+  // modules they own, not modules merely shared for an operational workflow.
+  const effectiveScope = useMemo(() => {
+    const scope = moduleScope ?? modulesVisibleToFunction(functionId ?? "admin")
+    return functionId ? scope.filter((module) => functionForModule(module) === functionId) : scope
+  }, [functionId, moduleScope])
+
   const scopedFeedback = useMemo(
-    () => allFeedback.filter((f) => f.feedbackScope === "overall" || effectiveScope.includes(f.module)),
-    [allFeedback, effectiveScope],
+    () => {
+      const requestModules = new Map(allRequests.map((request) => [request.id, request.module]))
+      return allFeedback.filter((feedback) => {
+        if (feedback.feedbackScope !== "overall") return effectiveScope.includes(feedback.module)
+
+        const coveredRequestIds = feedback.coveredRequestIds ?? []
+        // The server is authoritative. This second fail-closed check prevents
+        // stale browser data from appearing while request data is loading.
+        return coveredRequestIds.length > 0 && coveredRequestIds.every((requestId) => {
+          const module = requestModules.get(requestId)
+          return Boolean(module) && effectiveScope.includes(module)
+        })
+      })
+    },
+    [allFeedback, allRequests, effectiveScope],
   )
   const scopedRequests = useMemo(
     () => allRequests.filter((r) => effectiveScope.includes(r.module)),

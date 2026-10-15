@@ -5,6 +5,7 @@ export default function FinanceFeedbackReportsPage() {
   return (
     <FeedbackReportsPage
       moduleScope={modulesVisibleToFunction("finance")}
+      functionId="finance"
       title="Finance Team - Feedback & Reports"
     />
   )
