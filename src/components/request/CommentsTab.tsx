@@ -127,7 +127,7 @@ export function CommentsTab({
                     {comment.attachments.map((attachment) => (
                       <a
                         key={attachment.id}
-                        href={attachment.url}
+                        href={`/api/requests/${encodeURIComponent(requestId)}/comments/attachments/${encodeURIComponent(attachment.id)}/open`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 hover:underline"
