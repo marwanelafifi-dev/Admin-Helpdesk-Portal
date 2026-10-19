@@ -35,7 +35,7 @@ export function RequesterFeedbackCard({ request }: { request: FeedbackRequest })
   useEffect(() => {
     if (!isRequester || !isComplete) return
     const owner = functionForModule(request.module)
-    void Promise.all([fetch("/api/admin/settings"), fetch("/api/feedback/responses")])
+    void Promise.all([fetch("/api/admin/settings"), fetch("/api/feedback/responses?scope=mine")])
       .then(async ([settingsResponse, responsesResponse]) => {
         if (settingsResponse.ok) {
           const settings = await settingsResponse.json()

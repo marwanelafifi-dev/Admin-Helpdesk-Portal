@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 })
   }
   const requestedFunction = req.nextUrl.searchParams.get("function")
+  const requesterOnly = req.nextUrl.searchParams.get("scope") === "mine"
   const isFullAccess = session.user.role === "Full Access"
   const memberFunction = roleToFunctionId(session.user.role)
 
@@ -38,6 +39,19 @@ export async function GET(req: NextRequest) {
   }
   if (requestedFunction && !isFullAccess && requestedFunction !== memberFunction) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
+  // Requester-facing pages must always receive the caller's own feedback,
+  // even if that requester is also a team member or has Full Access. The
+  // default endpoint remains the function-report feed for dashboards.
+  if (requesterOnly) {
+    const requesterEmail = session.user.email?.trim().toLowerCase()
+    if (!requesterEmail) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    return NextResponse.json({
+      responses: feedbackStore.getResponses().filter(
+        (response) => response.requesterEmail.trim().toLowerCase() === requesterEmail,
+      ),
+    })
   }
 
   // Full Access users may select a portal context, but regular team members

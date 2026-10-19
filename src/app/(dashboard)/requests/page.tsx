@@ -208,7 +208,7 @@ export default function RequestsPage({ moduleScope }: { moduleScope?: string[] }
   // so we can detect which of the user's completed requests still need rating.
   useEffect(() => {
     let cancelled = false
-    fetch("/api/feedback/responses")
+    fetch("/api/feedback/responses?scope=mine")
       .then((res) => res.ok ? res.json() : { responses: [] })
       .then((data) => {
         if (cancelled) return

@@ -1222,7 +1222,7 @@ export default function RequestDetailPage() {
         // Restore feedback state if already submitted for this request
         const loadFeedback = async () => {
           try {
-            const res = await fetch("/api/feedback/responses")
+            const res = await fetch("/api/feedback/responses?scope=mine")
             if (res.ok) {
               const data = await res.json()
               const existing = (data.responses ?? []).find((r: any) =>
