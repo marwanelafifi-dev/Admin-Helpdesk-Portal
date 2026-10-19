@@ -438,6 +438,10 @@ async function renderPdfForPrint(blob: Blob): Promise<string[]> {
       if (!canvasContext) throw new Error("Could not prepare PDF page")
       await page.render({ canvasContext, viewport }).promise
       pages.push(canvas.toDataURL("image/jpeg", 0.92))
+      // PDF page rasterisation happens in this tab's renderer. Yield between
+      // pages so the request page remains responsive while a large attachment
+      // printout is prepared in the background.
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
     }
     return pages
   } finally {
@@ -542,6 +546,7 @@ export default function RequestDetailPage() {
     message: string
   }>({ type: "idle", message: "" })
   const [statusActionMessage, setStatusActionMessage] = useState("")
+  const [preparingPrint, setPreparingPrint] = useState(false)
 
   const fetchComments = async (requestId: string) => {
     try {
@@ -715,6 +720,16 @@ export default function RequestDetailPage() {
     const printWindow = window.open("", "_blank")
     if (!printWindow) return
 
+    // Open within the click gesture (so popup blockers allow it), but make
+    // the temporary document useful and return focus to the request page
+    // while PDFs are fetched and rasterised.
+    printWindow.document.write(`<!doctype html><title>Preparing print…</title><body style="font-family:system-ui,sans-serif;padding:32px;color:#374151"><h1 style="font-size:20px;margin:0 0 8px">Preparing print…</h1><p style="margin:0">The request remains available in the original tab. This window will open the print dialog when the document is ready.</p></body>`)
+    printWindow.document.close()
+    window.focus()
+    setPreparingPrint(true)
+
+    try {
+
     const moduleLabel = humanizeKey(request.module)
     const statusLabel = getStatusLabel(request.status, request.module)
 
@@ -807,7 +822,7 @@ export default function RequestDetailPage() {
           .attachment-name { font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
           .attachment-name a { color: #1d4ed8; text-decoration: underline; text-underline-offset: 2px; }
           .attachment-meta { margin-top: 3px; color: #6b7280; font-size: 10px; overflow-wrap: anywhere; }
-          .attachment-print-page { break-before: page; page-break-before: always; }
+          .attachment-print-page { break-before: page; page-break-before: always; break-inside: avoid-page; page-break-inside: avoid; }
           .attachment-view-heading { border-bottom: 2px solid #2563eb; margin-bottom: 14px; padding-bottom: 8px; }
           .attachment-view-heading .section-title { margin-bottom: 3px; }
           .attachment-view-name { color: #1e3a8a; font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
@@ -826,6 +841,11 @@ export default function RequestDetailPage() {
             .expense-table thead { display: table-header-group; }
             .expense-table tfoot { display: table-footer-group; }
             .expense-table tr { page-break-inside: avoid; }
+            /* Keep the file name and the first rendered file page together.
+               A constrained image height leaves room for the heading on one
+               physical page instead of leaving a title-only page behind. */
+            .attachment-print-page { break-inside: avoid-page; page-break-inside: avoid; }
+            .attachment-image { max-height: 680px; }
           }
         </style>
       </head>
@@ -928,6 +948,9 @@ export default function RequestDetailPage() {
     setTimeout(() => {
       printWindow.print()
     }, 250)
+    } finally {
+      setPreparingPrint(false)
+    }
   }
 
   const getStatusesByModule = (currentRequest: typeof request): string[] => {
@@ -1389,19 +1412,20 @@ export default function RequestDetailPage() {
                       onClick={() => handlePrint()}
                       title="Print request summary"
                       className="flex-1 gap-2 sm:flex-none"
+                      disabled={preparingPrint}
                     >
                       <Printer className="h-4 w-4" />
-                      Print
+                      {preparingPrint ? "Preparing print…" : "Print"}
                     </Button>
                     <Button
                       variant="outline"
                       onClick={() => handlePrint(true)}
                       title="Print request with attachment previews"
                       className="flex-1 gap-2 sm:flex-none"
-                      disabled={!request.attachments?.length}
+                      disabled={!request.attachments?.length || preparingPrint}
                     >
                       <Printer className="h-4 w-4" />
-                      Print with Attachments
+                      {preparingPrint ? "Preparing print…" : "Print with Attachments"}
                     </Button>
                     {canEditRequest && (
                       <Button
