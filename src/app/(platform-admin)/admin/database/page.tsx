@@ -49,6 +49,14 @@ type SynologyBackupConfig = {
   enabled: boolean
   nasRoot: string
   scheduleTime: string
+  scheduleFrequency: "daily" | "weekly" | "monthly" | "yearly"
+  scheduleWeekday: number
+  scheduleDay: number
+  scheduleMonth: number
+  scheduleUpdatedAt: string
+  lastHostConfigAppliedAt: string | null
+  lastAppliedScheduleUpdatedAt: string | null
+  lastScheduledPeriod: string | null
   retentionDays: number
   pruneOldBackups: boolean
   runRequestedAt: string | null
@@ -759,6 +767,10 @@ export default function DatabasePage() {
             enabled: synologyBackup.enabled,
             nasRoot: synologyBackup.nasRoot,
             scheduleTime: synologyBackup.scheduleTime,
+            scheduleFrequency: synologyBackup.scheduleFrequency,
+            scheduleWeekday: synologyBackup.scheduleWeekday,
+            scheduleDay: synologyBackup.scheduleDay,
+            scheduleMonth: synologyBackup.scheduleMonth,
             retentionDays: synologyBackup.retentionDays,
             pruneOldBackups: synologyBackup.pruneOldBackups,
           },
@@ -2076,7 +2088,21 @@ export default function DatabasePage() {
                   <p className="text-xs text-gray-500">Credentials remain on the host (Windows Credential Manager or protected Ubuntu credential file) and are never stored in the portal.</p>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-gray-700">Daily backup time</label>
+                  <label className="text-xs font-medium text-gray-700">Backup frequency</label>
+                  <select
+                    value={synologyBackup.scheduleFrequency}
+                    onChange={(event) => updateSynologyBackup({ scheduleFrequency: event.target.value as SynologyBackupConfig["scheduleFrequency"] })}
+                    className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-cyan-700"
+                  >
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="yearly">Yearly</option>
+                  </select>
+                  <p className="text-xs text-gray-500">The host checks the saved schedule every five minutes.</p>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-gray-700">Backup time</label>
                   <input
                     type="time"
                     step={300}
@@ -2086,6 +2112,29 @@ export default function DatabasePage() {
                   />
                   <p className="text-xs text-gray-500">Use a 5-minute interval; portal time zone: Africa/Cairo.</p>
                 </div>
+                {synologyBackup.scheduleFrequency === "weekly" && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-700">Day of week</label>
+                    <select value={synologyBackup.scheduleWeekday} onChange={(event) => updateSynologyBackup({ scheduleWeekday: Number(event.target.value) })} className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-cyan-700">
+                      {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day, index) => <option key={day} value={index}>{day}</option>)}
+                    </select>
+                  </div>
+                )}
+                {(synologyBackup.scheduleFrequency === "monthly" || synologyBackup.scheduleFrequency === "yearly") && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-700">Day of month</label>
+                    <input type="number" min={1} max={31} value={synologyBackup.scheduleDay} onChange={(event) => updateSynologyBackup({ scheduleDay: Number(event.target.value) })} className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-cyan-700" />
+                    <p className="text-xs text-gray-500">Uses the last day when the month is shorter.</p>
+                  </div>
+                )}
+                {synologyBackup.scheduleFrequency === "yearly" && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-gray-700">Month</label>
+                    <select value={synologyBackup.scheduleMonth} onChange={(event) => updateSynologyBackup({ scheduleMonth: Number(event.target.value) })} className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-cyan-700">
+                      {Array.from({ length: 12 }, (_, index) => new Date(2026, index, 1).toLocaleString("en", { month: "long" })).map((month, index) => <option key={month} value={index + 1}>{month}</option>)}
+                    </select>
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-gray-700">Retention (days)</label>
                   <input
@@ -2114,6 +2163,14 @@ export default function DatabasePage() {
                 </Button>
               </div>
               <StatusAlert status={synologyStatus} />
+
+              <div className={`rounded-lg border p-3 text-xs ${synologyBackup.lastAppliedScheduleUpdatedAt === synologyBackup.scheduleUpdatedAt ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+                {synologyBackup.lastAppliedScheduleUpdatedAt === synologyBackup.scheduleUpdatedAt ? (
+                  <><p className="font-semibold">Ubuntu host has applied these settings</p><p className="mt-1">Confirmed by the host: {synologyBackup.lastHostConfigAppliedAt ? fmt(synologyBackup.lastHostConfigAppliedAt) : "just now"}.</p></>
+                ) : (
+                  <><p className="font-semibold">Waiting for Ubuntu host confirmation</p><p className="mt-1">The portal saved this schedule. The host will acknowledge it on its next five-minute check.</p></>
+                )}
+              </div>
 
               {synologyRestoreStatus && (
                 <div className={`rounded-lg border p-3 text-xs ${synologyRestoreStatus.status === "failed" ? "border-red-200 bg-red-50 text-red-900" : synologyRestoreStatus.status === "succeeded" ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>

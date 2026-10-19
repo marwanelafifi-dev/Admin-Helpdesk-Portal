@@ -414,7 +414,11 @@ export async function syncFromServer(): Promise<void> {
     const remoteIds = new Set(remote.map((r) => r.id))
     const localOnly = local.filter((r) => !remoteIds.has(r.id) && _pendingPush.has(r.id))
     merged.push(...localOnly)
-    writeAll(merged)
+    // Polls often return the same data. Avoid rewriting localStorage and
+    // notifying every request-list subscriber when nothing changed.
+    if (JSON.stringify(merged) !== localStorage.getItem(STORAGE_KEY)) {
+      writeAll(merged)
+    }
   } catch {
     // Network errors leave the cache untouched.
   }

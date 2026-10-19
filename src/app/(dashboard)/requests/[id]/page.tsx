@@ -954,10 +954,17 @@ export default function RequestDetailPage() {
   const STATUSES = getStatusesByModule(request)
 
   useEffect(() => {
+    let cancelled = false
     const fetchRequest = async () => {
       try {
         setLoading(true)
+        setError(null)
         initializeMockData()
+
+        // Start the activity-directory lookup while the request is loading.
+        const directoryPromise = fetch("/api/users/directory")
+          .then((response) => response.ok ? response.json() : null)
+          .catch(() => null)
 
         // Always load the full request from the server first. The browser
         // cache may intentionally omit base64 attachment data when
@@ -1005,18 +1012,6 @@ export default function RequestDetailPage() {
         // + emails via the user directory. Without this, the timeline just
         // shows raw "USR-1779…" identifiers.
         const userMap = new Map<string, { name: string; email: string }>()
-        try {
-          const dirRes = await fetch("/api/users/directory")
-          if (dirRes.ok) {
-            const dirJson = await dirRes.json()
-            const users = Array.isArray(dirJson?.data) ? dirJson.data : []
-            for (const u of users) {
-              userMap.set(u.id, { name: u.name ?? u.email ?? u.id, email: u.email ?? "" })
-            }
-          }
-        } catch {
-          // Best-effort. Fall back to raw IDs if the directory fetch fails.
-        }
         // Always recognise the request's own requester even if they're not
         // in the active directory list.
         if (engineRequest.requesterId) {
@@ -1132,100 +1127,132 @@ export default function RequestDetailPage() {
           history: allHistory,
         }
 
-        // Fetch server-stored attachments (disk-based, not in payload)
-        try {
-          const serverAttsRes = await fetch(`/api/requests/${id}/attachments`)
-          if (serverAttsRes.ok) {
-            const serverAttsData = await serverAttsRes.json()
-            const serverAtts = (serverAttsData.data ?? []) as any[]
-            // Merge: server attachments take priority; deduplicate by id
-            const existingIds = new Set((foundRequest.attachments || []).map((a: any) => a.id))
-            const newServerAtts = serverAtts.filter((a: any) => !existingIds.has(a.id))
-            foundRequest = {
-              ...foundRequest,
-              attachments: [
-                ...(foundRequest.attachments || []),
-                ...newServerAtts,
-              ],
-            }
+        if (cancelled) return
+        setRequest(foundRequest)
+        setLoading(false)
+
+        void directoryPromise.then((dirJson) => {
+          if (cancelled) return
+          const users = Array.isArray(dirJson?.data) ? dirJson.data : []
+          if (users.length === 0) return
+          for (const user of users) {
+            userMap.set(user.id, { name: user.name ?? user.email ?? user.id, email: user.email ?? "" })
           }
-        } catch {
-          // Server attachments are a best-effort enhancement
+          setRequest((current) => current?.id === id ? {
+            ...current,
+            history: current.history.map((entry) => {
+              const actor = resolveActor(entry.changedByUserId)
+              return { ...entry, changedByUser: {
+                ...entry.changedByUser,
+                id: entry.changedByUserId,
+                name: actor.name,
+                email: actor.email,
+              } }
+            }),
+          } : current)
+        })
+
+        // Supporting sections load independently so a slow comments or
+        // feedback endpoint does not keep the whole page on a spinner.
+        const loadAttachments = async () => {
+          try {
+            const serverAttsRes = await fetch(`/api/requests/${id}/attachments`)
+            if (serverAttsRes.ok) {
+              const serverAttsData = await serverAttsRes.json()
+              const serverAtts = (serverAttsData.data ?? []) as any[]
+              if (!cancelled) setRequest((current) => {
+                if (!current || current.id !== id) return current
+                const existingIds = new Set((current.attachments || []).map((a: any) => a.id))
+                return { ...current, attachments: [
+                  ...(current.attachments || []),
+                  ...serverAtts.filter((a: any) => !existingIds.has(a.id)),
+                ] }
+              })
+            }
+          } catch {
+            // Server attachments are a best-effort enhancement.
+          }
         }
 
-        // Fetch comments for this request
-        try {
-          const commentsData = await commentsAPI.list(id)
-          const comments = commentsData.data || []
+        const loadComments = async () => {
+          try {
+            const commentsData = await commentsAPI.list(id)
+            const comments = commentsData.data || []
 
           // Extract attachments from comments and add them to the main attachments list
-          const commentAttachments = comments.flatMap((comment: any) =>
-            (comment.attachments || []).map((att: any) => ({
-              ...att,
-              source: 'comment',
-              commentAuthor: comment.author?.name || 'Unknown',
-              commentCreatedAt: comment.createdAt,
-            }))
-          )
+            const commentAttachments = comments.flatMap((comment: any) =>
+              (comment.attachments || []).map((att: any) => ({
+                ...att,
+                source: 'comment',
+                commentAuthor: comment.author?.name || 'Unknown',
+                commentCreatedAt: comment.createdAt,
+              }))
+            )
 
-          foundRequest = {
-            ...foundRequest,
-            comments: comments,
-            attachments: [
-              ...(foundRequest.attachments || []),
-              ...commentAttachments,
-            ],
+            if (!cancelled) setRequest((current) => current?.id === id ? {
+              ...current,
+              comments,
+              attachments: [
+                ...(current.attachments || []).filter((a: any) => a.source !== 'comment'),
+                ...commentAttachments,
+              ],
+            } : current)
+          } catch (err) {
+            console.log("No comments found or error fetching comments:", err)
           }
-        } catch (err) {
-          console.log("No comments found or error fetching comments:", err)
-          // Comments are optional, continue without them
         }
-
-        setRequest(foundRequest)
 
         // Feedback is configured by the function that owns the request. Keep
         // the request page aligned with the server-side email/feedback guard.
         const feedbackFunction = functionForModule(foundRequest.module)
-        try {
-          const settingsResponse = await fetch("/api/admin/settings")
-          if (settingsResponse.ok) {
-            const settingsData = await settingsResponse.json()
-            setFeedbackSurveyEnabled(settingsData.settings?.feedbackSurveysByFunction?.[feedbackFunction]?.enabled !== false)
-          } else {
-            setFeedbackSurveyEnabled(true)
+        const loadSettings = async () => {
+          try {
+            const settingsResponse = await fetch("/api/admin/settings")
+            if (settingsResponse.ok) {
+              const settingsData = await settingsResponse.json()
+              if (!cancelled) setFeedbackSurveyEnabled(settingsData.settings?.feedbackSurveysByFunction?.[feedbackFunction]?.enabled !== false)
+            } else {
+              if (!cancelled) setFeedbackSurveyEnabled(true)
+            }
+          } catch {
+            if (!cancelled) setFeedbackSurveyEnabled(true)
           }
-        } catch {
-          setFeedbackSurveyEnabled(true)
         }
 
         // Restore feedback state if already submitted for this request
-        try {
-          const res = await fetch("/api/feedback/responses")
-          if (res.ok) {
-            const data = await res.json()
-            const existing = (data.responses ?? []).find((r: any) =>
-              r.requestId === foundRequest.id
-              || (r.feedbackScope === "overall" && r.coveredRequestIds?.includes(foundRequest.id)),
-            )
-            if (existing) {
-              setSurveySubmitted(true)
-              setSurveyCoveredByOverall(existing.feedbackScope === "overall")
-              setSurveyRating(existing.rating ?? 0)
-              setSurveyComment(existing.comment ?? "")
+        const loadFeedback = async () => {
+          try {
+            const res = await fetch("/api/feedback/responses")
+            if (res.ok) {
+              const data = await res.json()
+              const existing = (data.responses ?? []).find((r: any) =>
+                r.requestId === foundRequest.id
+                || (r.feedbackScope === "overall" && r.coveredRequestIds?.includes(foundRequest.id)),
+              )
+              if (existing && !cancelled) {
+                setSurveySubmitted(true)
+                setSurveyCoveredByOverall(existing.feedbackScope === "overall")
+                setSurveyRating(existing.rating ?? 0)
+                setSurveyComment(existing.comment ?? "")
+              }
             }
-          }
-        } catch { /* feedback state restore is best-effort */ }
+          } catch { /* feedback state restore is best-effort */ }
+        }
+        void Promise.allSettled([loadAttachments(), loadComments(), loadSettings(), loadFeedback()])
       } catch (err) {
-        console.error("Failed to fetch request:", err)
-        setError(err instanceof Error ? err.message : "Failed to fetch request")
+        if (!cancelled) {
+          console.error("Failed to fetch request:", err)
+          setError(err instanceof Error ? err.message : "Failed to fetch request")
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
 
     if (id) {
       fetchRequest()
     }
+    return () => { cancelled = true }
   }, [id, pathname])
 
   // Mark comments as viewed

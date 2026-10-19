@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   const actorEmail = String(token.email ?? "")
   if (body.action === "save") {
     const config = updateSynologyBackupSettings(body.settings)
-    logServerAudit({ actor: actorName, actorEmail, action: "database_backup", targetId: "synology-backup", targetTitle: "Synology recovery backup settings", details: `Synology backup ${config.enabled ? "enabled" : "disabled"}; ${config.nasRoot}; ${config.scheduleTime}; retention ${config.retentionDays} days.`, category: "database", outcome: "success", ...requestMetadata(req) })
+    logServerAudit({ actor: actorName, actorEmail, action: "database_backup", targetId: "synology-backup", targetTitle: "Synology recovery backup settings", details: `Synology backup ${config.enabled ? "enabled" : "disabled"}; ${config.scheduleFrequency} at ${config.scheduleTime}; ${config.nasRoot}; retention ${config.retentionDays} days.`, category: "database", outcome: "success", ...requestMetadata(req) })
     return NextResponse.json({ success: true, config })
   }
   if (body.action === "run") {

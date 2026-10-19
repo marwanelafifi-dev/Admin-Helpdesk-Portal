@@ -13,6 +13,12 @@ const CD_BUCHI_STORAGE_KEY = "arp_company_data_buchi"
 async function backfillLocalToServer() {
   if (typeof window === "undefined") return
 
+  // This is a one-time migration from the browser-only version of the
+  // portal. Failed *current* writes are retried independently through
+  // retryPendingPushes(), so replaying the entire local cache on every
+  // dashboard mount only creates unnecessary serial POST requests.
+  if (localStorage.getItem(MIGRATION_KEY)) return
+
   const local = getRequests()
   if (local.length === 0) {
     localStorage.setItem(MIGRATION_KEY, "1")

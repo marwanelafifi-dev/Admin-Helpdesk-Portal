@@ -95,12 +95,42 @@ if ($null -ne $config) {
     if ($config.pruneOldBackups -is [bool]) { $PruneSynologyBackups = [bool]$config.pruneOldBackups }
 
     if ($ScheduledInvocation) {
-        if ($config.enabled -ne $true) { exit 0 }
         $now = Get-Date
+        if ($config.scheduleUpdatedAt -is [string] -and $config.scheduleUpdatedAt -ne $config.lastAppliedScheduleUpdatedAt) {
+            Set-ConfigValue -Name 'lastHostConfigAppliedAt' -Value $now.ToString('o')
+            Set-ConfigValue -Name 'lastAppliedScheduleUpdatedAt' -Value $config.scheduleUpdatedAt
+            Save-ConfigState
+        }
+        if ($config.enabled -ne $true) { exit 0 }
         $requestedAt = if ($config.runRequestedAt -is [string]) { $config.runRequestedAt } else { $null }
         $requestPending = $requestedAt -and ($requestedAt -ne $config.lastRequestHandledAt)
-        $scheduledDue = $config.scheduleTime -eq $now.ToString('HH:mm')
-        if (-not $requestPending -and -not $scheduledDue) { exit 0 }
+        $frequency = if ($config.scheduleFrequency -in @('daily', 'weekly', 'monthly', 'yearly')) { $config.scheduleFrequency } else { 'daily' }
+        $scheduleTime = if ($config.scheduleTime -match '^([01]\d|2[0-3]):[0-5]\d$') { [TimeSpan]::Parse($config.scheduleTime) } else { [TimeSpan]::Parse('02:30') }
+        $scheduledDue = $false
+        $scheduledPeriod = $null
+        if ($now.TimeOfDay -ge $scheduleTime) {
+            switch ($frequency) {
+                'daily' { $scheduledDue = $true; $scheduledPeriod = $now.ToString('yyyy-MM-dd') }
+                'weekly' {
+                    $weekday = if ($config.scheduleWeekday -is [int] -and $config.scheduleWeekday -ge 0 -and $config.scheduleWeekday -le 6) { $config.scheduleWeekday } else { 0 }
+                    if ([int]$now.DayOfWeek -ge $weekday) { $scheduledDue = $true; $scheduledPeriod = 'week-' + $now.Date.AddDays(-[int]$now.DayOfWeek).ToString('yyyy-MM-dd') }
+                }
+                'monthly' {
+                    $day = if ($config.scheduleDay -is [int] -and $config.scheduleDay -ge 1 -and $config.scheduleDay -le 31) { $config.scheduleDay } else { 1 }
+                    if ($now.Day -ge [Math]::Min($day, [DateTime]::DaysInMonth($now.Year, $now.Month))) { $scheduledDue = $true; $scheduledPeriod = $now.ToString('yyyy-MM') }
+                }
+                'yearly' {
+                    $month = if ($config.scheduleMonth -is [int] -and $config.scheduleMonth -ge 1 -and $config.scheduleMonth -le 12) { $config.scheduleMonth } else { 1 }
+                    $day = if ($config.scheduleDay -is [int] -and $config.scheduleDay -ge 1 -and $config.scheduleDay -le 31) { $config.scheduleDay } else { 1 }
+                    if (($now.Month -gt $month) -or ($now.Month -eq $month -and $now.Day -ge [Math]::Min($day, [DateTime]::DaysInMonth($now.Year, $month)))) { $scheduledDue = $true; $scheduledPeriod = $now.ToString('yyyy') }
+                }
+            }
+        }
+        $alreadyScheduled = $scheduledPeriod -and $config.lastScheduledPeriod -eq $scheduledPeriod
+        if (-not $requestPending -and (-not $scheduledDue -or $alreadyScheduled)) { exit 0 }
+        if (-not $requestPending) {
+            Set-ConfigValue -Name 'lastScheduledPeriod' -Value $scheduledPeriod
+        }
         Set-ConfigValue -Name 'lastStartedAt' -Value $now.ToString('o')
         Save-ConfigState
     }

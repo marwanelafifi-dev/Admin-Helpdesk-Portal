@@ -94,7 +94,8 @@ export async function GET(req: Request) {
   const id = new URL(req.url).searchParams.get("id")
   // Classify legacy records at read time as well as new writes. This keeps old
   // requests usable without a destructive data migration.
-  const classifiedRequests = requestStore.getAll().map(withCompanyClassification)
+  const records = id ? [requestStore.get(id)].filter((record): record is EngineRequest => Boolean(record)) : requestStore.getAll()
+  const classifiedRequests = records.map(withCompanyClassification)
   const userWithModules: UserWithModuleAccess = {
     id: session.user.id,
     email: session.user.email ?? undefined,

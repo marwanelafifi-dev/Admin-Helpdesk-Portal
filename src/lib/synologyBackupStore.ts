@@ -7,6 +7,8 @@ const HISTORY_PATH = path.join(process.cwd(), "data", "synology-backup-history.j
 const RESTORE_REQUEST_PATH = path.join(process.cwd(), "data", "synology-restore-request.json")
 const RESTORE_STATUS_PATH = path.join(process.cwd(), "data", "synology-restore-status.json")
 const HISTORY_LIMIT = 50
+export const SYNOLOGY_SCHEDULE_FREQUENCIES = ["daily", "weekly", "monthly", "yearly"] as const
+export type SynologyScheduleFrequency = typeof SYNOLOGY_SCHEDULE_FREQUENCIES[number]
 
 export interface SynologyBackupConfig {
   enabled: boolean
@@ -14,6 +16,18 @@ export interface SynologyBackupConfig {
   nasRoot: string
   /** The backup host service checks this value every five minutes. */
   scheduleTime: string
+  scheduleFrequency: SynologyScheduleFrequency
+  /** Sunday = 0; used by the weekly schedule. */
+  scheduleWeekday: number
+  /** Day of the month, clamped to the final valid day when needed. */
+  scheduleDay: number
+  /** January = 1; used by the yearly schedule. */
+  scheduleMonth: number
+  /** Changes with every portal save and lets the host acknowledge the exact settings it read. */
+  scheduleUpdatedAt: string
+  lastHostConfigAppliedAt: string | null
+  lastAppliedScheduleUpdatedAt: string | null
+  lastScheduledPeriod: string | null
   retentionDays: number
   pruneOldBackups: boolean
   runRequestedAt: string | null
@@ -65,6 +79,14 @@ export const SYNOLOGY_BACKUP_DEFAULTS: SynologyBackupConfig = {
   enabled: true,
   nasRoot: "\\\\192.168.2.204\\Si-Ware Apps\\Company Portal",
   scheduleTime: "02:30",
+  scheduleFrequency: "daily",
+  scheduleWeekday: 0,
+  scheduleDay: 1,
+  scheduleMonth: 1,
+  scheduleUpdatedAt: new Date(0).toISOString(),
+  lastHostConfigAppliedAt: null,
+  lastAppliedScheduleUpdatedAt: null,
+  lastScheduledPeriod: null,
   retentionDays: 180,
   pruneOldBackups: true,
   runRequestedAt: null,
@@ -108,12 +130,30 @@ function safeRetention(value: unknown): number {
     : SYNOLOGY_BACKUP_DEFAULTS.retentionDays
 }
 
+function safeFrequency(value: unknown): SynologyScheduleFrequency {
+  return typeof value === "string" && (SYNOLOGY_SCHEDULE_FREQUENCIES as readonly string[]).includes(value)
+    ? value as SynologyScheduleFrequency
+    : SYNOLOGY_BACKUP_DEFAULTS.scheduleFrequency
+}
+
+function safeInteger(value: unknown, minimum: number, maximum: number, fallback: number): number {
+  return typeof value === "number" && Number.isInteger(value) && value >= minimum && value <= maximum ? value : fallback
+}
+
 function normalize(saved: unknown): SynologyBackupConfig {
   const source = saved && typeof saved === "object" && !Array.isArray(saved) ? saved as Partial<SynologyBackupConfig> : {}
   return {
     enabled: typeof source.enabled === "boolean" ? source.enabled : SYNOLOGY_BACKUP_DEFAULTS.enabled,
     nasRoot: safeNasRoot(source.nasRoot),
     scheduleTime: safeTime(source.scheduleTime),
+    scheduleFrequency: safeFrequency(source.scheduleFrequency),
+    scheduleWeekday: safeInteger(source.scheduleWeekday, 0, 6, SYNOLOGY_BACKUP_DEFAULTS.scheduleWeekday),
+    scheduleDay: safeInteger(source.scheduleDay, 1, 31, SYNOLOGY_BACKUP_DEFAULTS.scheduleDay),
+    scheduleMonth: safeInteger(source.scheduleMonth, 1, 12, SYNOLOGY_BACKUP_DEFAULTS.scheduleMonth),
+    scheduleUpdatedAt: isDate(source.scheduleUpdatedAt) ? source.scheduleUpdatedAt : SYNOLOGY_BACKUP_DEFAULTS.scheduleUpdatedAt,
+    lastHostConfigAppliedAt: isDate(source.lastHostConfigAppliedAt) ? source.lastHostConfigAppliedAt : null,
+    lastAppliedScheduleUpdatedAt: isDate(source.lastAppliedScheduleUpdatedAt) ? source.lastAppliedScheduleUpdatedAt : null,
+    lastScheduledPeriod: typeof source.lastScheduledPeriod === "string" && /^[0-9-]{4,16}$/.test(source.lastScheduledPeriod) ? source.lastScheduledPeriod : null,
     retentionDays: safeRetention(source.retentionDays),
     pruneOldBackups: typeof source.pruneOldBackups === "boolean" ? source.pruneOldBackups : SYNOLOGY_BACKUP_DEFAULTS.pruneOldBackups,
     runRequestedAt: isDate(source.runRequestedAt) ? source.runRequestedAt : null,
@@ -259,12 +299,20 @@ export function writeSynologyBackupConfig(update: Partial<SynologyBackupConfig>)
 /** Only UI-editable settings are accepted here; host execution state is host-owned. */
 export function updateSynologyBackupSettings(input: unknown): SynologyBackupConfig {
   const source = input && typeof input === "object" && !Array.isArray(input) ? input as Partial<SynologyBackupConfig> : {}
+  const current = readSynologyBackupConfig()
   return writeSynologyBackupConfig({
-    enabled: typeof source.enabled === "boolean" ? source.enabled : readSynologyBackupConfig().enabled,
+    enabled: typeof source.enabled === "boolean" ? source.enabled : current.enabled,
     nasRoot: safeNasRoot(source.nasRoot),
     scheduleTime: safeTime(source.scheduleTime),
+    scheduleFrequency: safeFrequency(source.scheduleFrequency),
+    scheduleWeekday: safeInteger(source.scheduleWeekday, 0, 6, current.scheduleWeekday),
+    scheduleDay: safeInteger(source.scheduleDay, 1, 31, current.scheduleDay),
+    scheduleMonth: safeInteger(source.scheduleMonth, 1, 12, current.scheduleMonth),
+    scheduleUpdatedAt: new Date().toISOString(),
+    lastHostConfigAppliedAt: current.lastHostConfigAppliedAt,
+    lastAppliedScheduleUpdatedAt: current.lastAppliedScheduleUpdatedAt,
     retentionDays: safeRetention(source.retentionDays),
-    pruneOldBackups: typeof source.pruneOldBackups === "boolean" ? source.pruneOldBackups : readSynologyBackupConfig().pruneOldBackups,
+    pruneOldBackups: typeof source.pruneOldBackups === "boolean" ? source.pruneOldBackups : current.pruneOldBackups,
   })
 }
 

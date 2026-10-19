@@ -93,6 +93,13 @@ write_history() {
 
 enabled="true"
 schedule_time="02:30"
+schedule_frequency="daily"
+schedule_weekday="0"
+schedule_day="1"
+schedule_month="1"
+schedule_updated_at=""
+last_applied_schedule=""
+last_scheduled_period=""
 retention_days="365"
 prune_old="true"
 destination="$DEFAULT_DESTINATION"
@@ -102,6 +109,13 @@ last_handled=""
 if [[ -f "$CONFIG_FILE" ]]; then
   enabled="$(config_value '.enabled')"; [[ -n "$enabled" ]] || enabled=true
   schedule_time="$(config_value '.scheduleTime')"; [[ "$schedule_time" =~ ^([01][0-9]|2[0-3]):[0-5][0-9]$ ]] || schedule_time=02:30
+  schedule_frequency="$(config_value '.scheduleFrequency')"; [[ "$schedule_frequency" =~ ^(daily|weekly|monthly|yearly)$ ]] || schedule_frequency=daily
+  schedule_weekday="$(config_value '.scheduleWeekday')"; [[ "$schedule_weekday" =~ ^[0-6]$ ]] || schedule_weekday=0
+  schedule_day="$(config_value '.scheduleDay')"; [[ "$schedule_day" =~ ^([1-9]|[12][0-9]|3[01])$ ]] || schedule_day=1
+  schedule_month="$(config_value '.scheduleMonth')"; [[ "$schedule_month" =~ ^([1-9]|1[0-2])$ ]] || schedule_month=1
+  schedule_updated_at="$(config_value '.scheduleUpdatedAt')"
+  last_applied_schedule="$(config_value '.lastAppliedScheduleUpdatedAt')"
+  last_scheduled_period="$(config_value '.lastScheduledPeriod')"
   retention_days="$(config_value '.retentionDays')"; [[ "$retention_days" =~ ^[0-9]+$ ]] || retention_days=365
   prune_old="$(config_value '.pruneOldBackups')"; [[ -n "$prune_old" ]] || prune_old=true
   requested_at="$(config_value '.runRequestedAt')"
@@ -114,11 +128,51 @@ if [[ -f "$CONFIG_FILE" ]]; then
   fi
 fi
 
+if [[ -n "$schedule_updated_at" && "$schedule_updated_at" != "$last_applied_schedule" ]]; then
+  write_state ".lastHostConfigAppliedAt = \"$(date --iso-8601=seconds)\" | .lastAppliedScheduleUpdatedAt = \"$schedule_updated_at\""
+fi
 [[ "$enabled" == "true" || "$FORCE_BACKUP" == "1" ]] || exit 0
 pending_request=false
 [[ -n "$requested_at" && "$requested_at" != "$last_handled" ]] && pending_request=true
-if [[ "$FORCE_BACKUP" != "1" && "$SCHEDULED_INVOCATION" == "1" && "$pending_request" == false && "$(date +%H:%M)" != "$schedule_time" ]]; then
-  exit 0
+
+scheduled_due=false
+scheduled_period=""
+today="$(date +%F)"
+current_time="$(date +%H:%M)"
+if [[ "$current_time" > "$schedule_time" || "$current_time" == "$schedule_time" ]]; then
+  case "$schedule_frequency" in
+    daily)
+      scheduled_due=true; scheduled_period="$today"
+      ;;
+    weekly)
+      if (( 10#$(date +%w) >= 10#$schedule_weekday )); then
+        scheduled_due=true; scheduled_period="week-$(date -d "$(date +%F) - $(date +%w) days" +%F)"
+      fi
+      ;;
+    monthly)
+      last_day="$(date -d "$(date +%Y-%m-01) +1 month -1 day" +%d)"
+      due_day=$(( 10#$schedule_day > 10#$last_day ? 10#$last_day : 10#$schedule_day ))
+      if (( 10#$(date +%d) >= due_day )); then
+        scheduled_due=true; scheduled_period="$(date +%Y-%m)"
+      fi
+      ;;
+    yearly)
+      if (( 10#$(date +%m) >= 10#$schedule_month )); then
+        last_day="$(date -d "$(date +%Y)-$(printf '%02d' "$schedule_month")-01 +1 month -1 day" +%d)"
+        due_day=$(( 10#$schedule_day > 10#$last_day ? 10#$last_day : 10#$schedule_day ))
+        if (( 10#$(date +%m) > 10#$schedule_month || 10#$(date +%d) >= due_day )); then
+          scheduled_due=true; scheduled_period="$(date +%Y)"
+        fi
+      fi
+      ;;
+  esac
+fi
+
+if [[ "$FORCE_BACKUP" != "1" && "$SCHEDULED_INVOCATION" == "1" && "$pending_request" == false ]]; then
+  [[ "$scheduled_due" == true && "$scheduled_period" != "$last_scheduled_period" ]] || exit 0
+  # Record the period before the work starts. A failed scheduled backup is
+  # reported to the portal and does not retry every five minutes all day.
+  write_state ".lastScheduledPeriod = \"$scheduled_period\""
 fi
 
 now_iso="$(date --iso-8601=seconds)"

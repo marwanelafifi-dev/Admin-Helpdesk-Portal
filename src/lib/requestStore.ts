@@ -131,7 +131,14 @@ class RequestStore {
   }
 
   get(id: string): EngineRequest | undefined {
-    return this.getAll().find((r) => r.id === id)
+    this.reloadIfChanged()
+    const request = this.store.find((r) => r.id === id)
+    // Preserve the legacy approval repair without scanning and copying the
+    // entire store for the usual detail lookup.
+    if (request?.status === "awaiting_approval" && hasRecordedApproval(request)) {
+      return this.getAll().find((r) => r.id === id)
+    }
+    return request
   }
 
   upsert(request: EngineRequest): EngineRequest {
