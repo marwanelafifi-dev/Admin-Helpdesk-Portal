@@ -303,7 +303,15 @@ export async function POST(req: Request) {
     )
   }
   const isNew = body.operation === "create" || !existing
-  if (isNew && !assignee.assignedToId) {
+  const isFinanceRequest = functionForModule(incoming.module) === "finance"
+
+  // Finance work is intentionally claimed by the person who starts or
+  // completes it. Do not let a legacy Finance default assignee pre-assign a
+  // newly submitted request; other functions retain their existing default
+  // assignment behaviour.
+  if (isNew && isFinanceRequest) {
+    assignee = { assignedToId: null, assignedToName: null, assignedToEmail: null }
+  } else if (isNew && !assignee.assignedToId) {
     const defaultAssignee = getDefaultAssignee(functionForModule(incoming.module))
     if (defaultAssignee) {
       assignee = {
@@ -311,6 +319,29 @@ export async function POST(req: Request) {
         assignedToName: defaultAssignee.name,
         assignedToEmail: defaultAssignee.email,
       }
+    }
+  }
+
+  // Claim Finance requests from the authenticated status-changing user. A
+  // change to In Progress records who took ownership; a later change to
+  // Completed transfers ownership to the person who completed the work.
+  // Deriving this from the server-side session prevents a browser payload
+  // from assigning the request to a different user.
+  const autoAssignment = existing
+    && isFinanceRequest
+    && incoming.status !== existing.status
+    && ["in_progress", "completed"].includes(incoming.status)
+    ? readUsers().find((user) => user.active && (
+      user.id === session.user.id
+      || user.email.toLowerCase() === (session.user.email ?? "").toLowerCase()
+    ) && roleToFunctionId(user.role) === "finance")
+    : undefined
+
+  if (autoAssignment) {
+    assignee = {
+      assignedToId: autoAssignment.id,
+      assignedToName: autoAssignment.name,
+      assignedToEmail: autoAssignment.email,
     }
   }
 
@@ -402,6 +433,20 @@ export async function POST(req: Request) {
       targetId: saved.id,
       targetTitle: saved.title,
       details: isNew ? `${saved.module} request created` : String(body.audit.details),
+      category: "request",
+      outcome: "success",
+    })
+  }
+
+  if (autoAssignment && existing) {
+    const previousAssignee = existing.assignedToName ?? existing.assignedToEmail ?? "Unassigned"
+    logServerAudit({
+      actor: session.user.name ?? session.user.email ?? "System",
+      actorEmail: session.user.email ?? "",
+      action: "request_auto_assigned",
+      targetId: saved.id,
+      targetTitle: saved.title,
+      details: `Status changed from ${existing.status} to ${saved.status}; assignee automatically changed from ${previousAssignee} to ${autoAssignment.name}.`,
       category: "request",
       outcome: "success",
     })

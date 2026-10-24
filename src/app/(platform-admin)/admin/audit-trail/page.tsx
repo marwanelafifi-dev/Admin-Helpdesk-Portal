@@ -329,6 +329,7 @@ async function buildAuditLog(): Promise<AuditEntry[]> {
           request_deleted:       "Request deleted",
           request_created:       "Request created",
           request_edited:        "Request edited",
+          request_auto_assigned: "Assignee updated automatically",
           cc_recipients_updated: "CC Recipients updated",
           login_succeeded:       "Login succeeded",
           login_failed:          "Login failed",

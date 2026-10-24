@@ -4,6 +4,7 @@ import { auth } from "@/auth"
 import { requestStore } from "@/lib/requestStore"
 import { hasRecordedApproval } from "@/lib/approvalRules"
 import { commentsStore } from "@/lib/commentsStore"
+import { publicBaseUrl } from "@/lib/publicBaseUrl"
 
 type RequestUpdatePayload = {
   to?: string[]
@@ -26,14 +27,18 @@ type RequestUpdatePayload = {
 const MAX_COMMENT_EMAIL_ATTACHMENT_BYTES = 10 * 1024 * 1024
 const MAX_COMMENT_EMAIL_TOTAL_BYTES = 20 * 1024 * 1024
 const ADMIN_HELPDESK_EMAIL = "adminhelpdesk@si-ware.com"
+const FINANCE_AP_EMAIL = "ap@si-ware.com"
 
 /**
- * The Administration mailbox receives new-request and approval workflow email,
- * but is not a recipient of request comments. Individual team members retain
- * their existing email behavior when they are explicitly addressed.
+ * Shared Administration and Finance mailboxes receive new-request and approval
+ * workflow email, but are not recipients of request comments. Individual team
+ * members retain their existing email behavior when explicitly addressed.
  */
 function filterCommentMailboxRecipient(recipients: string[]): string[] {
-  return recipients.filter((email) => email.trim().toLowerCase() !== ADMIN_HELPDESK_EMAIL)
+  return recipients.filter((email) => ![
+    ADMIN_HELPDESK_EMAIL,
+    FINANCE_AP_EMAIL,
+  ].includes(email.trim().toLowerCase()))
 }
 
 function decodeCommentEmailAttachments(
@@ -139,7 +144,9 @@ export async function POST(req: NextRequest) {
     })
 
     const commentAttachments = body.updateType === "comment"
-      ? decodeCommentEmailAttachments(body.requestId, new URL(req.url).origin, body.commentAttachments)
+      // Request URLs can reflect Docker's internal localhost origin. Email
+      // recipients need the externally reachable portal hostname instead.
+      ? decodeCommentEmailAttachments(body.requestId, publicBaseUrl(req).origin, body.commentAttachments)
       : []
 
     await sendRequestUpdateEmail({

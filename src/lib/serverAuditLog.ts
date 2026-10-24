@@ -26,6 +26,7 @@ export type ServerAuditAction =
   | "request_deleted"
   | "request_created"
   | "request_edited"
+  | "request_auto_assigned"
   | "cc_recipients_updated"
   | "login_succeeded"
   | "login_failed"

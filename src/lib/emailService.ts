@@ -250,7 +250,7 @@ function escapeHtml(value: string) {
 }
 
 function getBaseUrl() {
-  return process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003"
+  return process.env.NEXTAUTH_URL || process.env.AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3003"
 }
 
 function getMailDomain() {
