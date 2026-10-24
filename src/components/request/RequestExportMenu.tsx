@@ -73,9 +73,13 @@ export function RequestExportMenu({ portal }: { portal: FunctionId | "platform-a
   const [exportTarget, setExportTarget] = useState<HTMLElement | null>(null)
   const [slaTarget, setSlaTarget] = useState<HTMLElement | null>(null)
   const [financeSlaReminderCount, setFinanceSlaReminderCount] = useState(0)
+  const [adminSlaReminderCount, setAdminSlaReminderCount] = useState(0)
   const financeModuleScope = (scope?.modules ?? []).filter((module) => FINANCE_MODULES.has(module))
+  const adminModuleScope = (scope?.modules ?? []).filter((module) => modulesVisibleToFunction("admin").includes(module))
   const financeScopeKey = financeModuleScope.join("|")
+  const adminScopeKey = adminModuleScope.join("|")
   const shouldShowFinanceSla = portal === "finance" && financeModuleScope.length > 0
+  const shouldShowAdminSla = portal === "admin" && pathname !== "/admin/all-requests" && adminModuleScope.length > 0
   const canExport = isSuperAdmin(session?.user?.role) || hasPermission(session?.user?.permissions, "export_requests")
 
   useEffect(() => {
@@ -89,7 +93,7 @@ export function RequestExportMenu({ portal }: { portal: FunctionId | "platform-a
       const explicitExportSlot = document.querySelector<HTMLElement>("[data-request-export-slot]")
       if (explicitExportSlot) {
         setExportTarget(explicitExportSlot)
-        setSlaTarget(document.querySelector<HTMLElement>("[data-finance-sla-reminder-slot]"))
+        setSlaTarget(document.querySelector<HTMLElement>("[data-finance-sla-reminder-slot], [data-admin-sla-reminder-slot]"))
         return true
       }
 
@@ -160,15 +164,41 @@ export function RequestExportMenu({ portal }: { portal: FunctionId | "platform-a
     }
   }, [shouldShowFinanceSla, financeScopeKey])
 
-  if (!scope || portal === "platform-admin" || !canExport || !exportTarget) return null
+  useEffect(() => {
+    if (!shouldShowAdminSla) {
+      setAdminSlaReminderCount(0)
+      return
+    }
+
+    let active = true
+    const refresh = () => {
+      fetch("/api/admin/sla-reminders", { credentials: "include", cache: "no-store" })
+        .then((response) => response.ok ? response.json() : null)
+        .then((data) => {
+          if (!active) return
+          const reminders = Array.isArray(data?.data) ? data.data : []
+          setAdminSlaReminderCount(reminders.filter((reminder: { module?: string }) => adminModuleScope.includes(String(reminder.module))).length)
+        })
+        .catch(() => { if (active) setAdminSlaReminderCount(0) })
+    }
+    refresh()
+    const interval = window.setInterval(refresh, 60_000)
+    return () => {
+      active = false
+      window.clearInterval(interval)
+    }
+  }, [shouldShowAdminSla, adminScopeKey])
+
+  if (!scope || portal === "platform-admin" || !exportTarget || (!canExport && !shouldShowAdminSla)) return null
+  const requestScope = scope
 
   async function getScopedRequests(): Promise<EngineRequest[]> {
     const response = await fetch("/api/requests", { credentials: "include", cache: "no-store" })
     if (!response.ok) throw new Error("Requests could not be loaded for export.")
     const body = await response.json()
     const all = Array.isArray(body?.data) ? body.data as EngineRequest[] : []
-    const moduleScoped = scope.modules?.length ? all.filter((request) => scope.modules?.includes(request.module)) : all
-    if (!scope.mineOnly) return moduleScoped
+    const moduleScoped = requestScope.modules?.length ? all.filter((request) => requestScope.modules?.includes(request.module)) : all
+    if (!requestScope.mineOnly) return moduleScoped
     // The server has already applied visibility rules. My Requests must still
     // mirror the personal queue, so retain only records belonging to this
     // browser session when the page has loaded them into the response.
@@ -181,7 +211,7 @@ export function RequestExportMenu({ portal }: { portal: FunctionId | "platform-a
     setMessage("")
     try {
       const requests = await getScopedRequests()
-      downloadRequestCsv(requests, `${slug(scope.label)}-${new Date().toISOString().slice(0, 10)}.csv`)
+      downloadRequestCsv(requests, `${slug(requestScope.label)}-${new Date().toISOString().slice(0, 10)}.csv`)
       void recordExport("CSV", requests.length)
       setMessage(`${requests.length} request${requests.length === 1 ? "" : "s"} exported.`)
     } catch (error) {
@@ -201,7 +231,7 @@ export function RequestExportMenu({ portal }: { portal: FunctionId | "platform-a
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scope: scope.label, modules: scope.modules ?? [], requestCount: requests.length, values: [table.headers, ...table.rows] }),
+        body: JSON.stringify({ scope: requestScope.label, modules: requestScope.modules ?? [], requestCount: requests.length, values: [table.headers, ...table.rows] }),
       })
       const body = await response.json().catch(() => null)
       if (!response.ok || !body?.authorizationUrl) throw new Error(body?.error || "Could not start the Google Sheets export.")
@@ -220,7 +250,7 @@ export function RequestExportMenu({ portal }: { portal: FunctionId | "platform-a
         credentials: "include",
         keepalive: true,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ format, scope: scope.label, requestCount, modules: scope.modules ?? [] }),
+        body: JSON.stringify({ format, scope: requestScope.label, requestCount, modules: requestScope.modules ?? [] }),
       })
     } catch {
       // The downloaded file remains valid even if the best-effort audit call
@@ -242,6 +272,22 @@ export function RequestExportMenu({ portal }: { portal: FunctionId | "platform-a
           </div>
           <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-amber-900 group-hover:underline dark:text-amber-100">View SLA Reminders <ArrowRight className="h-3.5 w-3.5" /></span>
         </Link>
+  )
+
+  const adminReminderBanner = shouldShowAdminSla && adminSlaReminderCount > 0 && (
+    <Link
+      href="/admin/sla-reminders"
+      className="group flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 shadow-sm transition hover:border-amber-400 hover:bg-amber-100/70 dark:border-amber-500/40 dark:bg-amber-950/30"
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white shadow-sm"><AlarmClock className="h-4 w-4" /></span>
+        <div className="min-w-0">
+          <p className="font-semibold text-amber-950 dark:text-amber-100">{adminSlaReminderCount} Administration SLA reminder{adminSlaReminderCount === 1 ? "" : "s"} need attention in this queue</p>
+          <p className="mt-0.5 text-xs text-amber-800 dark:text-amber-200">Review the affected requests; Shipping transit and customs work is not flagged by age alone.</p>
+        </div>
+      </div>
+      <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-amber-900 group-hover:underline dark:text-amber-100">View SLA Reminders <ArrowRight className="h-3.5 w-3.5" /></span>
+    </Link>
   )
 
   const usesInlineExportSlot = exportTarget.hasAttribute("data-request-export-slot")
@@ -273,7 +319,7 @@ export function RequestExportMenu({ portal }: { portal: FunctionId | "platform-a
   )
 
   return <>
-    {slaTarget && reminderBanner ? createPortal(reminderBanner, slaTarget) : null}
-    {createPortal(exportControl, exportTarget)}
+    {slaTarget && (reminderBanner || adminReminderBanner) ? createPortal(reminderBanner || adminReminderBanner, slaTarget) : null}
+    {canExport ? createPortal(exportControl, exportTarget) : null}
   </>
 }
