@@ -5,7 +5,11 @@ set -eu
 mkdir -p /app/data/backups
 mkdir -p /app/data/attachments
 chmod 755 /app/data /app/data/backups /app/data/attachments
-chown -R node:node /app/data /app/.next-dev 2>/dev/null || true
+# The Dockerfile already assigns the compiled application to `node`. Never
+# recursively chown `.next-dev` at boot: Next's cache can contain enough files
+# to keep the process from binding port 3003 for several minutes. Persistent
+# data still needs recursive ownership repair because it is a host bind mount.
+chown -R node:node /app/data 2>/dev/null || true
 
 echo "Waiting for database to be ready..."
 max_attempts=60
