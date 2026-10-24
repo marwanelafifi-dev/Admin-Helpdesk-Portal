@@ -21,6 +21,7 @@ const SOURCE_DESTINATIONS: Record<string, RequestBackDestination> = {
   "reimbursement": { href: "/departments/finance/reimbursement", label: "Back to General Reimbursement Requests" },
   "travel-reimbursement": { href: "/departments/finance/travel-reimbursement", label: "Back to Travel Reimbursement Requests" },
   "sla-reminders": { href: "/departments/finance/sla-reminders", label: "Back to Finance SLA Reminders" },
+  "admin-sla-reminders": { href: "/admin/sla-reminders", label: "Back to Administration SLA Reminders" },
   "departments/finance/all-requests": { href: "/departments/finance/all-requests", label: "Back to Finance Requests" },
   // Legacy source emitted before the Finance aggregate page had its own path.
   "departments/finance/reimbursement": { href: "/departments/finance/all-requests", label: "Back to Finance Requests" },
