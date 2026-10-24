@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 import { AlarmClock, BellRing, CheckCircle2 } from "lucide-react"
 import { auth } from "@/auth"
 import { readAdminSlaReminders } from "@/lib/adminSlaReminderStore"
-import { roleToFunctionId, requestModuleLabel } from "@/lib/functionRegistry"
+import { canAccessAdministrationSlaReminders, requestModuleLabel } from "@/lib/functionRegistry"
 import { requestStore } from "@/lib/requestStore"
 import { loadSettingsServer } from "@/lib/settingsServer"
 
@@ -15,7 +15,7 @@ const when = (value: string) => new Intl.DateTimeFormat("en-GB", { timeZone: "Af
 export default async function AdminSlaRemindersPage() {
   const session = await auth()
   if (!session?.user) redirect("/login?callbackUrl=/admin/sla-reminders")
-  if (session.user.role !== "Full Access" && roleToFunctionId(session.user.role) !== "admin") redirect("/unauthorized?from=/admin/sla-reminders")
+  if (!canAccessAdministrationSlaReminders(session.user.role)) redirect("/unauthorized?from=/admin/sla-reminders")
   const reminders = readAdminSlaReminders().sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())
   const requests = new Map(requestStore.getAll().map((request) => [request.id, request]))
   const open = reminders.filter((item) => !TERMINAL.has(String(requests.get(item.requestId)?.status ?? ""))).length

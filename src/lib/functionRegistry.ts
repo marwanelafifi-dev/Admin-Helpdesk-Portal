@@ -216,6 +216,16 @@ export function roleToFunctionId(role?: string | null): FunctionId | null {
   return null
 }
 
+/**
+ * Administration SLA reminders are internal operational work.  Keep this
+ * separate from generic Administration-path permissions: only Full Access
+ * and members of the Administration Team (including a configured team-role
+ * variant) may receive or view them.
+ */
+export function canAccessAdministrationSlaReminders(role?: string | null): boolean {
+  return role === "Full Access" || roleToFunctionId(role) === "admin"
+}
+
 /** A Travel-created HR letter is handled in the same People queue as a standard HR letter. */
 function hasReadAllModuleAccess(readAllModules: string[], moduleId: string): boolean {
   return readAllModules.includes(moduleId)

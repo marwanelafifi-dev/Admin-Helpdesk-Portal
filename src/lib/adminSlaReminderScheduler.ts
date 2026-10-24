@@ -1,4 +1,4 @@
-import { functionForModule, requiresManagerApproval, roleToFunctionId } from "@/lib/functionRegistry"
+import { canAccessAdministrationSlaReminders, functionForModule, requiresManagerApproval } from "@/lib/functionRegistry"
 import { addAdminSlaReminder, markAdminSlaReminder, readAdminSlaReminders } from "@/lib/adminSlaReminderStore"
 import { sendAdminSlaReminderEmail } from "@/lib/emailService"
 import { requestStore } from "@/lib/requestStore"
@@ -58,7 +58,7 @@ function audit(recordId: string, request: EngineRequest, basis: "submission" | "
 
 export function runAdminSlaReminderCheck(now = new Date()) {
   const reminderDay = Math.min(60, Math.max(1, Number.parseInt(loadSettingsServer().adminSlaReminderDay, 10) || 7))
-  const recipients = readUsers().filter((user) => user.active && (roleToFunctionId(user.role) === "admin" || user.role === "Full Access"))
+  const recipients = readUsers().filter((user) => user.active && canAccessAdministrationSlaReminders(user.role))
   let created = 0
   for (const request of requestStore.getAll()) {
     if (functionForModule(request.module) !== "admin" || TERMINAL.has(String(request.status))) continue

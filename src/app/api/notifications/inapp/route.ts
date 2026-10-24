@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
 import { serverNotificationStore } from "@/lib/serverNotificationStore"
-import { FUNCTION_IDS, type FunctionId } from "@/lib/functionRegistry"
+import { canAccessAdministrationSlaReminders, FUNCTION_IDS, type FunctionId } from "@/lib/functionRegistry"
 
 export const runtime = "nodejs"
 
@@ -19,7 +19,12 @@ export async function GET(req: NextRequest) {
   const functionId = FUNCTION_IDS.includes(requestedFunction as FunctionId)
     ? requestedFunction as FunctionId
     : undefined
-  const notifications = serverNotificationStore.getForUser(session.user.id, since, functionId)
+  // Reminder records are durable so an Administration member can return to
+  // them later. Re-check their current role on every read, however, so a
+  // person who has since left the team cannot retain Administration SLA data.
+  const notifications = serverNotificationStore
+    .getForUser(session.user.id, since, functionId)
+    .filter((notification) => notification.type !== "admin_sla_reminder" || canAccessAdministrationSlaReminders(session.user.role))
   return NextResponse.json({ data: notifications })
 }
 

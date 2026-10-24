@@ -41,7 +41,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { canAccessPath, canAccessModule, getFirstAllowedPlatformAdminPath, hasPermission, type UserWithModuleAccess } from "@/lib/access"
-import { modulesVisibleToFunction, roleToFunctionId } from "@/lib/functionRegistry"
+import { canAccessAdministrationSlaReminders, modulesVisibleToFunction, roleToFunctionId } from "@/lib/functionRegistry"
 import { DEFAULT_PLATFORM_SETTINGS, type SidebarFunctionId, type SupportFunctionId } from "@/lib/platformSettings"
 
 import { useNewRequestsAndTasks } from "@/hooks/useNewRequestsAndTasks"
@@ -260,7 +260,7 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
   // Only Administration Team / Full Access should see the per-page badges.
   // Regular requesters submit their own requests — they don't need to be
   // notified that they themselves have items in "New" status.
-  const isAdminAudience = role === "Full Access" || role === "Administration Team"
+  const isAdminAudience = canAccessAdministrationSlaReminders(role)
 
   useEffect(() => {
     const canSeeFinanceSlaHistory = role === "Full Access" || roleToFunctionId(role) === "finance"
@@ -402,8 +402,11 @@ export function Sidebar({ portal = "admin" }: { portal?: "admin" | "hr" | "finan
   const visibleNavItems = useMemo(() =>
     navItemsForPortal.reduce<NavItem[]>((items, item) => {
       const canSeeFinanceSlaHistory = role === "Full Access" || roleToFunctionId(role) === "finance"
+      const canSeeAdministrationSlaHistory = canAccessAdministrationSlaReminders(role)
       const children = item.children?.filter((child) =>
-        canSee(child.href) && (child.href !== "/departments/finance/sla-reminders" || canSeeFinanceSlaHistory)
+        canSee(child.href)
+        && (child.href !== "/departments/finance/sla-reminders" || canSeeFinanceSlaHistory)
+        && (child.href !== "/admin/sla-reminders" || canSeeAdministrationSlaHistory)
       )
       const itemVisible = canSee(item.href) || Boolean(children?.length)
       if (!itemVisible) return items
