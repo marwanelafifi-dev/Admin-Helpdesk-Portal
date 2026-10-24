@@ -242,6 +242,12 @@ const SERVER_FILE_STORES = [
     icon: Clock, color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200",
   },
   {
+    key: "server:admin-sla-reminders",
+    label: "Administration SLA Reminder History",
+    description: "Administration SLA attention records; included in backup and restore without changing request data",
+    icon: Clock, color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200",
+  },
+  {
     key: "server:admin-surveys",
     label: "Platform Improvement Feedback",
     description: "Product feedback, bug reports, and feature requests submitted about the portal itself",
@@ -257,6 +263,7 @@ const SERVER_CLEAR_FILE_BY_KEY: Record<string, string> = {
   "server:attachments": "attachments.json",
   "server:deleted-requests": "deleted-requests.json",
   "server:finance-sla-reminders": "finance-sla-reminders.json",
+  "server:admin-sla-reminders": "admin-sla-reminders.json",
   "server:admin-surveys": "admin-survey.json",
 }
 
