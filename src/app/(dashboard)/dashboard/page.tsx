@@ -412,7 +412,7 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
     const total = currentRequests.length
 
     // Administration attention is sourced from its dedicated SLA scheduler.
-    // In particular, long Shipping transit/customs lifecycles are workload,
+    // In particular, long Shipping customs lifecycles are workload,
     // not automatically an internal overdue exception.
     const now = Date.now()
     const overdue = administrationDashboard
@@ -797,13 +797,13 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
 
       {administrationDashboard && (adminSlaReminderIds.length > 0 ? (
         <Link href="/admin/sla-reminders" className="group flex items-center justify-between gap-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-950 transition-colors hover:border-rose-300 hover:bg-rose-100/70 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2">
-          <div className="flex items-start gap-3"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" /><p><span className="font-semibold">{adminSlaReminderIds.length} request{adminSlaReminderIds.length === 1 ? " needs" : "s need"} follow-up.</span> Administration SLA reminders are the only items counted as SLA attention; Shipping transit and customs work remains visible as workload.</p></div>
+          <div className="flex items-start gap-3"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" /><p><span className="font-semibold">{adminSlaReminderIds.length} request{adminSlaReminderIds.length === 1 ? " needs" : "s need"} follow-up.</span> Administration SLA reminders are the only items counted as SLA attention; Shipping customs work remains visible as workload.</p></div>
           <span className="inline-flex shrink-0 items-center gap-1 font-semibold text-rose-800 group-hover:underline">Review queue <ArrowRight className="h-4 w-4" /></span>
         </Link>
       ) : (
         <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950" role="status">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-          <p><span className="font-semibold">No Administration SLA follow-up is open.</span> Shipping transit and customs work remains visible as workload, without being treated as overdue by age alone.</p>
+          <p><span className="font-semibold">No Administration SLA follow-up is open.</span> Shipping customs work remains visible as workload, without being treated as overdue by age alone.</p>
         </div>
       ))}
 
@@ -1217,7 +1217,7 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
               <div className="overflow-hidden rounded-lg border">
                 <table className="w-full text-sm"><thead className="bg-gray-50 text-xs uppercase tracking-wider text-gray-500"><tr><th className="px-4 py-3 text-left">Module</th><th className="px-4 py-3 text-left">Target</th><th className="px-4 py-3 text-left">Operational context</th></tr></thead>
                   <tbody className="divide-y">
-                    <tr><td className="px-4 py-3 font-medium">Shipping</td><td className="px-4 py-3">14 days</td><td className="px-4 py-3 text-gray-500">Delivery, transit, and customs workflow</td></tr>
+                    <tr><td className="px-4 py-3 font-medium">Shipping</td><td className="px-4 py-3">14 days</td><td className="px-4 py-3 text-gray-500">Delivery and customs workflow</td></tr>
                     <tr><td className="px-4 py-3 font-medium">Purchase</td><td className="px-4 py-3">7 days</td><td className="px-4 py-3 text-gray-500">Approval and procurement processing</td></tr>
                     <tr><td className="px-4 py-3 font-medium">Travel</td><td className="px-4 py-3">7 days</td><td className="px-4 py-3 text-gray-500">Approval and booking coordination</td></tr>
                     <tr><td className="px-4 py-3 font-medium">HR</td><td className="px-4 py-3">5 days</td><td className="px-4 py-3 text-gray-500">Onboarding and offboarding administration</td></tr>
