@@ -8,6 +8,8 @@ NAS_MOUNT="${NAS_MOUNT:-/mnt/company-portal-synology}"
 DEFAULT_DESTINATION="${DEFAULT_DESTINATION:-$NAS_MOUNT/Company Portal}"
 DB_CONTAINER="${DB_CONTAINER:-company-portal-db}"
 APP_CONTAINER="${APP_CONTAINER:-company-portal-app}"
+APP_REPO_PATH="${APP_REPO_PATH:-/home/docker-machine/admin-request-platform}"
+RECOVERY_KEY_FILE="${RECOVERY_KEY_FILE:-/etc/company-portal/recovery-config.key}"
 CONFIG_FILE="$APP_DATA_PATH/synology-backup.json"
 HISTORY_FILE="$APP_DATA_PATH/synology-backup-history.json"
 HISTORY_LIMIT=50
@@ -26,6 +28,7 @@ require sha256sum
 require tar
 require flock
 require realpath
+require gpg
 
 # The restore service and timer must never copy or prune the same recovery
 # artifacts concurrently. A restore that already owns the lock passes
@@ -53,6 +56,8 @@ if [[ "$(realpath -e "$APP_DATA_PATH")" != "$(realpath -e "$mounted_data_path")"
   echo "APP_DATA_PATH ($APP_DATA_PATH) does not match $APP_CONTAINER's live /app/data mount ($mounted_data_path)" >&2
   exit 1
 fi
+[[ -d "$APP_REPO_PATH" ]] || { echo "Portal source folder not found: $APP_REPO_PATH" >&2; exit 1; }
+[[ -s "$RECOVERY_KEY_FILE" ]] || { echo "Recovery encryption key is missing: $RECOVERY_KEY_FILE" >&2; exit 1; }
 if ! mountpoint -q "$NAS_MOUNT"; then
   echo "Synology share is not mounted at $NAS_MOUNT" >&2
   exit 1
@@ -196,6 +201,8 @@ write_state ".lastStartedAt = \"$now_iso\""
 stage="$(mktemp -d)"
 dump_file="company-portal-$(date +%Y%m%d-%H%M%S).sql.gz"
 data_archive_file="company-portal-data-$(date +%Y%m%d-%H%M%S).tar.gz"
+source_archive_file="company-portal-source-$(date +%Y%m%d-%H%M%S).tar.gz"
+config_archive_file="company-portal-recovery-config-$(date +%Y%m%d-%H%M%S).tar.gz.gpg"
 container_dump="/tmp/$dump_file"
 
 cleanup() {
@@ -214,7 +221,7 @@ fail() {
 }
 
 [[ "$destination" == "$NAS_MOUNT"/* || "$destination" == "$NAS_MOUNT" ]] || fail "Synology destination must be below $NAS_MOUNT"
-mkdir -p "$destination/data" "$destination/postgres" "$destination/data-archives" "$destination/manifests" || fail "Cannot create Synology recovery folders"
+mkdir -p "$destination/data" "$destination/postgres" "$destination/data-archives" "$destination/source-archives" "$destination/recovery-configs" "$destination/manifests" || fail "Cannot create Synology recovery folders"
 
 docker exec "$DB_CONTAINER" sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" | gzip -c > "$1"' sh "$container_dump" || fail "PostgreSQL logical dump failed"
 docker cp "$DB_CONTAINER:$container_dump" "$stage/$dump_file" || fail "Could not copy PostgreSQL dump from container"
@@ -237,6 +244,31 @@ tar -czf "$stage/$data_archive_file" \
 gzip -t "$stage/$data_archive_file" || fail "Local portal-data archive failed gzip verification"
 tar -tzf "$stage/$data_archive_file" >/dev/null || fail "Local portal-data archive failed tar verification"
 
+# Source is recoverable from Git, but a versioned NAS snapshot makes a full
+# host recovery independent of Git availability. Secrets stay out of this
+# archive and are placed in the encrypted recovery-config archive below.
+tar -czf "$stage/$source_archive_file" \
+  --exclude='./.git' --exclude='./node_modules' --exclude='./.next' --exclude='./.next-dev' \
+  --exclude='./data' --exclude='./.env' --exclude='./.env.local' \
+  -C "$APP_REPO_PATH" . || fail "Could not create portal source archive"
+gzip -t "$stage/$source_archive_file" || fail "Local source archive failed gzip verification"
+tar -tzf "$stage/$source_archive_file" >/dev/null || fail "Local source archive failed tar verification"
+
+config_stage="$stage/recovery-config"
+mkdir -p "$config_stage/repo" "$config_stage/etc/company-portal" "$config_stage/etc/systemd/system"
+for config_file in .env .env.local; do
+  [[ -f "$APP_REPO_PATH/$config_file" ]] && cp -p "$APP_REPO_PATH/$config_file" "$config_stage/repo/$config_file"
+done
+if [[ -d /etc/company-portal ]]; then
+  tar --exclude='recovery-config.key' -C /etc/company-portal -cf - . | tar -C "$config_stage/etc/company-portal" -xf - || fail "Could not stage protected host configuration"
+fi
+for unit in company-portal-synology-mount.service company-portal-synology-backup.service company-portal-synology-backup.timer company-portal-synology-restore.service company-portal-synology-restore.timer; do
+  [[ -f "/etc/systemd/system/$unit" ]] && cp -p "/etc/systemd/system/$unit" "$config_stage/etc/systemd/system/$unit"
+done
+tar -czf "$stage/recovery-config.tar.gz" -C "$config_stage" . || fail "Could not package protected host configuration"
+gpg --batch --yes --pinentry-mode loopback --passphrase-file "$RECOVERY_KEY_FILE" --symmetric --cipher-algo AES256 --output "$stage/$config_archive_file" "$stage/recovery-config.tar.gz" || fail "Could not encrypt protected host configuration"
+gpg --batch --quiet --pinentry-mode loopback --passphrase-file "$RECOVERY_KEY_FILE" --decrypt "$stage/$config_archive_file" | tar -tzf - >/dev/null || fail "Encrypted host configuration failed local verification"
+
 # Never use --delete: the NAS keeps the last known copy of portal files even
 # when a local file is accidentally removed. Local JSON snapshots are derived
 # artifacts; copying them again makes every NAS recovery run transfer hundreds
@@ -251,6 +283,10 @@ cp "$stage/$dump_file" "$destination/postgres/$dump_file" || fail "Could not wri
 nas_dump="$destination/postgres/$dump_file"
 cp "$stage/$data_archive_file" "$destination/data-archives/$data_archive_file" || fail "Could not write portal-data archive to Synology"
 nas_data_archive="$destination/data-archives/$data_archive_file"
+cp "$stage/$source_archive_file" "$destination/source-archives/$source_archive_file" || fail "Could not write source archive to Synology"
+nas_source_archive="$destination/source-archives/$source_archive_file"
+cp "$stage/$config_archive_file" "$destination/recovery-configs/$config_archive_file" || fail "Could not write encrypted configuration archive to Synology"
+nas_config_archive="$destination/recovery-configs/$config_archive_file"
 # A successful copy syscall is not proof that a network-backed share retained
 # the complete file.  Verify the final NAS artifact before publishing either a
 # manifest or a successful status to the portal.
@@ -259,6 +295,9 @@ gzip -t "$nas_dump" || fail "PostgreSQL dump failed gzip verification on Synolog
 [[ -s "$nas_data_archive" ]] || fail "Portal-data archive is missing or empty on Synology"
 gzip -t "$nas_data_archive" || fail "Portal-data archive failed gzip verification on Synology"
 tar -tzf "$nas_data_archive" >/dev/null || fail "Portal-data archive failed tar verification on Synology"
+[[ -s "$nas_source_archive" ]] && gzip -t "$nas_source_archive" && tar -tzf "$nas_source_archive" >/dev/null || fail "Source archive failed verification on Synology"
+[[ -s "$nas_config_archive" ]] || fail "Encrypted configuration archive is missing on Synology"
+gpg --batch --quiet --pinentry-mode loopback --passphrase-file "$RECOVERY_KEY_FILE" --decrypt "$nas_config_archive" | tar -tzf - >/dev/null || fail "Encrypted configuration archive failed verification on Synology"
 
 source_attachment_count="$(find "$APP_DATA_PATH/attachments" -type f 2>/dev/null | wc -l)"
 destination_attachment_count="$(find "$destination/data/attachments" -type f 2>/dev/null | wc -l)"
@@ -275,7 +314,9 @@ jq -n \
   --arg dataArchive "$nas_data_archive" \
   --arg dataArchiveSha256 "$(sha256sum "$nas_data_archive" | awk '{print $1}')" \
   --argjson dataArchiveBytes "$(stat -c '%s' "$nas_data_archive")" \
-  '{version:3,verified:true,createdAt:$at,appDataDestination:$data,postgresDump:$dump,postgresDumpSha256:$dumpSha256,postgresDumpBytes:$dumpBytes,dataArchive:$dataArchive,dataArchiveSha256:$dataArchiveSha256,dataArchiveBytes:$dataArchiveBytes,sourceAttachmentCount:$sourceAttachmentCount,destinationAttachmentCount:$destinationAttachmentCount,note:"Live portal data is also stored as an immutable verified archive for exact recovery; the mutable NAS mirror is never deletion-mirrored; PostgreSQL is a gzip-validated logical pg_dump."}' \
+  --arg sourceArchive "$nas_source_archive" --arg sourceArchiveSha256 "$(sha256sum "$nas_source_archive" | awk '{print $1}')" --argjson sourceArchiveBytes "$(stat -c '%s' "$nas_source_archive")" \
+  --arg recoveryConfigArchive "$nas_config_archive" --arg recoveryConfigArchiveSha256 "$(sha256sum "$nas_config_archive" | awk '{print $1}')" --argjson recoveryConfigArchiveBytes "$(stat -c '%s' "$nas_config_archive")" \
+  '{version:4,verified:true,createdAt:$at,appDataDestination:$data,postgresDump:$dump,postgresDumpSha256:$dumpSha256,postgresDumpBytes:$dumpBytes,dataArchive:$dataArchive,dataArchiveSha256:$dataArchiveSha256,dataArchiveBytes:$dataArchiveBytes,sourceArchive:$sourceArchive,sourceArchiveSha256:$sourceArchiveSha256,sourceArchiveBytes:$sourceArchiveBytes,recoveryConfigArchive:$recoveryConfigArchive,recoveryConfigArchiveSha256:$recoveryConfigArchiveSha256,recoveryConfigArchiveBytes:$recoveryConfigArchiveBytes,sourceAttachmentCount:$sourceAttachmentCount,destinationAttachmentCount:$destinationAttachmentCount,note:"Complete recovery point: verified portal data, PostgreSQL, source snapshot, and encrypted host configuration."}' \
   > "$manifest_temp" || fail "Could not write Synology backup manifest"
 mv "$manifest_temp" "$manifest_path" || fail "Could not publish Synology backup manifest"
 
@@ -289,6 +330,8 @@ write_history "$backup_trigger" || fail "Could not record verified Synology back
 if [[ "$prune_old" == "true" && "$SKIP_PRUNE" != "1" ]]; then
   find "$destination/postgres" -type f -name 'company-portal-*.sql.gz' -mtime "+$retention_days" -delete
   find "$destination/data-archives" -type f -name 'company-portal-data-*.tar.gz' -mtime "+$retention_days" -delete
+  find "$destination/source-archives" -type f -name 'company-portal-source-*.tar.gz' -mtime "+$retention_days" -delete
+  find "$destination/recovery-configs" -type f -name 'company-portal-recovery-config-*.tar.gz.gpg' -mtime "+$retention_days" -delete
   find "$destination/manifests" -type f -name 'backup-*.json' -mtime "+$retention_days" -delete
 fi
 

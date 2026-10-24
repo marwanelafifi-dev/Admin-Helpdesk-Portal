@@ -17,14 +17,22 @@ if [[ -n "$INSTALL_USER_HOME" && -d "$INSTALL_USER_HOME/admin-helpdesk-data" ]];
   DEFAULT_APP_DATA_PATH="$INSTALL_USER_HOME/admin-helpdesk-data"
 fi
 APP_DATA_PATH="${APP_DATA_PATH:-$DEFAULT_APP_DATA_PATH}"
+APP_REPO_PATH="${APP_REPO_PATH:-$(dirname "$SCRIPT_DIR")}"
 NAS_SHARE="${NAS_SHARE:-//192.168.2.204/Si-Ware Apps}"
 NAS_MOUNT="${NAS_MOUNT:-/mnt/company-portal-synology}"
 DB_CONTAINER="${DB_CONTAINER:-company-portal-db}"
 APP_CONTAINER="${APP_CONTAINER:-company-portal-app}"
 
 apt-get update
-apt-get install -y cifs-utils jq rsync tar
+apt-get install -y cifs-utils jq rsync tar gnupg
 install -d -m 0750 /etc/company-portal "$NAS_MOUNT" /usr/local/sbin
+
+RECOVERY_KEY_FILE=/etc/company-portal/recovery-config.key
+if [[ ! -s "$RECOVERY_KEY_FILE" ]]; then
+  umask 077
+  head -c 48 /dev/urandom | base64 > "$RECOVERY_KEY_FILE"
+fi
+chmod 600 "$RECOVERY_KEY_FILE"
 
 if [[ ! -f /etc/company-portal/synology-credentials ]]; then
   cat >&2 <<'MESSAGE'
@@ -38,6 +46,8 @@ chmod 600 /etc/company-portal/synology-credentials
 
 cat > /etc/company-portal/synology-backup.env <<EOF
 APP_DATA_PATH=$APP_DATA_PATH
+APP_REPO_PATH=$APP_REPO_PATH
+RECOVERY_KEY_FILE=$RECOVERY_KEY_FILE
 NAS_MOUNT=$NAS_MOUNT
 DEFAULT_DESTINATION=$NAS_MOUNT/Company Portal
 DB_CONTAINER=$DB_CONTAINER
@@ -66,6 +76,7 @@ EOF
 
 install -m 0750 "$SCRIPT_DIR/synology-company-portal-backup.sh" /usr/local/sbin/company-portal-synology-backup
 install -m 0750 "$SCRIPT_DIR/synology-company-portal-restore.sh" /usr/local/sbin/company-portal-synology-restore
+install -m 0750 "$SCRIPT_DIR/synology-company-portal-restore-host-config.sh" /usr/local/sbin/company-portal-synology-restore-host-config
 cat > /etc/systemd/system/company-portal-synology-backup.service <<'EOF'
 [Unit]
 Description=Company Portal Synology recovery backup
