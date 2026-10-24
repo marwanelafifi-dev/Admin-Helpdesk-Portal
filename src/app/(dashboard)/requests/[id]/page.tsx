@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
-import { ArrowLeft, Calendar, User, FileText, Clock, CheckCircle2, AlertCircle, ChevronDown, Star, Send, Printer } from "lucide-react"
+import { ArrowLeft, Calendar, User, FileText, Clock, CheckCircle2, AlertCircle, AlarmClock, ChevronDown, Star, Send, Printer } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -527,6 +527,7 @@ export default function RequestDetailPage() {
   const { data: session, status: sessionStatus } = useSession()
 
   const [request, setRequest] = useState<RequestDetail | null>(null)
+  const [hasAdministrationSlaReminder, setHasAdministrationSlaReminder] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>("details")
@@ -547,6 +548,22 @@ export default function RequestDetailPage() {
   }>({ type: "idle", message: "" })
   const [statusActionMessage, setStatusActionMessage] = useState("")
   const [preparingPrint, setPreparingPrint] = useState(false)
+
+  useEffect(() => {
+    if (!request || functionForModule(request.module) !== "admin") {
+      setHasAdministrationSlaReminder(false)
+      return
+    }
+    let active = true
+    fetch("/api/admin/sla-reminders", { credentials: "include", cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        if (!active) return
+        setHasAdministrationSlaReminder(Array.isArray(data?.data) && data.data.some((item: { requestId?: string }) => item.requestId === request.id))
+      })
+      .catch(() => { if (active) setHasAdministrationSlaReminder(false) })
+    return () => { active = false }
+  }, [request?.id, request?.module, request?.status])
 
   const fetchComments = async (requestId: string) => {
     try {
@@ -1333,6 +1350,13 @@ export default function RequestDetailPage() {
         <ArrowLeft className="h-4 w-4" />
         {backLabel}
       </Link>
+
+      {hasAdministrationSlaReminder && (
+        <Link href="/admin/sla-reminders" className="group flex flex-wrap items-center justify-between gap-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 shadow-sm transition-colors hover:border-amber-400 hover:bg-amber-100/70 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2">
+          <div className="flex items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white"><AlarmClock className="h-4 w-4" /></span><div><p className="font-semibold">Administration SLA attention required</p><p className="mt-0.5 text-xs text-amber-800">This request reached the Administration reminder threshold and remains open. Review or update it to clear the alert.</p></div></div>
+          <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-amber-900 group-hover:underline">View SLA Reminders <ArrowLeft className="h-3.5 w-3.5 rotate-180" /></span>
+        </Link>
+      )}
 
       {/* Header Card */}
       <Card>

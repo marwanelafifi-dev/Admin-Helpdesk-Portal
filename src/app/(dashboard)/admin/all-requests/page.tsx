@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
-import { Search, TrendingUp, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsUpDown, MessageCircle, CheckSquare, ArrowRight, Download, FileSpreadsheet, ChevronDown as ChevronDownIcon } from "lucide-react"
+import { Search, TrendingUp, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsUpDown, MessageCircle, CheckSquare, ArrowRight, Download, FileSpreadsheet, AlarmClock, ChevronDown as ChevronDownIcon } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -156,6 +156,7 @@ export default function AllRequestsPage() {
   const [sortKey, setSortKey]           = useState<SortKey>("updatedAt")
   const [sortDir, setSortDir]           = useState<SortDir>("desc")
   const [currentPage, setCurrentPage]   = useState(1)
+  const [adminSlaReminderIds, setAdminSlaReminderIds] = useState<string[]>([])
   const { isExpanded, toggleRow } = useExpandedRows()
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
 
@@ -248,6 +249,22 @@ export default function AllRequestsPage() {
       window.removeEventListener("arp:storage", loadFromCache)
     }
   }, [session])
+
+  useEffect(() => {
+    let active = true
+    const refresh = () => {
+      fetch("/api/admin/sla-reminders", { credentials: "include", cache: "no-store" })
+        .then((response) => response.ok ? response.json() : null)
+        .then((data) => {
+          if (!active) return
+          setAdminSlaReminderIds(Array.isArray(data?.data) ? data.data.map((item: { requestId?: string }) => String(item.requestId ?? "")).filter(Boolean) : [])
+        })
+        .catch(() => { if (active) setAdminSlaReminderIds([]) })
+    }
+    refresh()
+    const interval = window.setInterval(refresh, 60_000)
+    return () => { active = false; window.clearInterval(interval) }
+  }, [])
 
   useEffect(() => {
     if (!exportOpen) return
@@ -458,6 +475,13 @@ export default function AllRequestsPage() {
         )}
         </>}
       />
+
+      {adminSlaReminderIds.length > 0 && (
+        <Link href="/admin/sla-reminders" className="group flex flex-wrap items-center justify-between gap-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 shadow-sm transition-colors hover:border-amber-400 hover:bg-amber-100/70 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2">
+          <div className="flex min-w-0 items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white"><AlarmClock className="h-4 w-4" /></span><div><p className="font-semibold">{adminSlaReminderIds.length} Administration SLA reminder{adminSlaReminderIds.length === 1 ? "" : "s"} need attention</p><p className="mt-0.5 text-xs text-amber-800">Highlighted rows are open requests that have reached the Administration reminder threshold.</p></div></div>
+          <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-amber-900 group-hover:underline">View SLA Reminders <ArrowRight className="h-3.5 w-3.5" /></span>
+        </Link>
+      )}
 
       {/* Stat Cards — clickable, synced with status filter */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
@@ -675,13 +699,14 @@ export default function AllRequestsPage() {
             <tbody>
               {paginatedRequests.map((req, i) => {
                 const hasUnreadComments = (commentCounts[req.id] ?? 0) > (viewedComments[req.id] ?? 0)
+                const hasSlaAttention = adminSlaReminderIds.includes(req.id)
                 const moduleStatuses = MODULE_STATUSES[req.module] || []
                 return (
                 <React.Fragment key={req.id}>
                 <tr
                   className={cn(
                     "border-b border-gray-100 hover:bg-blue-50/30 transition-colors",
-                    hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40"),
+                    hasSlaAttention ? "bg-amber-50/80 hover:!bg-amber-100/80 dark:bg-amber-950/20 dark:hover:!bg-amber-950/35" : hasUnreadComments ? "bg-blue-50" : (i % 2 === 0 ? "bg-white" : "bg-gray-50/40"),
                     
                   )}
                 >
@@ -694,6 +719,11 @@ export default function AllRequestsPage() {
                         <span className={cn("flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap flex-shrink-0", hasUnreadComments ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700")}>
                           <MessageCircle className="h-3 w-3" />
                           {commentCounts[req.id]}
+                        </span>
+                      )}
+                      {hasSlaAttention && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-900 whitespace-nowrap dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-200">
+                          <AlarmClock className="h-3 w-3" /> SLA attention
                         </span>
                       )}
                     </div>
