@@ -111,6 +111,7 @@ export default function AdminSettingsPage() {
   const [headerSave, setHeaderSave] = useState<SaveState>("idle")
   const [feedbackSave, setFeedbackSave] = useState<SaveState>("idle")
   const [financeSlaSave, setFinanceSlaSave] = useState<SaveState>("idle")
+  const [adminSlaSave, setAdminSlaSave] = useState<SaveState>("idle")
   const [prePaidInvoiceSlaSave, setPrePaidInvoiceSlaSave] = useState<SaveState>("idle")
   const [mainAppsSave, setMainAppsSave] = useState<SaveState>("idle")
   const [mainAppIconUpload, setMainAppIconUpload] = useState<string | null>(null)
@@ -145,6 +146,7 @@ export default function AdminSettingsPage() {
             feedbackSurveysByFunction: { ...prev.feedbackSurveysByFunction, ...data.settings.feedbackSurveysByFunction },
             financeSlaWorkingDays: String(data.settings.financeSlaWorkingDays ?? prev.financeSlaWorkingDays),
             financeSlaReminderDay: String(data.settings.financeSlaReminderDay ?? prev.financeSlaReminderDay),
+            adminSlaReminderDay: String(data.settings.adminSlaReminderDay ?? prev.adminSlaReminderDay),
             prePaidInvoiceSlaWorkingDays: String(data.settings.prePaidInvoiceSlaWorkingDays ?? prev.prePaidInvoiceSlaWorkingDays),
             prePaidInvoiceSlaReminderDay: String(data.settings.prePaidInvoiceSlaReminderDay ?? prev.prePaidInvoiceSlaReminderDay),
             itServiceDeskEnabled: data.settings.itServiceDeskEnabled ?? prev.itServiceDeskEnabled,
@@ -314,6 +316,25 @@ export default function AdminSettingsPage() {
     }
   }
 
+  async function persistAdminSla() {
+    const reminderDay = Number.parseInt(settings.adminSlaReminderDay, 10)
+    if (!Number.isInteger(reminderDay) || reminderDay < 1 || reminderDay > 60) {
+      setAdminSlaSave("error")
+      setTimeout(() => setAdminSlaSave("idle"), 3000)
+      return
+    }
+    setAdminSlaSave("saving")
+    try {
+      const response = await fetch("/api/admin/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminSlaReminderDay: String(reminderDay) }) })
+      if (!response.ok) throw new Error("Failed to save Administration SLA settings")
+      setAdminSlaSave("saved")
+      setTimeout(() => setAdminSlaSave("idle"), 3000)
+    } catch {
+      setAdminSlaSave("error")
+      setTimeout(() => setAdminSlaSave("idle"), 3000)
+    }
+  }
+
   async function persistPrePaidInvoiceSla() {
     const slaDays = Number.parseInt(settings.prePaidInvoiceSlaWorkingDays, 10)
     const reminderDay = Number.parseInt(settings.prePaidInvoiceSlaReminderDay, 10)
@@ -444,6 +465,11 @@ export default function AdminSettingsPage() {
       </div>
 
       {/* ── General ── */}
+      <Card className="border shadow-sm">
+        <CardHeader className="border-b bg-gray-50 rounded-t-lg"><div className="flex items-center gap-2"><div className="bg-blue-100 rounded-lg p-2"><Clock className="h-4 w-4 text-blue-700" /></div><div><CardTitle className="text-base font-semibold text-gray-900">Administration Team SLA Reminder</CardTitle><p className="text-xs text-gray-500 mt-0.5">Internal reminder only; requesters do not see an SLA note.</p></div></div></CardHeader>
+        <CardContent className="p-6 space-y-5"><div className="max-w-sm space-y-1.5"><Label className="text-sm font-medium text-gray-700">Reminder Day</Label><Input type="number" min="1" max="60" step="1" value={settings.adminSlaReminderDay} onChange={(e) => set("adminSlaReminderDay", e.target.value)} className="text-sm" /><p className="text-xs text-gray-400">Calendar days after submission, or after approval when approval is required.</p></div><div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">Open Administration requests are internally flagged on day <strong>{settings.adminSlaReminderDay || "—"}</strong>. Requesters do not receive this reminder.</div><SaveButton state={adminSlaSave} onClick={persistAdminSla} label="Save Administration SLA Reminder" /></CardContent>
+      </Card>
+
       <Card className="border shadow-sm">
         <CardHeader className="border-b bg-gray-50 rounded-t-lg">
           <div className="flex items-center gap-2">

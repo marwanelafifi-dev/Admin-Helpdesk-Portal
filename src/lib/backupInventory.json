@@ -6,6 +6,7 @@
   { "filename": "attachments.json", "restorable": true, "clearable": true },
   { "filename": "feedback.json", "restorable": true, "clearable": true },
   { "filename": "finance-sla-reminders.json", "restorable": true, "clearable": true },
+  { "filename": "admin-sla-reminders.json", "restorable": true, "clearable": true },
   { "filename": "announcements.json", "restorable": true, "clearable": true },
   { "filename": "notifications.json", "restorable": true, "clearable": true },
   { "filename": "notices.json", "restorable": true, "clearable": true },

@@ -639,6 +639,35 @@ export async function sendFinanceSlaReminderEmail(params: {
   })
 }
 
+/** Operational reminder for Administration-owned work. This is internal only:
+ * requesters do not receive an SLA note or a reminder email. */
+export async function sendAdminSlaReminderEmail(params: {
+  requestId: string
+  requestTitle: string
+  module: string
+  requesterName: string
+  status: string
+  slaBasis: "submission" | "approval"
+  reminderDay: number
+}) {
+  const transporter = createTransporter("admin")
+  const actionUrl = `${getBaseUrl()}${requestDetailPathForModule(params.module, params.requestId)}`
+  const basis = params.slaBasis === "approval" ? "after approval" : "after submission"
+  const html = formalEmailShell({
+    eyebrow: "Si-Ware Administration Team",
+    title: "SLA reminder requires attention",
+    reference: params.requestId,
+    footer: "This is an internal Administration SLA reminder from the Si-Ware Company Portal.",
+    hasLogo: Boolean(getLogoBuffer()),
+    body: `<div style="padding:30px 40px;color:#334155;font-size:14px;line-height:1.65;"><p style="margin:0 0 16px;">Dear Administration Team,</p><p style="margin:0;">This request remains open ${params.reminderDay} calendar days ${basis}.</p><div style="margin:22px 0;background:#fff8e7;border:1px solid #f5c451;border-left:4px solid #f59e0b;border-radius:10px;padding:16px 18px;"><p style="margin:0 0 8px;"><strong>Request:</strong> ${escapeHtml(params.requestTitle)}</p><p style="margin:0 0 8px;"><strong>Requester:</strong> ${escapeHtml(params.requesterName)}</p><p style="margin:0;"><strong>Current status:</strong> ${escapeHtml(params.status.replaceAll("_", " "))}</p></div><a href="${escapeHtml(actionUrl)}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:700;">Open request in portal &rarr;</a></div>`,
+  })
+  await sendMailWithRetry(transporter, {
+    from: resolveFromAddress("Si-Ware Administration Team", "admin"), to: "adminhelpdesk@si-ware.com",
+    subject: `[Action required] Administration SLA reminder — ${params.requestId}`, html,
+    headers: { "X-ARP-Request-ID": params.requestId, "X-ARP-Notification-Type": "admin_sla_reminder", "X-ARP-Audit-Title": "Administration SLA reminder email" },
+  })
+}
+
 export async function sendAnnouncementEmail(params: {
   to: string[]
   cc?: string[]

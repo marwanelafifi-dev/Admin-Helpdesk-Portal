@@ -5,8 +5,10 @@ export async function register() {
     const { startBackupHealthMonitor } = await import("@/lib/backupCron")
     const { startAnnouncementScheduler } = await import("@/lib/announcementScheduler")
     const { startFinanceSlaReminderScheduler } = await import("@/lib/financeSlaReminderScheduler")
+    const { startAdminSlaReminderScheduler } = await import("@/lib/adminSlaReminderScheduler")
     startBackupHealthMonitor()
     startAnnouncementScheduler()
     startFinanceSlaReminderScheduler()
+    startAdminSlaReminderScheduler()
   }
 }

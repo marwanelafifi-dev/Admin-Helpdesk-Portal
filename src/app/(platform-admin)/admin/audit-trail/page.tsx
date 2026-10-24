@@ -343,6 +343,8 @@ async function buildAuditLog(): Promise<AuditEntry[]> {
           request_exported:      "Request export",
           finance_sla_reminder_raised: "Finance SLA reminder raised",
           finance_sla_email_delivered: "Finance SLA email delivered",
+          admin_sla_reminder_raised: "Administration SLA reminder raised",
+          admin_sla_email_delivered: "Administration SLA email delivered",
           approval_email_resent: "Approval email resent",
         }
         entries.push({

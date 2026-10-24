@@ -40,6 +40,8 @@ export type ServerAuditAction =
   | "request_exported"
   | "finance_sla_reminder_raised"
   | "finance_sla_email_delivered"
+  | "admin_sla_reminder_raised"
+  | "admin_sla_email_delivered"
   | "approval_email_resent"
   | "approval_link_opened"
   | "approval_approved"

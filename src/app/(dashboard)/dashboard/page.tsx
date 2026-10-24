@@ -302,7 +302,9 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
   })
   const [feedback, setFeedback] = useState<any[]>([])
   const [financeSlaReminderCount, setFinanceSlaReminderCount] = useState(0)
+  const [adminSlaReminderIds, setAdminSlaReminderIds] = useState<string[]>([])
   const financeDashboard = Boolean(moduleScope?.some((module) => ["finance_reimbursement", "finance_travel_reimbursement", "finance_invoice_payment"].includes(module)))
+  const administrationDashboard = !moduleScope
 
   useEffect(() => {
     if (!financeDashboard) return
@@ -313,6 +315,15 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
       .catch(() => { if (active) setFinanceSlaReminderCount(0) })
     return () => { active = false }
   }, [financeDashboard])
+  useEffect(() => {
+    if (!administrationDashboard) return
+    let active = true
+    fetch("/api/admin/sla-reminders", { credentials: "include", cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => { if (active) setAdminSlaReminderIds(Array.isArray(data?.data) ? data.data.map((item: { requestId?: string }) => String(item.requestId ?? "")).filter(Boolean) : []) })
+      .catch(() => { if (active) setAdminSlaReminderIds([]) })
+    return () => { active = false }
+  }, [administrationDashboard, requests])
   const [slaDetail, setSlaDetail] = useState<"compliance" | "exceptions" | null>(null)
   const [showSlaPolicy, setShowSlaPolicy] = useState(false)
   const { newRequestsCount, newTasksCount } = useNewRequestsAndTasks()
@@ -395,16 +406,18 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
   // ── Aggregations ───────────────────────────────────────────────────────────
 
   const stats = useMemo(() => {
-    const active = currentRequests.filter((r) => ACTIVE_STATUSES.has(r.status)).length
+    const active = (administrationDashboard ? companyRequests : currentRequests).filter((r) => ACTIVE_STATUSES.has(r.status)).length
     const completed = currentRequests.filter((r) => COMPLETED_STATUSES.has(r.status)).length
     const cancelled = currentRequests.filter((r) => r.status === "cancelled").length
     const total = currentRequests.length
 
-    // Overdue: still active AND created > 7 days ago
+    // Administration attention is sourced from its dedicated SLA scheduler.
+    // In particular, long Shipping transit/customs lifecycles are workload,
+    // not automatically an internal overdue exception.
     const now = Date.now()
-    const overdue = currentRequests.filter((r) =>
-      ACTIVE_STATUSES.has(r.status) && (now - new Date(r.createdAt).getTime()) > 7 * 24 * 60 * 60 * 1000
-    ).length
+    const overdue = administrationDashboard
+      ? adminSlaReminderIds.length
+      : currentRequests.filter((r) => ACTIVE_STATUSES.has(r.status) && (now - new Date(r.createdAt).getTime()) > 7 * 24 * 60 * 60 * 1000).length
 
     const completionRate = pct(completed, total)
     const cancellationRate = pct(cancelled, total)
@@ -418,7 +431,7 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
     })
 
     return { total, active, completed, cancelled, overdue, completionRate, cancellationRate, avgDays, statusBreakdown }
-  }, [currentRequests])
+  }, [currentRequests, companyRequests, administrationDashboard, adminSlaReminderIds])
 
   const priorStats = useMemo(() => {
     const active = priorRequests.filter((r) => ACTIVE_STATUSES.has(r.status)).length
@@ -439,9 +452,9 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
       const reqs = currentRequests.filter((r) => r.module === mod)
       const active = reqs.filter((r) => ACTIVE_STATUSES.has(r.status)).length
       const completed = reqs.filter((r) => COMPLETED_STATUSES.has(r.status)).length
-      const overdue = reqs.filter((r) =>
-        ACTIVE_STATUSES.has(r.status) && (now - new Date(r.createdAt).getTime()) > 7 * 24 * 60 * 60 * 1000
-      ).length
+      const overdue = administrationDashboard
+        ? reqs.filter((r) => adminSlaReminderIds.includes(r.id)).length
+        : reqs.filter((r) => ACTIVE_STATUSES.has(r.status) && (now - new Date(r.createdAt).getTime()) > 7 * 24 * 60 * 60 * 1000).length
       const avgDays = avgDaysToCompletion(reqs)
       const closed = reqs.filter((request) => COMPLETED_STATUSES.has(request.status))
       const slaCompliance = pct(closed.filter(isWithinSla).length, closed.length)
@@ -460,7 +473,7 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
         slaExceptions,
       }
     })
-  }, [currentRequests, scopeModules])
+  }, [currentRequests, scopeModules, administrationDashboard, adminSlaReminderIds])
 
   const resolutionDriver = useMemo(() => {
     const candidates = scopeModules.map((module) => {
@@ -474,15 +487,19 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
     return `Main driver: ${label} resolution ${driver.priorAverage.toFixed(1)}d → ${driver.currentAverage.toFixed(1)}d`
   }, [currentRequests, priorRequests, scopeModules])
 
-  const activeDriver = useMemo(() => moduleCountDriver(
-    currentRequests,
-    priorRequests,
-    (request) => ACTIVE_STATUSES.has(request.status),
-    "active",
-    scopeModules,
-  ), [currentRequests, priorRequests, scopeModules])
+  const activeDriver = useMemo(() => {
+    if (administrationDashboard) return "All open Administration requests, regardless of submission date"
+    return moduleCountDriver(
+      currentRequests,
+      priorRequests,
+      (request) => ACTIVE_STATUSES.has(request.status),
+      "active",
+      scopeModules,
+    )
+  }, [currentRequests, priorRequests, scopeModules, administrationDashboard])
 
   const overdueDriver = useMemo(() => {
+    if (administrationDashboard) return adminSlaReminderIds.length ? "Internal Administration SLA reminders requiring attention" : "No active Administration SLA reminders"
     const now = Date.now()
     return moduleCountDriver(
       currentRequests,
@@ -491,7 +508,7 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
       "overdue",
       scopeModules,
     )
-  }, [currentRequests, priorRequests, scopeModules])
+  }, [currentRequests, priorRequests, scopeModules, administrationDashboard, adminSlaReminderIds])
 
   const teamWorkload = useMemo(() => {
     const members = new Map<string, {
@@ -521,7 +538,7 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
       member.assigned += 1
       if (ACTIVE_STATUSES.has(request.status)) {
         member.active += 1
-        if ((now - new Date(request.createdAt).getTime()) > 7 * 24 * 60 * 60 * 1000) member.overdue += 1
+        if (administrationDashboard ? adminSlaReminderIds.includes(request.id) : (now - new Date(request.createdAt).getTime()) > 7 * 24 * 60 * 60 * 1000) member.overdue += 1
       }
       if (COMPLETED_STATUSES.has(request.status)) {
         member.completed += 1
@@ -552,7 +569,7 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
           .join(", "),
       }))
       .sort((a, b) => b.balancedScore - a.balancedScore || b.completed - a.completed)
-  }, [currentRequests])
+  }, [currentRequests, administrationDashboard, adminSlaReminderIds])
 
   const teamSummary = useMemo(() => {
     const activeRequests = currentRequests.filter((request) => ACTIVE_STATUSES.has(request.status))
@@ -569,9 +586,9 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
     const closed = currentRequests.filter((request) => COMPLETED_STATUSES.has(request.status))
     const completedWithinSla = closed.filter(isWithinSla).length
     const active = companyRequests.filter((request) => ACTIVE_STATUSES.has(request.status))
-    const slaOverdue = active.filter((request) =>
-      daysBetween(new Date(request.createdAt), new Date()) > requestSlaDays(request)
-    )
+    const slaOverdue = administrationDashboard
+      ? active.filter((request) => adminSlaReminderIds.includes(request.id))
+      : active.filter((request) => daysBetween(new Date(request.createdAt), new Date()) > requestSlaDays(request))
     const missingAssignee = active.filter((request) => !request.assignedToEmail).length
     const missingCompany = companyRequests.filter((request) => !request.companyId && !request.requesterEmail).length
     const missingHistory = companyRequests.filter((request) => !request.statusHistory?.length).length
@@ -585,7 +602,7 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
       missingAssignee,
       dataIssues: missingCompany + missingHistory,
     }
-  }, [currentRequests, companyRequests])
+  }, [currentRequests, companyRequests, administrationDashboard, adminSlaReminderIds])
 
   // Top 5 oldest open requests (across full request set, not date-filtered —
   // the oldest backlog matters regardless of when it was filed)
@@ -719,7 +736,7 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
       <div className="flex flex-wrap items-center justify-between gap-3">
         <CompanyFilter value={companyFilter} onChange={setCompanyFilter} />
         <button type="button" onClick={() => setShowSlaPolicy(true)} className="inline-flex h-9 items-center gap-2 rounded-md border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 shadow-sm hover:border-blue-300 hover:text-blue-700">
-          <Clock className="h-4 w-4" /> View SLA Policy
+          <Clock className="h-4 w-4" /> {administrationDashboard ? "View Administration SLA" : "View SLA Policy"}
         </button>
       </div>
 
@@ -734,19 +751,19 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
           icon={Activity}
           iconColor="text-blue-600"
           iconBg="bg-blue-50"
-          deltaPct={delta(stats.active, priorStats.active)}
+          deltaPct={administrationDashboard ? null : delta(stats.active, priorStats.active)}
           higherIsBetter={false}
         />
         <KPICard
           index={1}
-          title="Overdue (7d+)"
+          title={administrationDashboard ? "SLA Attention" : "Overdue (7d+)"}
           numericValue={stats.overdue}
-          subtitle="Active for over 7 days"
+          subtitle={administrationDashboard ? "Internal reminders requiring action" : "Active for over 7 days"}
           insight={overdueDriver}
           icon={AlertCircle}
           iconColor="text-red-600"
           iconBg="bg-red-50"
-          deltaPct={delta(stats.overdue, priorStats.overdue)}
+          deltaPct={administrationDashboard ? null : delta(stats.overdue, priorStats.overdue)}
           higherIsBetter={false}
         />
         <KPICard
@@ -777,6 +794,18 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
           higherIsBetter={true}
         />
       </div>
+
+      {administrationDashboard && (adminSlaReminderIds.length > 0 ? (
+        <Link href="/admin/sla-reminders" className="group flex items-center justify-between gap-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-950 transition-colors hover:border-rose-300 hover:bg-rose-100/70 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2">
+          <div className="flex items-start gap-3"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" /><p><span className="font-semibold">{adminSlaReminderIds.length} request{adminSlaReminderIds.length === 1 ? " needs" : "s need"} follow-up.</span> Administration SLA reminders are the only items counted as SLA attention; Shipping transit and customs work remains visible as workload.</p></div>
+          <span className="inline-flex shrink-0 items-center gap-1 font-semibold text-rose-800 group-hover:underline">Review queue <ArrowRight className="h-4 w-4" /></span>
+        </Link>
+      ) : (
+        <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950" role="status">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+          <p><span className="font-semibold">No Administration SLA follow-up is open.</span> Shipping transit and customs work remains visible as workload, without being treated as overdue by age alone.</p>
+        </div>
+      ))}
 
       {/* Team effort and ownership */}
       <Card className="border border-gray-100 shadow-sm">
@@ -816,7 +845,7 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead><tr className="border-b text-xs uppercase tracking-wider text-gray-500">
-                <th className="py-2 text-left">Team member</th><th className="px-2 py-2 text-left">Completed mix</th><th className="px-2 py-2 text-right">Active</th><th className="px-2 py-2 text-right">Overdue</th><th className="px-2 py-2 text-right">Completed</th><th className="px-2 py-2 text-right">Balanced effort</th><th className="py-2 text-right">Avg days</th>
+                <th className="py-2 text-left">Team member</th><th className="px-2 py-2 text-left">Completed mix</th><th className="px-2 py-2 text-right">Active</th><th className="px-2 py-2 text-right">{administrationDashboard ? "SLA attention" : "Overdue"}</th><th className="px-2 py-2 text-right">Completed</th><th className="px-2 py-2 text-right">Balanced effort</th><th className="py-2 text-right">Avg days</th>
               </tr></thead>
               <tbody>{teamWorkload.length === 0 ? (
                 <tr><td colSpan={7} className="py-8 text-center text-gray-400">No assigned work in this period</td></tr>
@@ -838,7 +867,7 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
         <SecondaryStat index={2} label="Completed" numericValue={stats.completed} tone="emerald" icon={CheckCircle2} />
         <SecondaryStat index={3} label="Completion Rate" numericValue={stats.completionRate} suffix="%" tone="purple" icon={TrendingUp} />
         <SecondaryStat index={4} label="SLA Compliance" numericValue={serviceMetrics.slaCompliance} suffix="%" tone="emerald" icon={CheckCircle2} onClick={() => setSlaDetail("compliance")} />
-        <SecondaryStat index={5} label="SLA Exceptions" numericValue={serviceMetrics.slaOverdue} tone="red" icon={AlertCircle} onClick={() => setSlaDetail("exceptions")} />
+        <SecondaryStat index={5} label={administrationDashboard ? "SLA Attention" : "SLA Exceptions"} numericValue={serviceMetrics.slaOverdue} tone="red" icon={AlertCircle} onClick={() => setSlaDetail("exceptions")} />
       </div>
 
       {(serviceMetrics.missingAssignee > 0 || serviceMetrics.dataIssues > 0) && (
@@ -960,16 +989,15 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
                   <th className="text-left font-semibold px-5 py-3">Module</th>
                   <th className="text-right font-semibold px-3 py-3">Total</th>
                   <th className="text-right font-semibold px-3 py-3">Active</th>
-                  <th className="text-right font-semibold px-3 py-3">Overdue</th>
+                  <th className="text-right font-semibold px-3 py-3">{administrationDashboard ? "SLA Attention" : "Overdue"}</th>
                   <th className="text-right font-semibold px-3 py-3">Completed</th>
-                  <th className="text-right font-semibold px-3 py-3">SLA</th>
-                  <th className="text-right font-semibold px-3 py-3">Exceptions</th>
+                  {!administrationDashboard && <><th className="text-right font-semibold px-3 py-3">SLA</th><th className="text-right font-semibold px-3 py-3">Exceptions</th></>}
                   <th className="text-right font-semibold px-5 py-3">Avg Days</th>
                 </tr>
               </thead>
               <tbody>
                 {moduleWorkload.every((m) => m.total === 0) ? (
-                  <tr><td colSpan={8} className="text-center text-sm text-gray-400 py-8">No requests in this period yet</td></tr>
+                  <tr><td colSpan={administrationDashboard ? 6 : 8} className="text-center text-sm text-gray-400 py-8">No requests in this period yet</td></tr>
                 ) : (
                   moduleWorkload.map((m) => (
                     <tr key={m.module} className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors">
@@ -985,8 +1013,8 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
                         {m.overdue || "—"}
                       </td>
                       <td className="text-right px-3 py-3 tabular-nums text-emerald-700">{m.completed || "—"}</td>
-                      <td className="text-right px-3 py-3 tabular-nums font-semibold text-gray-700">{m.completed ? `${m.slaCompliance}%` : "—"}</td>
-                      <td className={cn("text-right px-3 py-3 tabular-nums font-semibold", m.slaExceptions ? "text-red-600" : "text-gray-400")}>{m.slaExceptions || "—"}</td>
+                      {!administrationDashboard && <td className="text-right px-3 py-3 tabular-nums font-semibold text-gray-700">{m.completed ? `${m.slaCompliance}%` : "—"}</td>}
+                      {!administrationDashboard && <td className={cn("text-right px-3 py-3 tabular-nums font-semibold", m.slaExceptions ? "text-red-600" : "text-gray-400")}>{m.slaExceptions || "—"}</td>}
                       <td className="text-right px-5 py-3 tabular-nums text-gray-700">{m.avgDays > 0 ? `${m.avgDays}d` : "—"}</td>
                     </tr>
                   ))
@@ -1008,7 +1036,7 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
             <CardTitle className="flex items-center gap-2 text-base text-gray-900">
               <Clock className="h-4 w-4 text-red-600" /> Oldest Open Requests
             </CardTitle>
-            <p className="text-xs text-muted-foreground mt-1">Longest-waiting items still active</p>
+            <p className="text-xs text-muted-foreground mt-1">{administrationDashboard ? "Age gives operational context; SLA attention is tracked separately" : "Longest-waiting items still active"}</p>
           </CardHeader>
           <CardContent className="p-0">
             {oldestOpen.length === 0 ? (
@@ -1027,7 +1055,7 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
                         <span className={cn("inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border", STATUS_COLORS[r.status] ?? "bg-gray-50 text-gray-700", "border-gray-200")}>
                           {STATUS_LABELS[r.status] ?? r.status}
                         </span>
-                        <span className={cn("text-xs font-medium tabular-nums", r.ageDays > 7 ? "text-red-600" : "text-gray-500")}>
+                        <span className={cn("text-xs font-medium tabular-nums", administrationDashboard ? (adminSlaReminderIds.includes(r.id) ? "text-rose-700" : "text-gray-500") : (r.ageDays > 7 ? "text-red-600" : "text-gray-500"))}>
                           {r.ageDays}d old
                         </span>
                       </div>
@@ -1136,15 +1164,15 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
           <div className="flex max-h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border bg-white shadow-2xl">
             <div className="flex items-start justify-between gap-4 border-b px-6 py-4">
               <div>
-                <h2 id="sla-detail-title" className="text-lg font-semibold text-gray-900">{slaDetail === "compliance" ? "SLA Compliance Details" : "Active SLA Exceptions"}</h2>
-                <p className="mt-1 text-sm text-gray-500">{slaDetail === "compliance" ? `${serviceMetrics.completedWithinSla} of ${serviceMetrics.closed} completed requests met their module SLA in the selected period.` : `${serviceMetrics.slaOverdue} active requests have exceeded their module-specific SLA.`}</p>
+                <h2 id="sla-detail-title" className="text-lg font-semibold text-gray-900">{slaDetail === "compliance" ? "SLA Compliance Details" : administrationDashboard ? "Administration SLA Attention" : "Active SLA Exceptions"}</h2>
+                <p className="mt-1 text-sm text-gray-500">{slaDetail === "compliance" ? `${serviceMetrics.completedWithinSla} of ${serviceMetrics.closed} completed requests met their module SLA in the selected period.` : administrationDashboard ? `${serviceMetrics.slaOverdue} active requests have an Administration SLA reminder and require follow-up.` : `${serviceMetrics.slaOverdue} active requests have exceeded their module-specific SLA.`}</p>
               </div>
               <button type="button" onClick={() => setSlaDetail(null)} className="rounded-md p-2 text-gray-500 hover:bg-gray-100" aria-label="Close SLA details"><X className="h-5 w-5" /></button>
             </div>
             <div className="overflow-auto">
               <table className="w-full min-w-[800px] text-sm">
                 <thead className="sticky top-0 bg-gray-50 text-xs uppercase tracking-wider text-gray-500">
-                  <tr><th className="px-5 py-3 text-left">Request</th><th className="px-3 py-3 text-left">Module</th><th className="px-3 py-3 text-left">Company</th><th className="px-3 py-3 text-left">Owner</th><th className="px-3 py-3 text-right">SLA target</th><th className="px-3 py-3 text-right">Actual age</th><th className="px-5 py-3 text-right">Result</th></tr>
+                  <tr><th className="px-5 py-3 text-left">Request</th><th className="px-3 py-3 text-left">Module</th><th className="px-3 py-3 text-left">Company</th><th className="px-3 py-3 text-left">Owner</th><th className="px-3 py-3 text-right">{administrationDashboard && slaDetail === "exceptions" ? "Reminder basis" : "SLA target"}</th><th className="px-3 py-3 text-right">Actual age</th><th className="px-5 py-3 text-right">Result</th></tr>
                 </thead>
                 <tbody>
                   {(slaDetail === "compliance" ? serviceMetrics.closedRequests : serviceMetrics.slaExceptionRequests).length === 0 ? (
@@ -1159,9 +1187,9 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
                         <td className="px-3 py-3 capitalize text-gray-700">{request.module}</td>
                         <td className="px-3 py-3 text-gray-700">{request.companyName ?? (matchesCompanyFilter(request, "buchi") ? "BUCHI" : "Si-Ware Systems")}</td>
                         <td className="px-3 py-3 text-gray-700">{request.assignedToName || "Unassigned"}</td>
-                        <td className="px-3 py-3 text-right tabular-nums">{requestSlaDays(request)}d</td>
+                        <td className="px-3 py-3 text-right tabular-nums">{administrationDashboard && slaDetail === "exceptions" ? "Administration SLA" : `${requestSlaDays(request)}d`}</td>
                         <td className="px-3 py-3 text-right tabular-nums">{actualDays.toFixed(1)}d</td>
-                        <td className="px-5 py-3 text-right"><span className={cn("inline-flex rounded-md px-2 py-1 text-xs font-semibold", closedAt ? (compliant ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700") : "bg-red-50 text-red-700")}>{closedAt ? (compliant ? "Within SLA" : "Completed late") : "Active exception"}</span></td>
+                        <td className="px-5 py-3 text-right"><span className={cn("inline-flex rounded-md px-2 py-1 text-xs font-semibold", closedAt ? (compliant ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700") : "bg-red-50 text-red-700")}>{closedAt ? (compliant ? "Within SLA" : "Completed late") : administrationDashboard && slaDetail === "exceptions" ? "Reminder raised" : "Active exception"}</span></td>
                       </tr>
                     )
                   })}
@@ -1176,10 +1204,16 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-labelledby="sla-policy-title">
           <div className="max-h-[85vh] w-full max-w-3xl overflow-auto rounded-xl border bg-white shadow-2xl">
             <div className="sticky top-0 flex items-start justify-between gap-4 border-b bg-white px-6 py-4">
-              <div><h2 id="sla-policy-title" className="text-lg font-semibold text-gray-900">Service-Level Agreement Policy</h2><p className="mt-1 text-sm text-gray-500">Operational targets used by Dashboard reporting for Admin and Logistics requests.</p></div>
+              <div><h2 id="sla-policy-title" className="text-lg font-semibold text-gray-900">{administrationDashboard ? "Administration SLA Reminder Policy" : "Service-Level Agreement Policy"}</h2><p className="mt-1 text-sm text-gray-500">{administrationDashboard ? "The Administration dashboard uses the centrally configured reminder rule instead of ageing all long-running operational work." : "Operational targets used by Dashboard reporting for Admin and Logistics requests."}</p></div>
               <button type="button" onClick={() => setShowSlaPolicy(false)} className="rounded-md p-2 text-gray-500 hover:bg-gray-100" aria-label="Close SLA policy"><X className="h-5 w-5" /></button>
             </div>
             <div className="space-y-5 p-6">
+              {administrationDashboard ? (
+                <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-4 text-sm text-blue-950">
+                  <p className="font-semibold">How Administration SLA attention works</p>
+                  <p className="mt-1 leading-6">An active request becomes SLA attention only when the Administration reminder monitor raises it after the reminder days configured in Platform settings. The timer starts at submission, or at approval when a request requires manager approval. Shipping remains in workload reporting without being treated as overdue by age alone.</p>
+                </div>
+              ) : (
               <div className="overflow-hidden rounded-lg border">
                 <table className="w-full text-sm"><thead className="bg-gray-50 text-xs uppercase tracking-wider text-gray-500"><tr><th className="px-4 py-3 text-left">Module</th><th className="px-4 py-3 text-left">Target</th><th className="px-4 py-3 text-left">Operational context</th></tr></thead>
                   <tbody className="divide-y">
@@ -1193,6 +1227,7 @@ export default function DashboardPage({ moduleScope, title, detailBasePath = "/r
                   </tbody>
                 </table>
               </div>
+              )}
               <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-4 text-sm text-blue-950">
                 <p className="font-semibold">Measurement rules</p>
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5 text-blue-900">

@@ -84,6 +84,7 @@ const adminNavItems: NavItem[] = [
     children: [
       { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       { title: "Feedback & Reports", href: "/feedback-reports", icon: BarChart3 },
+      { title: "SLA Reminders", href: "/admin/sla-reminders", icon: AlarmClock },
       { title: "Team Tasks", href: "/tasks", icon: CheckSquare },
       { title: "All Requests", href: "/admin/all-requests", icon: ClipboardList },
       { title: "Send Announcements", href: "/admin/announcements", icon: Megaphone },

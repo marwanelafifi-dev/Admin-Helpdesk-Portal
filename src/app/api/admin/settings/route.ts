@@ -24,6 +24,13 @@ export async function POST(req: NextRequest) {
   if (!isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.json()
+  if (body.adminSlaReminderDay !== undefined) {
+    const reminderDay = Number.parseInt(String(body.adminSlaReminderDay), 10)
+    if (!Number.isInteger(reminderDay) || reminderDay < 1 || reminderDay > 60) {
+      return NextResponse.json({ error: "Administration reminder day must be between 1 and 60 calendar days." }, { status: 400 })
+    }
+    body.adminSlaReminderDay = String(reminderDay)
+  }
   if (body.financeSlaWorkingDays !== undefined || body.financeSlaReminderDay !== undefined) {
     const current = loadSettingsServer()
     const slaDays = Number.parseInt(String(body.financeSlaWorkingDays ?? current.financeSlaWorkingDays), 10)
