@@ -222,8 +222,13 @@ export function roleToFunctionId(role?: string | null): FunctionId | null {
  * and members of the Administration Team (including a configured team-role
  * variant) may receive or view them.
  */
-export function canAccessAdministrationSlaReminders(role?: string | null): boolean {
-  return role === "Full Access" || roleToFunctionId(role) === "admin"
+export function isAdministrationTeamMember(role?: string | null): boolean {
+  return roleToFunctionId(role) === "admin"
+}
+
+export function canAccessAdministrationSlaReminders(role?: string | null, permissions: string[] = []): boolean {
+  return role === "Full Access"
+    || (isAdministrationTeamMember(role) && (permissions.includes("*") || permissions.includes("page:admin-sla-reminders")))
 }
 
 /** A Travel-created HR letter is handled in the same People queue as a standard HR letter. */

@@ -5,6 +5,7 @@ import { requestStore } from "@/lib/requestStore"
 import { serverNotificationStore, type ServerNotification } from "@/lib/serverNotificationStore"
 import { loadSettingsServer } from "@/lib/settingsServer"
 import { readUsers } from "@/lib/userStore"
+import { findRoleByName } from "@/lib/rolesStore"
 import { logServerAudit } from "@/lib/serverAuditLog"
 import type { EngineRequest } from "@/services/engineService"
 
@@ -58,7 +59,9 @@ function audit(recordId: string, request: EngineRequest, basis: "submission" | "
 
 export function runAdminSlaReminderCheck(now = new Date()) {
   const reminderDay = Math.min(60, Math.max(1, Number.parseInt(loadSettingsServer().adminSlaReminderDay, 10) || 7))
-  const recipients = readUsers().filter((user) => user.active && canAccessAdministrationSlaReminders(user.role))
+  const recipients = readUsers().filter((user) =>
+    user.active && canAccessAdministrationSlaReminders(user.role, findRoleByName(user.role)?.permissions),
+  )
   let created = 0
   for (const request of requestStore.getAll()) {
     if (functionForModule(request.module) !== "admin" || TERMINAL.has(String(request.status))) continue

@@ -84,6 +84,11 @@ const DATABASE_PERMISSIONS = [
 // assignable permissions in the normal Roles editor.
 const PAGES = REGISTERED_PAGES.filter((page) => page.assignable !== false)
 
+function canConfigureAdministrationSlaPage(roleName: string): boolean {
+  const normalized = roleName.trim().toLowerCase()
+  return normalized === "full access" || normalized.startsWith("administration team")
+}
+
 function roleCardColor(roleName: string, companyId: "si_ware" | "buchi"): string {
   if (roleName === "Full Access") return "border-yellow-200 bg-yellow-50"
   if (companyId === "buchi" || roleName.toLowerCase().includes("buchi")) {
@@ -227,6 +232,7 @@ export default function AdminRolesPage() {
   }
 
   const togglePage = (pageId: string) => {
+    if (pageId === "admin-sla-reminders" && !canConfigureAdministrationSlaPage(formData.name)) return
     setFormData((current) => ({
       ...current,
       pages: current.pages.includes(pageId)
@@ -246,10 +252,13 @@ export default function AdminRolesPage() {
   }
 
   const toggleAllPages = () => {
-    const allSelected = formData.pages.length === PAGES.length
+    const selectablePages = PAGES.filter((page) => page.id !== "admin-sla-reminders" || canConfigureAdministrationSlaPage(formData.name))
+    const allSelected = selectablePages.every((page) => formData.pages.includes(page.id))
     setFormData((current) => ({
       ...current,
-      pages: allSelected ? [] : PAGES.map((p) => p.id),
+      pages: allSelected
+        ? current.pages.filter((pageId) => !selectablePages.some((page) => page.id === pageId))
+        : [...new Set([...current.pages, ...selectablePages.map((page) => page.id)])],
     }))
   }
 
@@ -499,7 +508,7 @@ export default function AdminRolesPage() {
                     className="h-7 text-xs"
                     onClick={toggleAllPages}
                   >
-                    {formData.pages.length === PAGES.length ? "Deselect All" : "Select All"}
+                    {PAGES.filter((page) => page.id !== "admin-sla-reminders" || canConfigureAdministrationSlaPage(formData.name)).every((page) => formData.pages.includes(page.id)) ? "Deselect All" : "Select All"}
                   </Button>
                 </div>
                 <div className="space-y-4 p-3 border rounded-lg bg-gray-50">
@@ -507,18 +516,24 @@ export default function AdminRolesPage() {
                     <div key={group} className="space-y-2">
                       <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">{group}</p>
                       <div className="grid grid-cols-3 gap-2">
-                        {pages.map((page) => (
+                        {pages.map((page) => {
+                          const isAdministrationSlaPage = page.id === "admin-sla-reminders"
+                          const canConfigure = !isAdministrationSlaPage || canConfigureAdministrationSlaPage(formData.name)
+                          const isFullAccess = formData.name.trim().toLowerCase() === "full access"
+                          return (
                           <label
                             key={page.id}
-                            className="flex items-center gap-2 cursor-pointer hover:bg-white p-2 rounded"
+                            className={`flex items-center gap-2 p-2 rounded ${canConfigure ? "cursor-pointer hover:bg-white" : "cursor-not-allowed opacity-55"}`}
                           >
                             <Checkbox
-                              checked={formData.pages.includes(page.id)}
+                              checked={formData.pages.includes(page.id) || (isAdministrationSlaPage && isFullAccess)}
+                              disabled={!canConfigure || (isAdministrationSlaPage && isFullAccess)}
                               onCheckedChange={() => togglePage(page.id)}
                             />
-                            <span className="text-sm font-medium">{page.label}</span>
+                            <span className="text-sm font-medium">{page.label}{isAdministrationSlaPage && !canConfigure && " (Administration Team only)"}</span>
                           </label>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
                   ))}

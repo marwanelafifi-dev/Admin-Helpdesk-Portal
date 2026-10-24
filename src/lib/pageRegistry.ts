@@ -46,6 +46,7 @@ export const PAGES: PageDefinition[] = [
   { id: "team-requests",      label: "Administration Team Requests", path: "/team-requests",          group: "Administration Function" },
   { id: "request-detail",     label: "Administration Request Detail", path: "/requests/[id]",          group: "Administration Function" },
   { id: "all-requests",       label: "Administration All Requests", path: "/admin/all-requests", group: "Administration Function" },
+  { id: "admin-sla-reminders", label: "Administration SLA Reminders", path: "/admin/sla-reminders", group: "Administration Function" },
 
   // Administration service modules
   { id: "shipping",           label: "Shipping",             path: "/shipping",                  group: "Modules" },
@@ -153,7 +154,7 @@ export function pagesByGroup(includeNonAssignable = false): Array<{ group: strin
     "hr", "hr-new", "hr-onboarding", "hr-offboarding",
     "maintenance", "maintenance-new", "purchase", "purchase-new",
     "event", "event-new", "travel", "travel-new", "general", "general-new",
-    "my-requests", "team-requests", "all-requests", "tasks", "feedback-reports",
+    "my-requests", "team-requests", "all-requests", "admin-sla-reminders", "tasks", "feedback-reports",
     "announcements", "admin-announcements", "request-detail",
   ]
   return Object.entries(groups).map(([group, pages]) => ({

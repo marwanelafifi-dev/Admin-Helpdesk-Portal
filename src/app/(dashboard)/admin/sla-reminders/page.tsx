@@ -15,7 +15,7 @@ const when = (value: string) => new Intl.DateTimeFormat("en-GB", { timeZone: "Af
 export default async function AdminSlaRemindersPage() {
   const session = await auth()
   if (!session?.user) redirect("/login?callbackUrl=/admin/sla-reminders")
-  if (!canAccessAdministrationSlaReminders(session.user.role)) redirect("/unauthorized?from=/admin/sla-reminders")
+  if (!canAccessAdministrationSlaReminders(session.user.role, session.user.permissions ?? [])) redirect("/unauthorized?from=/admin/sla-reminders")
   const reminders = readAdminSlaReminders().sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())
   const requests = new Map(requestStore.getAll().map((request) => [request.id, request]))
   const open = reminders.filter((item) => !TERMINAL.has(String(requests.get(item.requestId)?.status ?? ""))).length
