@@ -7,6 +7,7 @@ APP_DATA_PATH="${APP_DATA_PATH:-/opt/company-portal/data}"
 NAS_MOUNT="${NAS_MOUNT:-/mnt/company-portal-synology}"
 DEFAULT_DESTINATION="${DEFAULT_DESTINATION:-$NAS_MOUNT/Company Portal}"
 DB_CONTAINER="${DB_CONTAINER:-company-portal-db}"
+APP_CONTAINER="${APP_CONTAINER:-company-portal-app}"
 CONFIG_FILE="$APP_DATA_PATH/synology-backup.json"
 HISTORY_FILE="$APP_DATA_PATH/synology-backup-history.json"
 HISTORY_LIMIT=50
@@ -24,6 +25,7 @@ require gzip
 require sha256sum
 require tar
 require flock
+require realpath
 
 # The restore service and timer must never copy or prune the same recovery
 # artifacts concurrently. A restore that already owns the lock passes
@@ -35,6 +37,20 @@ fi
 
 if [[ ! -d "$APP_DATA_PATH" ]]; then
   echo "Portal data folder not found: $APP_DATA_PATH" >&2
+  exit 1
+fi
+
+# A green backup is useful only when it contains the data volume used by the
+# running portal.  The installer writes APP_DATA_PATH from Docker Compose's
+# deployment account; keep that assumption verifiable on every run rather
+# than silently backing up an old /opt folder after a host reconfiguration.
+mounted_data_path="$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/app/data"}}{{.Source}}{{end}}{{end}}' "$APP_CONTAINER" 2>/dev/null || true)"
+if [[ -z "$mounted_data_path" ]]; then
+  echo "Could not find the /app/data bind mount for $APP_CONTAINER" >&2
+  exit 1
+fi
+if [[ "$(realpath -e "$APP_DATA_PATH")" != "$(realpath -e "$mounted_data_path")" ]]; then
+  echo "APP_DATA_PATH ($APP_DATA_PATH) does not match $APP_CONTAINER's live /app/data mount ($mounted_data_path)" >&2
   exit 1
 fi
 if ! mountpoint -q "$NAS_MOUNT"; then

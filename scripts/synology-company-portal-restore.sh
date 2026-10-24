@@ -28,6 +28,9 @@ require flock
 
 [[ -f "$REQUEST_FILE" ]] || exit 0
 [[ -d "$APP_DATA_PATH" ]] || { echo "Portal data folder not found: $APP_DATA_PATH" >&2; exit 1; }
+mounted_data_path="$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/app/data"}}{{.Source}}{{end}}{{end}}' "$APP_CONTAINER" 2>/dev/null || true)"
+[[ -n "$mounted_data_path" ]] || { echo "Could not find the /app/data bind mount for $APP_CONTAINER" >&2; exit 1; }
+[[ "$(realpath -e "$APP_DATA_PATH")" == "$(realpath -e "$mounted_data_path")" ]] || { echo "APP_DATA_PATH ($APP_DATA_PATH) does not match $APP_CONTAINER's live /app/data mount ($mounted_data_path)" >&2; exit 1; }
 mountpoint -q "$NAS_MOUNT" || { echo "Synology share is not mounted at $NAS_MOUNT" >&2; exit 1; }
 [[ -x "$BACKUP_SCRIPT" ]] || { echo "Backup script is unavailable: $BACKUP_SCRIPT" >&2; exit 1; }
 
