@@ -24,7 +24,10 @@ export async function GET(req: NextRequest) {
   // person who has since left the team cannot retain Administration SLA data.
   const notifications = serverNotificationStore
     .getForUser(session.user.id, since, functionId)
-    .filter((notification) => notification.type !== "admin_sla_reminder" || canAccessAdministrationSlaReminders(session.user.role, session.user.permissions ?? []))
+    .filter((notification) => notification.type !== "admin_sla_reminder" || (
+      canAccessAdministrationSlaReminders(session.user.role, session.user.permissions ?? [])
+      && notification.id.startsWith("ADM-SLA-WORKDAY")
+    ))
   return NextResponse.json({ data: notifications })
 }
 

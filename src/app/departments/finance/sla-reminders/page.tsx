@@ -79,7 +79,7 @@ export default async function FinanceSlaRemindersPage() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Finance SLA Reminders</h1>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-              General and Travel Reimbursement: reminder on working day {reminderDay}, {daysRemaining} working days before the {slaDays}-working-day deadline. Pre Paid Invoice: reminder on working day {invoiceReminderDay} before its {invoiceSlaDays}-working-day deadline.
+              Finance working days are Sunday–Thursday; Friday and Saturday are excluded. General and Travel Reimbursement: reminder on working day {reminderDay}, {daysRemaining} working days before the {slaDays}-working-day deadline. Pre Paid Invoice: reminder on working day {invoiceReminderDay} before its {invoiceSlaDays}-working-day deadline.
             </p>
           </div>
         </div>

@@ -2,7 +2,7 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { AlarmClock, BellRing, CheckCircle2 } from "lucide-react"
 import { auth } from "@/auth"
-import { readAdminSlaReminders } from "@/lib/adminSlaReminderStore"
+import { readCurrentAdminSlaReminders } from "@/lib/adminSlaReminderStore"
 import { canAccessAdministrationSlaReminders, requestModuleLabel } from "@/lib/functionRegistry"
 import { requestStore } from "@/lib/requestStore"
 import { loadSettingsServer } from "@/lib/settingsServer"
@@ -16,14 +16,14 @@ export default async function AdminSlaRemindersPage() {
   const session = await auth()
   if (!session?.user) redirect("/login?callbackUrl=/admin/sla-reminders")
   if (!canAccessAdministrationSlaReminders(session.user.role, session.user.permissions ?? [])) redirect("/unauthorized?from=/admin/sla-reminders")
-  const reminders = readAdminSlaReminders().sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())
+  const reminders = readCurrentAdminSlaReminders().sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())
   const requests = new Map(requestStore.getAll().map((request) => [request.id, request]))
   const open = reminders.filter((item) => !TERMINAL.has(String(requests.get(item.requestId)?.status ?? ""))).length
   const day = loadSettingsServer().adminSlaReminderDay
   return (
     <div className="space-y-6">
       <div className="rounded-xl border bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-start gap-4"><span className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100 text-amber-700"><AlarmClock className="h-6 w-6" /></span><div><h1 className="text-2xl font-bold tracking-tight">Administration SLA Reminders</h1><p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Internal reminders are raised when an Administration request remains open for {day} calendar days after submission or, where approval is required, after approval. Requesters do not see SLA notes.</p></div></div>
+        <div className="flex items-start gap-4"><span className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100 text-amber-700"><AlarmClock className="h-6 w-6" /></span><div><h1 className="text-2xl font-bold tracking-tight">Administration SLA Reminders</h1><p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Internal reminders are raised when an Administration request remains open for {day} working days after submission or, where approval is required, after approval. Friday and Saturday are excluded. Requesters do not see SLA notes.</p></div></div>
       </div>
       <div className="grid gap-4 sm:grid-cols-2"><div className="rounded-xl border bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"><div className="flex gap-3 text-sm text-slate-500"><BellRing className="h-5 w-5 text-amber-600" />Total reminders</div><p className="mt-2 text-2xl font-bold">{reminders.length}</p></div><div className="rounded-xl border bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"><div className="flex gap-3 text-sm text-slate-500"><CheckCircle2 className="h-5 w-5 text-emerald-600" />Requests still open</div><p className="mt-2 text-2xl font-bold">{open}</p></div></div>
       <div className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">

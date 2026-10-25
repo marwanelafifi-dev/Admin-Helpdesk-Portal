@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   if (body.adminSlaReminderDay !== undefined) {
     const reminderDay = Number.parseInt(String(body.adminSlaReminderDay), 10)
     if (!Number.isInteger(reminderDay) || reminderDay < 1 || reminderDay > 60) {
-      return NextResponse.json({ error: "Administration reminder day must be between 1 and 60 calendar days." }, { status: 400 })
+      return NextResponse.json({ error: "Administration reminder day must be between 1 and 60 working days." }, { status: 400 })
     }
     body.adminSlaReminderDay = String(reminderDay)
   }

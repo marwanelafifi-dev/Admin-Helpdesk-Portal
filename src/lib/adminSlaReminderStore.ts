@@ -10,6 +10,13 @@ export interface AdminSlaReminderRecord {
   slaStartedAt: string
   slaBasis: "submission" | "approval"
   reminderDay: number
+  /**
+   * The policy under which the reminder was raised. Legacy records have no
+   * value because they were calculated in calendar days before 25 Oct 2026.
+   * Keeping them intact preserves the operational audit trail while the live
+   * queue can use the current working-day policy only.
+   */
+  calculationMethod?: "working_days"
   sentAt: string
   emailSentAt?: string
   auditLoggedAt?: string
@@ -34,9 +41,18 @@ function writeAll(records: AdminSlaReminderRecord[]) {
 
 export function readAdminSlaReminders() { return readAll() }
 
+/** Reminders raised by the current Sunday–Thursday SLA policy. */
+export function readCurrentAdminSlaReminders() {
+  return readAll().filter((item) => item.calculationMethod === "working_days")
+}
+
 export function addAdminSlaReminder(record: AdminSlaReminderRecord) {
   const all = readAll()
-  if (all.some((item) => item.id === record.id || (item.requestId === record.requestId && item.slaStartedAt === record.slaStartedAt))) return false
+  if (all.some((item) => item.id === record.id || (
+    item.requestId === record.requestId
+    && item.slaStartedAt === record.slaStartedAt
+    && item.calculationMethod === record.calculationMethod
+  ))) return false
   writeAll([record, ...all])
   return true
 }
