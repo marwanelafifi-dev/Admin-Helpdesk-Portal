@@ -1,5 +1,6 @@
 import fs from "fs"
 import path from "path"
+import { textMatchesSearch } from "@/lib/utils"
 
 export interface StoredComment {
   id: string
@@ -115,11 +116,10 @@ class CommentsStoreManager {
   }
 
   searchByContent(query: string): string[] {
-    const q = query.trim().toLowerCase()
-    if (!q) return []
+    if (!query.trim()) return []
     const matchingIds: string[] = []
     for (const [requestId, comments] of Object.entries(this.store)) {
-      if (comments.some((c) => c.content.toLowerCase().includes(q))) {
+      if (comments.some((c) => textMatchesSearch(c.content, query))) {
         matchingIds.push(requestId)
       }
     }

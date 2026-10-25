@@ -17,7 +17,7 @@ import { useCommentSearch } from "@/hooks/useCommentSearch"
 import { NewItemsAlert } from "@/components/ui/NewItemsAlert"
 import { CompanyBadge } from "@/components/ui/CompanyBadge"
 import { getRequestCompany } from "@/lib/userCompany"
-import { cn, fmtDate, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
+import { cn, fmtDate, fmtDateTime, requestMatchesSearch } from "@/lib/utils"
 import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
 import { modulesVisibleToFunction } from "@/lib/functionRegistry"
 import { animationClasses } from "@/lib/animations"
@@ -288,14 +288,7 @@ export default function AllRequestsPage() {
     if (companyFilter !== "all") result = result.filter((r) =>
       (r.companyId ?? getRequestCompany(r.module, r.requesterEmail)?.id) === companyFilter
     )
-    const q = normalizeSearchText(search)
-    if (q) result = result.filter((r) =>
-      normalizeSearchText(r.id).includes(q) ||
-      normalizeSearchText(r.title).includes(q) ||
-      normalizeSearchText(r.requesterName).includes(q) ||
-      normalizeSearchText(getSearchablePayloadText(r)).includes(q) ||
-      commentMatchIds.has(r.id)
-    )
+    if (search.trim()) result = result.filter((r) => requestMatchesSearch(r, search) || commentMatchIds.has(r.id))
     return result.sort((a, b) => {
       let av: string = "", bv: string = ""
       if (sortKey === "createdAt" || sortKey === "updatedAt") {
@@ -548,7 +541,8 @@ export default function AllRequestsPage() {
             <div className="relative min-w-[220px] flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by ID, title, requester, or comments..."
+                aria-label="Search all Administration request fields"
+                placeholder="Search any field: ID, requester, email, assignee, form details, or comments..."
                 className="h-10 border-slate-300 bg-white pl-9 shadow-sm focus-visible:ring-blue-500 dark:border-slate-600 dark:bg-slate-950"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}

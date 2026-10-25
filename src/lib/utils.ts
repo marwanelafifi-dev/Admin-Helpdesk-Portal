@@ -30,6 +30,75 @@ export function normalizeSearchText(text: string | null | undefined): string {
   return text.toLowerCase().replace(/\s+/g, "")
 }
 
+/** Break a query into independently matchable words, IDs, or email fragments. */
+export function searchTerms(query: string | null | undefined): string[] {
+  return Array.from(new Set(
+    String(query ?? "")
+      .trim()
+      .split(/\s+/)
+      .map(normalizeSearchText)
+      .filter(Boolean)
+  ))
+}
+
+/** Every entered word must occur in the supplied text. */
+export function textMatchesSearch(text: string, query: string | null | undefined): boolean {
+  const terms = searchTerms(query)
+  if (terms.length === 0) return true
+  const searchable = normalizeSearchText(text)
+  return terms.every((term) => searchable.includes(term))
+}
+
+const NON_SEARCHABLE_REQUEST_KEYS = new Set([
+  "base64", "filePath",
+])
+
+/**
+ * Collect every human-readable value in a request. Form schemas differ by
+ * module and change over time, so a generic traversal keeps Administration
+ * search complete without needing a hand-maintained allow-list of fields.
+ * Attachment bytes and storage paths are deliberately excluded: file names
+ * remain searchable, while large data URLs never enter the browser index.
+ */
+function collectRequestSearchValues(value: unknown, values: string[], seen: WeakSet<object>): void {
+  if (value === null || value === undefined) return
+  if (typeof value === "string") {
+    if (!value.startsWith("data:")) values.push(value)
+    return
+  }
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
+    values.push(String(value))
+    return
+  }
+  if (value instanceof Date) {
+    values.push(value.toISOString())
+    return
+  }
+  if (typeof value !== "object" || seen.has(value)) return
+  seen.add(value)
+
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectRequestSearchValues(item, values, seen))
+    return
+  }
+
+  for (const [key, item] of Object.entries(value)) {
+    if (NON_SEARCHABLE_REQUEST_KEYS.has(key.toLowerCase())) continue
+    collectRequestSearchValues(item, values, seen)
+  }
+}
+
+/** Text index for all non-binary request fields, including dynamic form data. */
+export function getRequestSearchText(request: EngineRequest): string {
+  const values: string[] = []
+  collectRequestSearchValues(request, values, new WeakSet<object>())
+  return values.join(" ")
+}
+
+export function requestMatchesSearch(request: EngineRequest, query: string | null | undefined): boolean {
+  return textMatchesSearch(getRequestSearchText(request), query)
+}
+
 /** Extract searchable text from request payload based on module type */
 export function getSearchablePayloadText(request: EngineRequest): string {
   const payload = request.payload as Record<string, unknown>
