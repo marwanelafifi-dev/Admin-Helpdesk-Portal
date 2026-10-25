@@ -125,6 +125,21 @@ class CommentsStoreManager {
     }
     return matchingIds
   }
+
+  /** Match comment text and the names of files attached to comments. */
+  searchByTextOrAttachmentName(query: string): string[] {
+    if (!query.trim()) return []
+    const matchingIds: string[] = []
+    for (const [requestId, comments] of Object.entries(this.store)) {
+      if (comments.some((comment) =>
+        textMatchesSearch(comment.content, query)
+        || (comment.attachments ?? []).some((attachment) => textMatchesSearch(attachment.name, query))
+      )) {
+        matchingIds.push(requestId)
+      }
+    }
+    return matchingIds
+  }
 }
 
 // Global singleton — survives Next.js hot-reload in dev, persists across API calls in prod

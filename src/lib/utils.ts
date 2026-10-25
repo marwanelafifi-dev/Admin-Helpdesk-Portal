@@ -88,15 +88,25 @@ function collectRequestSearchValues(value: unknown, values: string[], seen: Weak
   }
 }
 
+/** Text index for all non-binary fields in a record. */
+export function getSearchableRecordText(record: unknown): string {
+  const values: string[] = []
+  collectRequestSearchValues(record, values, new WeakSet<object>())
+  return values.join(" ")
+}
+
 /** Text index for all non-binary request fields, including dynamic form data. */
 export function getRequestSearchText(request: EngineRequest): string {
-  const values: string[] = []
-  collectRequestSearchValues(request, values, new WeakSet<object>())
-  return values.join(" ")
+  return getSearchableRecordText(request)
 }
 
 export function requestMatchesSearch(request: EngineRequest, query: string | null | undefined): boolean {
   return textMatchesSearch(getRequestSearchText(request), query)
+}
+
+/** Match a query across related records, such as a shipping row and its request. */
+export function recordsMatchSearch(records: unknown[], query: string | null | undefined): boolean {
+  return textMatchesSearch(records.map(getSearchableRecordText).join(" "), query)
 }
 
 /** Extract searchable text from request payload based on module type */

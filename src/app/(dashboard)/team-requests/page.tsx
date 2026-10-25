@@ -10,7 +10,7 @@ import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
 import { getManagerEmail } from "@/lib/companyDataStore"
 import { companyFromEmail } from "@/lib/company"
-import { cn, fmtDate, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
+import { cn, fmtDate, fmtDateTime, requestMatchesSearch } from "@/lib/utils"
 import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
 import { animationClasses } from "@/lib/animations"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
@@ -268,14 +268,7 @@ export default function TeamRequestsPage({ moduleScope, detailSource = "team-req
       result = result.filter((r) => r.status === statusFilter)
     }
     if (moduleFilter !== "all") result = result.filter((r) => r.module === moduleFilter)
-    const q = normalizeSearchText(search)
-    if (q) result = result.filter((r) =>
-      normalizeSearchText(r.id).includes(q) ||
-      normalizeSearchText(r.title).includes(q) ||
-      normalizeSearchText(r.requesterName).includes(q) ||
-      normalizeSearchText(getSearchablePayloadText(r)).includes(q) ||
-      commentMatchIds.has(r.id)
-    )
+    if (search.trim()) result = result.filter((r) => requestMatchesSearch(r, search) || commentMatchIds.has(r.id))
     return result.sort((a, b) => {
       const av = String(a[sortKey as keyof EngineRequest] ?? "")
       const bv = String(b[sortKey as keyof EngineRequest] ?? "")
@@ -347,7 +340,7 @@ export default function TeamRequestsPage({ moduleScope, detailSource = "team-req
             <div className="relative max-w-xs">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by ID, title, requester, or comments..."
+                placeholder="Search all fields, emails, form details, or file names…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-8 h-9"

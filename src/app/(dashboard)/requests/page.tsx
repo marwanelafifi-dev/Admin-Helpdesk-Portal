@@ -9,7 +9,7 @@ import { Card, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { InlineStatusSelect } from "@/components/ui/InlineStatusSelect"
 import { getRequests, initializeMockData, type EngineRequest } from "@/services/engineService"
-import { cn, fmtDate, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
+import { cn, fmtDate, fmtDateTime, requestMatchesSearch } from "@/lib/utils"
 import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
 import { animationClasses } from "@/lib/animations"
 import { requestsAPI } from "@/lib/apiClient"
@@ -308,14 +308,7 @@ export default function RequestsPage({ moduleScope }: { moduleScope?: string[] }
     let result = userRequests
     if (statusFilter !== "all") result = result.filter((r) => r.status === statusFilter)
     if (moduleFilter !== "all") result = result.filter((r) => r.module === moduleFilter)
-    const q = normalizeSearchText(search)
-    if (q) result = result.filter((r) =>
-      normalizeSearchText(r.id).includes(q) ||
-      normalizeSearchText(r.title).includes(q) ||
-      normalizeSearchText(r.requesterName).includes(q) ||
-      normalizeSearchText(getSearchablePayloadText(r)).includes(q) ||
-      commentMatchIds.has(r.id)
-    )
+    if (search.trim()) result = result.filter((r) => requestMatchesSearch(r, search) || commentMatchIds.has(r.id))
     return result.sort((a, b) => {
       const av = String(a[sortKey as keyof EngineRequest] ?? "")
       const bv = String(b[sortKey as keyof EngineRequest] ?? "")
@@ -472,7 +465,7 @@ export default function RequestsPage({ moduleScope }: { moduleScope?: string[] }
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search ID, title, requester, or comments…"
+                placeholder="Search all fields, emails, form details, or file names…"
                 className="pl-9"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}

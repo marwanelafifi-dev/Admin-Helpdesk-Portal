@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, isUserInCc, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
-import { cn, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
+import { cn, fmtDateTime, requestMatchesSearch } from "@/lib/utils"
 import { canViewAllInOwnFunctionModules, canViewOwnRequests } from "@/lib/functionRegistry"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
 import { useViewedComments } from "@/hooks/useViewedComments"
@@ -217,14 +217,7 @@ export default function TravelReimbursementRequestsPage() {
     let result = allVisibleRequests
     result = result.filter((r) => matchesCompanyFilter(r, companyFilter))
     if (statusFilter !== "all") result = result.filter((r) => r.status === statusFilter)
-    const q = normalizeSearchText(search)
-    if (q) result = result.filter((r) =>
-      normalizeSearchText(r.id).includes(q) ||
-      normalizeSearchText(r.title).includes(q) ||
-      normalizeSearchText(r.requesterName).includes(q) ||
-      normalizeSearchText(getSearchablePayloadText(r)).includes(q) ||
-      commentMatchIds.has(r.id)
-    )
+    if (search.trim()) result = result.filter((r) => requestMatchesSearch(r, search) || commentMatchIds.has(r.id))
     return result.sort((a, b) => {
       if (sortKey === "createdAt" || sortKey === "updatedAt") {
         const diff = new Date(a[sortKey]).getTime() - new Date(b[sortKey]).getTime()
@@ -302,7 +295,7 @@ export default function TravelReimbursementRequestsPage() {
             <div className="relative min-w-[220px] flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by ID, title, requester, or comments…"
+                placeholder="Search all fields, amounts, currencies, or file names…"
                 className="h-10 border-slate-300 bg-white pl-9 shadow-sm focus-visible:ring-blue-500 dark:border-slate-600 dark:bg-slate-950"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}

@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/auth'
 import { commentsStore } from '@/lib/commentsStore'
+import { getVisibleRequestIds } from '@/lib/requestAccess'
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await auth()
+    if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const body = await req.json()
     const requestIds = body.requestIds as string[]
 
@@ -16,9 +20,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch comment counts for all request IDs
+    const visibleRequestIds = getVisibleRequestIds(session.user)
     const counts: Record<string, number> = {}
     for (const id of requestIds) {
-      if (typeof id === 'string' && id.trim()) {
+      if (typeof id === 'string' && id.trim() && visibleRequestIds.has(id)) {
         const comments = commentsStore.getComments(id)
         counts[id] = comments.length
       }

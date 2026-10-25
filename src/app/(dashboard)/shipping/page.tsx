@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { mockUsers, type MockShipment } from "@/lib/mock-data"
-import { cn, fmtDate, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
+import { cn, fmtDate, fmtDateTime, recordsMatchSearch } from "@/lib/utils"
 import { getRequests } from "@/services/engineService"
 import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
@@ -257,18 +257,11 @@ export default function ShippingPage() {
 
   const filtered = useMemo(() => {
     let result = allVisibleShipments.filter((s) => {
-      const q = normalizeSearchText(search)
       const originalRequest = originalRequestsMap.get(s.id)
 
-      // Check all searchable fields like All Requests page does
-      const matchSearch = q === "" ||
-        normalizeSearchText(s.id).includes(q) ||
-        normalizeSearchText(s.title).includes(q) ||
-        normalizeSearchText(s.requester).includes(q) ||
-        normalizeSearchText(s.trackingNumber).includes(q) ||
-        normalizeSearchText(s.destination).includes(q) ||
-        (originalRequest ? normalizeSearchText(getSearchablePayloadText(originalRequest)).includes(q) : false) ||
-        commentMatchIds.has(s.id)
+      const matchSearch = !search.trim()
+        || recordsMatchSearch([s, originalRequest], search)
+        || commentMatchIds.has(s.id)
 
       const matchStatus  = statusFilter === "all" || s.status === statusFilter
       const matchCarrier = carrierFilter === "all" || s.carrier === carrierFilter
@@ -332,7 +325,7 @@ export default function ShippingPage() {
             <div className="relative min-w-[220px] flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by ID, tracking, requester, destination, or comments..."
+                placeholder="Search all fields, tracking, emails, or file names…"
                 className="h-10 border-slate-300 bg-white pl-9 shadow-sm focus-visible:ring-blue-500 dark:border-slate-600 dark:bg-slate-950"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}

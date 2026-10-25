@@ -542,7 +542,7 @@ export default function AllRequestsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 aria-label="Search all Administration request fields"
-                placeholder="Search any field: ID, requester, email, assignee, form details, or comments..."
+                placeholder="Search all fields, emails, form details, comments, or file names…"
                 className="h-10 border-slate-300 bg-white pl-9 shadow-sm focus-visible:ring-blue-500 dark:border-slate-600 dark:bg-slate-950"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}

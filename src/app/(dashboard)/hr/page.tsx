@@ -13,7 +13,7 @@ import {
 import { getRequests, initializeMockData, updateStatus, getRequestById, getAllCcEmails, deleteRequestPermanently, isUserInCc, type EngineRequest, type RequestStatus } from "@/services/engineService"
 import { createRequestUpdateNotifications } from "@/lib/notificationStore"
 import type { HRPayload } from "@/modules/hr/hr.schema"
-import { cn, fmtDate, fmtDateTime, normalizeSearchText, getSearchablePayloadText } from "@/lib/utils"
+import { cn, fmtDate, fmtDateTime, requestMatchesSearch } from "@/lib/utils"
 import { scopeRequestsByModuleAccess, type UserWithModuleAccess } from "@/lib/access"
 import { requestsAPI } from "@/lib/apiClient"
 import { useCommentCounts } from "@/hooks/useCommentCounts"
@@ -199,13 +199,7 @@ export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
     result = result.filter((r) => matchesCompanyFilter(r, companyFilter))
     if (activeTab !== "all") result = result.filter((r) => (r.payload as HRPayload).hrType === activeTab)
     if (statusFilter !== "all") result = result.filter((r) => r.status === statusFilter)
-    const q = normalizeSearchText(search)
-    if (q) result = result.filter((r) => {
-      const p = r.payload as HRPayload
-      return normalizeSearchText(r.id).includes(q) || normalizeSearchText(r.title).includes(q) ||
-        normalizeSearchText(p.employeeName).includes(q) || normalizeSearchText(p.employeeId).includes(q) ||
-        normalizeSearchText(p.department).includes(q) || normalizeSearchText(getSearchablePayloadText(r)).includes(q) || commentMatchIds.has(r.id)
-    })
+    if (search.trim()) result = result.filter((r) => requestMatchesSearch(r, search) || commentMatchIds.has(r.id))
     return result.sort((a, b) => {
       const pa = a.payload as HRPayload, pb = b.payload as HRPayload
       const getVal = (r: EngineRequest, p: HRPayload) => {
@@ -347,7 +341,7 @@ export default function HRPage({ defaultTab = "all" }: { defaultTab?: Tab }) {
             <div className="relative min-w-[220px] flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by ID, employee name, department, or comments..."
+                placeholder="Search all fields, emails, form details, or file names…"
                 className="h-10 border-slate-300 bg-white pl-9 shadow-sm focus-visible:ring-blue-500 dark:border-slate-600 dark:bg-slate-950"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
