@@ -15,16 +15,22 @@ export function clearCommentCountCache() {
 
 export function useCommentCounts(requestIds: string[]) {
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({})
+  // Depend on the actual requested IDs, rather than just their count. Filters
+  // and pagination can replace a page of 50 rows with another page of 50.
+  // Using the count alone left the latter page with stale/missing badges.
+  const idsKey = Array.from(new Set(
+    (requestIds || []).filter((id): id is string => typeof id === "string" && Boolean(id.trim()))
+  )).join("\u0001")
 
   useEffect(() => {
-    // Early return for empty or invalid IDs
-    const validIds = (requestIds || []).filter(id => typeof id === 'string' && id.trim())
+    const validIds = idsKey ? idsKey.split("\u0001") : []
     if (validIds.length === 0) {
       setCommentCounts({})
       return
     }
 
     let isMounted = true
+    const controller = new AbortController()
 
     const fetchCounts = async () => {
       const counts: Record<string, number> = {}
@@ -52,6 +58,7 @@ export function useCommentCounts(requestIds: string[]) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ requestIds: idsToFetch }),
+          signal: controller.signal,
         })
 
         if (!response.ok) {
@@ -72,6 +79,7 @@ export function useCommentCounts(requestIds: string[]) {
           setCommentCounts(counts)
         }
       } catch (err) {
+        if (controller.signal.aborted) return
         console.warn('Error fetching comment counts:', err)
         if (isMounted) {
           // Set all to 0 on error, but use cached values if available
@@ -89,8 +97,9 @@ export function useCommentCounts(requestIds: string[]) {
 
     return () => {
       isMounted = false
+      controller.abort()
     }
-  }, [requestIds.length]) // Only depend on length, not the array itself
+  }, [idsKey])
 
   return commentCounts
 }

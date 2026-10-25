@@ -277,7 +277,6 @@ export default function AllRequestsPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [exportOpen])
 
-  const commentCounts = useCommentCounts(requests.map(r => r.id))
   const { viewedComments } = useViewedComments()
   const commentMatchIds = useCommentSearch(search)
 
@@ -315,6 +314,10 @@ export default function AllRequestsPage() {
   const paginatedRequests = filtered.slice(pageStartIndex, pageStartIndex + PAGE_SIZE)
   const showingStart = filtered.length === 0 ? 0 : pageStartIndex + 1
   const showingEnd = Math.min(pageStartIndex + PAGE_SIZE, filtered.length)
+  // The table renders 50 rows at a time. Fetch counts for exactly those rows;
+  // previously a first visit requested comment counts for every request in the
+  // organisation (627 in production) before badges could settle.
+  const commentCounts = useCommentCounts(paginatedRequests.map((request) => request.id))
 
   useEffect(() => {
     setCurrentPage(1)
