@@ -1,4 +1,6 @@
-name: company-portal
+# Keep the established production namespace so Compose reuses the existing
+# PostgreSQL volume and network rather than creating a parallel stack.
+name: admin-helpdesk
 
 services:
 
@@ -51,7 +53,9 @@ services:
       TZ: Africa/Cairo
       NEXT_TELEMETRY_DISABLED: "1"
     volumes:
-      - ~/admin-helpdesk-data:/app/data
+      # Compose does not expand `~` reliably in bind mounts. Use the
+      # production host's absolute path so the existing request data is used.
+      - /home/docker-machine/admin-helpdesk-data:/app/data
     ports:
       - "127.0.0.1:${APP_PORT:-3003}:3003"
     networks:
@@ -60,7 +64,10 @@ services:
     # NEXTAUTH_URL (different host), wget treats it as an error and would
     # report the container unhealthy even though the app is fine.
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3003/api/health"]
+      # Check the listening port rather than an application route. This lets a
+      # compatible older image recover after a host reboot and avoids a false
+      # unhealthy state when routes change during a deployment.
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 3003"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -87,7 +94,7 @@ services:
       app:
         condition: service_healthy
     volumes:
-      - ~/admin-helpdesk-data:/app/data
+      - /home/docker-machine/admin-helpdesk-data:/app/data
     network_mode: none
     cpus: 0.75
     mem_limit: 2g

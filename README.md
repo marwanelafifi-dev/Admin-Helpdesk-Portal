@@ -72,6 +72,18 @@ docker compose up --build -d
 docker compose --profile tunnel up --build -d
 ```
 
+### Start Automatically After an Ubuntu Reboot
+
+After deploying the current image, install the supplied systemd unit once. It
+waits for Docker and online networking, then starts the database, app, and
+Cloudflare Tunnel together:
+
+```bash
+sudo ./scripts/install-company-portal-startup-ubuntu.sh
+sudo systemctl start admin-helpdesk-stack.service
+systemctl status admin-helpdesk-stack.service --no-pager
+```
+
 ### Containers
 
 | Container | Purpose | Port |
