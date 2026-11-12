@@ -100,7 +100,7 @@ services:
   # Cloudflare Tunnel — makes app accessible from anywhere
   # To activate: set CLOUDFLARE_TUNNEL_TOKEN in .env.local
   tunnel:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:2026.10.7
     container_name: company-portal-tunnel
     restart: always
     command:
