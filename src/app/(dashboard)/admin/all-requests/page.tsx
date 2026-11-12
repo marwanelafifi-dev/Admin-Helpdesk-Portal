@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
-import { Search, TrendingUp, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsUpDown, MessageCircle, CheckSquare, ArrowRight, Download, FileSpreadsheet, AlarmClock, ChevronDown as ChevronDownIcon } from "lucide-react"
+import { Search, TrendingUp, Clock, CheckCircle2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ChevronsUpDown, MessageCircle, CheckSquare, ArrowRight, Download, FileSpreadsheet, AlarmClock, PackageCheck, PackageSearch, ChevronDown as ChevronDownIcon } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -324,7 +324,11 @@ export default function AllRequestsPage() {
     total:              requests.length,
     new:                requests.filter((r) => r.status === "new").length,
     awaitingApproval:   requests.filter((r) => r.status === "awaiting_approval").length,
-    inProgress:         requests.filter((r) => r.status === "in_progress").length,
+    // `on_hold` and "In Progress" are legacy equivalents displayed as In Progress.
+    inProgress:         requests.filter((r) => ["in_progress", "on_hold", "In Progress"].includes(r.status)).length,
+    // Include the legacy label so every existing request is visible in a summary card.
+    inCustoms:          requests.filter((r) => ["in_customs", "In Customs"].includes(r.status)).length,
+    delivered:          requests.filter((r) => r.status === "delivered").length,
     completed:          requests.filter((r) => r.status === "completed").length,
     cancelled:          requests.filter((r) => r.status === "cancelled").length,
   }), [requests])
@@ -480,12 +484,14 @@ export default function AllRequestsPage() {
       )}
 
       {/* Stat Cards — clickable, synced with status filter */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-8">
         {([
           { key: "all" as const,                label: "Total Requests",      value: stats.total,              icon: TrendingUp,   iconBg: "bg-amber-50",    iconColor: "text-amber-600",   activeBg: "bg-slate-800",   activeBorder: "border-slate-800" },
           { key: "new" as const,                label: "New",                 value: stats.new,                icon: TrendingUp,   iconBg: "bg-sky-50",      iconColor: "text-sky-600",     activeBg: "bg-sky-500",     activeBorder: "border-sky-500" },
           { key: "awaiting_approval" as const,  label: "Awaiting Approval",   value: stats.awaitingApproval,   icon: Clock,        iconBg: "bg-amber-50",    iconColor: "text-amber-600",   activeBg: "bg-amber-500",  activeBorder: "border-amber-500" },
           { key: "in_progress" as const,        label: "In Progress",         value: stats.inProgress,         icon: Clock,        iconBg: "bg-blue-50",     iconColor: "text-blue-600",    activeBg: "bg-blue-600",   activeBorder: "border-blue-600" },
+          { key: "in_customs" as const,         label: "In Customs",          value: stats.inCustoms,          icon: PackageSearch,iconBg: "bg-violet-50",   iconColor: "text-violet-600",activeBg: "bg-violet-600", activeBorder: "border-violet-600" },
+          { key: "delivered" as const,          label: "Delivered",           value: stats.delivered,          icon: PackageCheck, iconBg: "bg-green-50",    iconColor: "text-green-600", activeBg: "bg-green-600",  activeBorder: "border-green-600" },
           { key: "completed" as const,          label: "Completed",           value: stats.completed,          icon: CheckCircle2, iconBg: "bg-emerald-50",  iconColor: "text-emerald-600", activeBg: "bg-emerald-600",activeBorder: "border-emerald-600" },
           { key: "cancelled" as const,          label: "Cancelled",           value: stats.cancelled,          icon: Clock,        iconBg: "bg-rose-50",     iconColor: "text-rose-600",    activeBg: "bg-rose-600",   activeBorder: "border-rose-600" },
         ] as const).map(({ key, label, value, icon: Icon, iconBg, iconColor, activeBg, activeBorder }, index) => {
