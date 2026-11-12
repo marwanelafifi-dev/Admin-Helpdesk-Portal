@@ -1868,6 +1868,7 @@ export default function RequestDetailPage() {
                       id: currentUserId,
                       name: session?.user?.name || "User",
                       email: session?.user?.email || "user@si-ware.com",
+                      picture: session?.user?.image || undefined,
                     },
                     attachments: result?.attachments || [],
                     createdAt: new Date().toISOString(),

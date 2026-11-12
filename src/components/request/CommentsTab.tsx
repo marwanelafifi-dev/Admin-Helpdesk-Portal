@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { ImageIcon, Paperclip } from "lucide-react"
 import { fmtDateTime } from "@/lib/utils"
 import { CommentForm } from "./CommentForm"
 import { CcPanel } from "./CcPanel"
@@ -37,6 +38,8 @@ interface CommentsTabProps {
   onAdminCcChange?: (emails: string[]) => void
   canEditCc?: boolean
 }
+
+const IMAGE_ATTACHMENT_PATTERN = /\.(avif|gif|jpe?g|png|webp)$/i
 
 
 export function CommentsTab({
@@ -124,17 +127,36 @@ export function CommentsTab({
                 <div className="space-y-2 mt-3 pt-3 border-t">
                   <p className="text-xs font-medium text-gray-600">Attachments</p>
                   <div className="space-y-1">
-                    {comment.attachments.map((attachment) => (
-                      <a
-                        key={attachment.id}
-                        href={`/api/requests/${encodeURIComponent(requestId)}/comments/attachments/${encodeURIComponent(attachment.id)}/open`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 hover:underline"
-                      >
-                        📎 {attachment.name} ({(attachment.sizeBytes / 1024).toFixed(1)} KB)
-                      </a>
-                    ))}
+                    {comment.attachments.map((attachment) => {
+                      const attachmentUrl = `/api/requests/${encodeURIComponent(requestId)}/comments/attachments/${encodeURIComponent(attachment.id)}/open`
+                      const isImage = IMAGE_ATTACHMENT_PATTERN.test(attachment.name)
+
+                      return (
+                        <a
+                          key={attachment.id}
+                          href={attachmentUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={isImage
+                            ? "group block w-fit max-w-full text-sm text-blue-600 hover:text-blue-700"
+                            : "flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 hover:underline"}
+                        >
+                          {isImage ? (
+                            <>
+                              <img
+                                src={attachmentUrl}
+                                alt={`Preview of ${attachment.name}`}
+                                loading="lazy"
+                                className="max-h-56 max-w-full rounded-md border border-slate-200 bg-slate-50 object-contain transition-opacity group-hover:opacity-90"
+                              />
+                              <span className="mt-1 flex items-center gap-1.5 font-medium group-hover:underline"><ImageIcon className="h-3.5 w-3.5" />{attachment.name} ({(attachment.sizeBytes / 1024).toFixed(1)} KB)</span>
+                            </>
+                          ) : (
+                            <><Paperclip className="h-3.5 w-3.5" />{attachment.name} ({(attachment.sizeBytes / 1024).toFixed(1)} KB)</>
+                          )}
+                        </a>
+                      )
+                    })}
                   </div>
                 </div>
               )}

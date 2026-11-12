@@ -2,6 +2,25 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { commentsStore } from '@/lib/commentsStore'
 import { canAccessRequest } from '@/lib/requestAccess'
+import { findUserByEmail, findUserById } from '@/lib/userStore'
+
+function withAuthorPicture<T extends { authorId: string; author?: { id: string; name: string; email: string; picture?: string } }>(comment: T): T {
+  if (comment.author?.picture) return comment
+
+  const user = findUserById(comment.authorId)
+    ?? (comment.author?.email ? findUserByEmail(comment.author.email) : undefined)
+  if (!user?.image) return comment
+
+  return {
+    ...comment,
+    author: {
+      id: comment.author?.id ?? comment.authorId,
+      name: comment.author?.name ?? user.name,
+      email: comment.author?.email ?? user.email,
+      picture: user.image,
+    },
+  }
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -24,7 +43,7 @@ export async function GET(req: NextRequest) {
     }
 
     const allComments = commentsStore.getComments(requestId)
-    const paginated = allComments.slice(offset, offset + limit)
+    const paginated = allComments.slice(offset, offset + limit).map(withAuthorPicture)
 
     console.log(`[API] Returning ${paginated.length} comments for request ${requestId}`)
 
@@ -147,7 +166,7 @@ export async function POST(req: NextRequest) {
     // Store comment
     commentsStore.addComment(requestId, comment)
 
-    return NextResponse.json({ data: comment }, { status: 201 })
+    return NextResponse.json({ data: withAuthorPicture(comment) }, { status: 201 })
   } catch (error) {
     console.error('POST /api/requests/comments error:', error)
     return NextResponse.json(

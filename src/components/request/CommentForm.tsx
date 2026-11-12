@@ -95,7 +95,7 @@ export function CommentForm({
             multiple
             className="hidden"
             disabled={isSubmitting}
-            accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif,.webp"
           />
           <Button
             type="button"
