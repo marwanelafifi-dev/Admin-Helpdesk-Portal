@@ -95,7 +95,10 @@ Description=Check Company Portal Synology backup settings every five minutes
 
 [Timer]
 OnBootSec=3min
-OnUnitActiveSec=5min
+# The backup service is a one-shot unit. Schedule the next polling run after
+# each completed invocation; OnUnitActiveSec only produced one elapsed run on
+# some hosts and then left the timer with no next trigger.
+OnUnitInactiveSec=5min
 Persistent=true
 Unit=company-portal-synology-backup.service
 

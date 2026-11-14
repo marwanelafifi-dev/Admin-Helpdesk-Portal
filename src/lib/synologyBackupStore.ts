@@ -30,6 +30,8 @@ export interface SynologyBackupConfig {
   lastScheduledPeriod: string | null
   retentionDays: number
   pruneOldBackups: boolean
+  /** Null preserves legacy delivery to Full Access users; an array explicitly selects alert recipients. */
+  backupAlertRecipientEmails: string[] | null
   runRequestedAt: string | null
   lastRequestHandledAt: string | null
   lastStartedAt: string | null
@@ -89,6 +91,7 @@ export const SYNOLOGY_BACKUP_DEFAULTS: SynologyBackupConfig = {
   lastScheduledPeriod: null,
   retentionDays: 180,
   pruneOldBackups: true,
+  backupAlertRecipientEmails: null,
   runRequestedAt: null,
   lastRequestHandledAt: null,
   lastStartedAt: null,
@@ -140,6 +143,15 @@ function safeInteger(value: unknown, minimum: number, maximum: number, fallback:
   return typeof value === "number" && Number.isInteger(value) && value >= minimum && value <= maximum ? value : fallback
 }
 
+function safeRecipientEmails(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null
+  return [...new Set(value
+    .filter((email): email is string => typeof email === "string")
+    .map((email) => email.trim().toLowerCase())
+    .filter((email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+  )].slice(0, 50)
+}
+
 function normalize(saved: unknown): SynologyBackupConfig {
   const source = saved && typeof saved === "object" && !Array.isArray(saved) ? saved as Partial<SynologyBackupConfig> : {}
   return {
@@ -156,6 +168,7 @@ function normalize(saved: unknown): SynologyBackupConfig {
     lastScheduledPeriod: typeof source.lastScheduledPeriod === "string" && /^[0-9-]{4,16}$/.test(source.lastScheduledPeriod) ? source.lastScheduledPeriod : null,
     retentionDays: safeRetention(source.retentionDays),
     pruneOldBackups: typeof source.pruneOldBackups === "boolean" ? source.pruneOldBackups : SYNOLOGY_BACKUP_DEFAULTS.pruneOldBackups,
+    backupAlertRecipientEmails: safeRecipientEmails(source.backupAlertRecipientEmails),
     runRequestedAt: isDate(source.runRequestedAt) ? source.runRequestedAt : null,
     lastRequestHandledAt: isDate(source.lastRequestHandledAt) ? source.lastRequestHandledAt : null,
     lastStartedAt: isDate(source.lastStartedAt) ? source.lastStartedAt : null,
@@ -313,6 +326,9 @@ export function updateSynologyBackupSettings(input: unknown): SynologyBackupConf
     lastAppliedScheduleUpdatedAt: current.lastAppliedScheduleUpdatedAt,
     retentionDays: safeRetention(source.retentionDays),
     pruneOldBackups: typeof source.pruneOldBackups === "boolean" ? source.pruneOldBackups : current.pruneOldBackups,
+    backupAlertRecipientEmails: Object.prototype.hasOwnProperty.call(source, "backupAlertRecipientEmails")
+      ? safeRecipientEmails(source.backupAlertRecipientEmails)
+      : current.backupAlertRecipientEmails,
   })
 }
 

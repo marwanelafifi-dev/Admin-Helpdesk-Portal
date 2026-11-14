@@ -59,6 +59,7 @@ type SynologyBackupConfig = {
   lastScheduledPeriod: string | null
   retentionDays: number
   pruneOldBackups: boolean
+  backupAlertRecipientEmails: string[] | null
   runRequestedAt: string | null
   lastRequestHandledAt: string | null
   lastStartedAt: string | null
@@ -67,6 +68,8 @@ type SynologyBackupConfig = {
   lastFailureMessage: string | null
   lastPostgresDump: string | null
 }
+
+type BackupAlertRecipient = { id: string; name: string; email: string; role: string }
 
 type SynologyBackupHistoryEntry = {
   createdAt: string
@@ -507,6 +510,7 @@ export default function DatabasePage() {
   const [synologyRestoreConfirm, setSynologyRestoreConfirm] = useState("")
   const [synologyRestoreAcknowledged, setSynologyRestoreAcknowledged] = useState(false)
   const [synologyRestoreSubmitting, setSynologyRestoreSubmitting] = useState(false)
+  const [backupAlertRecipients, setBackupAlertRecipients] = useState<BackupAlertRecipient[]>([])
   const [reauthAction, setReauthAction] = useState<"restore" | "purge" | null>(null)
   const [reauthPassword, setReauthPassword] = useState("")
   const [reauthStatus, setReauthStatus] = useState<Status>({ type: "idle", message: "" })
@@ -580,6 +584,7 @@ export default function DatabasePage() {
       if (!res.ok) return
       const json = await res.json()
       if (json.config) setSynologyBackup(json.config as SynologyBackupConfig)
+      if (Array.isArray(json.recipientCandidates)) setBackupAlertRecipients(json.recipientCandidates as BackupAlertRecipient[])
       if (Array.isArray(json.history)) setSynologyHistory(json.history as SynologyBackupHistoryEntry[])
       setSynologyRestoreStatus(json.restoreStatus ? json.restoreStatus as SynologyRestoreStatus : null)
     }).catch(() => {})
@@ -780,6 +785,7 @@ export default function DatabasePage() {
             scheduleMonth: synologyBackup.scheduleMonth,
             retentionDays: synologyBackup.retentionDays,
             pruneOldBackups: synologyBackup.pruneOldBackups,
+            backupAlertRecipientEmails: synologyBackup.backupAlertRecipientEmails,
           },
         }),
       })
@@ -2160,6 +2166,32 @@ export default function DatabasePage() {
                 <input type="checkbox" checked={synologyBackup.pruneOldBackups} onChange={(event) => updateSynologyBackup({ pruneOldBackups: event.target.checked })} className="mt-0.5 h-4 w-4 accent-cyan-700" />
                 <span><strong>Apply the retention policy on Synology</strong><br /><span className="text-xs text-gray-500">When enabled, matching old PostgreSQL dumps, versioned recovery archives, and manifests are removed. The live portal-data mirror is never deletion-mirrored to the NAS.</span></span>
               </label>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Backup alert recipients</p>
+                    <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-600">Choose exactly who receives backup-failure and overdue emails and in-app alerts. Saving a selection replaces the legacy Full Access delivery list.</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button type="button" size="sm" variant="outline" onClick={() => updateSynologyBackup({ backupAlertRecipientEmails: backupAlertRecipients.map((user) => user.email) })}>Select all</Button>
+                    <Button type="button" size="sm" variant="outline" onClick={() => updateSynologyBackup({ backupAlertRecipientEmails: [] })}>Clear</Button>
+                  </div>
+                </div>
+                <div className="mt-3 grid max-h-52 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+                  {backupAlertRecipients.map((user) => {
+                    const selected = synologyBackup.backupAlertRecipientEmails?.includes(user.email) ?? user.role === "Full Access"
+                    return <label key={user.id} className="flex cursor-pointer items-start gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs transition-colors hover:border-cyan-300">
+                      <input type="checkbox" checked={selected} onChange={() => {
+                        const current = synologyBackup.backupAlertRecipientEmails ?? backupAlertRecipients.filter((candidate) => candidate.role === "Full Access").map((candidate) => candidate.email)
+                        updateSynologyBackup({ backupAlertRecipientEmails: selected ? current.filter((email) => email !== user.email) : [...current, user.email] })
+                      }} className="mt-0.5 h-4 w-4 accent-cyan-700" />
+                      <span className="min-w-0"><span className="block truncate font-medium text-slate-800">{user.name || user.email}</span><span className="block truncate text-slate-500">{user.email} · {user.role}</span></span>
+                    </label>
+                  })}
+                </div>
+                {synologyBackup.backupAlertRecipientEmails === null ? <p className="mt-3 text-xs text-amber-800">Legacy mode: all active Full Access users receive alerts until you save a selection.</p> : <p className="mt-3 text-xs text-slate-600">{synologyBackup.backupAlertRecipientEmails.length} selected recipient{synologyBackup.backupAlertRecipientEmails.length === 1 ? "" : "s"}. Save Synology settings to apply this delivery list.</p>}
+              </div>
 
               <div className="flex flex-wrap items-center gap-3">
                 <Button type="button" onClick={saveSynologyBackup} disabled={synologySaving} className="bg-cyan-700 text-white hover:bg-cyan-800">

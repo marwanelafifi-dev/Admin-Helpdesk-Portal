@@ -5,6 +5,7 @@ import { readUsers } from "@/lib/userStore"
 import { serverNotificationStore, type ServerNotification } from "@/lib/serverNotificationStore"
 import { sendAnnouncementEmail } from "@/lib/emailService"
 import { logServerAudit } from "@/lib/serverAuditLog"
+import { readSynologyBackupConfig } from "@/lib/synologyBackupStore"
 
 const STATE_PATH = path.join(process.cwd(), "data", "backup-alert-state.json")
 
@@ -78,7 +79,13 @@ export async function notifyBackupHealthIfNeeded() {
   // Write before delivery to prevent two scheduler ticks from notifying the
   // same failure concurrently. The in-app record is persistent per recipient.
   writeState({ key: alert.key, sentAt: new Date().toISOString() })
-  const recipients = readUsers().filter((user) => user.active && user.role === "Full Access")
+  const configuredEmails = readSynologyBackupConfig().backupAlertRecipientEmails
+  const activeUsers = readUsers().filter((user) => user.active && user.email)
+  // Existing installations keep their Full Access delivery until an
+  // administrator saves an explicit recipient selection.
+  const recipients = configuredEmails === null
+    ? activeUsers.filter((user) => user.role === "Full Access")
+    : activeUsers.filter((user) => configuredEmails.includes(user.email.toLowerCase()))
   const notifications: ServerNotification[] = recipients.map((user) => ({
     id: `backup-alert-${alert.key}-${user.id}`.replace(/[^a-zA-Z0-9_-]/g, "-"),
     userId: user.id,

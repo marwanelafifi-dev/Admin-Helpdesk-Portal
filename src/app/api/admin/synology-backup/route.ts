@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getToken } from "@auth/core/jwt"
 import { canManageDatabase, requestMetadata } from "@/lib/databaseAccess"
 import { logServerAudit } from "@/lib/serverAuditLog"
+import { readUsers } from "@/lib/userStore"
 import { readSynologyBackupConfig, readSynologyBackupHistory, readSynologyRestoreStatus, requestSynologyBackupRun, updateSynologyBackupSettings } from "@/lib/synologyBackupStore"
 
 export const runtime = "nodejs"
@@ -20,6 +21,9 @@ export async function GET(req: NextRequest) {
     history: readSynologyBackupHistory(),
     restoreStatus: readSynologyRestoreStatus(),
     hostTask: { cadenceMinutes: 5, runsWhileSignedIn: true },
+    recipientCandidates: readUsers()
+      .filter((user) => user.active && user.email)
+      .map((user) => ({ id: user.id, name: user.name, email: user.email, role: user.role })),
   })
 }
 
@@ -37,7 +41,9 @@ export async function POST(req: NextRequest) {
   const actorEmail = String(token.email ?? "")
   if (body.action === "save") {
     const config = updateSynologyBackupSettings(body.settings)
-    logServerAudit({ actor: actorName, actorEmail, action: "database_backup", targetId: "synology-backup", targetTitle: "Synology recovery backup settings", details: `Synology backup ${config.enabled ? "enabled" : "disabled"}; ${config.scheduleFrequency} at ${config.scheduleTime}; ${config.nasRoot}; retention ${config.retentionDays} days.`, category: "database", outcome: "success", ...requestMetadata(req) })
+    const recipients = config.backupAlertRecipientEmails
+    const delivery = recipients === null ? "Full Access users (legacy default)" : `${recipients.length} selected recipient${recipients.length === 1 ? "" : "s"}`
+    logServerAudit({ actor: actorName, actorEmail, action: "database_backup", targetId: "synology-backup", targetTitle: "Synology recovery backup settings", details: `Synology backup ${config.enabled ? "enabled" : "disabled"}; ${config.scheduleFrequency} at ${config.scheduleTime}; ${config.nasRoot}; retention ${config.retentionDays} days; alert delivery: ${delivery}.`, category: "database", outcome: "success", ...requestMetadata(req) })
     return NextResponse.json({ success: true, config })
   }
   if (body.action === "run") {
