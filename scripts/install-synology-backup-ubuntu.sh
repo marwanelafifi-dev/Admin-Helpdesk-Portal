@@ -124,7 +124,8 @@ Description=Check Company Portal guarded Synology restore requests every minute
 
 [Timer]
 OnBootSec=2min
-OnUnitActiveSec=1min
+# The restore worker is also a one-shot service, so repeat after each check.
+OnUnitInactiveSec=1min
 Persistent=true
 Unit=company-portal-synology-restore.service
 

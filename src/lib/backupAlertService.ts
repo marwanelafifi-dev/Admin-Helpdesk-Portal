@@ -10,6 +10,7 @@ import { readSynologyBackupConfig } from "@/lib/synologyBackupStore"
 const STATE_PATH = path.join(process.cwd(), "data", "backup-alert-state.json")
 
 type AlertState = { key?: string; sentAt?: string }
+type AlertHealth = Pick<BackupHealth, "status" | "message" | "lastSuccessAt" | "lastFailureAt" | "lastFailureMessage">
 
 function readState(): AlertState {
   try { return JSON.parse(fs.readFileSync(STATE_PATH, "utf8")) as AlertState } catch { return {} }
@@ -21,7 +22,7 @@ function writeState(state: AlertState) {
   fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2), "utf8")
 }
 
-function actionableAlert(health: BackupHealth) {
+function actionableAlert(health: AlertHealth) {
   if (health.status !== "critical") return null
   const failure = health.lastFailureAt && (!health.lastSuccessAt || new Date(health.lastFailureAt) >= new Date(health.lastSuccessAt))
   if (failure) {
@@ -37,6 +38,57 @@ function actionableAlert(health: BackupHealth) {
     key: `overdue:${health.lastSuccessAt ?? "never"}:${new Date().toISOString().slice(0, 10)}`,
     title: health.lastSuccessAt ? "Backup overdue — action required" : "No successful backup — action required",
     message: health.message,
+  }
+}
+
+/**
+ * The verified Synology recovery point is production's primary protection.
+ * Prefer it over the retired local JSON-backup scheduler whenever it is
+ * enabled, otherwise an old hourly local schedule can generate a false 2h
+ * overdue alert despite a healthy off-device recovery copy.
+ */
+function synologyRecoveryHealth(): AlertHealth | null {
+  const config = readSynologyBackupConfig()
+  if (!config.enabled) return null
+
+  const failureIsCurrent = config.lastFailureAt && (!config.lastSuccessAt || new Date(config.lastFailureAt) >= new Date(config.lastSuccessAt))
+  if (failureIsCurrent) return {
+    status: "critical",
+    message: config.lastFailureMessage || "The latest verified Synology recovery backup failed.",
+    lastSuccessAt: config.lastSuccessAt,
+    lastFailureAt: config.lastFailureAt,
+    lastFailureMessage: config.lastFailureMessage,
+  }
+
+  if (!config.lastSuccessAt) return {
+    status: "critical",
+    message: "No verified Synology recovery backup has completed yet.",
+    lastSuccessAt: null,
+    lastFailureAt: config.lastFailureAt,
+    lastFailureMessage: config.lastFailureMessage,
+  }
+
+  const windows: Record<typeof config.scheduleFrequency, number> = {
+    daily: 26,
+    weekly: 8 * 24,
+    monthly: 35 * 24,
+    yearly: 400 * 24,
+  }
+  const ageHours = (Date.now() - new Date(config.lastSuccessAt).getTime()) / 3_600_000
+  if (ageHours > windows[config.scheduleFrequency]) return {
+    status: "critical",
+    message: `The last verified Synology recovery backup is older than the ${windows[config.scheduleFrequency]}-hour protection window for the active ${config.scheduleFrequency} schedule.`,
+    lastSuccessAt: config.lastSuccessAt,
+    lastFailureAt: config.lastFailureAt,
+    lastFailureMessage: config.lastFailureMessage,
+  }
+
+  return {
+    status: "healthy",
+    message: "The verified Synology recovery backup is within its protection window.",
+    lastSuccessAt: config.lastSuccessAt,
+    lastFailureAt: config.lastFailureAt,
+    lastFailureMessage: config.lastFailureMessage,
   }
 }
 
@@ -67,7 +119,7 @@ async function postTeamsAlert(title: string, message: string) {
  * never interrupt the backup scheduler.
  */
 export async function notifyBackupHealthIfNeeded() {
-  const health = getBackupHealth(readSchedule(), listBackupFiles())
+  const health = synologyRecoveryHealth() ?? getBackupHealth(readSchedule(), listBackupFiles())
   const alert = actionableAlert(health)
   const previous = readState()
   if (!alert) {
