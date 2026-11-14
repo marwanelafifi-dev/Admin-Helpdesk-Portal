@@ -7,7 +7,7 @@ import {
   Package, Wrench, ShoppingCart, CalendarDays, Plane, UserCog, ChevronRight, Inbox,
   Power, LogOut, RefreshCw, Save, CalendarClock,
   MessageSquare, Building2, Settings, Mail, RotateCcw, FileText,
-  HardDrive,
+  HardDrive, Plus, X,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -68,8 +68,6 @@ type SynologyBackupConfig = {
   lastFailureMessage: string | null
   lastPostgresDump: string | null
 }
-
-type BackupAlertRecipient = { id: string; name: string; email: string; role: string }
 
 type SynologyBackupHistoryEntry = {
   createdAt: string
@@ -510,7 +508,8 @@ export default function DatabasePage() {
   const [synologyRestoreConfirm, setSynologyRestoreConfirm] = useState("")
   const [synologyRestoreAcknowledged, setSynologyRestoreAcknowledged] = useState(false)
   const [synologyRestoreSubmitting, setSynologyRestoreSubmitting] = useState(false)
-  const [backupAlertRecipients, setBackupAlertRecipients] = useState<BackupAlertRecipient[]>([])
+  const [backupAlertRecipientInput, setBackupAlertRecipientInput] = useState("")
+  const [synologyHistoryVisibleCount, setSynologyHistoryVisibleCount] = useState(8)
   const [reauthAction, setReauthAction] = useState<"restore" | "purge" | null>(null)
   const [reauthPassword, setReauthPassword] = useState("")
   const [reauthStatus, setReauthStatus] = useState<Status>({ type: "idle", message: "" })
@@ -584,7 +583,6 @@ export default function DatabasePage() {
       if (!res.ok) return
       const json = await res.json()
       if (json.config) setSynologyBackup(json.config as SynologyBackupConfig)
-      if (Array.isArray(json.recipientCandidates)) setBackupAlertRecipients(json.recipientCandidates as BackupAlertRecipient[])
       if (Array.isArray(json.history)) setSynologyHistory(json.history as SynologyBackupHistoryEntry[])
       setSynologyRestoreStatus(json.restoreStatus ? json.restoreStatus as SynologyRestoreStatus : null)
     }).catch(() => {})
@@ -763,6 +761,19 @@ export default function DatabasePage() {
 
   function updateSynologyBackup(patch: Partial<SynologyBackupConfig>) {
     setSynologyBackup((current) => current ? { ...current, ...patch } : current)
+  }
+
+  function addBackupAlertRecipient() {
+    if (!synologyBackup) return
+    const email = backupAlertRecipientInput.trim().toLowerCase()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setSynologyStatus({ type: "error", message: "Enter a valid email address before adding it." })
+      return
+    }
+    const current = synologyBackup.backupAlertRecipientEmails ?? []
+    if (!current.includes(email)) updateSynologyBackup({ backupAlertRecipientEmails: [...current, email] })
+    setBackupAlertRecipientInput("")
+    setSynologyStatus({ type: "idle", message: "" })
   }
 
   async function saveSynologyBackup() {
@@ -2168,29 +2179,14 @@ export default function DatabasePage() {
               </label>
 
               <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Backup alert recipients</p>
-                    <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-600">Choose exactly who receives backup-failure and overdue emails and in-app alerts. Saving a selection replaces the legacy Full Access delivery list.</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button type="button" size="sm" variant="outline" onClick={() => updateSynologyBackup({ backupAlertRecipientEmails: backupAlertRecipients.map((user) => user.email) })}>Select all</Button>
-                    <Button type="button" size="sm" variant="outline" onClick={() => updateSynologyBackup({ backupAlertRecipientEmails: [] })}>Clear</Button>
-                  </div>
+                <p className="text-sm font-semibold text-slate-900">Backup alert recipients</p>
+                <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-600">Add one or more email addresses. Matching active portal users also receive an in-app alert; any valid address can receive the email.</p>
+                <div className="mt-3 flex gap-2">
+                  <input value={backupAlertRecipientInput} onChange={(event) => setBackupAlertRecipientInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addBackupAlertRecipient() } }} type="email" placeholder="name@company.com" className="h-10 min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 shadow-sm focus:border-cyan-700 focus:outline-none focus:ring-1 focus:ring-cyan-700" />
+                  <Button type="button" onClick={addBackupAlertRecipient} variant="outline" className="border-cyan-300 text-cyan-900 hover:bg-cyan-50"><Plus className="mr-1 h-4 w-4" />Add</Button>
                 </div>
-                <div className="mt-3 grid max-h-52 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
-                  {backupAlertRecipients.map((user) => {
-                    const selected = synologyBackup.backupAlertRecipientEmails?.includes(user.email) ?? user.role === "Full Access"
-                    return <label key={user.id} className="flex cursor-pointer items-start gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs transition-colors hover:border-cyan-300">
-                      <input type="checkbox" checked={selected} onChange={() => {
-                        const current = synologyBackup.backupAlertRecipientEmails ?? backupAlertRecipients.filter((candidate) => candidate.role === "Full Access").map((candidate) => candidate.email)
-                        updateSynologyBackup({ backupAlertRecipientEmails: selected ? current.filter((email) => email !== user.email) : [...current, user.email] })
-                      }} className="mt-0.5 h-4 w-4 accent-cyan-700" />
-                      <span className="min-w-0"><span className="block truncate font-medium text-slate-800">{user.name || user.email}</span><span className="block truncate text-slate-500">{user.email} · {user.role}</span></span>
-                    </label>
-                  })}
-                </div>
-                {synologyBackup.backupAlertRecipientEmails === null ? <p className="mt-3 text-xs text-amber-800">Legacy mode: all active Full Access users receive alerts until you save a selection.</p> : <p className="mt-3 text-xs text-slate-600">{synologyBackup.backupAlertRecipientEmails.length} selected recipient{synologyBackup.backupAlertRecipientEmails.length === 1 ? "" : "s"}. Save Synology settings to apply this delivery list.</p>}
+                {synologyBackup.backupAlertRecipientEmails?.length ? <div className="mt-3 flex flex-wrap gap-2">{synologyBackup.backupAlertRecipientEmails.map((email) => <span key={email} className="inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-white py-1 pl-2 pr-1 text-xs font-medium text-slate-700"><span>{email}</span><button type="button" aria-label={`Remove ${email}`} onClick={() => updateSynologyBackup({ backupAlertRecipientEmails: synologyBackup.backupAlertRecipientEmails?.filter((value) => value !== email) ?? [] })} className="rounded-full p-0.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900"><X className="h-3.5 w-3.5" /></button></span>)}</div> : <p className="mt-3 text-xs text-amber-800">{synologyBackup.backupAlertRecipientEmails === null ? "Legacy mode: all active Full Access users receive alerts until you add and save addresses." : "No recipient emails selected. No backup-alert emails will be sent."}</p>}
+                <p className="mt-3 text-xs text-slate-600">Save Synology settings to apply this delivery list.</p>
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
@@ -2232,13 +2228,13 @@ export default function DatabasePage() {
               <div className="rounded-lg border border-cyan-100 bg-white">
                 <div className="flex items-center justify-between border-b border-cyan-100 bg-cyan-50/50 px-3 py-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-cyan-950">Verified Synology backups</p>
-                  <span className="text-xs text-gray-500">Latest {synologyHistory.length}</span>
+                  <span className="text-xs text-gray-500">Showing {Math.min(synologyHistoryVisibleCount, synologyHistory.length)} of {synologyHistory.length}</span>
                 </div>
                 {synologyHistory.length === 0 ? (
                   <p className="p-3 text-xs text-gray-500">No verified backup has been recorded by this version yet. The next successful queued or scheduled backup will appear here.</p>
                 ) : (
-                  <div className="max-h-72 overflow-y-auto divide-y divide-gray-100">
-                    {synologyHistory.map((entry) => (
+                  <div className="divide-y divide-gray-100">
+                    {synologyHistory.slice(0, synologyHistoryVisibleCount).map((entry) => (
                       <div key={`${entry.createdAt}-${entry.postgresDump}`} className="p-3 text-xs text-gray-700">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <p className="font-semibold text-gray-900">{fmt(entry.createdAt)}</p>
@@ -2250,13 +2246,14 @@ export default function DatabasePage() {
                     ))}
                   </div>
                 )}
+                {synologyHistoryVisibleCount < synologyHistory.length && <div className="flex flex-wrap gap-2 border-t border-cyan-100 px-3 py-2"><Button type="button" size="sm" variant="outline" onClick={() => setSynologyHistoryVisibleCount((count) => Math.min(count + 8, synologyHistory.length))}>Show 8 more</Button><Button type="button" size="sm" variant="ghost" onClick={() => setSynologyHistoryVisibleCount(synologyHistory.length)}>Show all</Button></div>}
               </div>
 
               <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-amber-950">Restore a complete historical version</p>
                 <p className="mt-1 text-xs text-amber-900">A restore always creates and verifies a new Synology safety backup first. Only entries with a versioned data archive can restore the database and attachments as one version.</p>
                 <div className="mt-3 space-y-2">
-                  {synologyHistory.filter((entry) => Boolean(entry.dataArchive)).map((entry) => (
+                  {synologyHistory.filter((entry) => Boolean(entry.dataArchive)).slice(0, synologyHistoryVisibleCount).map((entry) => (
                     <div key={`restore-${entry.createdAt}-${entry.manifest}`} className="flex flex-wrap items-center justify-between gap-2 rounded border border-amber-100 bg-white p-2 text-xs">
                       <div>
                         <p className="font-semibold text-gray-900">{fmt(entry.createdAt)}</p>

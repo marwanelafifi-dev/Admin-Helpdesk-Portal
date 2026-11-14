@@ -153,7 +153,11 @@ export async function notifyBackupHealthIfNeeded() {
 
   let email = "not_configured"
   try {
-    const emails = [...new Set(recipients.map((user) => user.email).filter(Boolean))]
+    // Typed addresses need not be portal accounts. They receive email only;
+    // matching active users above also receive the in-app alert.
+    const emails = configuredEmails === null
+      ? [...new Set(recipients.map((user) => user.email).filter(Boolean))]
+      : configuredEmails
     if (emails.length) {
       await sendAnnouncementEmail({
         to: emails,

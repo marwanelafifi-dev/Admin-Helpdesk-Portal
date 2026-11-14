@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { getToken } from "@auth/core/jwt"
 import { canManageDatabase, requestMetadata } from "@/lib/databaseAccess"
 import { logServerAudit } from "@/lib/serverAuditLog"
-import { readUsers } from "@/lib/userStore"
 import { readSynologyBackupConfig, readSynologyBackupHistory, readSynologyRestoreStatus, requestSynologyBackupRun, updateSynologyBackupSettings } from "@/lib/synologyBackupStore"
 
 export const runtime = "nodejs"
@@ -21,9 +20,6 @@ export async function GET(req: NextRequest) {
     history: readSynologyBackupHistory(),
     restoreStatus: readSynologyRestoreStatus(),
     hostTask: { cadenceMinutes: 5, runsWhileSignedIn: true },
-    recipientCandidates: readUsers()
-      .filter((user) => user.active && user.email)
-      .map((user) => ({ id: user.id, name: user.name, email: user.email, role: user.role })),
   })
 }
 
