@@ -2250,7 +2250,10 @@ export default function DatabasePage() {
               </div>
 
               <div className="rounded-lg border border-amber-200 bg-amber-50/40 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-amber-950">Restore a complete historical version</p>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-950">Restore a complete historical version</p>
+                  <span className="text-xs text-amber-800">Showing {Math.min(synologyHistoryVisibleCount, synologyHistory.filter((entry) => Boolean(entry.dataArchive)).length)} of {synologyHistory.filter((entry) => Boolean(entry.dataArchive)).length}</span>
+                </div>
                 <p className="mt-1 text-xs text-amber-900">A restore always creates and verifies a new Synology safety backup first. Only entries with a versioned data archive can restore the database and attachments as one version.</p>
                 <div className="mt-3 space-y-2">
                   {synologyHistory.filter((entry) => Boolean(entry.dataArchive)).slice(0, synologyHistoryVisibleCount).map((entry) => (
@@ -2266,6 +2269,12 @@ export default function DatabasePage() {
                   ))}
                   {synologyHistory.length > 0 && synologyHistory.every((entry) => !entry.dataArchive) && <p className="text-xs text-amber-900">Existing entries use the legacy format. Queue one new Synology backup after deploying this update; it will create the first restorable complete version.</p>}
                 </div>
+                {synologyHistoryVisibleCount < synologyHistory.filter((entry) => Boolean(entry.dataArchive)).length && (
+                  <div className="mt-3 flex flex-wrap gap-2 border-t border-amber-200 pt-3">
+                    <Button type="button" size="sm" variant="outline" onClick={() => setSynologyHistoryVisibleCount((count) => Math.min(count + 8, synologyHistory.filter((entry) => Boolean(entry.dataArchive)).length))} className="border-amber-300 text-amber-900 hover:bg-amber-50">Show 8 more</Button>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setSynologyHistoryVisibleCount(synologyHistory.filter((entry) => Boolean(entry.dataArchive)).length)} className="text-amber-900 hover:bg-amber-100">Show all</Button>
+                  </div>
+                )}
               </div>
             </>
           )}
